@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { resolveAdapterKey } from "./items.service.js";
+import { describe, expect, it, vi } from "vitest";
+import type { ListItemsQuery } from "./items.dto.js";
+import { ItemsService, resolveAdapterKey } from "./items.service.js";
 
 describe("resolveAdapterKey", () => {
   const firecrawlHosts = new Set(["item.fril.jp"]);
@@ -32,6 +33,59 @@ describe("resolveAdapterKey", () => {
   });
 
   it("falls back to the safe public-page adapter for other HTTPS product pages", () => {
-    expect(resolveAdapterKey(new URL("https://shop.example.jp/item/123"), firecrawlHosts, false)).toBe("public_page");
+    expect(
+      resolveAdapterKey(
+        new URL("https://shop.example.jp/item/123"),
+        firecrawlHosts,
+        false,
+      ),
+    ).toBe("public_page");
+  });
+});
+
+describe("ItemsService.list", () => {
+  it("filters one listing type while returning full-dataset auction/direct facets", async () => {
+    const prisma = {
+      item: {
+        findMany: vi.fn().mockResolvedValue([]),
+        count: vi
+          .fn()
+          .mockResolvedValueOnce(37)
+          .mockResolvedValueOnce(37)
+          .mockResolvedValueOnce(2_941),
+      },
+      $transaction: vi.fn(async (queries: Promise<unknown>[]) =>
+        Promise.all(queries),
+      ),
+    };
+    const service = new ItemsService(prisma as never);
+
+    const result = await service.list({
+      listingType: "auction",
+      limit: 40,
+      offset: 0,
+    } as ListItemsQuery);
+
+    expect(prisma.item.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ listingType: "auction" }),
+      }),
+    );
+    expect(prisma.item.count).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({ listingType: "auction" }),
+      }),
+    );
+    expect(prisma.item.count).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        where: expect.objectContaining({ listingType: "direct" }),
+      }),
+    );
+    expect(result).toMatchObject({
+      total: 37,
+      facets: { auction: 37, direct: 2_941 },
+    });
   });
 });

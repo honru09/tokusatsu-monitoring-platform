@@ -80,6 +80,11 @@ enum ImportOrigin {
   url
 }
 
+enum ListingType {
+  auction
+  direct
+}
+
 enum MatchDecision {
   unmatched
   auto_matched
@@ -149,6 +154,7 @@ model Item {
   detectedAt         DateTime             @default(now())
   lastSeenAt         DateTime             @default(now())
   auctionEndAt       DateTime?
+  listingType        ListingType          @default(direct)
   bidCount           Int?
   conditionRaw       String?
   categoryIp         CategoryIp           @default(unknown)
@@ -194,6 +200,7 @@ model Item {
   @@index([categoryIp, priceCurrent])
   @@index([conditionGrade, categoryToyType, manufacturer])
   @@index([auctionEndAt])
+  @@index([listingType, detectedAt])
   @@index([detectedAt])
   @@index([listedAt])
   @@index([archivedAt, status])

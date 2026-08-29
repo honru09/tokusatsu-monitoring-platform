@@ -21,6 +21,7 @@ type Item = {
   detectedAt: string;
   lastSeenAt: string;
   auctionEndAt?: string | null;
+  listingType: "auction" | "direct";
   bidCount?: number | null;
   categoryIp: string;
   categoryToyType: string;
@@ -731,6 +732,7 @@ function ProductCard({
   translatedTitle,
   onOpen,
   onPatch,
+  onIgnore,
   onPurchase,
 }: {
   item: Item;
@@ -740,6 +742,7 @@ function ProductCard({
   translatedTitle?: string;
   onOpen: () => void;
   onPatch: (patch: Partial<Item>) => void;
+  onIgnore: () => void;
   onPurchase: () => void;
 }) {
   const [showOriginal, setShowOriginal] = useState(language === "original");
@@ -782,7 +785,7 @@ function ProductCard({
           }
         }}
         aria-label={`打开商品：${displayTitle}`}
-        className="relative block aspect-[16/7] w-full overflow-hidden bg-gradient-to-br from-moss to-ink text-left outline-none focus-visible:ring-4 focus-visible:ring-moss/30"
+        className="relative block aspect-[3/2] w-full overflow-hidden bg-gradient-to-br from-moss to-ink text-left outline-none focus-visible:ring-4 focus-visible:ring-moss/30"
       >
         <ImageGallery
           images={item.images}
@@ -849,33 +852,26 @@ function ProductCard({
             </span>
           </div>
         )}
-        <div className="mt-2 flex items-end justify-between gap-3 border-y border-ink/8 py-2">
+        <div className="mt-2 flex items-end justify-between gap-3 border-y border-ink/8 py-2.5">
           <div>
             <div className="text-[10px] font-bold text-ink/45">当前价</div>
             <div className="font-mono text-lg font-black text-rust">
               {fmtYen(item.priceCurrent)}
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-[10px] font-bold text-ink/45">估算单件</div>
-            <div className="font-mono text-base font-black">
-              {fmtYen(item.unitCostEst)}
+          <div className="grid gap-0.5 text-right text-[10px] text-ink/50">
+            <div>
+              <span>数量 </span>
+              <b className="font-mono text-xs text-ink">
+                {item.quantityEst ?? "?"} 件
+              </b>
             </div>
-          </div>
-        </div>
-
-        <div className="mt-2 grid grid-cols-3 divide-x divide-ink/10 rounded-lg bg-fog/55 px-1 py-2 text-center">
-          <div className="px-1">
-            <span className="block text-[9px] font-bold text-ink/45">数量</span>
-            <b className="font-mono text-xs">{item.quantityEst ?? "?"} 件</b>
-          </div>
-          <div className="px-1">
-            <span className="block text-[9px] font-bold text-ink/45">到手</span>
-            <b className="font-mono text-xs">{fmtYen(item.priceTotalEst)}</b>
-          </div>
-          <div className="px-1">
-            <span className="block text-[9px] font-bold text-ink/45">来源</span>
-            <b className="truncate text-xs">{sourceName(item.source.key)}</b>
+            <div>
+              <span>单件 </span>
+              <b className="font-mono text-xs text-ink">
+                {fmtYen(item.unitCostEst)}
+              </b>
+            </div>
           </div>
         </div>
         {remaining && (
@@ -914,7 +910,7 @@ function ProductCard({
             <InfoIcon />
           </button>
           <button
-            onClick={() => onPatch({ ignored: true })}
+            onClick={onIgnore}
             aria-label="标记为不感兴趣"
             title="不感兴趣"
             className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-rust/40 hover:text-rust"
@@ -1099,14 +1095,10 @@ function DetailDrawer({
                 translateText(item.titleRaw) ??
                 item.titleRaw)}
           </h3>
-          <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 text-sm shadow-sm md:grid-cols-4">
+          <div className="mt-4 grid grid-cols-3 gap-3 rounded-2xl bg-white p-4 text-sm shadow-sm">
             <div>
               <span className="block text-ink/45">当前价</span>
               <b>{fmtYen(item.priceCurrent)}</b>
-            </div>
-            <div>
-              <span className="block text-ink/45">到手价</span>
-              <b>{fmtYen(item.priceTotalEst)}</b>
             </div>
             <div>
               <span className="block text-ink/45">数量</span>
@@ -1417,12 +1409,86 @@ function PurchaseDialog({
   );
 }
 
+function IgnoreConfirmationDialog({
+  item,
+  translatedTitle,
+  onCancel,
+  onConfirm,
+}: {
+  item: Item;
+  translatedTitle?: string;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  async function confirm() {
+    setSaving(true);
+    try {
+      await onConfirm();
+      onCancel();
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <div
+      className="fixed inset-0 z-[70] grid place-items-center bg-ink/60 p-4 backdrop-blur-sm"
+      onMouseDown={saving ? undefined : onCancel}
+    >
+      <section
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="ignore-dialog-title"
+        aria-describedby="ignore-dialog-description"
+        className="w-full max-w-sm rounded-2xl border border-white/60 bg-paper p-5 shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="grid h-11 w-11 place-items-center rounded-full bg-rust/10 text-rust">
+          <ArchiveIcon className="h-5 w-5" />
+        </div>
+        <h2 id="ignore-dialog-title" className="mt-4 text-lg font-black">
+          移入不感兴趣？
+        </h2>
+        <p
+          id="ignore-dialog-description"
+          className="mt-2 line-clamp-2 text-sm leading-6 text-ink/60"
+        >
+          {translatedTitle ?? item.product?.titleZh ?? item.titleRaw}
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            autoFocus
+            disabled={saving}
+            onClick={onCancel}
+            className="min-h-11 rounded-lg border border-ink/15 bg-white px-4 text-sm font-bold text-ink transition-colors hover:bg-fog disabled:opacity-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void confirm()}
+            className="min-h-11 rounded-lg bg-rust px-4 text-sm font-black text-white transition-colors hover:bg-rust/90 disabled:opacity-50"
+          >
+            {saving ? "处理中…" : "确认移入"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const dashboardRef = useRef<HTMLElement>(null);
   const analyzedUrlTimerRef = useRef<number | null>(null);
   const animatedItemIdsRef = useRef(new Set<string>());
   const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
+  const [listingCounts, setListingCounts] = useState({
+    auction: 0,
+    direct: 0,
+  });
   const [page, setPage] = useState(1);
   const [overview, setOverview] = useState<MonitoringOverview | null>(null);
   const [filters, setFilters] = useState<Filters>({});
@@ -1461,6 +1527,7 @@ export default function Dashboard() {
     null,
   );
   const [purchaseItem, setPurchaseItem] = useState<Item | null>(null);
+  const [ignoreItem, setIgnoreItem] = useState<Item | null>(null);
   const [dislikedItems, setDislikedItems] = useState<Item[]>([]);
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const translationRequestedRef = useRef(new Set<string>());
@@ -1623,14 +1690,24 @@ export default function Dashboard() {
       );
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String((page - 1) * PAGE_SIZE));
+      if (listingMode !== "all") params.set("listingType", listingMode);
       const response = await fetch(`${API}/items?${params}`, {
         cache: "no-store",
       });
       if (!response.ok) throw new Error(`API ${response.status}`);
       const data = await response.json();
-      setItems(data.items);
+      const nextItems = data.items as Item[];
+      setItems(nextItems);
       setTotal(data.total);
-      void requestTranslations(data.items as Item[]);
+      setListingCounts(
+        data.facets ?? {
+          auction: nextItems.filter((item) => item.listingType === "auction")
+            .length,
+          direct: nextItems.filter((item) => item.listingType === "direct")
+            .length,
+        },
+      );
+      void requestTranslations(nextItems);
       const lastPage = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
       if (page > lastPage) setPage(lastPage);
       setServerOffset(new Date(data.serverTime).getTime() - Date.now());
@@ -1639,7 +1716,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [filters, page, requestTranslations]);
+  }, [filters, listingMode, page, requestTranslations]);
 
   const loadImports = useCallback(async () => {
     try {
@@ -1789,13 +1866,14 @@ export default function Dashboard() {
     };
   }, []);
   useEffect(() => {
-    if (!filtersOpen && !selected && !purchaseItem) return;
+    if (!filtersOpen && !selected && !purchaseItem && !ignoreItem) return;
     const previousOverflow = document.body.style.overflow;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (filtersOpen) setFiltersOpen(false);
       else if (selected) setSelected(null);
-      else setPurchaseItem(null);
+      else if (purchaseItem) setPurchaseItem(null);
+      else setIgnoreItem(null);
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
@@ -1803,7 +1881,7 @@ export default function Dashboard() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [filtersOpen, selected, purchaseItem]);
+  }, [filtersOpen, selected, purchaseItem, ignoreItem]);
   useEffect(
     () => () => {
       if (analyzedUrlTimerRef.current != null)
@@ -1819,6 +1897,10 @@ export default function Dashboard() {
   function resetFilters() {
     setPage(1);
     setFilters({});
+  }
+  function changeListingMode(mode: "auction" | "direct") {
+    setPage(1);
+    setListingMode((current) => (current === mode ? "all" : mode));
   }
   async function patchItem(id: string, patch: Partial<Item>) {
     const response = await fetch(`${API}/items/${id}`, {
@@ -1940,8 +2022,16 @@ export default function Dashboard() {
   ).length;
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const favoriteItems = items.filter((item) => item.favorite);
-  const auctionItems = items.filter((item) => Boolean(item.auctionEndAt));
-  const directItems = items.filter((item) => !item.auctionEndAt);
+  const auctionItems = items.filter(
+    (item) =>
+      item.listingType === "auction" ||
+      (!item.listingType && Boolean(item.auctionEndAt)),
+  );
+  const directItems = items.filter(
+    (item) =>
+      item.listingType === "direct" ||
+      (!item.listingType && !item.auctionEndAt),
+  );
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageStart = total ? (page - 1) * PAGE_SIZE + 1 : 0;
   const pageEnd = Math.min(page * PAGE_SIZE, total);
@@ -2286,6 +2376,7 @@ export default function Dashboard() {
                         translatedTitle={translations[`${item.id}:title`]}
                         onOpen={() => setSelected(item)}
                         onPatch={(patch) => void patchItem(item.id, patch)}
+                        onIgnore={() => setIgnoreItem(item)}
                         onPurchase={() => setPurchaseItem(item)}
                       />
                     ))
@@ -2995,28 +3086,20 @@ export default function Dashboard() {
                     aria-pressed={
                       listingMode === "all" || listingMode === "auction"
                     }
-                    onClick={() =>
-                      setListingMode((current) =>
-                        current === "auction" ? "all" : "auction",
-                      )
-                    }
+                    onClick={() => changeListingMode("auction")}
                     className={`min-h-11 rounded-lg border px-3 text-xs font-black transition-colors ${listingMode === "all" || listingMode === "auction" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
                   >
-                    拍卖 · {auctionItems.length}
+                    拍卖 · {listingCounts.auction}
                   </button>
                   <button
                     type="button"
                     aria-pressed={
                       listingMode === "all" || listingMode === "direct"
                     }
-                    onClick={() =>
-                      setListingMode((current) =>
-                        current === "direct" ? "all" : "direct",
-                      )
-                    }
+                    onClick={() => changeListingMode("direct")}
                     className={`min-h-11 rounded-lg border px-3 text-xs font-black transition-colors ${listingMode === "all" || listingMode === "direct" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
                   >
-                    直购 · {directItems.length}
+                    直购 · {listingCounts.direct}
                   </button>
                   {activeFilterCount > 0 && (
                     <button
@@ -3115,7 +3198,7 @@ export default function Dashboard() {
                         id="auction-items-heading"
                         className="font-heading text-base font-black"
                       >
-                        拍卖商品 · {auctionItems.length}
+                        拍卖商品 · {listingCounts.auction}
                       </h3>
                       <span className="text-[10px] text-ink/50">
                         实时竞拍与截止时间
@@ -3133,13 +3216,16 @@ export default function Dashboard() {
                             translatedTitle={translations[`${item.id}:title`]}
                             onOpen={() => setSelected(item)}
                             onPatch={(patch) => void patchItem(item.id, patch)}
+                            onIgnore={() => setIgnoreItem(item)}
                             onPurchase={() => setPurchaseItem(item)}
                           />
                         ))}
                       </div>
                     ) : (
                       <p className="rounded-xl border border-dashed border-blue-200 bg-white p-6 text-center text-sm text-ink/50">
-                        当前没有进行中的拍卖商品
+                        {listingCounts.auction > 0
+                          ? "本页没有拍卖商品，点击上方“拍卖”查看全部"
+                          : "当前没有进行中的拍卖商品"}
                       </p>
                     )}
                   </section>
@@ -3151,7 +3237,7 @@ export default function Dashboard() {
                         id="direct-items-heading"
                         className="font-heading text-base font-black"
                       >
-                        正常购买 · {directItems.length}
+                        正常购买 · {listingCounts.direct}
                       </h3>
                       <span className="text-[10px] text-ink/50">
                         一口价与店铺现货
@@ -3169,13 +3255,16 @@ export default function Dashboard() {
                             translatedTitle={translations[`${item.id}:title`]}
                             onOpen={() => setSelected(item)}
                             onPatch={(patch) => void patchItem(item.id, patch)}
+                            onIgnore={() => setIgnoreItem(item)}
                             onPurchase={() => setPurchaseItem(item)}
                           />
                         ))}
                       </div>
                     ) : (
                       <p className="rounded-xl border border-dashed border-blue-200 bg-white p-6 text-center text-sm text-ink/50">
-                        当前没有一口价或店铺现货商品
+                        {listingCounts.direct > 0
+                          ? "本页没有直购商品，点击上方“直购”查看全部"
+                          : "当前没有一口价或店铺现货商品"}
                       </p>
                     )}
                   </section>
@@ -3301,6 +3390,17 @@ export default function Dashboard() {
           onSaved={() => {
             setPurchaseItem(null);
             void Promise.all([loadPurchases(), load(), loadLinkItems()]);
+          }}
+        />
+      )}
+      {ignoreItem && (
+        <IgnoreConfirmationDialog
+          item={ignoreItem}
+          translatedTitle={translations[`${ignoreItem.id}:title`]}
+          onCancel={() => setIgnoreItem(null)}
+          onConfirm={async () => {
+            await patchItem(ignoreItem.id, { ignored: true });
+            await Promise.all([load(), loadDisliked(), loadLinkItems()]);
           }}
         />
       )}

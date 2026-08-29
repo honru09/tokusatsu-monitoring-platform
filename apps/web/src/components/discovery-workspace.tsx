@@ -24,6 +24,7 @@ type DiscoveryListing = {
   listedAt?: string | null;
   detectedAt: string;
   auctionEndAt?: string | null;
+  listingType: "auction" | "direct";
   categoryIp: string;
   categoryToyType: string;
   conditionGrade: string;
@@ -238,7 +239,7 @@ function CardContent({
         />
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-ink/90 via-ink/30 to-transparent p-4 pt-14 text-white">
           <span className="rounded-md bg-white/90 px-2 py-1 text-[10px] font-black text-ink">
-            {item.auctionEndAt ? "拍卖" : "直接购买"}
+            {item.listingType === "auction" ? "拍卖" : "直接购买"}
           </span>
         </div>
         <button

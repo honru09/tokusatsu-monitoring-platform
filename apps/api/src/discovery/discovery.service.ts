@@ -40,6 +40,7 @@ const feedSelect = {
   listedAt: true,
   detectedAt: true,
   auctionEndAt: true,
+  listingType: true,
   categoryIp: true,
   categoryToyType: true,
   conditionGrade: true,

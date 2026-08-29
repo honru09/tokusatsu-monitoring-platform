@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import {
   CategoryIp,
   ConditionGrade,
+  ListingType,
   Manufacturer,
   Prisma,
   SourceChannel,
@@ -245,16 +246,26 @@ export class ItemsService {
               : { gte: 5000 };
     }
 
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.item.findMany({
-        where,
-        include,
-        orderBy: [{ detectedAt: "desc" }, { listedAt: "desc" }],
-        skip: query.offset,
-        take: query.limit,
-      }),
-      this.prisma.item.count({ where }),
-    ]);
+    const facetWhere: Prisma.ItemWhereInput = { ...where };
+    if (query.listingType) where.listingType = query.listingType as ListingType;
+
+    const [items, total, auctionTotal, directTotal] =
+      await this.prisma.$transaction([
+        this.prisma.item.findMany({
+          where,
+          include,
+          orderBy: [{ detectedAt: "desc" }, { listedAt: "desc" }],
+          skip: query.offset,
+          take: query.limit,
+        }),
+        this.prisma.item.count({ where }),
+        this.prisma.item.count({
+          where: { ...facetWhere, listingType: ListingType.auction },
+        }),
+        this.prisma.item.count({
+          where: { ...facetWhere, listingType: ListingType.direct },
+        }),
+      ]);
     return {
       items: items.map((item) => ({
         ...item,
@@ -264,6 +275,7 @@ export class ItemsService {
         },
       })),
       total,
+      facets: { auction: auctionTotal, direct: directTotal },
       serverTime: new Date().toISOString(),
     };
   }

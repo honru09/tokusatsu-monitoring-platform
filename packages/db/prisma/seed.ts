@@ -146,9 +146,15 @@ async function main() {
           sourceItemId: data.sourceItemId,
         },
       },
-      update: { ...data, sellerId: seller.id, lastSeenAt: now },
+      update: {
+        ...data,
+        listingType: data.auctionEndAt ? "auction" : "direct",
+        sellerId: seller.id,
+        lastSeenAt: now,
+      },
       create: {
         ...data,
+        listingType: data.auctionEndAt ? "auction" : "direct",
         sourceId: source.id,
         sellerId: seller.id,
         detectedAt: now,

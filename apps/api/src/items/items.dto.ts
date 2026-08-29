@@ -28,6 +28,7 @@ export class ListItemsQuery {
   @IsOptional() @IsIn(["online", "physical_store"]) channel?: string;
   @IsOptional() @IsString() platform?: string;
   @IsOptional() @IsIn(["search", "url"]) importOrigin?: string;
+  @IsOptional() @IsIn(["auction", "direct"]) listingType?: string;
   @IsOptional()
   @IsIn(["lt_1000", "1000_2999", "3000_4999", "gte_5000"])
   priceBand?: string;

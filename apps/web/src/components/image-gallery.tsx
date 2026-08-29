@@ -9,7 +9,7 @@ function ChevronIcon({ direction }: { direction: "left" | "right" }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="h-4 w-4"
+      className="h-5 w-5"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -73,27 +73,37 @@ export function ImageGallery({
         <>
           <button
             type="button"
+            data-gallery-control="previous"
             aria-label="查看上一张商品图片"
             title="上一张"
+            onPointerDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
               move(-1);
             }}
-            className="absolute left-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-ink/70 text-white backdrop-blur transition-colors hover:bg-ink"
+            className="absolute left-0 top-1/2 z-20 grid h-14 w-14 -translate-y-1/2 touch-manipulation place-items-center text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70"
           >
-            <ChevronIcon direction="left" />
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-ink/78 shadow-lg backdrop-blur transition-colors hover:bg-ink">
+              <ChevronIcon direction="left" />
+            </span>
           </button>
           <button
             type="button"
+            data-gallery-control="next"
             aria-label="查看下一张商品图片"
             title="下一张"
+            onPointerDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
               move(1);
             }}
-            className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-ink/70 text-white backdrop-blur transition-colors hover:bg-ink"
+            className="absolute right-0 top-1/2 z-20 grid h-14 w-14 -translate-y-1/2 touch-manipulation place-items-center text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70"
           >
-            <ChevronIcon direction="right" />
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-ink/78 shadow-lg backdrop-blur transition-colors hover:bg-ink">
+              <ChevronIcon direction="right" />
+            </span>
           </button>
           <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center gap-1">
             {orderedImages.slice(0, 12).map((image, dotIndex) => (
