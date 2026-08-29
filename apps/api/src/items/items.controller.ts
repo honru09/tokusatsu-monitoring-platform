@@ -34,6 +34,16 @@ export class ItemsController {
     return this.items.listPurchases();
   }
 
+  @Get("sellers")
+  sellers(@Query("search") search?: string) {
+    return this.items.listSellers(search);
+  }
+
+  @Get("sellers/:id")
+  seller(@Param("id") id: string) {
+    return this.items.getSeller(id);
+  }
+
   @Get("reviews/pending")
   pendingReviews() {
     return this.items.pendingReviews();

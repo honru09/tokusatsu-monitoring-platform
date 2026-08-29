@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { createSign, generateKeyPairSync, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { normalizeRawItem } from "@tokusatsu/shared";
 import type {
@@ -27,6 +28,68 @@ function yen(value: unknown): number | undefined {
   return match ? Number(match[1]) : undefined;
 }
 
+function createDpopProof(url: string, method: string) {
+  const { privateKey, publicKey } = generateKeyPairSync("ec", {
+    namedCurve: "prime256v1",
+  });
+  const jwk = publicKey.export({ format: "jwk" }) as { crv: string; x: string; y: string; kty: string };
+  const encode = (value: string) => Buffer.from(value).toString("base64url");
+  const header = { typ: "dpop+jwt", alg: "ES256", jwk };
+  const payload = { iat: Math.floor(Date.now() / 1000), jti: randomUUID(), htu: url, htm: method };
+  const input = `${encode(JSON.stringify(header))}.${encode(JSON.stringify(payload))}`;
+  const signature = createSign("SHA256").update(input).sign({ key: privateKey, dsaEncoding: "ieee-p1363" }).toString("base64url");
+  return `${input}.${signature}`;
+}
+
+export function parseMercariSearchHtml(
+  html: string,
+  searchUrl: string,
+  limit = 50,
+): SearchResult[] {
+  const $ = cheerio.load(html);
+  const seen = new Set<string>();
+  const results: SearchResult[] = [];
+  const add = (rawUrl: string, titleHint?: string) => {
+    if (results.length >= limit) return;
+    const match = rawUrl.match(/\/item\/(m[a-z0-9]+)/i);
+    if (!match) return;
+    const sourceItemId = match[1];
+    if (seen.has(sourceItemId)) return;
+    seen.add(sourceItemId);
+    results.push({
+      sourceItemId,
+      sourceUrl: `https://jp.mercari.com/item/${sourceItemId}`,
+      titleHint: titleHint?.replace(/\s+/g, " ").trim() || undefined,
+    });
+  };
+  $("a[href*='/item/']").each((_, element) =>
+    add($(element).attr("href") ?? "", $(element).attr("aria-label") ?? $(element).text()),
+  );
+  // Mercari currently renders result links in an RSC payload rather than
+  // ordinary anchors; keep a conservative escaped-URL fallback for that case.
+  for (const match of html.matchAll(/(?:https?:\\?\/\\?\/jp\.mercari\.com)?\\?\/item\\?\/(m[a-z0-9]+)/gi)) {
+    add(`/item/${match[1]}`);
+    if (results.length >= limit) break;
+  }
+  return results;
+}
+
+export function parseMercariSearchResponse(
+  payload: unknown,
+  limit = 50,
+): SearchResult[] {
+  const rows = (payload as { items?: unknown[] } | null)?.items;
+  if (!Array.isArray(rows)) return [];
+  return rows.slice(0, limit).flatMap((row) => {
+    if (!row || typeof row !== "object") return [];
+    const value = row as Record<string, unknown>;
+    const id = typeof value.id === "string" ? value.id : "";
+    const name = typeof value.name === "string" ? value.name : undefined;
+    if (!/^m[a-z0-9]+$/i.test(id)) return [];
+    return [{ sourceItemId: id, sourceUrl: `https://jp.mercari.com/item/${id}`, titleHint: name }];
+  });
+}
+
 export function parseMercariDetailHtml(
   html: string,
   sourceUrl: string,
@@ -40,12 +103,19 @@ export function parseMercariDetailHtml(
       "",
   ).trim();
   if (!titleRaw) throw new Error("Mercari detail page did not contain a title");
-  const descriptionRaw =
+  let descriptionRaw =
     String(
       $("meta[property='og:description']").attr("content") ??
         $("meta[name='description']").attr("content") ??
         "",
     ).trim() || undefined;
+  // The public og:description is often only Mercari's generic marketing copy;
+  // it mentions cards and payment methods and must not trigger our collectible
+  // exclusion filter. Keep it out until a detail extractor provides a real
+  // seller description.
+  if (descriptionRaw && /メルカリでお得に通販|安心して簡単に売り買い|支払いはクレジットカード/i.test(descriptionRaw)) {
+    descriptionRaw = undefined;
+  }
   const priceCurrent = yen(
     $("meta[name='product:price:amount']").attr("content"),
   );
@@ -75,6 +145,12 @@ export function parseMercariDetailHtml(
     );
   });
   const bodyText = $("body").text();
+  const sellerName =
+    $("a[href*='/user/profile'], [data-testid*='seller'], [data-testid*='user']")
+      .first()
+      .text()
+      .replace(/\s+/g, " ")
+      .trim() || "Mercari 卖家";
   const soldBadge = />\s*Sold\s*</i.test(html);
   const status: ItemStatus =
     /sold\s*out|売り切れ|取引完了/i.test(bodyText) || soldBadge
@@ -86,7 +162,7 @@ export function parseMercariDetailHtml(
     sourceUrl,
     titleRaw,
     descriptionRaw,
-    sellerName: "Mercari 卖家",
+    sellerName,
     sellerType: "individual",
     priceCurrent,
     imageUrls: [...imageSet],
@@ -103,8 +179,66 @@ export class MercariAdapter implements SourceAdapter {
     process.env.CRAWLER_USER_AGENT ?? "TokusatsuMonitor/1.0";
   private robots = new Map<string, RobotPolicy>();
 
-  async search(_query: SearchQuery): Promise<SearchResult[]> {
-    return [];
+  async search(query: SearchQuery): Promise<SearchResult[]> {
+    const limit = Math.max(1, Math.min(query.limit ?? 50, 120));
+    const endpoint = "https://api.mercari.jp/v2/entities:search";
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "user-agent": this.userAgent,
+        accept: "application/json",
+        "content-type": "application/json",
+        "accept-language": "ja,en;q=0.8",
+        "x-platform": "web",
+        "x-country-code": "JP",
+        dpop: createDpopProof(endpoint, "POST"),
+      },
+      body: JSON.stringify({
+        userId: "",
+        config: { responseToggles: ["QUERY_SUGGESTION_WEB_1"] },
+        pageSize: limit,
+        pageToken: "",
+        searchSessionId: randomUUID(),
+        source: "BaseSerp",
+        indexRouting: "INDEX_ROUTING_UNSPECIFIED",
+        searchCondition: {
+          keyword: query.keyword,
+          excludeKeyword: "",
+          sort: "SORT_SCORE",
+          order: "ORDER_DESC",
+          status: [],
+          sizeId: [],
+          categoryId: [],
+          brandId: [],
+          sellerId: [],
+          priceMin: 0,
+          priceMax: 0,
+          itemConditionId: [],
+          shippingPayerId: [],
+          shippingFromArea: [],
+          shippingMethod: [],
+          colorId: [],
+          hasCoupon: false,
+          attributes: [],
+          itemTypes: [],
+          skuIds: [],
+          shopIds: [],
+          excludeShippingMethodIds: [],
+        },
+        serviceFrom: "suruga",
+        withItemBrand: true,
+        withItemSizes: true,
+        withAuction: true,
+        withSuggestedItems: true,
+        withProductSuggest: true,
+        withProductArticles: true,
+        withOfferPricePromotion: true,
+        withShopname: true,
+      }),
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (!response.ok) throw new Error(`Mercari search returned ${response.status}`);
+    return parseMercariSearchResponse(await response.json(), limit);
   }
 
   async fetchDetail(item: SearchResult): Promise<RawItemDetail> {

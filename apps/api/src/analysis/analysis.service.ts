@@ -74,6 +74,7 @@ export class AnalysisService {
     const items = await this.prisma.item.findMany({
       where: {
         archivedAt: null,
+        channel: "online",
         purchaseRecord: null,
         ignored: false,
         categoryToyType: { not: "card" },
@@ -226,5 +227,100 @@ export class AnalysisService {
         )
       : texts;
     return { translations };
+  }
+
+  async seller(id: string, targetPrice?: number) {
+    const seller = await this.prisma.seller.findUnique({
+      where: { id },
+      include: {
+        source: { select: { key: true, displayName: true } },
+        items: {
+          where: { archivedAt: null },
+          select: {
+            id: true,
+            titleRaw: true,
+            descriptionRaw: true,
+            priceCurrent: true,
+            shippingFee: true,
+            priceTotalEst: true,
+            listingType: true,
+            conditionRaw: true,
+            conditionGrade: true,
+            status: true,
+            listedAt: true,
+            sourceUrl: true,
+          },
+          orderBy: { detectedAt: "desc" },
+          take: 200,
+        },
+      },
+    });
+    if (!seller) return null;
+    const items = seller.items;
+    const fallback = {
+      sellerType:
+        seller.sellerType === "store"
+          ? "专业售卖"
+          : seller.sellerType === "individual"
+            ? "个人卖家"
+            : "普通二手商家",
+      profile:
+        `该卖家在${seller.source.displayName}有 ${items.length} 条在售记录。请结合商品描述、成色、运费和成交状态核验。`,
+      negotiation: targetPrice != null
+        ? `可从 ¥${targetPrice.toLocaleString("ja-JP")} 起询价，先确认缺件、成色与运费。`
+        : "先确认商品成色、缺件和运费，再提出明确预算。",
+      suggestedPrice: targetPrice ?? null,
+      confidence: "依据当前可见商品记录",
+    };
+    if (!process.env.DEEPSEEK_API_KEY?.trim() || items.length === 0) {
+      return { seller, items, analysis: fallback, mode: "rules" };
+    }
+    try {
+      const result = await this.askDeepSeek<{
+        sellerType?: unknown;
+        profile?: unknown;
+        negotiation?: unknown;
+        suggestedPrice?: unknown;
+      }>(
+        [
+          {
+            role: "system",
+            content:
+              '你是日本中古特摄采购谈判顾问。根据卖家全部可见商品、描述、价格、运费、成色和平台，判断卖家类型（个人画像/专业售卖/普通二手商家/随便卖的），总结可核验画像，并针对用户给定预算生成礼貌、具体、可直接复制的中文砍价语录。禁止虚构卖家信息，禁止评分。只输出 JSON：{"sellerType":"...","profile":"...","negotiation":"...","suggestedPrice":数字或null}。',
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              targetPrice: targetPrice ?? null,
+              seller: { name: seller.name, type: seller.sellerType },
+              items: items.slice(0, 120),
+            }),
+          },
+        ],
+        1800,
+      );
+      const analysis = {
+        sellerType:
+          typeof result.sellerType === "string" && result.sellerType.trim()
+            ? result.sellerType.trim()
+            : fallback.sellerType,
+        profile:
+          typeof result.profile === "string" && result.profile.trim()
+            ? result.profile.trim()
+            : fallback.profile,
+        negotiation:
+          typeof result.negotiation === "string" && result.negotiation.trim()
+            ? result.negotiation.trim()
+            : fallback.negotiation,
+        suggestedPrice:
+          typeof result.suggestedPrice === "number"
+            ? result.suggestedPrice
+            : fallback.suggestedPrice,
+        confidence: "基于卖家当前可见商品与原始描述",
+      };
+      return { seller, items, analysis, mode: "ai" };
+    } catch {
+      return { seller, items, analysis: fallback, mode: "rules" };
+    }
   }
 }

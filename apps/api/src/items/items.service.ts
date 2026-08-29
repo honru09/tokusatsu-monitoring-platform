@@ -19,7 +19,7 @@ import type {
 
 const include = {
   source: { select: { key: true, displayName: true } },
-  seller: { select: { name: true, sellerType: true, locationText: true } },
+  seller: { select: { id: true, name: true, sellerType: true, locationText: true } },
   images: { orderBy: { position: "asc" as const } },
   priceHistory: { orderBy: { observedAt: "desc" as const }, take: 8 },
   purchaseRecord: {
@@ -172,6 +172,7 @@ export class ItemsService {
   async list(query: ListItemsQuery) {
     const where: Prisma.ItemWhereInput = {
       archivedAt: null,
+      channel: SourceChannel.online,
       purchaseRecord: null,
       categoryToyType: { not: ToyType.card },
       NOT: [
@@ -205,7 +206,10 @@ export class ItemsService {
       where.categoryToyType = query.toyType as ToyType;
     if (query.manufacturer)
       where.manufacturer = query.manufacturer as Manufacturer;
-    if (query.channel) where.channel = query.channel as SourceChannel;
+    // 采购范围只保留线上商品；历史线下记录不会进入在售库。
+    if (query.channel === "physical_store") return {
+      items: [], total: 0, facets: { auction: 0, direct: 0 }, serverTime: new Date().toISOString(),
+    };
     if (query.platform) where.source = { key: query.platform };
     if (query.importOrigin)
       where.importOrigin = query.importOrigin as "search" | "url";
@@ -416,6 +420,42 @@ export class ItemsService {
       total: purchases.length,
       serverTime: new Date().toISOString(),
     };
+  }
+
+  async listSellers(search?: string) {
+    const sellers = await this.prisma.seller.findMany({
+      where: search
+        ? { name: { contains: search.trim(), mode: "insensitive" } }
+        : undefined,
+      include: {
+        source: { select: { key: true, displayName: true } },
+        _count: { select: { items: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 200,
+    });
+    return {
+      sellers,
+      total: sellers.length,
+      serverTime: new Date().toISOString(),
+    };
+  }
+
+  async getSeller(id: string) {
+    const seller = await this.prisma.seller.findUnique({
+      where: { id },
+      include: {
+        source: { select: { key: true, displayName: true } },
+        items: {
+          where: { archivedAt: null },
+          include,
+          orderBy: { detectedAt: "desc" },
+          take: 200,
+        },
+      },
+    });
+    if (!seller) throw new NotFoundException("Seller not found");
+    return { seller, serverTime: new Date().toISOString() };
   }
 
   async receipt(id: string, receiptId: string) {

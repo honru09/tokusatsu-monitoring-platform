@@ -191,6 +191,50 @@ export async function scheduleJobs() {
       await removePendingAdapterJobs(searchQueue, ["mandarake"]);
     }
 
+    if (process.env.MERCARI_SEARCH_ENABLED !== "false") {
+      await prisma.source.updateMany({
+        where: { key: "mercari" },
+        data: { enabled: true, circuitOpenAt: null },
+      });
+      const mercariEvery = Number(
+        process.env.MERCARI_SEARCH_INTERVAL_MS ?? 1_800_000,
+      );
+      const keywords = marketKeywords().slice(0, 6);
+      for (const [index, keyword] of keywords.entries()) {
+        await searchQueue.add(
+          "mercari-search",
+          {
+            adapterKey: "mercari",
+            query: { keyword, highPriority: false, limit: 30, scanMode: "incremental" },
+          },
+          {
+            jobId: `repeat-mercari-${index}`,
+            repeat: {
+              every: mercariEvery,
+              offset: Math.floor((index * mercariEvery) / keywords.length),
+            },
+            removeOnComplete: 100,
+            removeOnFail: 100,
+          },
+        );
+      }
+      await searchQueue.add(
+        "mercari-bootstrap",
+        {
+          adapterKey: "mercari",
+          query: { keyword: "仮面ライダー", highPriority: true, limit: 30, scanMode: "incremental" },
+        },
+        { jobId: `bootstrap-mercari-${new Date().toISOString().slice(0, 10)}`, removeOnComplete: 50, removeOnFail: 50 },
+      );
+    } else {
+      await prisma.source.updateMany({
+        where: { key: "mercari" },
+        data: { enabled: false, circuitOpenAt: null, failureCount: 0 },
+      });
+      await removeRepeatJobs(["repeat-mercari-"], ["mercari"]);
+      await removePendingAdapterJobs(searchQueue, ["mercari"]);
+    }
+
     if (process.env.YAHOO_AUCTIONS_SEARCH_ENABLED !== "false") {
       await prisma.source.updateMany({
         where: { key: "yahoo_auctions" },

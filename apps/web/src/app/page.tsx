@@ -47,6 +47,7 @@ type Item = {
   note?: string | null;
   source: { key: string; displayName: string };
   seller?: {
+    id?: string;
     name: string;
     sellerType: string;
     locationText?: string | null;
@@ -131,6 +132,19 @@ type MarketAnalysis = {
   largestQuantity: Item | null;
   bestCondition: Item | null;
   recommendation: string;
+};
+
+type SellerAnalysis = {
+  seller: { id: string; name: string; sellerType: string; source: { displayName: string } };
+  items: Item[];
+  analysis: {
+    sellerType: string;
+    profile: string;
+    negotiation: string;
+    suggestedPrice?: number | null;
+    confidence?: string;
+  };
+  mode: "rules" | "ai";
 };
 
 type Filters = Record<string, string>;
@@ -734,6 +748,7 @@ function ProductCard({
   onPatch,
   onIgnore,
   onPurchase,
+  onSeller,
 }: {
   item: Item;
   serverOffset: number;
@@ -744,6 +759,7 @@ function ProductCard({
   onPatch: (patch: Partial<Item>) => void;
   onIgnore: () => void;
   onPurchase: () => void;
+  onSeller: (sellerId: string) => void;
 }) {
   const [showOriginal, setShowOriginal] = useState(language === "original");
   useEffect(() => setShowOriginal(language === "original"), [language]);
@@ -858,6 +874,9 @@ function ProductCard({
             <div className="font-mono text-lg font-black text-rust">
               {fmtYen(item.priceCurrent)}
             </div>
+            <div className="text-[10px] font-semibold text-ink/50">
+              邮费 {item.shippingFee == null ? "未提供" : fmtYen(item.shippingFee)}
+            </div>
           </div>
           <div className="grid gap-0.5 text-right text-[10px] text-ink/50">
             <div>
@@ -885,11 +904,19 @@ function ProductCard({
           </div>
         )}
         <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-ink/50">
-          <span className="truncate">
+          <button
+            type="button"
+            disabled={!item.seller?.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (item.seller?.id) onSeller(item.seller.id);
+            }}
+            className="truncate text-left hover:text-moss disabled:cursor-default"
+          >
             {language === "zh"
               ? (translateText(item.seller?.name) ?? "卖家未知")
               : (item.seller?.name ?? "卖家未知")}
-          </span>
+          </button>
           <span className="shrink-0">发现 {relativeTime(item.detectedAt)}</span>
         </div>
         <div className="mt-3 grid grid-cols-4 gap-2">
@@ -977,6 +1004,64 @@ function FavoriteMiniCard({
       </span>
       <HeartIcon filled className="h-4 w-4 text-moss" />
     </button>
+  );
+}
+
+function SellerProfileDialog({
+  sellerId,
+  onClose,
+  onOpenItem,
+}: {
+  sellerId: string;
+  onClose: () => void;
+  onOpenItem: (item: Item) => void;
+}) {
+  const [data, setData] = useState<SellerAnalysis | null>(null);
+  const [targetPrice, setTargetPrice] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const load = useCallback(async (price?: string) => {
+    setAnalyzing(true);
+    setError("");
+    try {
+      const params = price?.trim() ? `?targetPrice=${encodeURIComponent(price.trim())}` : "";
+      const response = await fetch(`${API}/analysis/seller/${sellerId}${params}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      const next = (await response.json()) as SellerAnalysis;
+      setData(next);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "商家分析失败");
+    } finally {
+      setLoading(false);
+      setAnalyzing(false);
+    }
+  }, [sellerId]);
+  useEffect(() => { void load(); }, [load]);
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-ink/60 p-4 backdrop-blur-sm" onMouseDown={onClose}>
+      <section role="dialog" aria-modal="true" aria-labelledby="seller-profile-title" className="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-white/70 bg-paper p-5 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[.2em] text-moss">商家画像</p>
+            <h2 id="seller-profile-title" className="mt-1 font-heading text-xl font-black">{data?.seller.name ?? "正在读取商家…"}</h2>
+            {data?.seller && <p className="mt-1 text-xs text-ink/55">{data.seller.source.displayName} · {data.items.length} 件在售</p>}
+          </div>
+          <button type="button" onClick={onClose} aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full border border-ink/15 bg-white text-ink hover:bg-fog"><CloseIcon /></button>
+        </div>
+        {loading && <p className="py-12 text-center text-sm font-bold text-ink/55">正在分析商家商品与描述…</p>}
+        {error && <p role="alert" className="mt-4 rounded-xl bg-rust p-3 text-sm font-bold text-white">{error}</p>}
+        {data && (
+          <>
+            <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1.2fr]">
+              <div className="rounded-xl border border-blue-100 bg-white p-4"><div className="text-xs font-bold text-ink/50">类型</div><div className="mt-1 text-lg font-black text-moss">{data.analysis.sellerType}</div><p className="mt-3 text-sm leading-6 text-ink/75">{data.analysis.profile}</p></div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4"><div className="flex items-center justify-between gap-2"><div className="text-xs font-bold text-amber-800">砍价语录</div><span className="text-[10px] font-bold text-amber-800">{data.mode === "ai" ? "DeepSeek" : "规则建议"}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink">{data.analysis.negotiation}</p><div className="mt-4 flex gap-2"><input inputMode="numeric" value={targetPrice} onChange={(event) => setTargetPrice(event.target.value)} placeholder="目标价（日元）" className="h-11 min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 text-sm"/><button type="button" onClick={() => void load(targetPrice)} disabled={analyzing} className="min-h-11 rounded-lg bg-amber-700 px-3 text-xs font-black text-white disabled:opacity-50">{analyzing ? "分析中" : "按目标价生成"}</button></div></div>
+            </div>
+            <div className="mt-5"><h3 className="font-heading text-sm font-black">该商家全部商品</h3><div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{data.items.map((item) => <button type="button" key={item.id} onClick={() => onOpenItem(item)} className="flex min-w-0 items-center gap-3 rounded-xl border border-blue-100 bg-white p-2 text-left hover:border-moss/50"><div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-ink">{item.images[0] && <img src={item.images[0].url} alt="" className="h-full w-full object-cover" loading="lazy"/>}</div><span className="min-w-0"><b className="line-clamp-2 text-xs leading-5">{translateText(item.titleRaw)}</b><span className="mt-1 block font-mono text-[10px] text-rust">{fmtYen(item.priceCurrent)} · {item.listingType === "auction" ? "拍卖" : "直购"}</span></span></button>)}</div></div>
+          </>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -1497,6 +1582,7 @@ export default function Dashboard() {
   const [serverOffset, setServerOffset] = useState(0);
   const [nowTick, setNowTick] = useState(0);
   const [selected, setSelected] = useState<Item | null>(null);
+  const [sellerId, setSellerId] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState("");
   const [urlMessage, setUrlMessage] = useState("");
   const [urlSubmitting, setUrlSubmitting] = useState(false);
@@ -2378,6 +2464,7 @@ export default function Dashboard() {
                         onPatch={(patch) => void patchItem(item.id, patch)}
                         onIgnore={() => setIgnoreItem(item)}
                         onPurchase={() => setPurchaseItem(item)}
+                        onSeller={(sellerId) => setSellerId(sellerId)}
                       />
                     ))
                   )}
@@ -2953,15 +3040,6 @@ export default function Dashboard() {
                       ))}
                     </FilterSelect>
                     <FilterSelect
-                      label="渠道"
-                      name="channel"
-                      value={filters.channel ?? ""}
-                      onChange={changeFilter}
-                    >
-                      <option value="online">线上</option>
-                      <option value="physical_store">线下店</option>
-                    </FilterSelect>
-                    <FilterSelect
                       label="平台"
                       name="platform"
                       value={filters.platform ?? ""}
@@ -3205,7 +3283,7 @@ export default function Dashboard() {
                       </span>
                     </div>
                     {auctionItems.length ? (
-                      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                         {auctionItems.map((item) => (
                           <ProductCard
                             key={item.id}
@@ -3218,6 +3296,7 @@ export default function Dashboard() {
                             onPatch={(patch) => void patchItem(item.id, patch)}
                             onIgnore={() => setIgnoreItem(item)}
                             onPurchase={() => setPurchaseItem(item)}
+                            onSeller={(sellerId) => setSellerId(sellerId)}
                           />
                         ))}
                       </div>
@@ -3244,7 +3323,7 @@ export default function Dashboard() {
                       </span>
                     </div>
                     {directItems.length ? (
-                      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                         {directItems.map((item) => (
                           <ProductCard
                             key={item.id}
@@ -3257,6 +3336,7 @@ export default function Dashboard() {
                             onPatch={(patch) => void patchItem(item.id, patch)}
                             onIgnore={() => setIgnoreItem(item)}
                             onPurchase={() => setPurchaseItem(item)}
+                            onSeller={(sellerId) => setSellerId(sellerId)}
                           />
                         ))}
                       </div>
@@ -3379,6 +3459,16 @@ export default function Dashboard() {
             setItems((current) =>
               current.map((item) => (item.id === updated.id ? updated : item)),
             );
+          }}
+        />
+      )}
+      {sellerId && (
+        <SellerProfileDialog
+          sellerId={sellerId}
+          onClose={() => setSellerId(null)}
+          onOpenItem={(item) => {
+            setSellerId(null);
+            setSelected(item);
           }}
         />
       )}

@@ -841,7 +841,7 @@ export function DiscoveryWorkspace({
       )}
 
       <div className="mx-auto max-w-4xl">
-        <div className="relative h-[600px] sm:h-[580px] md:h-[520px]">
+        <div className="discovery-card-shell relative h-[min(118vw,470px)] min-h-[420px] overflow-hidden overscroll-contain sm:h-[520px] md:h-[520px]">
           {visible.length >= 3 && (
             <BackCard
               item={visible[2]}
