@@ -12,6 +12,8 @@ import { ImportsController } from "./imports/imports.controller.js";
 import { ImportsService } from "./imports/imports.service.js";
 import { AnalysisController } from "./analysis/analysis.controller.js";
 import { AnalysisService } from "./analysis/analysis.service.js";
+import { DiscoveryController } from "./discovery/discovery.controller.js";
+import { DiscoveryService } from "./discovery/discovery.service.js";
 
 @Module({
   controllers: [
@@ -22,6 +24,7 @@ import { AnalysisService } from "./analysis/analysis.service.js";
     ItemsController,
     ImportsController,
     AnalysisController,
+    DiscoveryController,
   ],
   providers: [
     PrismaService,
@@ -30,6 +33,7 @@ import { AnalysisService } from "./analysis/analysis.service.js";
     MonitoringService,
     ImportsService,
     AnalysisService,
+    DiscoveryService,
   ],
 })
 export class AppModule {}

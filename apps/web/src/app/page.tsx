@@ -3,6 +3,7 @@
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DiscoveryWorkspace } from "../components/discovery-workspace";
 
 gsap.registerPlugin(useGSAP);
 
@@ -340,6 +341,7 @@ const sourceName = (key: string, fallback?: string) =>
     : "自动适配来源");
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const PAGE_SIZE = 40;
 const labels: Record<string, string> = {
   kamen_rider: "假面骑士",
   ultraman: "奥特曼",
@@ -1224,6 +1226,7 @@ export default function Dashboard() {
   const animatedItemIdsRef = useRef(new Set<string>());
   const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [overview, setOverview] = useState<MonitoringOverview | null>(null);
   const [filters, setFilters] = useState<Filters>({});
   const [loading, setLoading] = useState(true);
@@ -1238,7 +1241,7 @@ export default function Dashboard() {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [language, setLanguage] = useState<"zh" | "original">("zh");
   const [workspace, setWorkspace] = useState<
-    "inventory" | "links" | "purchases" | "reviews" | "monitoring"
+    "inventory" | "discovery" | "links" | "purchases" | "reviews" | "monitoring"
   >("inventory");
   const [imports, setImports] = useState<UrlImport[]>([]);
   const [linkItems, setLinkItems] = useState<Item[]>([]);
@@ -1348,6 +1351,8 @@ export default function Dashboard() {
       const params = new URLSearchParams(
         Object.entries(filters).filter(([, value]) => value),
       );
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String((page - 1) * PAGE_SIZE));
       const response = await fetch(`${API}/items?${params}`, {
         cache: "no-store",
       });
@@ -1355,13 +1360,15 @@ export default function Dashboard() {
       const data = await response.json();
       setItems(data.items);
       setTotal(data.total);
+      const lastPage = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
+      if (page > lastPage) setPage(lastPage);
       setServerOffset(new Date(data.serverTime).getTime() - Date.now());
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "加载失败");
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, page]);
 
   const loadImports = useCallback(async () => {
     try {
@@ -1488,7 +1495,12 @@ export default function Dashboard() {
   );
 
   function changeFilter(name: string, value: string) {
+    setPage(1);
     setFilters((current) => ({ ...current, [name]: value }));
+  }
+  function resetFilters() {
+    setPage(1);
+    setFilters({});
   }
   async function patchItem(id: string, patch: Partial<Item>) {
     const response = await fetch(`${API}/items/${id}`, {
@@ -1510,15 +1522,17 @@ export default function Dashboard() {
     );
   }
 
-  async function openAnalysisItem(itemId: string) {
+  async function openAnalysisItem(itemId: string): Promise<boolean> {
     setAnalysisOpeningId(itemId);
     try {
       const response = await fetch(`${API}/items/${itemId}`, {
         cache: "no-store",
       });
-      if (!response.ok) return;
+      if (!response.ok) return false;
       const data = await response.json();
-      if (data.item) setSelected(data.item as Item);
+      if (!data.item) return false;
+      setSelected(data.item as Item);
+      return true;
     } finally {
       setAnalysisOpeningId(null);
     }
@@ -1599,6 +1613,9 @@ export default function Dashboard() {
   const favoriteItems = items.filter((item) => item.favorite);
   const auctionItems = items.filter((item) => Boolean(item.auctionEndAt));
   const directItems = items.filter((item) => !item.auctionEndAt);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageStart = total ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const pageEnd = Math.min(page * PAGE_SIZE, total);
   const latestBackfill = overview?.recent.find(
     (job) =>
       job.query.scanMode === "backfill" || job.metrics?.scanMode === "backfill",
@@ -1650,11 +1667,12 @@ export default function Dashboard() {
       <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-5 lg:px-8">
         <nav
           aria-label="采购工作区"
-          className="mb-4 flex flex-wrap gap-2 rounded-2xl border border-blue-100 bg-white p-2 shadow-panel"
+          className="mb-4 flex flex-nowrap gap-2 overflow-x-auto rounded-2xl border border-blue-100 bg-white p-2 shadow-panel"
         >
           {(
             [
               ["inventory", "在售商品", "实时库"],
+              ["discovery", "发现", "滑动筛选"],
               ["links", "链接专区", `${imports.length} 条任务`],
               ["purchases", "购买记录", `${purchases.length} 条`],
               ["reviews", "人工审核", `${reviewTotal} 条待办`],
@@ -1669,7 +1687,7 @@ export default function Dashboard() {
               key={key}
               onClick={() => setWorkspace(key)}
               aria-pressed={workspace === key}
-              className={`min-h-11 flex-1 rounded-xl px-4 text-left transition-colors sm:flex-none ${workspace === key ? "bg-ink text-lime" : "text-ink hover:bg-blue-50"}`}
+              className={`min-h-11 min-w-[112px] flex-none rounded-xl px-4 text-left transition-colors sm:min-w-0 ${workspace === key ? "bg-ink text-lime" : "text-ink hover:bg-blue-50"}`}
             >
               <span className="block text-sm font-black">{label}</span>
               <span
@@ -1680,6 +1698,17 @@ export default function Dashboard() {
             </button>
           ))}
         </nav>
+        {workspace === "discovery" && (
+          <DiscoveryWorkspace
+            apiBaseUrl={API}
+            language={language}
+            onOpenDetail={openAnalysisItem}
+            onFavoriteChange={() => void load()}
+            interactionDisabled={Boolean(
+              selected || purchaseItem || filtersOpen,
+            )}
+          />
+        )}
         {workspace === "inventory" && (
           <section
             className="mb-3 rounded-xl border border-ink/10 bg-ink p-3 text-white shadow-panel"
@@ -2522,7 +2551,7 @@ export default function Dashboard() {
                   </div>
                   <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-blue-100 pt-4">
                     <button
-                      onClick={() => setFilters({})}
+                      onClick={resetFilters}
                       className="min-h-11 rounded-lg border border-ink/15 bg-white px-4 text-xs font-bold transition-colors hover:bg-blue-50"
                     >
                       重置筛选
@@ -2557,7 +2586,7 @@ export default function Dashboard() {
                 <div className="flex flex-wrap gap-2">
                   {activeFilterCount > 0 && (
                     <button
-                      onClick={() => setFilters({})}
+                      onClick={resetFilters}
                       className="min-h-11 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-moss transition-colors hover:bg-blue-100"
                     >
                       清除 {activeFilterCount} 项
@@ -2711,6 +2740,66 @@ export default function Dashboard() {
                   )}
                 </section>
               </div>
+            )}
+            {total > 0 && (
+              <nav
+                aria-label="商品分页"
+                className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-white px-3 py-2 shadow-panel"
+              >
+                <p className="text-xs text-slate-500" aria-live="polite">
+                  显示第 <b className="font-mono text-ink">{pageStart}</b>–
+                  <b className="font-mono text-ink">{pageEnd}</b> 条，共 {total}{" "}
+                  条
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-label="转到第一页"
+                    disabled={page <= 1 || loading}
+                    onClick={() => setPage(1)}
+                    className="relative min-h-11 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-moss hover:bg-blue-50 disabled:opacity-35"
+                  >
+                    首页
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="上一页"
+                    disabled={page <= 1 || loading}
+                    onClick={() =>
+                      setPage((current) => Math.max(1, current - 1))
+                    }
+                    className="relative min-h-11 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-moss hover:bg-blue-50 disabled:opacity-35"
+                  >
+                    上一页
+                  </button>
+                  <span className="hidden min-w-24 text-center font-mono text-xs font-bold text-ink sm:inline">
+                    {page} / {totalPages}
+                  </span>
+                  <span className="min-w-14 text-center font-mono text-xs font-bold text-ink sm:hidden">
+                    {page}/{totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="下一页"
+                    disabled={page >= totalPages || loading}
+                    onClick={() =>
+                      setPage((current) => Math.min(totalPages, current + 1))
+                    }
+                    className="relative min-h-11 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-moss hover:bg-blue-50 disabled:opacity-35"
+                  >
+                    下一页
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="转到最后一页"
+                    disabled={page >= totalPages || loading}
+                    onClick={() => setPage(totalPages)}
+                    className="relative min-h-11 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-moss hover:bg-blue-50 disabled:opacity-35"
+                  >
+                    末页
+                  </button>
+                </div>
+              </nav>
             )}
             {!loading && !error && items.length === 0 && (
               <div className="mt-3 rounded-2xl border border-dashed border-blue-200 bg-white py-16 text-center text-sm font-bold text-slate-500">

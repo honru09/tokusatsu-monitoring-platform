@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-29T13:09:04.2133590+09:00",
+  "title": "Design System: 采购中心",
+  "extensions": {
+    "colorMeta": {
+      "procurement-blue": {
+        "role": "primary",
+        "displayName": "采购深蓝",
+        "canonical": "#1e40af",
+        "tonalRamp": [
+          "#10205c",
+          "#172f82",
+          "#1e40af",
+          "#3157c2",
+          "#5e7cda",
+          "#91a8e9",
+          "#c3d0f4",
+          "#edf2ff"
+        ]
+      },
+      "signal-blue": {
+        "role": "secondary",
+        "displayName": "信号蓝",
+        "canonical": "#3b82f6",
+        "tonalRamp": [
+          "#12315f",
+          "#1d4f99",
+          "#2563c9",
+          "#3b82f6",
+          "#6aa2fa",
+          "#9dc2fc",
+          "#cfe1fe",
+          "#eff6ff"
+        ]
+      },
+      "procurement-orange": {
+        "role": "tertiary",
+        "displayName": "采购橙",
+        "canonical": "#d97706",
+        "tonalRamp": [
+          "#4d2902",
+          "#794100",
+          "#a65b02",
+          "#d97706",
+          "#eda33d",
+          "#f5c678",
+          "#f9dfae",
+          "#fff7e8"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "墨色",
+        "canonical": "#0f172a",
+        "tonalRamp": [
+          "#080c16",
+          "#0f172a",
+          "#27344b",
+          "#475569",
+          "#718096",
+          "#a7b2c2",
+          "#d4dae3",
+          "#f1f5f9"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "纸白",
+        "canonical": "#f8fafc",
+        "tonalRamp": [
+          "#1b2028",
+          "#343c48",
+          "#576170",
+          "#84909f",
+          "#b4bec9",
+          "#d7dde4",
+          "#e9eef3",
+          "#f8fafc"
+        ]
+      },
+      "fog": {
+        "role": "neutral",
+        "displayName": "雾灰",
+        "canonical": "#e9eef6",
+        "tonalRamp": [
+          "#1d2634",
+          "#39485c",
+          "#5b6d83",
+          "#8495aa",
+          "#abb9ca",
+          "#cbd4df",
+          "#e0e6ed",
+          "#f5f7fa"
+        ]
+      },
+      "border-blue": {
+        "role": "neutral",
+        "displayName": "边界蓝",
+        "canonical": "#dbeafe",
+        "tonalRamp": [
+          "#172d49",
+          "#2c527e",
+          "#4d7cad",
+          "#78a6d0",
+          "#a7cae9",
+          "#c8def4",
+          "#dbeafe",
+          "#f3f8ff"
+        ]
+      },
+      "destructive": {
+        "role": "error",
+        "displayName": "警戒红",
+        "canonical": "#dc2626",
+        "tonalRamp": [
+          "#510d0d",
+          "#7f1515",
+          "#aa1d1d",
+          "#dc2626",
+          "#ea5b5b",
+          "#f29393",
+          "#fac4c4",
+          "#fff0f0"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "工作区标题",
+        "purpose": "一级工作区标题与关键结论。"
+      },
+      "title": {
+        "displayName": "商品标题",
+        "purpose": "商品名、分组和卡片标题。"
+      },
+      "body": {
+        "displayName": "正文",
+        "purpose": "商品说明、帮助文本与详情正文。"
+      },
+      "label": { "displayName": "操作标签", "purpose": "按钮、标签与短状态。" },
+      "data": {
+        "displayName": "采购数据",
+        "purpose": "价格、数量、倒计时、页码与推荐分。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel",
+        "value": "0 8px 28px rgba(15, 23, 42, .08)",
+        "purpose": "导航、常驻面板与商品卡。"
+      },
+      {
+        "name": "modal",
+        "value": "0 24px 70px rgba(15, 23, 42, .22)",
+        "purpose": "详情、筛选浮层与当前可拖拽卡。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "fast",
+        "value": "180ms",
+        "purpose": "hover、按钮反馈和小型状态变化。"
+      },
+      {
+        "name": "normal",
+        "value": "350ms",
+        "purpose": "工作区和中型状态过渡。"
+      },
+      {
+        "name": "ease-smooth",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "非手势进入与状态连续性。"
+      },
+      {
+        "name": "spring-release",
+        "value": "spring(stiffness: 200, damping: 20)",
+        "purpose": "发现卡未达到阈值时回到中心。"
+      },
+      {
+        "name": "spring-snappy",
+        "value": "spring(stiffness: 300, damping: 30)",
+        "purpose": "下一张发现卡进入主卡位置。"
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "关键确认、收藏和重新检查动作。",
+      "html": "<button class=\"ds-btn-primary\">确认操作</button>",
+      "css": ".ds-btn-primary{min-height:44px;border:0;border-radius:8px;padding:0 16px;background:var(--color-primary,#1e40af);color:#fff;font:700 12px/1.4 'Fira Sans','Noto Sans SC',sans-serif;transition:background-color 180ms ease-out,opacity 180ms ease-out}.ds-btn-primary:hover{background:#1e3a8a}.ds-btn-primary:focus-visible{outline:3px solid rgba(30,64,175,.38);outline-offset:2px}.ds-btn-primary:active{transform:scale(.98)}"
+    },
+    {
+      "name": "Opportunity Button",
+      "kind": "button",
+      "refersTo": "button-accent",
+      "description": "链接导入和采购机会等高价值动作。",
+      "html": "<button class=\"ds-btn-accent\">分析链接</button>",
+      "css": ".ds-btn-accent{min-height:44px;border:0;border-radius:8px;padding:0 16px;background:var(--color-accent,#d97706);color:#0f172a;font:900 12px/1.4 'Fira Sans','Noto Sans SC',sans-serif;transition:background-color 180ms ease-out}.ds-btn-accent:hover{background:#f59e0b}.ds-btn-accent:focus-visible{outline:3px solid rgba(30,64,175,.38);outline-offset:2px}.ds-btn-accent:active{transform:scale(.98)}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "链接、筛选条件和采购记录输入。",
+      "html": "<input class=\"ds-field\" value=\"假面骑士 DX 变身腰带\" aria-label=\"商品关键词\" />",
+      "css": ".ds-field{height:44px;width:280px;border:1px solid rgba(15,23,42,.15);border-radius:8px;background:#fff;padding:0 12px;color:#0f172a;font:500 14px/1.5 'Fira Sans','Noto Sans SC',sans-serif;transition:border-color 180ms ease-out}.ds-field:hover{border-color:rgba(30,64,175,.4)}.ds-field:focus-visible{outline:3px solid rgba(30,64,175,.38);outline-offset:2px}"
+    },
+    {
+      "name": "Workspace Navigation",
+      "kind": "nav",
+      "description": "一级工作区切换；活动项使用墨色与采购橙。",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-item ds-active\">发现</button><button class=\"ds-nav-item\">在售商品</button><button class=\"ds-nav-item\">链接专区</button></nav>",
+      "css": ".ds-nav{display:flex;gap:8px;overflow-x:auto;border:1px solid #dbeafe;border-radius:16px;background:#fff;padding:8px;box-shadow:0 8px 28px rgba(15,23,42,.08)}.ds-nav-item{min-height:44px;min-width:112px;border:0;border-radius:12px;background:transparent;padding:0 16px;color:#0f172a;text-align:left;font:700 13px/1.4 'Fira Sans','Noto Sans SC',sans-serif;white-space:nowrap}.ds-nav-item:hover{background:#eff6ff}.ds-nav-item:focus-visible{outline:3px solid rgba(30,64,175,.38);outline-offset:2px}.ds-nav-item.ds-active{background:#0f172a;color:#d97706}"
+    },
+    {
+      "name": "Product Card",
+      "kind": "card",
+      "refersTo": "product-card",
+      "description": "高密度商品预览，突出图片、名称、价格、来源与采购数据。",
+      "html": "<article class=\"ds-product-card\"><div class=\"ds-product-image\"></div><div class=\"ds-product-body\"><strong>假面骑士 DX 变身腰带套装</strong><div class=\"ds-product-meta\"><span>¥12,800</span><span>Yahoo! 拍卖</span><span>采购分 86</span></div></div></article>",
+      "css": ".ds-product-card{width:320px;overflow:hidden;border:1px solid rgba(15,23,42,.1);border-radius:18px;background:#fff;color:#0f172a;box-shadow:0 8px 28px rgba(15,23,42,.08);font-family:'Fira Sans','Noto Sans SC',sans-serif;transition:border-color 180ms ease-out,box-shadow 180ms ease-out}.ds-product-card:hover{border-color:rgba(30,64,175,.3);box-shadow:0 12px 32px rgba(15,23,42,.12)}.ds-product-image{height:150px;background:linear-gradient(135deg,#e9eef6,#dbeafe)}.ds-product-body{padding:12px}.ds-product-body strong{display:block;font:700 15px/1.4 'Fira Code','Noto Sans SC',monospace}.ds-product-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:10px;border-radius:8px;background:#e9eef6;padding:8px 4px;text-align:center;font:700 11px/1.4 'Fira Code',monospace}"
+    },
+    {
+      "name": "Discovery Stack",
+      "kind": "custom",
+      "description": "三层商品决策堆栈，顶部卡可拖拽，后两张只表达空间连续性。",
+      "html": "<div class=\"ds-stack\"><article class=\"ds-swipe-card ds-third\"></article><article class=\"ds-swipe-card ds-second\"></article><article class=\"ds-swipe-card ds-top\"><div class=\"ds-stack-photo\"></div><strong>待判断商品</strong><span>¥9,800 · 推荐分 82</span></article></div>",
+      "css": ".ds-stack{position:relative;width:360px;height:420px}.ds-swipe-card{position:absolute;inset:0;overflow:hidden;border-radius:16px;background:#fff;box-shadow:0 8px 28px rgba(15,23,42,.08)}.ds-third{transform:translateY(24px) scale(.94);opacity:.58}.ds-second{transform:translateY(12px) scale(.97);opacity:.82}.ds-top{box-shadow:0 24px 70px rgba(15,23,42,.22);font:700 14px/1.5 'Fira Sans','Noto Sans SC',sans-serif}.ds-top:focus-visible{outline:3px solid rgba(30,64,175,.38);outline-offset:2px}.ds-stack-photo{height:300px;background:linear-gradient(135deg,#e9eef6,#dbeafe)}.ds-top strong,.ds-top span{display:block;padding:8px 16px 0}.ds-top span{color:rgba(15,23,42,.65);font-family:'Fira Code',monospace;font-size:12px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "采购情报台",
+    "overview": "采购中心的界面像一个持续运转的专业采购情报台：冷静、清晰、有足够的信息密度，同时把价格、风险、采购价值和下一步操作放在最容易扫描的位置。它不是面向消费者的商店陈列，也不是娱乐化的卡片应用；真实商品图片与可核验数据始终是视觉主体。深蓝提供操作与可信度锚点，近白底色让长时间浏览保持轻盈，采购橙只用于价格、机会和关键提示。动效解释状态与空间连续性，手势具有惯性和阻尼，但不借用 Tinder 的品牌语言、色彩或夸张反馈。",
+    "keyCharacteristics": [
+      "高密度但可扫描的采购工作台",
+      "深蓝、近白与采购橙组成的克制功能色体系",
+      "Fira Sans 负责正文，Fira Code 负责标题与数据",
+      "真实商品图片优先，状态、分数与价格紧随其后",
+      "触摸、鼠标、键盘与明确按钮等价可达"
+    ],
+    "rules": [
+      {
+        "name": "The Opportunity Accent Rule",
+        "body": "采购橙只表达机会、价格或关键采购提示；普通结构与导航不得滥用它。",
+        "section": "colors"
+      },
+      {
+        "name": "The Functional Red Rule",
+        "body": "红色只用于错误、破坏性操作和真实紧迫状态，不能作为装饰色。",
+        "section": "colors"
+      },
+      {
+        "name": "The Data Has a Voice Rule",
+        "body": "可比较数字使用等宽字；长商品名和解释文本保持无衬线，避免整页变成代码终端。",
+        "section": "typography"
+      },
+      {
+        "name": "The Scan Before Scroll Rule",
+        "body": "首屏优先显示当前工作区、数量、状态和可执行动作；完整商品详情进入抽屉或详情层，而不是塞入列表卡片。",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-Until-Lifted Rule",
+        "body": "常驻内容保持低层级；只有正在交互、覆盖上下文或需要明确前后关系的对象获得显著阴影。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 优先展示真实商品图片、名称、价格、来源和采购价值。",
+      "Do 保持中文默认展示，同时提供原文切换。",
+      "Do 为加载、失败、空状态、禁用和撤销提供明确反馈。",
+      "Do 同时支持触摸、鼠标、键盘与可见按钮，并尊重减少动态效果设置。",
+      "Do 用 spring、transform 和 opacity 表达直接操控的重量与连续性。"
+    ],
+    "donts": [
+      "Don't 使用 Tinder 的品牌、配色、图标或视觉身份包装发现页。",
+      "Don't 用采购橙装饰普通容器，或用警戒红制造虚假紧迫感。",
+      "Don't 把完整详情塞进列表或发现卡片。",
+      "Don't 让动效阻塞输入、只支持鼠标，或把前端动画当成已保存结果。",
+      "Don't 收录书籍、杂志、漫画或卡片类商品。"
+    ]
+  }
+}

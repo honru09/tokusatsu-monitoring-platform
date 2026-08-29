@@ -93,6 +93,13 @@ enum ReviewQueueStatus {
   rejected
 }
 
+enum DiscoveryAction {
+  dislike
+  favorite
+  detail_view
+  undo
+}
+
 model Source {
   id             String          @id @default(uuid())
   key            String          @unique
@@ -181,6 +188,7 @@ model Item {
   urlImports         UrlImport[]
   product            Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
   reviewQueue        ReviewQueue[]
+  discoveryFeedback  DiscoveryFeedback[]  @relation("ListingDiscoveryFeedback")
 
   @@unique([sourceId, sourceItemId])
   @@index([categoryIp, priceCurrent])
@@ -219,6 +227,7 @@ model Product {
   characters           ProductCharacter[]
   inventory            Inventory?
   reviewQueue          ReviewQueue[]
+  discoveryFeedback    DiscoveryFeedback[]
 
   @@index([normalizedName])
   @@index([franchiseId, seriesId])
@@ -361,6 +370,28 @@ model Inventory {
 
   @@index([updatedAt])
   @@map("inventory")
+}
+
+/// Append-only interaction history for the discovery workspace. Undo is a
+/// separate event so preference-model training can reconstruct user intent.
+model DiscoveryFeedback {
+  id                  String              @id @default(uuid())
+  listingId           String              @map("listing_id")
+  productId           String?             @map("product_id")
+  action              DiscoveryAction
+  timestamp           DateTime            @default(now()) @db.Timestamptz
+  position            Int
+  recommendationScore Int                 @map("recommendation_score")
+  undoOfId            String?             @unique @map("undo_of_id")
+  listing             Item                @relation("ListingDiscoveryFeedback", fields: [listingId], references: [id], onDelete: Cascade)
+  product             Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  undoOf              DiscoveryFeedback?  @relation("DiscoveryUndo", fields: [undoOfId], references: [id], onDelete: SetNull)
+  undoEvents          DiscoveryFeedback[] @relation("DiscoveryUndo")
+
+  @@index([listingId, timestamp])
+  @@index([productId, timestamp])
+  @@index([action, timestamp])
+  @@map("discovery_feedback")
 }
 
 model ItemImage {

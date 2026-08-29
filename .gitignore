@@ -9,3 +9,4 @@ coverage/
 Keys.txt
 *.log
 packages/db/generated/
+.impeccable/review/
