@@ -49,6 +49,9 @@ services:
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
       FIRECRAWL_INCLUDE_DOMAINS: ${FIRECRAWL_INCLUDE_DOMAINS:-jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp}
       FIRECRAWL_ALLOW_ANY_DOMAIN: ${FIRECRAWL_ALLOW_ANY_DOMAIN:-false}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_API_URL: ${DEEPSEEK_API_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-flash}
       INVENTORY_CLEANUP_INTERVAL_MS: ${INVENTORY_CLEANUP_INTERVAL_MS:-7200000}
     ports:
       - "3001:3001"

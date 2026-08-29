@@ -37,6 +37,7 @@ type SearchMetrics = {
   candidates: number;
   inserted: number;
   skippedKnown: number;
+  imagesBackfilled: number;
   detailFailed: number;
   pageStart: number;
   pages: number;
@@ -113,6 +114,7 @@ export async function processSearch(
     candidates: 0,
     inserted: 0,
     skippedKnown: 0,
+    imagesBackfilled: 0,
     detailFailed: 0,
     pageStart: effectiveQuery.pageStart ?? 0,
     pages: effectiveQuery.pages ?? 1,
@@ -143,9 +145,12 @@ export async function processSearch(
         sourceId: source.id,
         sourceItemId: { in: results.map((result) => result.sourceItemId) },
       },
-      select: { sourceItemId: true },
+      select: { id: true, sourceItemId: true, imageCount: true },
     });
-    const existingIds = new Set(existing.map((item) => item.sourceItemId));
+    const existingBySourceId = new Map(
+      existing.map((item) => [item.sourceItemId, item]),
+    );
+    const existingIds = new Set(existingBySourceId.keys());
     metrics.skippedKnown = existingIds.size;
     if (existingIds.size > 0) {
       await prisma.item.updateMany({
@@ -157,7 +162,33 @@ export async function processSearch(
       });
     }
     for (const result of results) {
-      if (existingIds.has(result.sourceItemId)) continue;
+      const known = existingBySourceId.get(result.sourceItemId);
+      if (known) {
+        if (known.imageCount <= 1) {
+          try {
+            const raw = await adapter.fetchDetail(result);
+            const normalized = await adapter.normalize(raw);
+            if (
+              !isExcludedCollectibleText(
+                normalized.titleRaw,
+                normalized.descriptionRaw,
+              )
+            ) {
+              const added = await appendItemImages(
+                known.id,
+                normalized.imageUrls,
+              );
+              if (added > 0) metrics.imagesBackfilled += added;
+            }
+          } catch (error) {
+            if (metrics.errors.length < 8)
+              metrics.errors.push(
+                `${result.sourceItemId}: image backfill ${String(error).slice(0, 260)}`,
+              );
+          }
+        }
+        continue;
+      }
       try {
         const raw = await adapter.fetchDetail(result);
         const normalized = await adapter.normalize(raw);
@@ -246,6 +277,20 @@ export async function processSearch(
     );
     throw error;
   }
+}
+
+async function appendItemImages(itemId: string, imageUrls: string[]) {
+  const urls = imageUrls.filter(
+    (url, index, all) => url && all.indexOf(url) === index,
+  );
+  if (urls.length === 0) return 0;
+  await prisma.itemImage.createMany({
+    data: urls.map((url, position) => ({ itemId, url, position })),
+    skipDuplicates: true,
+  });
+  const imageCount = await prisma.itemImage.count({ where: { itemId } });
+  await prisma.item.update({ where: { id: itemId }, data: { imageCount } });
+  return urls.length;
 }
 
 export async function processUrlAnalysis(
@@ -759,4 +804,22 @@ export async function processCleanup() {
     removedOrphanProducts: orphanProducts.count,
     cleanedAt: now.toISOString(),
   };
+}
+
+/** Permanently removes the separate not-interested warehouse after one day. */
+export async function processDislikedCleanup() {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const stale = await prisma.item.findMany({
+    where: {
+      ignored: true,
+      ignoredAt: { lt: cutoff },
+      purchaseRecord: null,
+    },
+    select: { id: true },
+    take: 5000,
+  });
+  const ids = stale.map((item) => item.id);
+  if (!ids.length) return { removed: 0, cleanedAt: new Date().toISOString() };
+  const result = await prisma.item.deleteMany({ where: { id: { in: ids } } });
+  return { removed: result.count, cleanedAt: new Date().toISOString() };
 }

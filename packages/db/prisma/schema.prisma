@@ -166,6 +166,7 @@ model Item {
   suspectedDuplicate Boolean              @default(false)
   favorite           Boolean              @default(false)
   ignored            Boolean              @default(false)
+  ignoredAt          DateTime?
   importOrigin       ImportOrigin         @default(search)
   productId          String?              @map("product_id")
   normalizedTitle    String?              @map("normalized_title")

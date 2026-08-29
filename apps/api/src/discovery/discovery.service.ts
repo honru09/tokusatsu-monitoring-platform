@@ -49,7 +49,6 @@ const feedSelect = {
   source: { select: { key: true, displayName: true } },
   images: {
     orderBy: { position: "asc" as const },
-    take: 3,
     select: { url: true, position: true },
   },
   product: {
@@ -106,7 +105,14 @@ export class DiscoveryService {
   async feedback(body: DiscoveryFeedbackDto) {
     const listing = await this.prisma.item.findUnique({
       where: { id: body.listingId },
-      select: { id: true, productId: true, favorite: true, archivedAt: true },
+      select: {
+        id: true,
+        productId: true,
+        favorite: true,
+        ignored: true,
+        ignoredAt: true,
+        archivedAt: true,
+      },
     });
     if (!listing || listing.archivedAt)
       throw new NotFoundException("商品已下架或不存在");
@@ -125,7 +131,16 @@ export class DiscoveryService {
       if (action === DiscoveryAction.favorite && !listing.favorite) {
         await tx.item.update({
           where: { id: listing.id },
-          data: { favorite: true },
+          data:
+            listing.ignored || listing.ignoredAt
+              ? { favorite: true, ignored: false, ignoredAt: null }
+              : { favorite: true },
+        });
+      }
+      if (action === DiscoveryAction.dislike) {
+        await tx.item.update({
+          where: { id: listing.id },
+          data: { favorite: false, ignored: true, ignoredAt: new Date() },
         });
       }
       return record;
@@ -162,6 +177,12 @@ export class DiscoveryService {
         await tx.item.update({
           where: { id: original.listingId },
           data: { favorite: false },
+        });
+      }
+      if (original.action === DiscoveryAction.dislike) {
+        await tx.item.update({
+          where: { id: original.listingId },
+          data: { ignored: false, ignoredAt: null },
         });
       }
       const item = await tx.item.findUnique({

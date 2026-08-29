@@ -33,6 +33,12 @@ services:
         value: jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp
       - key: FIRECRAWL_ALLOW_ANY_DOMAIN
         value: "false"
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_API_URL
+        value: https://api.deepseek.com
+      - key: DEEPSEEK_MODEL
+        value: deepseek-v4-flash
 
   - type: worker
     name: tokusatsu-monitor-worker

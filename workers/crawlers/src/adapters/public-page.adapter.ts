@@ -100,7 +100,7 @@ export function parsePublicProductPage(
     sellerName: parsed.hostname,
     sellerType: "unknown",
     priceCurrent,
-    imageUrls: [...images].slice(0, 30),
+    imageUrls: [...images],
     status,
     channel: "online",
   };

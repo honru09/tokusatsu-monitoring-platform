@@ -8,6 +8,7 @@ import {
   type PanInfo,
 } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ImageGallery } from "./image-gallery";
 import { motionTokens, springs } from "../lib/motion-tokens";
 
 type DiscoveryAction = "dislike" | "favorite" | "detail_view";
@@ -38,6 +39,23 @@ type DiscoveryListing = {
     toyTypeEntity?: { nameZh: string; nameJa: string } | null;
   } | null;
 };
+
+function HeartIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z" />
+    </svg>
+  );
+}
 
 type FeedbackRecord = {
   id: string;
@@ -175,33 +193,36 @@ function UndoIcon() {
 function CardContent({
   item,
   language,
+  translatedTitle,
 }: {
   item: DiscoveryListing;
   language: "zh" | "original";
+  translatedTitle?: string;
 }) {
-  const series =
-    language === "zh"
+  const [showOriginal, setShowOriginal] = useState(language === "original");
+  useEffect(() => setShowOriginal(language === "original"), [language]);
+  const series = showOriginal
+    ? item.product?.series?.nameJa
+    : language === "zh"
       ? item.product?.series?.nameZh
       : item.product?.series?.nameJa;
-  const toyType =
-    language === "zh"
+  const toyType = showOriginal
+    ? item.product?.toyTypeEntity?.nameJa
+    : language === "zh"
       ? item.product?.toyTypeEntity?.nameZh
       : item.product?.toyTypeEntity?.nameJa;
+  const title = showOriginal
+    ? item.titleRaw
+    : (translatedTitle ?? displayTitle(item, "zh"));
   return (
     <>
       <div className="relative min-h-0 overflow-hidden bg-ink md:h-full">
-        {item.images[0] ? (
-          <img
-            src={item.images[0].url}
-            alt={displayTitle(item, language)}
-            draggable={false}
-            className="h-[258px] w-full select-none object-cover md:h-full"
-          />
-        ) : (
-          <div className="grid h-[258px] place-items-center bg-ink font-heading text-6xl font-black text-lime md:h-full">
-            特
-          </div>
-        )}
+        <ImageGallery
+          images={item.images}
+          alt={title}
+          className="h-[258px] w-full md:h-full"
+          imageClassName="select-none"
+        />
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-ink/90 via-ink/30 to-transparent p-4 pt-14 text-white">
           <span className="rounded-md bg-white/90 px-2 py-1 text-[10px] font-black text-ink">
             {item.auctionEndAt ? "拍卖" : "直接购买"}
@@ -210,10 +231,33 @@ function CardContent({
             采购分 {item.procurementScore}
           </span>
         </div>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setShowOriginal((current) => !current);
+          }}
+          aria-label={showOriginal ? "切换为中文" : "切换为原文"}
+          title={showOriginal ? "中文" : "原文"}
+          className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ink/75 text-white backdrop-blur transition-colors hover:bg-ink"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 5h8M8 3v2c0 4-2 7-5 9M5 10c1.2 1.3 2.7 2.4 4.5 3.2M13 21l4.5-11L22 21M14.5 18h6" />
+          </svg>
+        </button>
       </div>
       <div className="flex min-h-0 flex-col p-4 md:p-5">
         <h2 className="line-clamp-3 text-lg font-black leading-6 text-ink md:text-xl md:leading-7">
-          {displayTitle(item, language)}
+          {title}
         </h2>
         <div className="mt-3 flex items-end justify-between gap-3 border-b border-ink/10 pb-3">
           <div>
@@ -266,9 +310,6 @@ function CardContent({
             </dd>
           </div>
         </dl>
-        <p className="mt-auto pt-3 text-[10px] leading-4 text-ink/60">
-          拖动卡片或使用方向键。点击卡片查看完整商品详情。
-        </p>
       </div>
     </>
   );
@@ -277,10 +318,12 @@ function CardContent({
 function BackCard({
   item,
   language,
+  translatedTitle,
   index,
 }: {
   item: DiscoveryListing;
   language: "zh" | "original";
+  translatedTitle?: string;
   index: 1 | 2;
 }) {
   const second = index === 1;
@@ -308,7 +351,11 @@ function BackCard({
       transition={springs.release}
       className="pointer-events-none absolute inset-0 grid overflow-hidden rounded-2xl bg-white shadow-panel md:grid-cols-[1.08fr_.92fr]"
     >
-      <CardContent item={item} language={language} />
+      <CardContent
+        item={item}
+        language={language}
+        translatedTitle={translatedTitle}
+      />
     </motion.article>
   );
 }
@@ -316,6 +363,7 @@ function BackCard({
 function SwipeCard({
   item,
   language,
+  translatedTitle,
   busy,
   exitDirection,
   onConsume,
@@ -324,6 +372,7 @@ function SwipeCard({
 }: {
   item: DiscoveryListing;
   language: "zh" | "original";
+  translatedTitle?: string;
   busy: boolean;
   exitDirection: ExitDirection | null;
   onConsume: (action: "dislike" | "favorite", direction: ExitDirection) => void;
@@ -430,7 +479,11 @@ function SwipeCard({
       style={{ x, y, rotate, touchAction: "none" }}
       className="absolute inset-0 grid cursor-grab select-none overflow-hidden rounded-2xl bg-white shadow-modal outline-none focus-visible:ring-4 focus-visible:ring-moss/30 active:cursor-grabbing md:grid-cols-[1.08fr_.92fr]"
     >
-      <CardContent item={item} language={language} />
+      <CardContent
+        item={item}
+        language={language}
+        translatedTitle={translatedTitle}
+      />
       <motion.div
         aria-hidden="true"
         style={{ opacity: favoriteOpacity }}
@@ -459,12 +512,14 @@ function SwipeCard({
 export function DiscoveryWorkspace({
   apiBaseUrl,
   language,
+  translations = {},
   onOpenDetail,
   onFavoriteChange,
   interactionDisabled = false,
 }: {
   apiBaseUrl: string;
   language: "zh" | "original";
+  translations?: Record<string, string>;
   onOpenDetail: (listingId: string) => Promise<boolean>;
   onFavoriteChange: () => void;
   interactionDisabled?: boolean;
@@ -716,16 +771,27 @@ export function DiscoveryWorkspace({
       <div className="mx-auto max-w-4xl">
         <div className="relative h-[600px] sm:h-[580px] md:h-[520px]">
           {visible.length >= 3 && (
-            <BackCard item={visible[2]} language={language} index={2} />
+            <BackCard
+              item={visible[2]}
+              language={language}
+              translatedTitle={translations[visible[2].id]}
+              index={2}
+            />
           )}
           {visible.length >= 2 && (
-            <BackCard item={visible[1]} language={language} index={1} />
+            <BackCard
+              item={visible[1]}
+              language={language}
+              translatedTitle={translations[visible[1].id]}
+              index={1}
+            />
           )}
           {visible[0] && (
             <SwipeCard
               key={visible[0].id}
               item={visible[0]}
               language={language}
+              translatedTitle={translations[visible[0].id]}
               busy={busy || interactionDisabled}
               exitDirection={exitDirection}
               onConsume={(action, direction) => void consume(action, direction)}
@@ -762,39 +828,47 @@ export function DiscoveryWorkspace({
             type="button"
             disabled={!visible[0] || busy || interactionDisabled}
             onClick={() => void consume("dislike", "left")}
-            className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-rust/25 bg-white px-3 text-sm font-bold text-rust transition-colors hover:bg-rust/5 disabled:opacity-40"
+            aria-label="不感兴趣"
+            title="不感兴趣"
+            className="grid min-h-11 place-items-center rounded-lg border border-rust/25 bg-white text-rust transition-colors hover:bg-rust/5 disabled:opacity-40"
           >
-            <ArrowIcon direction="left" /> 不感兴趣
+            <ArrowIcon direction="left" />
           </button>
           <button
             type="button"
             disabled={!visible[0] || busy || interactionDisabled}
             onClick={() => void openDetail()}
-            className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-ink/15 bg-white px-3 text-sm font-bold text-ink transition-colors hover:bg-blue-50 disabled:opacity-40"
+            aria-label="查看详情"
+            title="查看详情"
+            className="grid min-h-11 place-items-center rounded-lg border border-ink/15 bg-white text-ink transition-colors hover:bg-blue-50 disabled:opacity-40"
           >
-            <ArrowIcon direction="down" /> 查看详情
+            <ArrowIcon direction="down" />
           </button>
           <button
             type="button"
             disabled={!visible[0] || busy || interactionDisabled}
             onClick={() => void consume("favorite", "right")}
-            className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-moss px-3 text-sm font-black text-white transition-colors hover:bg-blue-800 disabled:opacity-40"
+            aria-label="收藏"
+            title="收藏"
+            className="grid min-h-11 place-items-center rounded-lg bg-moss text-white transition-colors hover:bg-blue-800 disabled:opacity-40"
           >
-            收藏 <ArrowIcon direction="right" />
+            <HeartIcon />
           </button>
           <button
             type="button"
             disabled={!lastAction || busy || interactionDisabled}
             onClick={() => void undo()}
-            className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-bold text-amber-900 transition-colors hover:bg-amber-100 disabled:opacity-40"
+            aria-label="撤销"
+            title="撤销"
+            className="grid min-h-11 place-items-center rounded-lg border border-amber-300 bg-amber-50 text-amber-900 transition-colors hover:bg-amber-100 disabled:opacity-40"
           >
-            <UndoIcon /> 撤销
+            <UndoIcon />
           </button>
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
           <p aria-live="polite">{status}</p>
-          <p className="hidden font-mono sm:block">
-            ← 不感兴趣 · → 收藏 · ↓ 详情 · Backspace 撤销
+          <p className="hidden font-mono sm:block" aria-hidden="true">
+            ← · → · ↓ · Backspace
           </p>
         </div>
       </div>

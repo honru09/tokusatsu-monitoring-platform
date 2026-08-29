@@ -161,7 +161,7 @@ export function parseFirecrawlMarketplaceDocument(
       : /中古|使用済|傷|汚れ/.test(body)
         ? "中古"
         : undefined,
-    imageUrls: [...images].slice(0, 30),
+    imageUrls: [...images],
     status,
     channel: "online",
   };

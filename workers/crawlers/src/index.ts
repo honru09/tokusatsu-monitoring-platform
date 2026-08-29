@@ -11,6 +11,7 @@ import {
   processStatus,
   processUrlAnalysis,
   processCleanup,
+  processDislikedCleanup,
 } from "./processors.js";
 
 await seedCatalogDictionary();
@@ -40,6 +41,10 @@ const workers = [
     limiter: { max: 6, duration: 60_000 },
   }),
   new Worker("inventory-maintenance", processCleanup, {
+    connection,
+    concurrency: 1,
+  }),
+  new Worker("disliked-maintenance", processDislikedCleanup, {
     connection,
     concurrency: 1,
   }),

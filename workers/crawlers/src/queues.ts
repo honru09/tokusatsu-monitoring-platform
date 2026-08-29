@@ -16,6 +16,9 @@ export const urlAnalysisQueue = new Queue("url-analysis", { connection });
 export const maintenanceQueue = new Queue("inventory-maintenance", {
   connection,
 });
+export const dislikedMaintenanceQueue = new Queue("disliked-maintenance", {
+  connection,
+});
 
 const DEFAULT_MARKET_KEYWORDS = [
   "仮面ライダー",
@@ -76,6 +79,16 @@ export async function scheduleJobs() {
       repeat: {
         every: Number(process.env.INVENTORY_CLEANUP_INTERVAL_MS ?? 7_200_000),
       },
+      removeOnComplete: 20,
+      removeOnFail: 20,
+    },
+  );
+  await dislikedMaintenanceQueue.add(
+    "purge-disliked-warehouse",
+    {},
+    {
+      jobId: "repeat-disliked-cleanup",
+      repeat: { every: 86_400_000 },
       removeOnComplete: 20,
       removeOnFail: 20,
     },

@@ -52,12 +52,28 @@ export function parseMercariDetailHtml(
   if (priceCurrent == null)
     throw new Error("Mercari detail page did not contain a public price");
   const imageSet = new Set<string>();
-  $("meta[property='og:image'], meta[name='twitter:image']").each(
-    (_, element) => {
-      const value = $(element).attr("content");
-      if (value) imageSet.add(new URL(value, sourceUrl).toString());
-    },
-  );
+  const addImages = (value: unknown) => {
+    if (typeof value !== "string") return;
+    for (const candidate of value
+      .split(",")
+      .map((part) => part.trim().split(/\s+/)[0])) {
+      if (!candidate || candidate.startsWith("data:")) continue;
+      try {
+        imageSet.add(new URL(candidate, sourceUrl).toString());
+      } catch {}
+    }
+  };
+  $(
+    "meta[property='og:image'], meta[name='twitter:image'], img[src], img[data-src], img[data-image-url], img[data-testid*='image'], picture source[srcset]",
+  ).each((_, element) => {
+    addImages(
+      $(element).attr("content") ??
+        $(element).attr("data-image-url") ??
+        $(element).attr("data-src") ??
+        $(element).attr("src") ??
+        $(element).attr("srcset"),
+    );
+  });
   const bodyText = $("body").text();
   const soldBadge = />\s*Sold\s*</i.test(html);
   const status: ItemStatus =
@@ -73,7 +89,7 @@ export function parseMercariDetailHtml(
     sellerName: "Mercari 卖家",
     sellerType: "individual",
     priceCurrent,
-    imageUrls: [...imageSet].slice(0, 30),
+    imageUrls: [...imageSet],
     status,
     channel: "online",
   };

@@ -4,6 +4,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiscoveryWorkspace } from "../components/discovery-workspace";
+import { ImageGallery } from "../components/image-gallery";
 
 gsap.registerPlugin(useGSAP);
 
@@ -34,6 +35,7 @@ type Item = {
   status: string;
   favorite: boolean;
   ignored: boolean;
+  ignoredAt?: string | null;
   importOrigin?: "search" | "url";
   archivedAt?: string | null;
   normalizedTitle?: string | null;
@@ -289,6 +291,164 @@ function MoneyIcon({ className = "h-4 w-4" }: IconProps) {
     >
       <circle cx="12" cy="12" r="8.5" />
       <path d="M14.5 9.5c-.45-.55-1.15-.85-2.05-.85-1.2 0-2 .58-2 1.45 0 .82.64 1.2 2.05 1.55 1.28.31 2.05.73 2.05 1.63 0 .9-.79 1.5-2.08 1.5-.95 0-1.7-.3-2.2-.92M12.45 7.4v9.2" />
+    </svg>
+  );
+}
+
+function CommentIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.8 8.8 0 0 1-3.6-.8L4 20l1.1-3.2A7.2 7.2 0 0 1 4 12c0-4.1 3.6-7.5 8-7.5s8 3.1 8 7Z" />
+      <path d="M8 12h.01M12 12h.01M16 12h.01" />
+    </svg>
+  );
+}
+
+function TranslateIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 5h8M8 3v2c0 4-2 7-5 9M5 10c1.2 1.3 2.7 2.4 4.5 3.2M13 21l4.5-11L22 21M14.5 18h6" />
+    </svg>
+  );
+}
+
+function InfoIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 10.5v5M12 7.5h.01" />
+    </svg>
+  );
+}
+
+function ArchiveIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 7h16v13H4zM3 4h18v3H3zM9 11h6" />
+    </svg>
+  );
+}
+
+function BagIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 8h14l1 12H4L5 8ZM9 8V6a3 3 0 0 1 6 0v2" />
+    </svg>
+  );
+}
+
+function CompassIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" />
+    </svg>
+  );
+}
+
+function LinkIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 13.5a4 4 0 0 0 5.7.2l2-2a4 4 0 0 0-5.7-5.7l-1.1 1.1" />
+      <path d="M14 10.5a4 4 0 0 0-5.7-.2l-2 2A4 4 0 0 0 8 18l1.1-1.1" />
+    </svg>
+  );
+}
+
+function ListIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7 5h13M7 12h13M7 19h13M3 5h.01M3 12h.01M3 19h.01" />
+    </svg>
+  );
+}
+
+function SettingsIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" />
+      <path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3.1 1.3v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3.1-1.3l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1A1.8 1.8 0 0 0 3.3 12a1.8 1.8 0 0 0 1.3-3.1l-.1-.1A1.8 1.8 0 0 1 7 6.3l.1.1A1.8 1.8 0 0 0 10.2 5v-.2a1.8 1.8 0 0 1 3.6 0V5a1.8 1.8 0 0 0 3.1 1.3l.1-.1a1.8 1.8 0 0 1 2.5 2.5l-.1.1A1.8 1.8 0 0 0 20.7 12a1.8 1.8 0 0 0-1.3 3Z" />
     </svg>
   );
 }
@@ -584,6 +744,7 @@ function ProductCard({
   serverOffset,
   nowTick,
   language,
+  translatedTitle,
   onOpen,
   onPatch,
   onPurchase,
@@ -592,10 +753,13 @@ function ProductCard({
   serverOffset: number;
   nowTick: number;
   language: "zh" | "original";
+  translatedTitle?: string;
   onOpen: () => void;
   onPatch: (patch: Partial<Item>) => void;
   onPurchase: () => void;
 }) {
+  const [showOriginal, setShowOriginal] = useState(language === "original");
+  useEffect(() => setShowOriginal(language === "original"), [language]);
   const remaining = useMemo(
     () => countdown(item.auctionEndAt, serverOffset),
     [item.auctionEndAt, serverOffset, nowTick],
@@ -604,10 +768,12 @@ function ProductCard({
     item.auctionEndAt &&
     new Date(item.auctionEndAt).getTime() - (Date.now() + serverOffset) <
       10 * 60_000;
-  const displayTitle =
-    language === "zh"
+  const displayTitle = showOriginal
+    ? item.titleRaw
+    : language === "zh"
       ? (item.product?.titleZh ??
         item.product?.canonicalName ??
+        translatedTitle ??
         translateText(item.titleRaw))
       : item.titleRaw;
   const productTags = [
@@ -621,35 +787,46 @@ function ProductCard({
       data-item-id={item.id}
       className="js-product-card motion-layer group overflow-hidden rounded-[18px] border border-ink/10 bg-white shadow-panel transition-shadow duration-200 hover:border-moss/30 hover:shadow-lg"
     >
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onOpen}
-        aria-label={`打开商品：${translateText(item.titleRaw)}`}
-        className="relative block aspect-[16/7] w-full overflow-hidden bg-gradient-to-br from-moss to-ink text-left"
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onOpen();
+          }
+        }}
+        aria-label={`打开商品：${displayTitle}`}
+        className="relative block aspect-[16/7] w-full overflow-hidden bg-gradient-to-br from-moss to-ink text-left outline-none focus-visible:ring-4 focus-visible:ring-moss/30"
       >
-        {item.images[0] ? (
-          <img
-            src={item.images[0].url}
-            alt={
-              language === "zh"
-                ? (translateText(item.titleRaw) ?? item.titleRaw)
-                : item.titleRaw
-            }
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-[1.025]"
-          />
-        ) : (
-          <div className="grid h-full place-items-center font-heading text-5xl font-black text-lime/80">
-            特
-          </div>
-        )}
+        <ImageGallery
+          images={item.images}
+          alt={displayTitle ?? item.titleRaw}
+          className="h-full w-full"
+          imageClassName="opacity-90 transition-transform duration-300 group-hover:scale-[1.025]"
+        />
         <div className="absolute inset-x-0 top-0 flex items-start justify-between p-2.5">
           <span className="rounded-md bg-ink/90 px-2 py-1 text-[10px] font-black tracking-wide text-white">
             {labels[item.categoryIp] ?? item.categoryIp}
           </span>
-          <span className="rounded-md bg-lime px-2 py-1 font-mono text-[11px] font-black text-ink">
-            SCORE {item.procurementScore}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setShowOriginal((current) => !current);
+              }}
+              aria-label={showOriginal ? "切换为中文" : "切换为原文"}
+              title={showOriginal ? "中文" : "原文"}
+              className="grid h-8 w-8 place-items-center rounded-full bg-ink/75 text-white backdrop-blur transition-colors hover:bg-ink"
+            >
+              <TranslateIcon className="h-4 w-4" />
+            </button>
+            <span className="rounded-md bg-lime px-2 py-1 font-mono text-[11px] font-black text-ink">
+              {item.procurementScore}
+            </span>
+          </div>
         </div>
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-ink/90 to-transparent p-2.5 pt-10 text-white">
           <span className="text-[11px] font-semibold">
@@ -660,7 +837,7 @@ function ProductCard({
             IMG {item.images.length}
           </span>
         </div>
-      </button>
+      </div>
 
       <div className="p-3">
         <div className="mb-2 flex min-h-6 flex-wrap gap-1">
@@ -745,35 +922,40 @@ function ProductCard({
           </span>
           <span className="shrink-0">发现 {relativeTime(item.detectedAt)}</span>
         </div>
-        <div className="mt-3 grid grid-cols-[1fr_1fr_auto] gap-2">
+        <div className="mt-3 grid grid-cols-4 gap-2">
           <button
             onClick={() => onPatch({ favorite: !item.favorite })}
             aria-label={item.favorite ? "取消收藏" : "收藏商品"}
-            className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs font-bold transition-colors ${item.favorite ? "border-lime bg-lime text-ink" : "border-ink/10 bg-white hover:border-moss/35"}`}
+            title={item.favorite ? "取消收藏" : "收藏"}
+            className={`grid min-h-11 place-items-center rounded-lg border transition-colors ${item.favorite ? "border-lime bg-lime text-ink" : "border-ink/10 bg-white hover:border-moss/35"}`}
           >
             <HeartIcon filled={item.favorite} />
-            {item.favorite ? "已收藏" : "收藏"}
           </button>
           <button
             onClick={onOpen}
-            className="min-h-11 rounded-lg bg-moss px-2 text-xs font-bold text-white transition-colors hover:bg-moss/90"
+            aria-label="查看详情"
+            title="详情"
+            className="grid min-h-11 place-items-center rounded-lg bg-moss text-white transition-colors hover:bg-moss/90"
           >
-            详情纠错
+            <InfoIcon />
           </button>
           <button
             onClick={() => onPatch({ ignored: true })}
-            aria-label="忽略这条商品线索"
-            className="min-h-11 rounded-lg border border-ink/10 bg-white px-3 text-xs font-bold transition-colors hover:border-rust/40 hover:text-rust"
+            aria-label="标记为不感兴趣"
+            title="不感兴趣"
+            className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-rust/40 hover:text-rust"
           >
-            忽略
+            <ArchiveIcon />
+          </button>
+          <button
+            onClick={onPurchase}
+            aria-label="记录购买"
+            title="记录购买"
+            className="grid min-h-11 place-items-center rounded-lg border border-rust/25 bg-rust/5 text-rust transition-colors hover:bg-rust/10"
+          >
+            <MoneyIcon />
           </button>
         </div>
-        <button
-          onClick={onPurchase}
-          className="mt-2 min-h-11 w-full rounded-lg border border-rust/25 bg-rust/5 px-3 text-xs font-black text-rust transition-colors hover:bg-rust/10"
-        >
-          标记为已购买 · 记录金额与凭证
-        </button>
       </div>
     </article>
   );
@@ -824,14 +1006,20 @@ function FavoriteMiniCard({
 function DetailDrawer({
   item,
   language,
+  translatedTitle,
+  translatedDescription,
   onClose,
   onSaved,
 }: {
   item: Item;
   language: "zh" | "original";
+  translatedTitle?: string;
+  translatedDescription?: string;
   onClose: () => void;
   onSaved: (item: Item) => void;
 }) {
+  const [showOriginal, setShowOriginal] = useState(language === "original");
+  useEffect(() => setShowOriginal(language === "original"), [language]);
   const [draft, setDraft] = useState({
     categoryIp: item.categoryIp,
     categoryToyType: item.categoryToyType,
@@ -890,21 +1078,31 @@ function DetailDrawer({
           >
             <CloseIcon />
           </button>
+          <button
+            onClick={() => setShowOriginal((current) => !current)}
+            aria-label={showOriginal ? "切换为中文" : "切换为原文"}
+            title={showOriginal ? "中文" : "原文"}
+            className="grid h-11 w-11 place-items-center rounded-full bg-white shadow transition-colors hover:bg-fog"
+          >
+            <TranslateIcon />
+          </button>
         </div>
         <div className="p-5">
-          {item.images[0] && (
-            <img
-              src={item.images[0].url}
-              alt={
-                language === "zh"
-                  ? (translateText(item.titleRaw) ?? item.titleRaw)
-                  : item.titleRaw
-              }
-              className="mb-5 aspect-video w-full rounded-3xl object-cover"
-            />
-          )}
+          <ImageGallery
+            images={item.images}
+            alt={
+              showOriginal
+                ? item.titleRaw
+                : (translatedTitle ??
+                  translateText(item.titleRaw) ??
+                  item.titleRaw)
+            }
+            className="mb-5 aspect-video w-full rounded-3xl bg-ink"
+          />
           <h3 className="text-2xl font-black leading-tight">
-            {language === "zh" ? translateText(item.titleRaw) : item.titleRaw}
+            {showOriginal
+              ? item.titleRaw
+              : (translatedTitle ?? translateText(item.titleRaw))}
           </h3>
           <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 text-sm shadow-sm md:grid-cols-4">
             <div>
@@ -925,9 +1123,11 @@ function DetailDrawer({
             </div>
           </div>
           <p className="mt-5 whitespace-pre-wrap text-sm leading-7 text-ink/75">
-            {language === "zh"
-              ? (translateText(item.descriptionRaw) ?? "无详情描述")
-              : (item.descriptionRaw ?? "无详情描述")}
+            {showOriginal
+              ? (item.descriptionRaw ?? "无详情描述")
+              : (translatedDescription ??
+                translateText(item.descriptionRaw) ??
+                "无详情描述")}
           </p>
           <a
             href={item.sourceUrl}
@@ -1151,9 +1351,6 @@ function PurchaseDialog({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-[.2em] text-rust">
-              Purchase record
-            </div>
             <h2 id="purchase-dialog-title" className="mt-1 text-xl font-black">
               记录已购买商品
             </h2>
@@ -1170,7 +1367,7 @@ function PurchaseDialog({
           </button>
         </div>
         <label className="mt-5 grid gap-1 text-xs font-bold text-ink/60">
-          实时购买金额（人民币或日元按当前项目单位）
+          购买金额
           <input
             type="number"
             min="1"
@@ -1190,7 +1387,7 @@ function PurchaseDialog({
           />
         </label>
         <label className="mt-3 grid gap-1 text-xs font-bold text-ink/60">
-          购买凭证（可选，5MB 内图片）
+          购买凭证
           <input
             type="file"
             accept="image/*"
@@ -1213,7 +1410,7 @@ function PurchaseDialog({
           onClick={() => void submit()}
           className="mt-5 min-h-12 w-full rounded-xl bg-rust px-4 py-3 font-black text-white disabled:opacity-50"
         >
-          {saving ? "写入购买记录…" : "确认购买并移入购买记录"}
+          {saving ? "保存中…" : "确认购买"}
         </button>
       </section>
     </div>
@@ -1239,9 +1436,19 @@ export default function Dashboard() {
   const [urlSubmitting, setUrlSubmitting] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [favoritesOpen, setFavoritesOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [language, setLanguage] = useState<"zh" | "original">("zh");
+  const [listingMode, setListingMode] = useState<"all" | "auction" | "direct">(
+    "all",
+  );
   const [workspace, setWorkspace] = useState<
-    "inventory" | "discovery" | "links" | "purchases" | "reviews" | "monitoring"
+    | "inventory"
+    | "discovery"
+    | "links"
+    | "purchases"
+    | "disliked"
+    | "reviews"
+    | "monitoring"
   >("inventory");
   const [imports, setImports] = useState<UrlImport[]>([]);
   const [linkItems, setLinkItems] = useState<Item[]>([]);
@@ -1254,6 +1461,9 @@ export default function Dashboard() {
     null,
   );
   const [purchaseItem, setPurchaseItem] = useState<Item | null>(null);
+  const [dislikedItems, setDislikedItems] = useState<Item[]>([]);
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const translationRequestedRef = useRef(new Set<string>());
   const itemSignature = [...items, ...linkItems]
     .map((item) => item.id)
     .join("|");
@@ -1276,6 +1486,46 @@ export default function Dashboard() {
     },
     { scope: dashboardRef },
   );
+
+  const requestTranslations = useCallback(async (sourceItems: Item[]) => {
+    const jobs: { key: string; text: string }[] = [];
+    for (const item of sourceItems) {
+      const candidates = [
+        { key: `${item.id}:title`, text: item.titleRaw },
+        { key: `${item.id}:description`, text: item.descriptionRaw ?? "" },
+      ];
+      for (const candidate of candidates) {
+        if (
+          candidate.text.trim() &&
+          !translationRequestedRef.current.has(candidate.key)
+        ) {
+          translationRequestedRef.current.add(candidate.key);
+          jobs.push(candidate);
+        }
+      }
+    }
+    if (!jobs.length) return;
+    try {
+      const response = await fetch(`${API}/analysis/translate`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ texts: jobs.map((job) => job.text) }),
+      });
+      if (!response.ok) throw new Error(`translation API ${response.status}`);
+      const data = (await response.json()) as { translations?: string[] };
+      const translated = data.translations ?? [];
+      setTranslations((current) => {
+        const next = { ...current };
+        jobs.forEach((job, index) => {
+          const value = translated[index]?.trim();
+          if (value && value !== job.text) next[job.key] = value;
+        });
+        return next;
+      });
+    } catch {
+      jobs.forEach((job) => translationRequestedRef.current.delete(job.key));
+    }
+  }, []);
 
   useGSAP(
     () => {
@@ -1360,6 +1610,7 @@ export default function Dashboard() {
       const data = await response.json();
       setItems(data.items);
       setTotal(data.total);
+      void requestTranslations(data.items as Item[]);
       const lastPage = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
       if (page > lastPage) setPage(lastPage);
       setServerOffset(new Date(data.serverTime).getTime() - Date.now());
@@ -1368,7 +1619,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [filters, page]);
+  }, [filters, page, requestTranslations]);
 
   const loadImports = useCallback(async () => {
     try {
@@ -1381,17 +1632,43 @@ export default function Dashboard() {
       const response = await fetch(`${API}/items?importOrigin=url&limit=100`, {
         cache: "no-store",
       });
-      if (response.ok) setLinkItems((await response.json()).items ?? []);
+      if (response.ok) {
+        const nextItems = ((await response.json()).items ?? []) as Item[];
+        setLinkItems(nextItems);
+        void requestTranslations(nextItems);
+      }
     } catch {}
-  }, []);
+  }, [requestTranslations]);
+  const loadDisliked = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${API}/items?includeIgnored=true&limit=100`,
+        {
+          cache: "no-store",
+        },
+      );
+      if (response.ok) {
+        const nextItems = ((await response.json()).items ?? []) as Item[];
+        setDislikedItems(nextItems.filter((item) => item.ignored));
+        void requestTranslations(nextItems);
+      }
+    } catch {}
+  }, [requestTranslations]);
   const loadPurchases = useCallback(async () => {
     try {
       const response = await fetch(`${API}/items/purchases`, {
         cache: "no-store",
       });
-      if (response.ok) setPurchases((await response.json()).purchases ?? []);
+      if (response.ok) {
+        const nextPurchases = ((await response.json()).purchases ??
+          []) as PurchaseRecord[];
+        setPurchases(nextPurchases);
+        void requestTranslations(
+          nextPurchases.map((purchase) => purchase.item),
+        );
+      }
     } catch {}
-  }, []);
+  }, [requestTranslations]);
   const loadAnalysis = useCallback(async () => {
     try {
       const response = await fetch(`${API}/analysis/market`, {
@@ -1409,8 +1686,11 @@ export default function Dashboard() {
       const data = await response.json();
       setReviews(data.reviews ?? []);
       setReviewTotal(data.total ?? 0);
+      void requestTranslations(
+        (data.reviews ?? []).map((review: ReviewQueueEntry) => review.item),
+      );
     } catch {}
-  }, []);
+  }, [requestTranslations]);
 
   useEffect(() => {
     const timeout = setTimeout(() => void load(), 250);
@@ -1420,6 +1700,7 @@ export default function Dashboard() {
     void Promise.all([
       loadImports(),
       loadLinkItems(),
+      loadDisliked(),
       loadPurchases(),
       loadAnalysis(),
       loadReviews(),
@@ -1429,6 +1710,7 @@ export default function Dashboard() {
         void Promise.all([
           loadImports(),
           loadLinkItems(),
+          loadDisliked(),
           loadPurchases(),
           loadAnalysis(),
           loadReviews(),
@@ -1436,7 +1718,14 @@ export default function Dashboard() {
       30_000,
     );
     return () => clearInterval(timer);
-  }, [loadImports, loadLinkItems, loadPurchases, loadAnalysis, loadReviews]);
+  }, [
+    loadImports,
+    loadLinkItems,
+    loadDisliked,
+    loadPurchases,
+    loadAnalysis,
+    loadReviews,
+  ]);
   useEffect(() => {
     const timer = setInterval(() => setNowTick((tick) => tick + 1), 30_000);
     return () => clearInterval(timer);
@@ -1520,6 +1809,15 @@ export default function Dashboard() {
         .map((item) => (item.id === id ? updated : item))
         .filter((item) => !item.ignored),
     );
+    setDislikedItems((current) => {
+      const next = current
+        .map((item) => (item.id === id ? updated : item))
+        .filter((item) => item.ignored);
+      if (updated.ignored && !next.some((item) => item.id === updated.id)) {
+        next.unshift(updated);
+      }
+      return next;
+    });
   }
 
   async function openAnalysisItem(itemId: string): Promise<boolean> {
@@ -1531,7 +1829,9 @@ export default function Dashboard() {
       if (!response.ok) return false;
       const data = await response.json();
       if (!data.item) return false;
-      setSelected(data.item as Item);
+      const item = data.item as Item;
+      void requestTranslations([item]);
+      setSelected(item);
       return true;
     } finally {
       setAnalysisOpeningId(null);
@@ -1640,7 +1940,7 @@ export default function Dashboard() {
             </div>
             <div className="min-w-0">
               <h1 className="truncate font-heading text-base font-black tracking-tight sm:text-lg">
-                采购中心
+                假面采购
               </h1>
             </div>
           </div>
@@ -1656,52 +1956,71 @@ export default function Dashboard() {
                 setLanguage((current) => (current === "zh" ? "original" : "zh"))
               }
               aria-pressed={language === "original"}
-              className="min-h-11 rounded-lg border border-white/20 bg-white/10 px-3 text-white transition-colors hover:bg-white/15"
+              aria-label={language === "zh" ? "切换为原文" : "切换为中文"}
+              title={language === "zh" ? "原文" : "中文"}
+              className="grid h-11 w-11 place-items-center rounded-lg border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/15"
             >
-              {language === "zh" ? "中文 · 切换原文" : "原文 · 切换中文"}
+              <TranslateIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen((current) => !current)}
+              aria-label="设置"
+              aria-expanded={settingsOpen}
+              title="设置"
+              className="grid h-11 w-11 place-items-center rounded-lg border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/15"
+            >
+              <SettingsIcon />
             </button>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-5 lg:px-8">
-        <nav
-          aria-label="采购工作区"
-          className="mb-4 flex flex-nowrap gap-2 overflow-x-auto rounded-2xl border border-blue-100 bg-white p-2 shadow-panel"
-        >
+      {settingsOpen && (
+        <div className="fixed right-4 top-[68px] z-40 w-52 rounded-2xl border border-blue-100 bg-white p-2 shadow-modal">
           {(
             [
-              ["inventory", "在售商品", "实时库"],
-              ["discovery", "发现", "滑动筛选"],
-              ["links", "链接专区", `${imports.length} 条任务`],
-              ["purchases", "购买记录", `${purchases.length} 条`],
-              ["reviews", "人工审核", `${reviewTotal} 条待办`],
+              ["disliked", "不感兴趣", dislikedItems.length, ArchiveIcon],
+              ["reviews", "待确认", reviewTotal, InfoIcon],
               [
                 "monitoring",
-                "监控运行",
-                overview?.status === "attention" ? "需关注" : "正常",
+                "监控",
+                overview?.status === "attention" ? "!" : "",
+                SettingsIcon,
               ],
             ] as const
-          ).map(([key, label, hint]) => (
+          ).map(([key, label, count, Icon]) => (
             <button
               key={key}
-              onClick={() => setWorkspace(key)}
-              aria-pressed={workspace === key}
-              className={`min-h-11 min-w-[112px] flex-none rounded-xl px-4 text-left transition-colors sm:min-w-0 ${workspace === key ? "bg-ink text-lime" : "text-ink hover:bg-blue-50"}`}
+              type="button"
+              onClick={() => {
+                setWorkspace(key);
+                setSettingsOpen(false);
+              }}
+              className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold transition-colors hover:bg-blue-50 ${workspace === key ? "bg-blue-50 text-moss" : "text-ink"}`}
             >
-              <span className="block text-sm font-black">{label}</span>
-              <span
-                className={`block text-[10px] ${workspace === key ? "text-white/70" : "text-ink/50"}`}
-              >
-                {hint}
-              </span>
+              <Icon />
+              <span className="flex-1">{label}</span>
+              {count !== "" && (
+                <span className="font-mono text-[10px] text-ink/50">
+                  {count}
+                </span>
+              )}
             </button>
           ))}
-        </nav>
+        </div>
+      )}
+
+      <div className="mx-auto max-w-[1600px] px-4 py-4 pb-24 sm:px-5 lg:px-8">
         {workspace === "discovery" && (
           <DiscoveryWorkspace
             apiBaseUrl={API}
             language={language}
+            translations={Object.fromEntries(
+              Object.entries(translations)
+                .filter(([key]) => key.endsWith(":title"))
+                .map(([key, value]) => [key.slice(0, -6), value]),
+            )}
             onOpenDetail={openAnalysisItem}
             onFavoriteChange={() => void load()}
             interactionDisabled={Boolean(
@@ -1955,6 +2274,7 @@ export default function Dashboard() {
                         serverOffset={serverOffset}
                         nowTick={nowTick}
                         language={language}
+                        translatedTitle={translations[`${item.id}:title`]}
                         onOpen={() => setSelected(item)}
                         onPatch={(patch) => void patchItem(item.id, patch)}
                         onPurchase={() => setPurchaseItem(item)}
@@ -1992,6 +2312,7 @@ export default function Dashboard() {
                         <th className="p-3">购买金额</th>
                         <th className="p-3">购买时间</th>
                         <th className="p-3">认证</th>
+                        <th className="p-3">备注</th>
                         <th className="p-3">凭证</th>
                       </tr>
                     </thead>
@@ -1999,7 +2320,7 @@ export default function Dashboard() {
                       {purchases.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={5}
+                            colSpan={6}
                             className="p-8 text-center text-ink/50"
                           >
                             暂无购买记录
@@ -2034,11 +2355,36 @@ export default function Dashboard() {
                             </td>
                             <td className="p-3">
                               {purchase.verifiedAt ? (
-                                <span className="rounded-md bg-emerald-100 px-2 py-1 font-bold text-emerald-800">
-                                  已认证购买
+                                <span
+                                  title="已认证购买"
+                                  aria-label="已认证购买"
+                                  className="grid h-9 w-9 place-items-center rounded-full bg-emerald-100 text-emerald-800"
+                                >
+                                  <MoneyIcon />
                                 </span>
                               ) : (
-                                <span className="text-ink/50">未上传凭证</span>
+                                <span
+                                  title="未上传凭证"
+                                  aria-label="未上传凭证"
+                                  className="grid h-9 w-9 place-items-center rounded-full border border-ink/10 text-ink/30"
+                                >
+                                  <MoneyIcon />
+                                </span>
+                              )}
+                            </td>
+                            <td className="max-w-[220px] p-3 text-ink/60">
+                              {purchase.note ? (
+                                <span
+                                  title={purchase.note}
+                                  className="inline-flex max-w-full items-center gap-1 truncate"
+                                >
+                                  <CommentIcon className="h-4 w-4 shrink-0 text-moss" />
+                                  <span className="truncate">
+                                    {purchase.note}
+                                  </span>
+                                </span>
+                              ) : (
+                                "—"
                               )}
                             </td>
                             <td className="p-3">
@@ -2211,6 +2557,74 @@ export default function Dashboard() {
                         {reviewActionId === review.id ? "确认中…" : "确认识别"}
                       </button>
                     </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+        {workspace === "disliked" && (
+          <section className="js-shell-reveal rounded-2xl border border-blue-100 bg-white p-4 shadow-panel">
+            <div className="flex items-center justify-between gap-3 border-b border-blue-100 pb-3">
+              <h2 className="font-heading text-lg font-black">
+                不感兴趣 · {dislikedItems.length}
+              </h2>
+              <button
+                type="button"
+                onClick={() => void loadDisliked()}
+                aria-label="刷新不感兴趣商品"
+                title="刷新"
+                className="grid h-11 w-11 place-items-center rounded-lg border border-blue-200 text-moss hover:bg-blue-50"
+              >
+                <RefreshIcon />
+              </button>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {dislikedItems.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-blue-200 p-8 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
+                  暂无商品
+                </p>
+              ) : (
+                dislikedItems.map((item) => (
+                  <article
+                    key={`disliked-${item.id}`}
+                    className="grid grid-cols-[88px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-ink/10 p-2"
+                  >
+                    <ImageGallery
+                      images={item.images}
+                      alt={
+                        translations[`${item.id}:title`] ??
+                        translateText(item.titleRaw) ??
+                        item.titleRaw
+                      }
+                      className="h-[72px] w-[88px] rounded-lg bg-ink"
+                    />
+                    <div className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelected(item)}
+                        className="line-clamp-2 text-left text-xs font-black leading-5 hover:text-moss"
+                      >
+                        {language === "original"
+                          ? item.titleRaw
+                          : (translations[`${item.id}:title`] ??
+                            translateText(item.titleRaw))}
+                      </button>
+                      <span className="mt-1 block font-mono text-xs font-black text-rust">
+                        {fmtYen(item.priceCurrent)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void patchItem(item.id, { ignored: false })
+                      }
+                      aria-label="恢复到在售商品"
+                      title="恢复"
+                      className="grid h-11 w-11 place-items-center rounded-full border border-moss/20 text-moss hover:bg-blue-50"
+                    >
+                      <RefreshIcon />
+                    </button>
                   </article>
                 ))
               )}
@@ -2584,6 +2998,34 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    aria-pressed={
+                      listingMode === "all" || listingMode === "auction"
+                    }
+                    onClick={() =>
+                      setListingMode((current) =>
+                        current === "auction" ? "all" : "auction",
+                      )
+                    }
+                    className={`min-h-11 rounded-lg border px-3 text-xs font-black transition-colors ${listingMode === "all" || listingMode === "auction" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
+                  >
+                    拍卖 · {auctionItems.length}
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={
+                      listingMode === "all" || listingMode === "direct"
+                    }
+                    onClick={() =>
+                      setListingMode((current) =>
+                        current === "direct" ? "all" : "direct",
+                      )
+                    }
+                    className={`min-h-11 rounded-lg border px-3 text-xs font-black transition-colors ${listingMode === "all" || listingMode === "direct" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
+                  >
+                    直购 · {directItems.length}
+                  </button>
                   {activeFilterCount > 0 && (
                     <button
                       onClick={resetFilters}
@@ -2673,72 +3115,78 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="mt-3 space-y-4">
-                <section aria-labelledby="auction-items-heading">
-                  <div className="mb-2 flex items-baseline justify-between gap-3">
-                    <h3
-                      id="auction-items-heading"
-                      className="font-heading text-base font-black"
-                    >
-                      拍卖商品 · {auctionItems.length}
-                    </h3>
-                    <span className="text-[10px] text-ink/50">
-                      实时竞拍与截止时间
-                    </span>
-                  </div>
-                  {auctionItems.length ? (
-                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-                      {auctionItems.map((item) => (
-                        <ProductCard
-                          key={item.id}
-                          item={item}
-                          serverOffset={serverOffset}
-                          nowTick={nowTick}
-                          language={language}
-                          onOpen={() => setSelected(item)}
-                          onPatch={(patch) => void patchItem(item.id, patch)}
-                          onPurchase={() => setPurchaseItem(item)}
-                        />
-                      ))}
+                {(listingMode === "all" || listingMode === "auction") && (
+                  <section aria-labelledby="auction-items-heading">
+                    <div className="mb-2 flex items-baseline justify-between gap-3">
+                      <h3
+                        id="auction-items-heading"
+                        className="font-heading text-base font-black"
+                      >
+                        拍卖商品 · {auctionItems.length}
+                      </h3>
+                      <span className="text-[10px] text-ink/50">
+                        实时竞拍与截止时间
+                      </span>
                     </div>
-                  ) : (
-                    <p className="rounded-xl border border-dashed border-blue-200 bg-white p-6 text-center text-sm text-ink/50">
-                      当前没有进行中的拍卖商品
-                    </p>
-                  )}
-                </section>
-                <section aria-labelledby="direct-items-heading">
-                  <div className="mb-2 flex items-baseline justify-between gap-3">
-                    <h3
-                      id="direct-items-heading"
-                      className="font-heading text-base font-black"
-                    >
-                      正常购买 · {directItems.length}
-                    </h3>
-                    <span className="text-[10px] text-ink/50">
-                      一口价与店铺现货
-                    </span>
-                  </div>
-                  {directItems.length ? (
-                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-                      {directItems.map((item) => (
-                        <ProductCard
-                          key={item.id}
-                          item={item}
-                          serverOffset={serverOffset}
-                          nowTick={nowTick}
-                          language={language}
-                          onOpen={() => setSelected(item)}
-                          onPatch={(patch) => void patchItem(item.id, patch)}
-                          onPurchase={() => setPurchaseItem(item)}
-                        />
-                      ))}
+                    {auctionItems.length ? (
+                      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                        {auctionItems.map((item) => (
+                          <ProductCard
+                            key={item.id}
+                            item={item}
+                            serverOffset={serverOffset}
+                            nowTick={nowTick}
+                            language={language}
+                            translatedTitle={translations[`${item.id}:title`]}
+                            onOpen={() => setSelected(item)}
+                            onPatch={(patch) => void patchItem(item.id, patch)}
+                            onPurchase={() => setPurchaseItem(item)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="rounded-xl border border-dashed border-blue-200 bg-white p-6 text-center text-sm text-ink/50">
+                        当前没有进行中的拍卖商品
+                      </p>
+                    )}
+                  </section>
+                )}
+                {(listingMode === "all" || listingMode === "direct") && (
+                  <section aria-labelledby="direct-items-heading">
+                    <div className="mb-2 flex items-baseline justify-between gap-3">
+                      <h3
+                        id="direct-items-heading"
+                        className="font-heading text-base font-black"
+                      >
+                        正常购买 · {directItems.length}
+                      </h3>
+                      <span className="text-[10px] text-ink/50">
+                        一口价与店铺现货
+                      </span>
                     </div>
-                  ) : (
-                    <p className="rounded-xl border border-dashed border-blue-200 bg-white p-6 text-center text-sm text-ink/50">
-                      当前没有一口价或店铺现货商品
-                    </p>
-                  )}
-                </section>
+                    {directItems.length ? (
+                      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                        {directItems.map((item) => (
+                          <ProductCard
+                            key={item.id}
+                            item={item}
+                            serverOffset={serverOffset}
+                            nowTick={nowTick}
+                            language={language}
+                            translatedTitle={translations[`${item.id}:title`]}
+                            onOpen={() => setSelected(item)}
+                            onPatch={(patch) => void patchItem(item.id, patch)}
+                            onPurchase={() => setPurchaseItem(item)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="rounded-xl border border-dashed border-blue-200 bg-white p-6 text-center text-sm text-ink/50">
+                        当前没有一口价或店铺现货商品
+                      </p>
+                    )}
+                  </section>
+                )}
               </div>
             )}
             {total > 0 && (
@@ -2809,10 +3257,40 @@ export default function Dashboard() {
           </>
         )}
       </div>
+      <nav
+        aria-label="主要工作区"
+        className="fixed bottom-3 left-1/2 z-30 grid w-[min(92vw,420px)] -translate-x-1/2 grid-cols-4 gap-1 rounded-2xl border border-blue-100 bg-white/95 p-2 shadow-modal backdrop-blur"
+      >
+        {(
+          [
+            ["inventory", "在售商品", BagIcon],
+            ["discovery", "发现", CompassIcon],
+            ["links", "链接专区", LinkIcon],
+            ["purchases", "购买记录", ListIcon],
+          ] as const
+        ).map(([key, label, Icon]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setWorkspace(key)}
+            aria-label={label}
+            title={label}
+            aria-current={workspace === key ? "page" : undefined}
+            className={`relative grid h-12 place-items-center rounded-xl transition-colors ${workspace === key ? "bg-ink text-lime" : "text-ink hover:bg-blue-50"}`}
+          >
+            <Icon className="h-5 w-5" />
+            {workspace === key && (
+              <span className="absolute bottom-1 h-1 w-1 rounded-full bg-lime" />
+            )}
+          </button>
+        ))}
+      </nav>
       {selected && (
         <DetailDrawer
           item={selected}
           language={language}
+          translatedTitle={translations[`${selected.id}:title`]}
+          translatedDescription={translations[`${selected.id}:description`]}
           onClose={() => setSelected(null)}
           onSaved={(updated) => {
             setSelected(updated);

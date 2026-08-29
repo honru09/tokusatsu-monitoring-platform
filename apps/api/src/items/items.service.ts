@@ -430,7 +430,7 @@ export class ItemsService {
         item: {
           include: {
             source: { select: { key: true, displayName: true } },
-            images: { orderBy: { position: "asc" }, take: 1 },
+            images: { orderBy: { position: "asc" } },
           },
         },
         product: {
@@ -457,6 +457,11 @@ export class ItemsService {
   async update(id: string, body: UpdateItemDto) {
     const current = await this.ensureExists(id);
     const { actor = "operator", reason, ...changes } = body;
+    if (changes.ignored === true) {
+      (changes as Prisma.ItemUpdateInput).ignoredAt = new Date();
+    } else if (changes.ignored === false) {
+      (changes as Prisma.ItemUpdateInput).ignoredAt = null;
+    }
     const quantity = changes.quantityEst ?? current.quantityEst;
     const priceTotal = current.priceTotalEst;
     const unitCostEst = quantity ? Math.round(priceTotal / quantity) : null;

@@ -138,15 +138,15 @@ export function parseMandarakeDetailHtml(
   for (const value of jsonImages)
     if (typeof value === "string")
       imageSet.add(new URL(value, BASE_URL).toString());
-  $('meta[property="og:image"], img[data-src], .item-image img').each(
-    (_, element) => {
-      const value =
-        $(element).attr("content") ??
-        $(element).attr("data-src") ??
-        $(element).attr("src");
-      if (value) imageSet.add(new URL(value, BASE_URL).toString());
-    },
-  );
+  $(
+    'meta[property="og:image"], img[data-src], img[data-image-url], img[src], .item-image img',
+  ).each((_, element) => {
+    const value =
+      $(element).attr("content") ??
+      $(element).attr("data-src") ??
+      $(element).attr("src");
+    if (value) imageSet.add(new URL(value, BASE_URL).toString());
+  });
   const conditionRaw =
     $('.condition, [class*="condition"]').first().text().trim() || undefined;
   return {
@@ -159,7 +159,7 @@ export function parseMandarakeDetailHtml(
     sellerType: "store",
     priceCurrent,
     conditionRaw,
-    imageUrls: [...imageSet].slice(0, 30),
+    imageUrls: [...imageSet],
     status,
     channel: "online",
   };

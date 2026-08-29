@@ -133,6 +133,25 @@ export function parseYahooAuctionDetailHtml(
   }
   const ogImage = $('meta[property="og:image"]').attr("content");
   if (ogImage) imageSet.add(new URL(ogImage, sourceUrl).toString());
+  $(
+    "img[src], img[data-src], img[data-image-url], img[data-original], picture source[srcset]",
+  ).each((_, element) => {
+    const raw =
+      $(element).attr("data-image-url") ??
+      $(element).attr("data-original") ??
+      $(element).attr("data-src") ??
+      $(element).attr("src") ??
+      $(element).attr("srcset");
+    if (!raw) return;
+    for (const value of raw
+      .split(",")
+      .map((part) => part.trim().split(/\s+/)[0])) {
+      if (!value || value.startsWith("data:")) continue;
+      try {
+        imageSet.add(new URL(value, sourceUrl).toString());
+      } catch {}
+    }
+  });
   const auctionEndAt = offers.priceValidUntil
     ? new Date(String(offers.priceValidUntil))
     : undefined;
@@ -156,7 +175,7 @@ export function parseYahooAuctionDetailHtml(
     priceCurrent,
     auctionEndAt: safeAuctionEndAt,
     conditionRaw,
-    imageUrls: [...imageSet].slice(0, 30),
+    imageUrls: [...imageSet],
     status,
     channel: "online",
   };
