@@ -1,5 +1,6 @@
 import { classifyImages } from "@tokusatsu/classification";
 import { prisma, Prisma } from "@tokusatsu/db";
+import { matchOrCreateProduct } from "@tokusatsu/product-intelligence";
 import {
   auctionRefreshDelay,
   isExcludedCollectibleText,
@@ -11,10 +12,12 @@ import type {
 } from "@tokusatsu/shared";
 import type { Job } from "bullmq";
 import { createHash } from "node:crypto";
+import { ApifyEcommerceAdapter } from "./adapters/apify-ecommerce.adapter.js";
 import { FirecrawlMarketplaceAdapter } from "./adapters/firecrawl-market.adapter.js";
 import { MandarakeAdapter } from "./adapters/mandarake.adapter.js";
 import { MercariAdapter } from "./adapters/mercari.adapter.js";
 import { MockAdapter } from "./adapters/mock.adapter.js";
+import { PlaywrightPageAdapter } from "./adapters/playwright-page.adapter.js";
 import { PublicPageAdapter } from "./adapters/public-page.adapter.js";
 import { YahooAuctionsAdapter } from "./adapters/yahoo-auctions.adapter.js";
 import { classificationQueue, connection, statusQueue } from "./queues.js";
@@ -25,7 +28,9 @@ const adapters: Record<string, SourceAdapter> = {
   mercari: new MercariAdapter(),
   yahoo_auctions: new YahooAuctionsAdapter(),
   firecrawl_market: new FirecrawlMarketplaceAdapter(),
+  apify_ecommerce: new ApifyEcommerceAdapter(),
   public_page: new PublicPageAdapter(),
+  playwright_page: new PlaywrightPageAdapter(),
 };
 
 type SearchMetrics = {
@@ -44,6 +49,7 @@ function sourceBaseUrl(adapterKey: string): string {
   if (adapterKey === "mercari") return "https://jp.mercari.com";
   if (adapterKey === "yahoo_auctions") return "https://auctions.yahoo.co.jp";
   if (adapterKey === "firecrawl_market") return "https://api.firecrawl.dev";
+  if (adapterKey === "apify_ecommerce") return "https://api.apify.com";
   if (adapterKey === "public_page") return "https://public.example";
   return "https://example.com/mock";
 }
@@ -84,7 +90,9 @@ export async function processSearch(
         "mercari",
         "yahoo_auctions",
         "firecrawl_market",
+        "apify_ecommerce",
         "public_page",
+        "playwright_page",
       ].includes(adapter.key)
         ? 3000
         : 0,
@@ -243,7 +251,7 @@ export async function processSearch(
 export async function processUrlAnalysis(
   job: Job<{ adapterKey: string; sourceUrl: string; importId?: string }>,
 ) {
-  const adapter = adapters[job.data.adapterKey];
+  let adapter = adapters[job.data.adapterKey];
   if (!adapter) throw new Error(`Unknown adapter: ${job.data.adapterKey}`);
   const source = await prisma.source.upsert({
     where: { key: adapter.key },
@@ -257,7 +265,9 @@ export async function processUrlAnalysis(
         "mercari",
         "yahoo_auctions",
         "firecrawl_market",
+        "apify_ecommerce",
         "public_page",
+        "playwright_page",
       ].includes(adapter.key)
         ? 3000
         : 0,
@@ -290,10 +300,32 @@ export async function processUrlAnalysis(
     });
   }
   try {
-    const raw = await adapter.fetchDetail({
-      sourceItemId,
-      sourceUrl: job.data.sourceUrl,
-    });
+    let raw;
+    try {
+      raw = await adapter.fetchDetail({
+        sourceItemId,
+        sourceUrl: job.data.sourceUrl,
+      });
+    } catch (error) {
+      const playwrightConfigured = Boolean(
+        process.env.PLAYWRIGHT_WS_ENDPOINT ||
+          process.env.PLAYWRIGHT_EXECUTABLE_PATH,
+      );
+      if (adapter.key !== "public_page" || !playwrightConfigured) throw error;
+      adapter = adapters.playwright_page;
+      if (job.data.importId)
+        await prisma.urlImport.update({
+          where: { id: job.data.importId },
+          data: {
+            progress: 35,
+            currentStep: "普通读取失败，正在使用动态浏览器渲染",
+          },
+        });
+      raw = await adapter.fetchDetail({
+        sourceItemId,
+        sourceUrl: job.data.sourceUrl,
+      });
+    }
     const normalized = await adapter.normalize(raw);
     if (
       isExcludedCollectibleText(normalized.titleRaw, normalized.descriptionRaw)
@@ -470,6 +502,7 @@ async function persistNormalized(
       result: item as unknown as Prisma.InputJsonValue,
     },
   });
+  await matchOrCreateProduct(saved.id);
   await classificationQueue.add(
     "classify-images",
     { itemId: saved.id },
@@ -526,10 +559,23 @@ export async function processClassification(job: Job<{ itemId: string }>) {
     description: item.descriptionRaw,
     imageUrls: item.images.map((image) => image.url),
   });
+  const visionIps = result.franchise.value ?? [];
+  const visionCondition = result.condition.value;
   const conflict =
-    (result.ip.length > 0 && !result.ip.includes(item.categoryIp)) ||
-    (result.conditionGrade !== "unknown" &&
-      result.conditionGrade !== item.conditionGrade);
+    (visionIps.length > 0 && !visionIps.includes(item.categoryIp)) ||
+    (visionCondition != null && visionCondition !== item.conditionGrade);
+  const fieldConfidences = {
+    franchise: result.franchise.confidence,
+    series: result.series.confidence,
+    character: result.characters.confidence,
+    toyType: result.toyTypes.confidence,
+    manufacturer: result.manufacturers.confidence,
+    quantity: result.quantity.confidence,
+    condition: result.condition.confidence,
+  };
+  const needsReview =
+    conflict ||
+    Object.values(fieldConfidences).some((confidence) => confidence < 0.9);
   await prisma.$transaction([
     prisma.itemClassification.create({
       data: {
@@ -544,11 +590,50 @@ export async function processClassification(job: Job<{ itemId: string }>) {
     prisma.item.update({
       where: { id: item.id },
       data: {
-        needsReview: item.needsReview || conflict || result.confidence < 0.6,
+        needsReview: item.needsReview || needsReview,
+        extractionEvidence: {
+          text: item.extractionEvidence ?? null,
+          vision: result,
+        } as unknown as Prisma.InputJsonValue,
       },
     }),
   ]);
-  return { provider, confidence: result.confidence, conflict };
+  if (needsReview) {
+    await prisma.reviewQueue.upsert({
+      where: { itemId_status: { itemId: item.id, status: "pending" } },
+      update: {
+        reasons: [
+          ...(conflict ? ["vision:与文本结果冲突"] : []),
+          ...Object.entries(fieldConfidences)
+            .filter(([, confidence]) => confidence < 0.9)
+            .map(([field, confidence]) =>
+              confidence < 0.7
+                ? `vision:${field}:无法确认`
+                : `vision:${field}:待确认`,
+            ),
+        ],
+        fieldConfidences: fieldConfidences as unknown as Prisma.InputJsonValue,
+        suggestedChanges: result as unknown as Prisma.InputJsonValue,
+      },
+      create: {
+        itemId: item.id,
+        productId: item.productId,
+        reasons: [
+          ...(conflict ? ["vision:与文本结果冲突"] : []),
+          ...Object.entries(fieldConfidences)
+            .filter(([, confidence]) => confidence < 0.9)
+            .map(([field, confidence]) =>
+              confidence < 0.7
+                ? `vision:${field}:无法确认`
+                : `vision:${field}:待确认`,
+            ),
+        ],
+        fieldConfidences: fieldConfidences as unknown as Prisma.InputJsonValue,
+        suggestedChanges: result as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+  return { provider, confidence: result.confidence, conflict, needsReview };
 }
 
 export async function processStatus(
@@ -642,27 +727,36 @@ export async function processCleanup() {
       }),
     ]);
   }
-  const cardIds = await prisma.item.findMany({
+  const exclusionCandidates = await prisma.item.findMany({
     where: {
       purchaseRecord: null,
-      OR: [
-        { categoryToyType: "card" },
-        { titleRaw: { contains: "トレカ", mode: "insensitive" } },
-        { titleRaw: { contains: "trading card", mode: "insensitive" } },
-        { titleRaw: { contains: "card game", mode: "insensitive" } },
-        { descriptionRaw: { contains: "カードダス", mode: "insensitive" } },
-      ],
     },
-    select: { id: true },
+    select: {
+      id: true,
+      titleRaw: true,
+      descriptionRaw: true,
+      categoryToyType: true,
+    },
     take: 5000,
   });
-  if (cardIds.length)
+  const excludedIds = exclusionCandidates
+    .filter(
+      (item) =>
+        item.categoryToyType === "card" ||
+        isExcludedCollectibleText(item.titleRaw, item.descriptionRaw ?? ""),
+    )
+    .map((item) => item.id);
+  if (excludedIds.length)
     await prisma.item.deleteMany({
-      where: { id: { in: cardIds.map((item) => item.id) } },
+      where: { id: { in: excludedIds } },
     });
+  const orphanProducts = await prisma.product.deleteMany({
+    where: { listings: { none: {} }, inventory: null },
+  });
   return {
     archived: terminalIds.length,
-    removedCards: cardIds.length,
+    removedExcluded: excludedIds.length,
+    removedOrphanProducts: orphanProducts.count,
     cleanedAt: now.toISOString(),
   };
 }

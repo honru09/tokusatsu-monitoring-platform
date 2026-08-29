@@ -35,6 +35,11 @@ type Item = {
   ignored: boolean;
   importOrigin?: "search" | "url";
   archivedAt?: string | null;
+  normalizedTitle?: string | null;
+  fieldConfidences?: Record<string, unknown> | null;
+  extractionEvidence?: Record<string, unknown> | null;
+  matchConfidence?: number | null;
+  matchDecision?: string | null;
   purchaseRecord?: PurchaseRecord | null;
   note?: string | null;
   source: { key: string; displayName: string };
@@ -44,6 +49,43 @@ type Item = {
     locationText?: string | null;
   } | null;
   images: { url: string; position: number }[];
+  product?: Product | null;
+};
+
+type CatalogEntity = {
+  key: string;
+  nameJa: string;
+  nameZh: string;
+  nameEn?: string | null;
+};
+
+type Product = {
+  id: string;
+  canonicalName: string;
+  titleZh?: string | null;
+  productLine?: string | null;
+  modelNumber?: string | null;
+  releaseYear?: number | null;
+  franchise?: CatalogEntity | null;
+  series?: CatalogEntity | null;
+  manufacturerEntity?: CatalogEntity | null;
+  toyTypeEntity?: CatalogEntity | null;
+  inventory?: {
+    quantity: number;
+    averageCost?: number | null;
+  } | null;
+  _count?: { listings: number };
+};
+
+type ReviewQueueEntry = {
+  id: string;
+  status: string;
+  reasons: string[];
+  fieldConfidences: Record<string, unknown>;
+  suggestedChanges?: Record<string, unknown> | null;
+  createdAt: string;
+  item: Item;
+  product?: Product | null;
 };
 
 type PurchaseRecord = {
@@ -98,6 +140,9 @@ type MonitoringOverview = {
   lastDiscovery?: string | null;
   itemTotal: number;
   activeTotal: number;
+  productTotal: number;
+  pendingReviewTotal: number;
+  inventoryTotal: number;
   discovered24h: number;
   totals24h: {
     candidates: number;
@@ -286,6 +331,8 @@ const sourceName = (key: string, fallback?: string) =>
     mercari: "日本二手市场",
     yahoo_auctions: "日本拍卖市场",
     firecrawl_market: "自动适配来源",
+    apify_ecommerce: "Apify 电商检索",
+    playwright_page: "动态商品页",
     mock: "本地测试来源",
   })[key] ??
   (fallback && !/mandarake|mercari|firecrawl/i.test(fallback)
@@ -320,6 +367,25 @@ const labels: Record<string, string> = {
   junk: "JUNK",
   online: "线上",
   physical_store: "线下店",
+};
+
+const confidenceFieldLabels: Record<string, string> = {
+  franchise: "作品系列",
+  series: "具体系列",
+  characters: "角色",
+  toyTypes: "玩具类型",
+  manufacturers: "厂商",
+  quantity: "数量",
+  sealedCount: "未开封数量",
+  packaging: "包装",
+  condition: "成色",
+  visibleDamage: "可见损伤",
+  missingParts: "缺件",
+  backMarkings: "背标",
+  year: "年份",
+  modelNumber: "型号",
+  copyrightText: "版权文字",
+  productMatch: "标准商品匹配",
 };
 
 const translationRules: [RegExp, string][] = [
@@ -444,6 +510,18 @@ const fmtDate = (value?: string | null) =>
       }).format(new Date(value))
     : "平台未提供";
 
+function confidenceValue(value: unknown) {
+  if (typeof value === "number") return value;
+  if (value && typeof value === "object" && "confidence" in value) {
+    const confidence = (value as { confidence?: unknown }).confidence;
+    return typeof confidence === "number" ? confidence : null;
+  }
+  return null;
+}
+
+const confidenceLabel = (value?: number | null) =>
+  value == null ? "待识别" : `${Math.round(value * 100)}%`;
+
 function relativeTime(value?: string | null) {
   if (!value) return "尚无记录";
   const seconds = Math.max(
@@ -524,6 +602,18 @@ function ProductCard({
     item.auctionEndAt &&
     new Date(item.auctionEndAt).getTime() - (Date.now() + serverOffset) <
       10 * 60_000;
+  const displayTitle =
+    language === "zh"
+      ? (item.product?.titleZh ??
+        item.product?.canonicalName ??
+        translateText(item.titleRaw))
+      : item.titleRaw;
+  const productTags = [
+    item.product?.series?.nameZh,
+    item.product?.toyTypeEntity?.nameZh ?? labels[item.categoryToyType],
+    item.product?.manufacturerEntity?.nameZh ?? labels[item.manufacturer],
+    labels[item.conditionGrade],
+  ].filter((tag): tag is string => Boolean(tag));
   return (
     <article
       data-item-id={item.id}
@@ -572,16 +662,14 @@ function ProductCard({
 
       <div className="p-3">
         <div className="mb-2 flex min-h-6 flex-wrap gap-1">
-          {[item.categoryToyType, item.manufacturer, item.conditionGrade].map(
-            (tag) => (
-              <span
-                key={tag}
-                className={`rounded px-1.5 py-1 text-[10px] font-bold ${tag === "junk" || tag === "stained_or_damaged" ? "bg-rust/10 text-rust" : "bg-fog/70 text-moss"}`}
-              >
-                {labels[tag] ?? tag}
-              </span>
-            ),
-          )}
+          {productTags.map((tag, index) => (
+            <span
+              key={`${tag}-${index}`}
+              className={`rounded px-1.5 py-1 text-[10px] font-bold ${tag === labels.junk || tag === labels.stained_or_damaged ? "bg-rust/10 text-rust" : "bg-fog/70 text-moss"}`}
+            >
+              {tag}
+            </span>
+          ))}
           {item.needsReview && (
             <span className="rounded bg-amber-100 px-1.5 py-1 text-[10px] font-bold text-amber-800">
               待确认
@@ -592,8 +680,18 @@ function ProductCard({
           onClick={onOpen}
           className="line-clamp-2 min-h-11 w-full text-left text-sm font-black leading-[1.35rem] text-ink transition-colors hover:text-moss"
         >
-          {language === "zh" ? translateText(item.titleRaw) : item.titleRaw}
+          {displayTitle}
         </button>
+        {item.product && (
+          <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-ink/50">
+            <span className="truncate">
+              标准商品 · {item.product._count?.listings ?? 1} 个在售来源
+            </span>
+            <span className="shrink-0 font-mono font-bold text-moss">
+              匹配 {confidenceLabel(item.matchConfidence)}
+            </span>
+          </div>
+        )}
         <div className="mt-2 flex items-end justify-between gap-3 border-y border-ink/8 py-2">
           <div>
             <div className="text-[10px] font-bold text-ink/45">当前价</div>
@@ -1140,12 +1238,15 @@ export default function Dashboard() {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [language, setLanguage] = useState<"zh" | "original">("zh");
   const [workspace, setWorkspace] = useState<
-    "inventory" | "links" | "purchases"
+    "inventory" | "links" | "purchases" | "reviews" | "monitoring"
   >("inventory");
   const [imports, setImports] = useState<UrlImport[]>([]);
   const [linkItems, setLinkItems] = useState<Item[]>([]);
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
   const [analysis, setAnalysis] = useState<MarketAnalysis | null>(null);
+  const [reviews, setReviews] = useState<ReviewQueueEntry[]>([]);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [reviewActionId, setReviewActionId] = useState<string | null>(null);
   const [analysisOpeningId, setAnalysisOpeningId] = useState<string | null>(
     null,
   );
@@ -1292,6 +1393,17 @@ export default function Dashboard() {
       if (response.ok) setAnalysis(await response.json());
     } catch {}
   }, []);
+  const loadReviews = useCallback(async () => {
+    try {
+      const response = await fetch(`${API}/items/reviews/pending`, {
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setReviews(data.reviews ?? []);
+      setReviewTotal(data.total ?? 0);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => void load(), 250);
@@ -1303,6 +1415,7 @@ export default function Dashboard() {
       loadLinkItems(),
       loadPurchases(),
       loadAnalysis(),
+      loadReviews(),
     ]);
     const timer = setInterval(
       () =>
@@ -1311,11 +1424,12 @@ export default function Dashboard() {
           loadLinkItems(),
           loadPurchases(),
           loadAnalysis(),
+          loadReviews(),
         ]),
       30_000,
     );
     return () => clearInterval(timer);
-  }, [loadImports, loadLinkItems, loadPurchases, loadAnalysis]);
+  }, [loadImports, loadLinkItems, loadPurchases, loadAnalysis, loadReviews]);
   useEffect(() => {
     const timer = setInterval(() => setNowTick((tick) => tick + 1), 30_000);
     return () => clearInterval(timer);
@@ -1457,6 +1571,24 @@ export default function Dashboard() {
     } catch {}
   }
 
+  async function confirmReview(review: ReviewQueueEntry) {
+    setReviewActionId(review.id);
+    try {
+      const response = await fetch(`${API}/items/${review.item.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          needsReview: false,
+          actor: "review-workspace",
+          reason: "人工确认当前标准商品识别",
+        }),
+      });
+      if (response.ok) await Promise.all([loadReviews(), load()]);
+    } finally {
+      setReviewActionId(null);
+    }
+  }
+
   const urgentCount = items.filter(
     (item) =>
       item.auctionEndAt &&
@@ -1525,6 +1657,12 @@ export default function Dashboard() {
               ["inventory", "在售商品", "实时库"],
               ["links", "链接专区", `${imports.length} 条任务`],
               ["purchases", "购买记录", `${purchases.length} 条`],
+              ["reviews", "人工审核", `${reviewTotal} 条待办`],
+              [
+                "monitoring",
+                "监控运行",
+                overview?.status === "attention" ? "需关注" : "正常",
+              ],
             ] as const
           ).map(([key, label, hint]) => (
             <button
@@ -1542,111 +1680,111 @@ export default function Dashboard() {
             </button>
           ))}
         </nav>
-        <section
-          className="mb-4 rounded-2xl border border-ink/10 bg-ink p-4 text-white shadow-panel"
-          aria-labelledby="analysis-heading"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[.2em] text-lime">
-                Realtime procurement analysis
+        {workspace === "inventory" && (
+          <section
+            className="mb-3 rounded-xl border border-ink/10 bg-ink p-3 text-white shadow-panel"
+            aria-labelledby="analysis-heading"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2
+                  id="analysis-heading"
+                  className="font-heading text-base font-black"
+                >
+                  AI 采购分析
+                </h2>
+                <p className="mt-0.5 max-w-3xl text-[11px] leading-4 text-white/65">
+                  持续计算当前库的性价比、数量与成色，点击任意结论可查看对应商品。
+                </p>
               </div>
-              <h2
-                id="analysis-heading"
-                className="font-heading text-xl font-black"
-              >
-                AI 采购分析
-              </h2>
-              <p className="mt-1 max-w-3xl text-xs leading-5 text-white/65">
-                根据当前在售库持续计算性价比、数量和成色。当前使用透明规则引擎；配置
-                AI 服务后可无缝升级，不会伪装成已调用 AI。
-              </p>
-            </div>
-            <button
-              onClick={() => void loadAnalysis()}
-              className="min-h-11 rounded-lg border border-white/20 bg-white/10 px-3 text-xs font-black text-white"
-            >
-              立即分析
-            </button>
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            {[
-              ["最高性价比", analysis?.bestValue],
-              ["数量最大", analysis?.largestQuantity],
-              ["质量最好", analysis?.bestCondition],
-            ].map(([label, item]) => (
               <button
-                key={label as string}
-                type="button"
-                disabled={!item || analysisOpeningId === (item as Item).id}
-                onClick={() => item && void openAnalysisItem((item as Item).id)}
-                className="group rounded-xl border border-white/10 bg-white/5 p-3 text-left transition-colors hover:border-lime/50 hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
+                onClick={() => void loadAnalysis()}
+                className="min-h-11 rounded-lg border border-white/20 bg-white/10 px-3 text-xs font-black text-white"
               >
-                <span className="block text-[10px] font-bold text-lime">
-                  {label as string}
-                </span>
-                <b className="mt-1 block line-clamp-2 text-sm">
-                  {item
-                    ? language === "zh"
-                      ? translateText((item as Item).titleRaw)
-                      : (item as Item).titleRaw
-                    : "分析中…"}
-                </b>
-                <span className="mt-1 block font-mono text-[11px] text-white/60">
-                  {item
-                    ? `评分 ${(item as Item).procurementScore} · 单件 ${fmtYen((item as Item).unitCostEst)}`
-                    : "等待数据"}
-                </span>
-                {item && (
-                  <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-lime/80 transition-colors group-hover:text-lime">
-                    {analysisOpeningId === (item as Item).id
-                      ? "正在打开…"
-                      : "查看商品详情"}
-                    <ExternalLinkIcon className="h-3 w-3" />
-                  </span>
-                )}
+                立即分析
               </button>
-            ))}
-          </div>
-          {analysis && (
-            <>
-              <p className="mt-3 rounded-xl bg-white/8 p-3 text-xs leading-5 text-white/80">
-                {analysis.recommendation}
-              </p>
-              <div className="mt-3 flex items-center justify-between text-[10px] text-white/55">
-                <span>
-                  {analysis.engineLabel} · 样本 {analysis.sampleSize} 件
-                </span>
-                <span>更新于 {relativeTime(analysis.generatedAt)}</span>
-              </div>
-              <div className="mt-3 grid min-w-0 gap-1.5 md:grid-cols-2">
-                {analysis.ranking.slice(0, 6).map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    disabled={analysisOpeningId === item.id}
-                    onClick={() => void openAnalysisItem(item.id)}
-                    className="group flex min-w-0 items-center gap-2 overflow-hidden rounded-lg bg-white/5 px-2.5 py-2 text-left text-xs transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
-                  >
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-lime font-mono font-black text-ink">
-                      {item.rank}
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {[
+                ["最高性价比", analysis?.bestValue],
+                ["数量最大", analysis?.largestQuantity],
+                ["质量最好", analysis?.bestCondition],
+              ].map(([label, item]) => (
+                <button
+                  key={label as string}
+                  type="button"
+                  disabled={!item || analysisOpeningId === (item as Item).id}
+                  onClick={() =>
+                    item && void openAnalysisItem((item as Item).id)
+                  }
+                  className="group rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left transition-colors hover:border-lime/50 hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
+                >
+                  <span className="block text-[10px] font-bold text-lime">
+                    {label as string}
+                  </span>
+                  <b className="mt-1 block line-clamp-2 text-sm">
+                    {item
+                      ? language === "zh"
+                        ? translateText((item as Item).titleRaw)
+                        : (item as Item).titleRaw
+                      : "分析中…"}
+                  </b>
+                  <span className="mt-1 block font-mono text-[11px] text-white/60">
+                    {item
+                      ? `评分 ${(item as Item).procurementScore} · 单件 ${fmtYen((item as Item).unitCostEst)}`
+                      : "等待数据"}
+                  </span>
+                  {item && (
+                    <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-lime/80 transition-colors group-hover:text-lime">
+                      {analysisOpeningId === (item as Item).id
+                        ? "正在打开…"
+                        : "查看商品详情"}
+                      <ExternalLinkIcon className="h-3 w-3" />
                     </span>
-                    <span className="min-w-0 flex-1 truncate">
-                      {language === "zh"
-                        ? translateText(item.titleRaw)
-                        : item.titleRaw}
-                    </span>
-                    <span className="font-mono text-lime">
-                      {item.procurementScore}
-                    </span>
-                    <ExternalLinkIcon className="h-3 w-3 shrink-0 text-white/40 transition-colors group-hover:text-lime" />
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-        {workspace !== "inventory" && (
+                  )}
+                </button>
+              ))}
+            </div>
+            {analysis && (
+              <>
+                <p className="mt-3 rounded-xl bg-white/8 p-3 text-xs leading-5 text-white/80">
+                  {analysis.recommendation}
+                </p>
+                <div className="mt-3 flex items-center justify-between text-[10px] text-white/55">
+                  <span>
+                    {analysis.engineLabel} · 样本 {analysis.sampleSize} 件
+                  </span>
+                  <span>更新于 {relativeTime(analysis.generatedAt)}</span>
+                </div>
+                <div className="mt-3 grid min-w-0 gap-1.5 md:grid-cols-2">
+                  {analysis.ranking.slice(0, 6).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      disabled={analysisOpeningId === item.id}
+                      onClick={() => void openAnalysisItem(item.id)}
+                      className="group flex min-w-0 items-center gap-2 overflow-hidden rounded-lg bg-white/5 px-2.5 py-2 text-left text-xs transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
+                    >
+                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-lime font-mono font-black text-ink">
+                        {item.rank}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {language === "zh"
+                          ? translateText(item.titleRaw)
+                          : item.titleRaw}
+                      </span>
+                      <span className="font-mono text-lime">
+                        {item.procurementScore}
+                      </span>
+                      <ExternalLinkIcon className="h-3 w-3 shrink-0 text-white/40 transition-colors group-hover:text-lime" />
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        )}
+        {(workspace === "links" || workspace === "purchases") && (
           <section className="mb-4 rounded-2xl border border-blue-100 bg-white p-4 shadow-panel">
             {workspace === "links" ? (
               <>
@@ -1906,7 +2044,151 @@ export default function Dashboard() {
             )}
           </section>
         )}
-        {workspace === "inventory" && (
+        {workspace === "reviews" && (
+          <section
+            aria-labelledby="reviews-heading"
+            className="js-shell-reveal rounded-2xl border border-blue-100 bg-white p-4 shadow-panel"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-blue-100 pb-3">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[.18em] text-amber-700">
+                  识别质量控制
+                </div>
+                <h2
+                  id="reviews-heading"
+                  className="font-heading text-lg font-black"
+                >
+                  人工审核 · {reviewTotal}
+                </h2>
+                <p className="mt-1 text-xs text-slate-600">
+                  70%–89% 的识别结果在这里确认；低于 70% 的字段不会被系统猜测。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadReviews()}
+                className="min-h-11 rounded-lg border border-blue-200 bg-white px-3 text-xs font-black text-moss hover:bg-blue-50"
+              >
+                刷新审核队列
+              </button>
+            </div>
+            <div className="mt-3 divide-y divide-blue-100">
+              {reviews.length === 0 ? (
+                <p className="py-12 text-center text-sm font-bold text-slate-500">
+                  当前没有待审核识别结果
+                </p>
+              ) : (
+                reviews.map((review) => (
+                  <article
+                    key={review.id}
+                    className="grid gap-3 py-4 md:grid-cols-[84px_minmax(0,1fr)_minmax(260px,.8fr)_auto] md:items-start"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => void openAnalysisItem(review.item.id)}
+                      className="h-20 w-20 overflow-hidden rounded-lg bg-fog text-left"
+                      aria-label="打开待审核商品"
+                    >
+                      {review.item.images[0] ? (
+                        <img
+                          src={review.item.images[0].url}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="grid h-full place-items-center font-heading text-2xl font-black text-moss">
+                          特
+                        </span>
+                      )}
+                    </button>
+                    <div className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => void openAnalysisItem(review.item.id)}
+                        className="line-clamp-2 text-left text-sm font-black leading-5 hover:text-moss"
+                      >
+                        {language === "zh"
+                          ? translateText(review.item.titleRaw)
+                          : review.item.titleRaw}
+                      </button>
+                      <div className="mt-1 text-[10px] text-slate-500">
+                        {sourceName(
+                          review.item.source.key,
+                          review.item.source.displayName,
+                        )}{" "}
+                        · 入队 {relativeTime(review.createdAt)}
+                      </div>
+                      <div className="mt-2 rounded-lg bg-blue-50 px-2.5 py-2 text-xs">
+                        <b className="block text-ink">
+                          {review.product?.titleZh ??
+                            review.product?.canonicalName ??
+                            "尚未匹配标准商品"}
+                        </b>
+                        <span className="mt-0.5 block text-[10px] text-slate-600">
+                          {[
+                            review.product?.franchise?.nameZh,
+                            review.product?.series?.nameZh,
+                            review.product?.manufacturerEntity?.nameZh,
+                            review.product?.toyTypeEntity?.nameZh,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || "标准实体字段待确认"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(review.fieldConfidences ?? {}).map(
+                          ([field, rawValue]) => {
+                            const value = confidenceValue(rawValue);
+                            if (value == null) return null;
+                            const level =
+                              value >= 0.9
+                                ? "bg-emerald-50 text-emerald-700"
+                                : value >= 0.7
+                                  ? "bg-amber-50 text-amber-800"
+                                  : "bg-red-50 text-red-700";
+                            return (
+                              <span
+                                key={field}
+                                className={`rounded px-2 py-1 text-[10px] font-bold ${level}`}
+                              >
+                                {confidenceFieldLabels[field] ?? field}{" "}
+                                {confidenceLabel(value)}
+                              </span>
+                            );
+                          },
+                        )}
+                      </div>
+                      <p className="mt-2 text-[10px] leading-4 text-slate-500">
+                        {review.reasons.join("；") || "字段可信度需要人工确认"}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 md:flex-col">
+                      <button
+                        type="button"
+                        onClick={() => void openAnalysisItem(review.item.id)}
+                        className="min-h-10 rounded-lg border border-blue-200 px-3 text-xs font-bold text-moss hover:bg-blue-50"
+                      >
+                        查看详情
+                      </button>
+                      <button
+                        type="button"
+                        disabled={reviewActionId === review.id}
+                        onClick={() => void confirmReview(review)}
+                        className="min-h-10 rounded-lg bg-moss px-3 text-xs font-black text-white hover:bg-blue-800 disabled:opacity-50"
+                      >
+                        {reviewActionId === review.id ? "确认中…" : "确认识别"}
+                      </button>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+        {workspace === "monitoring" && (
           <section aria-labelledby="ops-heading" className="js-shell-reveal">
             <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-panel">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1939,8 +2221,13 @@ export default function Dashboard() {
                   </span>
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
+              <div className="mt-3 grid grid-cols-2 divide-x divide-blue-100 border-y border-blue-100 py-3 xl:grid-cols-5">
                 {[
+                  [
+                    "标准商品",
+                    overview?.productTotal ?? 0,
+                    `${overview?.pendingReviewTotal ?? reviewTotal} 条待审核`,
+                  ],
                   [
                     "活跃商品",
                     overview?.activeTotal ?? total,
@@ -1952,9 +2239,9 @@ export default function Dashboard() {
                     `候选 ${overview?.totals24h.candidates ?? 0}`,
                   ],
                   [
-                    "24h 入库",
-                    overview?.totals24h.inserted ?? 0,
-                    `已知跳过 ${overview?.totals24h.skippedKnown ?? 0}`,
+                    "已购库存",
+                    overview?.inventoryTotal ?? 0,
+                    `购买记录 ${purchases.length} 条`,
                   ],
                   [
                     "任务成功率",
@@ -1962,10 +2249,7 @@ export default function Dashboard() {
                     `${overview?.totals24h.failed ?? 0} 次失败`,
                   ],
                 ].map(([label, value, hint]) => (
-                  <div
-                    key={label}
-                    className="rounded-xl border border-blue-100 bg-paper px-3 py-2.5"
-                  >
+                  <div key={label} className="min-w-0 px-3 py-1">
                     <span className="block text-[10px] font-bold text-slate-500">
                       {label}
                     </span>

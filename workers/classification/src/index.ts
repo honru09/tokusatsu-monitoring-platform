@@ -1,27 +1,53 @@
 import type { VisionClassification } from "@tokusatsu/shared";
 
 const conservativeFallback: VisionClassification = {
-  ip: [],
-  toyTypes: [],
-  manufacturerCandidates: [],
-  quantityEst: 0,
-  sealedCountEst: 0,
-  visibleDamage: [],
-  conditionGrade: "unknown",
+  franchise: { value: null, confidence: 0, evidence: [] },
+  series: { value: null, confidence: 0, evidence: [] },
+  characters: { value: null, confidence: 0, evidence: [] },
+  toyTypes: { value: null, confidence: 0, evidence: [] },
+  manufacturers: { value: null, confidence: 0, evidence: [] },
+  quantity: { value: null, confidence: 0, evidence: [] },
+  sealedCount: { value: null, confidence: 0, evidence: [] },
+  packaging: { value: null, confidence: 0, evidence: [] },
+  condition: { value: null, confidence: 0, evidence: [] },
+  visibleDamage: { value: null, confidence: 0, evidence: [] },
+  missingParts: { value: null, confidence: 0, evidence: [] },
+  backMarkings: { value: null, confidence: 0, evidence: [] },
+  year: { value: null, confidence: 0, evidence: [] },
+  modelNumber: { value: null, confidence: 0, evidence: [] },
+  copyrightText: { value: null, confidence: 0, evidence: [] },
   confidence: 0,
 };
+
+function isEvidenceField(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const field = value as Record<string, unknown>;
+  return (
+    "value" in field &&
+    typeof field.confidence === "number" &&
+    Array.isArray(field.evidence)
+  );
+}
 
 function isVisionClassification(value: unknown): value is VisionClassification {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return (
-    Array.isArray(candidate.ip) &&
-    Array.isArray(candidate.toyTypes) &&
-    Array.isArray(candidate.manufacturerCandidates) &&
-    typeof candidate.quantityEst === "number" &&
-    typeof candidate.sealedCountEst === "number" &&
-    Array.isArray(candidate.visibleDamage) &&
-    typeof candidate.conditionGrade === "string" &&
+    isEvidenceField(candidate.franchise) &&
+    isEvidenceField(candidate.series) &&
+    isEvidenceField(candidate.characters) &&
+    isEvidenceField(candidate.toyTypes) &&
+    isEvidenceField(candidate.manufacturers) &&
+    isEvidenceField(candidate.quantity) &&
+    isEvidenceField(candidate.sealedCount) &&
+    isEvidenceField(candidate.packaging) &&
+    isEvidenceField(candidate.condition) &&
+    isEvidenceField(candidate.visibleDamage) &&
+    isEvidenceField(candidate.missingParts) &&
+    isEvidenceField(candidate.backMarkings) &&
+    isEvidenceField(candidate.year) &&
+    isEvidenceField(candidate.modelNumber) &&
+    isEvidenceField(candidate.copyrightText) &&
     typeof candidate.confidence === "number"
   );
 }
@@ -29,16 +55,36 @@ function isVisionClassification(value: unknown): value is VisionClassification {
 function normalizeProviderResult(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   const raw = value as Record<string, unknown>;
+  const field = (candidate: unknown) => {
+    if (!candidate || typeof candidate !== "object")
+      return { value: null, confidence: 0, evidence: [] };
+    const input = candidate as Record<string, unknown>;
+    const confidence = Math.max(0, Math.min(1, Number(input.confidence ?? 0)));
+    return {
+      value: confidence < 0.7 ? null : (input.value ?? null),
+      confidence,
+      evidence: Array.isArray(input.evidence)
+        ? input.evidence.map(String).filter(Boolean)
+        : [],
+    };
+  };
   return {
-    ip: raw.ip,
-    toyTypes: raw.toyTypes ?? raw.toy_types,
-    manufacturerCandidates:
-      raw.manufacturerCandidates ?? raw.manufacturer_candidates,
-    quantityEst: raw.quantityEst ?? raw.quantity_est,
-    sealedCountEst: raw.sealedCountEst ?? raw.sealed_count_est,
-    visibleDamage: raw.visibleDamage ?? raw.visible_damage,
-    conditionGrade: raw.conditionGrade ?? raw.condition_grade,
-    confidence: raw.confidence,
+    franchise: field(raw.franchise ?? raw.ip),
+    series: field(raw.series),
+    characters: field(raw.characters),
+    toyTypes: field(raw.toyTypes ?? raw.toy_types),
+    manufacturers: field(raw.manufacturers ?? raw.manufacturer_candidates),
+    quantity: field(raw.quantity ?? raw.quantity_est),
+    sealedCount: field(raw.sealedCount ?? raw.sealed_count),
+    packaging: field(raw.packaging),
+    condition: field(raw.condition ?? raw.condition_grade),
+    visibleDamage: field(raw.visibleDamage ?? raw.visible_damage),
+    missingParts: field(raw.missingParts ?? raw.missing_parts),
+    backMarkings: field(raw.backMarkings ?? raw.back_markings),
+    year: field(raw.year),
+    modelNumber: field(raw.modelNumber ?? raw.model_number),
+    copyrightText: field(raw.copyrightText ?? raw.copyright_text),
+    confidence: Math.max(0, Math.min(1, Number(raw.confidence ?? 0))),
   };
 }
 
@@ -65,14 +111,23 @@ export async function classifyImages(input: {
       description: input.description,
       images: input.imageUrls,
       outputSchema: {
-        ip: [],
-        toy_types: [],
-        manufacturer_candidates: [],
-        quantity_est: 0,
-        sealed_count_est: 0,
-        visible_damage: [],
-        condition_grade: "unknown",
-        confidence: 0,
+        instruction:
+          "Every field must be {value, confidence, evidence}. Use null when the image does not prove a value. Never guess.",
+        franchise: { value: null, confidence: 0, evidence: [] },
+        series: { value: null, confidence: 0, evidence: [] },
+        characters: { value: null, confidence: 0, evidence: [] },
+        toy_types: { value: null, confidence: 0, evidence: [] },
+        manufacturers: { value: null, confidence: 0, evidence: [] },
+        quantity: { value: null, confidence: 0, evidence: [] },
+        sealed_count: { value: null, confidence: 0, evidence: [] },
+        packaging: { value: null, confidence: 0, evidence: [] },
+        condition: { value: null, confidence: 0, evidence: [] },
+        visible_damage: { value: null, confidence: 0, evidence: [] },
+        missing_parts: { value: null, confidence: 0, evidence: [] },
+        back_markings: { value: null, confidence: 0, evidence: [] },
+        year: { value: null, confidence: 0, evidence: [] },
+        model_number: { value: null, confidence: 0, evidence: [] },
+        copyright_text: { value: null, confidence: 0, evidence: [] },
       },
     }),
     signal: AbortSignal.timeout(90_000),

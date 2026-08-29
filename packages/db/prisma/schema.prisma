@@ -80,41 +80,54 @@ enum ImportOrigin {
   url
 }
 
+enum MatchDecision {
+  unmatched
+  auto_matched
+  review_required
+  manually_matched
+}
+
+enum ReviewQueueStatus {
+  pending
+  confirmed
+  rejected
+}
+
 model Source {
-  id            String        @id @default(uuid())
-  key           String        @unique
-  displayName   String
-  baseUrl       String?
-  channel       SourceChannel @default(online)
-  enabled       Boolean       @default(true)
-  rateLimitMs   Int           @default(2000)
-  circuitOpenAt DateTime?
-  failureCount  Int           @default(0)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  items         Item[]
-  sellers       Seller[]
-  crawlJobs     CrawlJob[]
+  id             String          @id @default(uuid())
+  key            String          @unique
+  displayName    String
+  baseUrl        String?
+  channel        SourceChannel   @default(online)
+  enabled        Boolean         @default(true)
+  rateLimitMs    Int             @default(2000)
+  circuitOpenAt  DateTime?
+  failureCount   Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  items          Item[]
+  sellers        Seller[]
+  crawlJobs      CrawlJob[]
   physicalStores PhysicalStore[]
 }
 
 model Seller {
-  id         String     @id @default(uuid())
-  sourceId   String
-  name       String
-  sellerType SellerType @default(unknown)
+  id           String     @id @default(uuid())
+  sourceId     String
+  name         String
+  sellerType   SellerType @default(unknown)
   locationText String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  source     Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  items      Item[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  source       Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  items        Item[]
 
   @@unique([sourceId, name])
   @@index([name])
 }
 
 model Item {
-  id                 String          @id @default(uuid())
+  id                 String               @id @default(uuid())
   sourceId           String
   sourceItemId       String
   sourceUrl          String
@@ -126,33 +139,39 @@ model Item {
   shippingFee        Int?
   priceTotalEst      Int
   listedAt           DateTime?
-  detectedAt         DateTime        @default(now())
-  lastSeenAt         DateTime        @default(now())
+  detectedAt         DateTime             @default(now())
+  lastSeenAt         DateTime             @default(now())
   auctionEndAt       DateTime?
   bidCount           Int?
   conditionRaw       String?
-  categoryIp         CategoryIp      @default(unknown)
-  categoryToyType    ToyType         @default(unknown)
-  manufacturer       Manufacturer    @default(unknown)
-  conditionGrade     ConditionGrade  @default(unknown)
-  channel            SourceChannel   @default(online)
+  categoryIp         CategoryIp           @default(unknown)
+  categoryToyType    ToyType              @default(unknown)
+  manufacturer       Manufacturer         @default(unknown)
+  conditionGrade     ConditionGrade       @default(unknown)
+  channel            SourceChannel        @default(online)
   quantityEst        Int?
-  imageCount         Int             @default(0)
+  imageCount         Int                  @default(0)
   unitCostEst        Int?
-  confidence         Float           @default(0)
-  needsReview        Boolean         @default(true)
-  procurementScore   Int             @default(0)
-  status             ItemStatus      @default(unknown)
-  suspectedDuplicate Boolean         @default(false)
-  favorite           Boolean         @default(false)
-  ignored            Boolean         @default(false)
-  importOrigin       ImportOrigin    @default(search)
+  confidence         Float                @default(0)
+  needsReview        Boolean              @default(true)
+  procurementScore   Int                  @default(0)
+  status             ItemStatus           @default(unknown)
+  suspectedDuplicate Boolean              @default(false)
+  favorite           Boolean              @default(false)
+  ignored            Boolean              @default(false)
+  importOrigin       ImportOrigin         @default(search)
+  productId          String?              @map("product_id")
+  normalizedTitle    String?              @map("normalized_title")
+  fieldConfidences   Json?                @map("field_confidences")
+  extractionEvidence Json?                @map("extraction_evidence")
+  matchConfidence    Float?               @map("match_confidence")
+  matchDecision      MatchDecision        @default(unmatched) @map("match_decision")
   archivedAt         DateTime?
   note               String?
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  source             Source          @relation(fields: [sourceId], references: [id], onDelete: Restrict)
-  seller             Seller?         @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  source             Source               @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  seller             Seller?              @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   images             ItemImage[]
   priceHistory       ItemPriceHistory[]
   classifications    ItemClassification[]
@@ -160,6 +179,8 @@ model Item {
   alerts             Alert[]
   purchaseRecord     PurchaseRecord?
   urlImports         UrlImport[]
+  product            Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+  reviewQueue        ReviewQueue[]
 
   @@unique([sourceId, sourceItemId])
   @@index([categoryIp, priceCurrent])
@@ -169,17 +190,188 @@ model Item {
   @@index([listedAt])
   @@index([archivedAt, status])
   @@index([importOrigin, createdAt])
+  @@index([productId])
+  @@index([needsReview, detectedAt])
+}
+
+/// Canonical product entity. Multiple marketplace Item rows (listings) can
+/// point to one Product without changing the legacy Item API contract.
+model Product {
+  id                   String               @id @default(uuid())
+  canonicalKey         String               @unique @map("canonical_key")
+  canonicalName        String               @map("canonical_name")
+  normalizedName       String               @map("normalized_name")
+  titleZh              String?              @map("title_zh")
+  productLine          String?              @map("product_line")
+  modelNumber          String?              @map("model_number")
+  releaseYear          Int?                 @map("release_year")
+  franchiseId          String?              @map("franchise_id")
+  seriesId             String?              @map("series_id")
+  manufacturerEntityId String?              @map("manufacturer_id")
+  toyTypeEntityId      String?              @map("toy_type_id")
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  franchise            Franchise?           @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
+  series               Series?              @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  manufacturerEntity   ProductManufacturer? @relation(fields: [manufacturerEntityId], references: [id], onDelete: SetNull)
+  toyTypeEntity        ProductToyType?      @relation(fields: [toyTypeEntityId], references: [id], onDelete: SetNull)
+  listings             Item[]
+  characters           ProductCharacter[]
+  inventory            Inventory?
+  reviewQueue          ReviewQueue[]
+
+  @@index([normalizedName])
+  @@index([franchiseId, seriesId])
+  @@index([manufacturerEntityId])
+  @@index([toyTypeEntityId])
+  @@map("products")
+}
+
+model Franchise {
+  id        String    @id @default(uuid())
+  key       String    @unique
+  nameJa    String    @map("name_ja")
+  nameZh    String    @map("name_zh")
+  nameEn    String?   @map("name_en")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  products  Product[]
+  series    Series[]
+
+  @@map("franchises")
+}
+
+model Series {
+  id          String      @id @default(uuid())
+  key         String      @unique
+  franchiseId String      @map("franchise_id")
+  nameJa      String      @map("name_ja")
+  nameZh      String      @map("name_zh")
+  nameEn      String?     @map("name_en")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  franchise   Franchise   @relation(fields: [franchiseId], references: [id], onDelete: Restrict)
+  products    Product[]
+  characters  Character[]
+
+  @@index([franchiseId])
+  @@map("series")
+}
+
+model Character {
+  id        String             @id @default(uuid())
+  key       String             @unique
+  seriesId  String?            @map("series_id")
+  nameJa    String             @map("name_ja")
+  nameZh    String             @map("name_zh")
+  nameEn    String?            @map("name_en")
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  series    Series?            @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  products  ProductCharacter[]
+
+  @@index([seriesId])
+  @@map("characters")
+}
+
+model ProductCharacter {
+  productId   String    @map("product_id")
+  characterId String    @map("character_id")
+  confidence  Float
+  evidence    String?
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@id([productId, characterId])
+  @@index([characterId])
+  @@map("product_characters")
+}
+
+model ProductManufacturer {
+  id        String    @id @default(uuid())
+  key       String    @unique
+  nameJa    String    @map("name_ja")
+  nameZh    String    @map("name_zh")
+  nameEn    String?   @map("name_en")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  products  Product[]
+
+  @@map("manufacturers")
+}
+
+model ProductToyType {
+  id        String    @id @default(uuid())
+  key       String    @unique
+  nameJa    String    @map("name_ja")
+  nameZh    String    @map("name_zh")
+  nameEn    String?   @map("name_en")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  products  Product[]
+
+  @@map("toy_types")
+}
+
+/// Cross-language aliases are normalized on write and resolved by entityType.
+model CatalogAlias {
+  id             String   @id @default(uuid())
+  entityType     String   @map("entity_type")
+  entityKey      String   @map("entity_key")
+  aliasText      String   @map("alias_text")
+  normalizedText String   @map("normalized_text")
+  locale         String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([entityType, normalizedText])
+  @@index([entityType, entityKey])
+  @@map("catalog_aliases")
+}
+
+model ReviewQueue {
+  id               String            @id @default(uuid())
+  itemId           String            @map("item_id")
+  productId        String?           @map("product_id")
+  status           ReviewQueueStatus @default(pending)
+  reasons          String[]
+  fieldConfidences Json              @map("field_confidences")
+  suggestedChanges Json?             @map("suggested_changes")
+  resolvedBy       String?           @map("resolved_by")
+  resolvedAt       DateTime?         @map("resolved_at") @db.Timestamptz
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  item             Item              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  product          Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@unique([itemId, status])
+  @@index([status, createdAt])
+  @@index([productId])
+  @@map("review_queue")
+}
+
+model Inventory {
+  id          String   @id @default(uuid())
+  productId   String   @unique @map("product_id")
+  quantity    Int      @default(0)
+  averageCost Decimal? @map("average_cost") @db.Decimal(12, 2)
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([updatedAt])
+  @@map("inventory")
 }
 
 model ItemImage {
-  id        String   @id @default(uuid())
-  itemId    String
-  url       String
-  position  Int      @default(0)
+  id                String   @id @default(uuid())
+  itemId            String
+  url               String
+  position          Int      @default(0)
   localThumbnailUrl String?
-  perceptualHash String?
-  createdAt DateTime @default(now())
-  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  perceptualHash    String?
+  createdAt         DateTime @default(now())
+  item              Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@unique([itemId, url])
   @@index([itemId, position])
@@ -270,15 +462,15 @@ model UrlImport {
 }
 
 model PurchaseRecord {
-  id             String             @id @default(uuid())
-  itemId         String             @unique
+  id             String            @id @default(uuid())
+  itemId         String            @unique
   purchaseAmount Int
-  purchasedAt    DateTime           @default(now())
+  purchasedAt    DateTime          @default(now())
   note           String?
   verifiedAt     DateTime?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  item           Item               @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  item           Item              @relation(fields: [itemId], references: [id], onDelete: Restrict)
   receipts       PurchaseReceipt[]
 
   @@index([purchasedAt])
@@ -286,26 +478,26 @@ model PurchaseRecord {
 }
 
 model PurchaseReceipt {
-  id          String         @id @default(uuid())
-  purchaseId  String
-  fileName    String
-  mimeType    String
-  sizeBytes   Int
-  dataBase64  String
-  createdAt   DateTime       @default(now())
-  purchase    PurchaseRecord @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  id         String         @id @default(uuid())
+  purchaseId String
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  dataBase64 String
+  createdAt  DateTime       @default(now())
+  purchase   PurchaseRecord @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
 
   @@index([purchaseId, createdAt])
 }
 
 model Alert {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   itemId    String
   ruleKey   String
   payload   Json?
   readAt    DateTime?
-  createdAt DateTime @default(now())
-  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  item      Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([readAt, createdAt])
 }

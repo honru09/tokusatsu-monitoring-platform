@@ -82,6 +82,20 @@ services:
         value: jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp
       - key: FIRECRAWL_ALLOW_ANY_DOMAIN
         value: "false"
+      - key: APIFY_ECOMMERCE_ENABLED
+        value: "false"
+      - key: APIFY_TOKEN
+        sync: false
+      - key: APIFY_ECOMMERCE_ACTOR
+        value: apify~e-commerce-scraping-tool
+      - key: APIFY_MARKETPLACES
+        value: www.amazon.co.jp
+      - key: APIFY_DISCOVERY_INTERVAL_MS
+        value: "21600000"
+      - key: PLAYWRIGHT_WS_ENDPOINT
+        sync: false
+      - key: PLAYWRIGHT_EXECUTABLE_PATH
+        sync: false
       - key: INVENTORY_CLEANUP_INTERVAL_MS
         value: "7200000"
       - key: CRAWLER_CONTACT

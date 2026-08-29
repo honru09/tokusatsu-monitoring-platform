@@ -35,6 +35,16 @@ const include = {
       },
     },
   },
+  product: {
+    include: {
+      franchise: true,
+      series: true,
+      manufacturerEntity: true,
+      toyTypeEntity: true,
+      inventory: true,
+      _count: { select: { listings: true } },
+    },
+  },
 };
 
 const sourceLabels: Record<string, string> = {
@@ -42,6 +52,8 @@ const sourceLabels: Record<string, string> = {
   mercari: "日本二手市场",
   yahoo_auctions: "日本拍卖市场",
   firecrawl_market: "自动适配来源",
+  apify_ecommerce: "Apify 电商检索",
+  playwright_page: "动态商品页",
   mock: "本地测试来源",
 };
 
@@ -264,6 +276,7 @@ export class ItemsService {
         ...include,
         classifications: { orderBy: { createdAt: "desc" } },
         manualReviews: { orderBy: { createdAt: "desc" } },
+        reviewQueue: { orderBy: { createdAt: "desc" } },
       },
     });
     if (!item) throw new NotFoundException("Item not found");
@@ -323,6 +336,31 @@ export class ItemsService {
         where: { id },
         data: { favorite: false, archivedAt: new Date() },
       });
+      if (current.productId) {
+        const quantity = Math.max(1, current.quantityEst ?? 1);
+        const inventory = await tx.inventory.findUnique({
+          where: { productId: current.productId },
+        });
+        const existingQuantity = inventory?.quantity ?? 0;
+        const existingAverage = inventory?.averageCost
+          ? Number(inventory.averageCost)
+          : 0;
+        const averageCost =
+          (existingAverage * existingQuantity + body.purchaseAmount) /
+          (existingQuantity + quantity);
+        await tx.inventory.upsert({
+          where: { productId: current.productId },
+          update: {
+            quantity: { increment: quantity },
+            averageCost,
+          },
+          create: {
+            productId: current.productId,
+            quantity,
+            averageCost: body.purchaseAmount / quantity,
+          },
+        });
+      }
       return tx.purchaseRecord.findUnique({
         where: { id: purchase.id },
         include: {
@@ -385,6 +423,37 @@ export class ItemsService {
     });
   }
 
+  async pendingReviews() {
+    const reviews = await this.prisma.reviewQueue.findMany({
+      where: { status: "pending" },
+      include: {
+        item: {
+          include: {
+            source: { select: { key: true, displayName: true } },
+            images: { orderBy: { position: "asc" }, take: 1 },
+          },
+        },
+        product: {
+          include: {
+            franchise: true,
+            series: true,
+            manufacturerEntity: true,
+            toyTypeEntity: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 200,
+    });
+    return {
+      reviews,
+      total: await this.prisma.reviewQueue.count({
+        where: { status: "pending" },
+      }),
+      serverTime: new Date().toISOString(),
+    };
+  }
+
   async update(id: string, body: UpdateItemDto) {
     const current = await this.ensureExists(id);
     const { actor = "operator", reason, ...changes } = body;
@@ -417,8 +486,9 @@ export class ItemsService {
           procurementScore: score,
           needsReview:
             changes.confidence != null
-              ? changes.confidence < 0.6
+              ? changes.confidence < 0.9
               : current.needsReview,
+          matchDecision: "manually_matched",
         },
         include,
       });
@@ -433,6 +503,14 @@ export class ItemsService {
           afterData: JSON.parse(
             JSON.stringify(updated),
           ) as Prisma.InputJsonValue,
+        },
+      });
+      await tx.reviewQueue.updateMany({
+        where: { itemId: id, status: "pending" },
+        data: {
+          status: "confirmed",
+          resolvedBy: actor,
+          resolvedAt: new Date(),
         },
       });
       return { item: updated, serverTime: new Date().toISOString() };

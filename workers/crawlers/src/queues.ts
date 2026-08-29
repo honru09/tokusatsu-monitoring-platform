@@ -343,5 +343,44 @@ export async function scheduleJobs() {
       );
       await removePendingAdapterJobs(searchQueue, ["firecrawl_market"]);
     }
+
+    const apifyEnabled =
+      process.env.APIFY_ECOMMERCE_ENABLED === "true" &&
+      Boolean(process.env.APIFY_TOKEN);
+    if (apifyEnabled) {
+      await prisma.source.updateMany({
+        where: { key: "apify_ecommerce" },
+        data: { enabled: true, circuitOpenAt: null },
+      });
+      const keywords = marketKeywords().slice(0, 4);
+      const every = Number(
+        process.env.APIFY_DISCOVERY_INTERVAL_MS ?? 21_600_000,
+      );
+      for (const [index, keyword] of keywords.entries()) {
+        await searchQueue.add(
+          "apify-ecommerce-discovery",
+          {
+            adapterKey: "apify_ecommerce",
+            query: { keyword, limit: 30, scanMode: "incremental" },
+          },
+          {
+            jobId: `repeat-apify-ecommerce-${index}`,
+            repeat: {
+              every,
+              offset: Math.floor((index * every) / keywords.length),
+            },
+            removeOnComplete: 100,
+            removeOnFail: 100,
+          },
+        );
+      }
+    } else {
+      await prisma.source.updateMany({
+        where: { key: "apify_ecommerce" },
+        data: { enabled: false, circuitOpenAt: null, failureCount: 0 },
+      });
+      await removeRepeatJobs(["repeat-apify-ecommerce-"], ["apify_ecommerce"]);
+      await removePendingAdapterJobs(searchQueue, ["apify_ecommerce"]);
+    }
   }
 }

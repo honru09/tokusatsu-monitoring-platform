@@ -1,5 +1,9 @@
 import { Worker } from "bullmq";
 import { prisma } from "@tokusatsu/db";
+import {
+  backfillUnmatchedListings,
+  seedCatalogDictionary,
+} from "@tokusatsu/product-intelligence";
 import { connection, scheduleJobs } from "./queues.js";
 import {
   processClassification,
@@ -9,8 +13,10 @@ import {
   processCleanup,
 } from "./processors.js";
 
-await scheduleJobs();
+await seedCatalogDictionary();
 await processCleanup();
+await backfillUnmatchedListings();
+await scheduleJobs();
 
 const workers = [
   new Worker("source-search", processSearch, {

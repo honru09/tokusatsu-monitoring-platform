@@ -34,6 +34,11 @@ export class ItemsController {
     return this.items.listPurchases();
   }
 
+  @Get("reviews/pending")
+  pendingReviews() {
+    return this.items.pendingReviews();
+  }
+
   @Get(":id")
   get(@Param("id") id: string) {
     return this.items.get(id);

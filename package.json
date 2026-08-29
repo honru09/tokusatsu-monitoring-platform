@@ -5,7 +5,7 @@
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "typecheck": "pnpm --filter @tokusatsu/shared build && pnpm --filter @tokusatsu/db build && pnpm --filter @tokusatsu/classification build && pnpm -r --if-present typecheck",
+    "typecheck": "pnpm --filter @tokusatsu/shared build && pnpm --filter @tokusatsu/db build && pnpm --filter @tokusatsu/product-dictionary build && pnpm --filter @tokusatsu/matching build && pnpm --filter @tokusatsu/classification build && pnpm --filter @tokusatsu/product-intelligence build && pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @tokusatsu/db generate",

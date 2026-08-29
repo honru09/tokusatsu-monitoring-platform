@@ -121,13 +121,27 @@ export interface SourceAdapter {
   normalize(raw: RawItemDetail): Promise<NormalizedItem>;
 }
 
+export interface EvidenceField<T> {
+  value: T | null;
+  confidence: number;
+  evidence: string[];
+}
+
 export interface VisionClassification {
-  ip: CategoryIp[];
-  toyTypes: ToyType[];
-  manufacturerCandidates: Manufacturer[];
-  quantityEst: number;
-  sealedCountEst: number;
-  visibleDamage: string[];
-  conditionGrade: ConditionGrade;
+  franchise: EvidenceField<CategoryIp[]>;
+  series: EvidenceField<string[]>;
+  characters: EvidenceField<string[]>;
+  toyTypes: EvidenceField<ToyType[]>;
+  manufacturers: EvidenceField<Manufacturer[]>;
+  quantity: EvidenceField<number>;
+  sealedCount: EvidenceField<number>;
+  packaging: EvidenceField<string[]>;
+  condition: EvidenceField<ConditionGrade>;
+  visibleDamage: EvidenceField<string[]>;
+  missingParts: EvidenceField<string[]>;
+  backMarkings: EvidenceField<string[]>;
+  year: EvidenceField<number>;
+  modelNumber: EvidenceField<string>;
+  copyrightText: EvidenceField<string[]>;
   confidence: number;
 }

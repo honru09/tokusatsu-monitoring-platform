@@ -4,15 +4,16 @@
 
 ## 已实现范围
 
-- Next.js 采购看板：商品卡、十余项筛选、详情抽屉、收藏、忽略、人工纠错与审计。
+- Next.js 采购工作台：在售商品、链接专区、库存与购买、人工审核、监控运行五个独立工作区，支持紧凑商品卡、筛选弹窗、详情抽屉与审计。
 - NestJS API：商品列表/详情/修改/审计、服务器时间同步、健康检查、Prometheus 文本指标。
-- PostgreSQL：sources、items、item_images、item_price_history、item_classifications、sellers、physical_stores、crawl_jobs、alerts、manual_reviews。
+- PostgreSQL：以 `Product` 表示标准商品实体、`Item` 表示各平台 Listing；同一商品可聚合多个来源，并包含系列/角色/厂商/玩具类型词典、审核队列、匹配决策和库存。
 - Redis + BullMQ：持久化重复搜索、详情采集、全图分类和动态状态刷新队列。
-- Adapter：生产式配置仅启用真实来源。Yahoo! Auctions 使用 Crawlee/Cheerio 进行公开搜索与详情采集；Mercari、Mandarake 负责链接分析；Firecrawl 可在配置 Key 后扩展 Rakuma、駿河屋等白名单来源。所有来源遵守 robots.txt，并实行限速、超时、重试与 Adapter 级熔断。
+- Adapter：生产式配置仅启用真实来源。Yahoo! Auctions 使用 Crawlee/Cheerio；Firecrawl 可扩展公开白名单来源；Apify E-commerce 可检索结构化电商结果；Playwright 仅在普通公开页面读取失败时负责动态渲染。采集层不做业务分类，所有来源均实行限速、超时、重试与 Adapter 级熔断。
 - 监控同时执行高频增量扫描与循环分页存量回扫。启动时立即预热补扫，之后把市场关键词分散到队列中持续搜罗，不只等待新上架。
-- Web 支持紧凑商品卡、弹窗筛选器、收起式迷你收藏卡、监控运行指标，以及中文术语转写/原文切换。粘贴公开商品详情链接后，分析完成会自动收藏并多次刷新结果。
+- Web 默认显示中文标准名称并可切回原文。粘贴公开商品详情链接后，后台任务进度会在链接专区实时显示，完成后生成与在售库一致的标准商品卡，不会自动收藏。
 - 文本规则分类：IP、玩具类型、厂商、成色、数量、单件成本、采购评分；文本与视觉结果分开保存，冲突不会静默覆盖。
-- 视觉分类：独立异步包，支持通用 HTTP 视觉服务；未配置服务时返回低置信度占位结果并进入人工复核，绝不伪装成已完成识别。
+- 视觉分类：独立异步包按字段输出 `{ value, confidence, evidence }`。90% 以上自动确认，70%–89% 进入人工审核，低于 70% 的字段保持未知，不猜测。
+- 商品归一：日/中/英别名词典先标准化，再用 PostgreSQL trigram、显著词与多因素评分归并 Listing；低可信匹配进入审核队列。
 - 容器化：web、api、worker、postgres、redis；PostgreSQL/Redis 使用持久卷，Redis 开启 AOF。
 
 ## 目录
@@ -27,6 +28,10 @@ workers/
 packages/
   shared/                SourceAdapter、分类与领域类型
   db/                    Prisma schema、migration、seed
+  product-dictionary/    日/中/英标准商品词典与别名
+services/
+  matching/              Trigram、分词和多因素匹配评分
+  product-intelligence/  Product 匹配、回填和审核队列
 infrastructure/
   docker-compose.yml
 scripts/
@@ -95,6 +100,8 @@ docker compose -f infrastructure/docker-compose.yml down
 - `CRAWLER_CONTACT` 与带联系方式的 `CRAWLER_USER_AGENT`
 - `CORS_ORIGIN`、`NEXT_PUBLIC_API_BASE_URL`
 - `VISION_API_URL`、`VISION_API_KEY`（如需真实图片识别）
+- `APIFY_TOKEN` 并将 `APIFY_ECOMMERCE_ENABLED=true`（如需 Apify 电商检索）
+- `PLAYWRIGHT_WS_ENDPOINT`（如需在云端使用远程 Chromium 动态页面后备）
 - `SENTRY_DSN`（如接入错误追踪）
 
 真实 Adapter 当前已开启。Yahoo 增量搜索每 15 分钟一轮并按关键词错峰；存量回扫每 3 小时完成一轮关键词调度，当前默认覆盖搜索结果前 80 页。拍卖刷新根据剩余时间自动提升到 2 分钟、1 分钟或 30 秒。普通商品默认 60 分钟刷新。所有 BullMQ 任务采用指数退避，连续失败 5 次后打开该 Adapter 的 15 分钟熔断，不影响其他平台。`MOCK_ADAPTER_ENABLED=false` 时 Worker 会清理 Mock 的重复任务和普通待处理任务；队列维护不会误删其他来源的调度器元数据，因此不会再触发 Worker 重启循环。
@@ -107,6 +114,8 @@ docker compose -f infrastructure/docker-compose.yml down
 - 同平台唯一键为 `(source_id, source_item_id)`；价格、运费、竞拍数变化写入历史。
 - 图片分类会接收全部已采集图片 URL；低置信度或文本/图片冲突均设置 `needs_review=true`。
 - 人工纠错同时保存修改前后 JSON、操作人、原因和时间。
+- 书籍、杂志、漫画与卡片在采集、分类和入库边界均被排除；历史回填也不会把它们创建为 Product。
+- 一个 Product 可关联多个平台 Listing；购买后按识别数量更新库存数量与平均成本。
 
 ## 合规与上线前检查
 

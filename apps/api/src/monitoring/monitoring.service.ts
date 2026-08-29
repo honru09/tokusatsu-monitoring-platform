@@ -17,6 +17,8 @@ const sourceLabels: Record<string, string> = {
   mercari: "日本二手市场",
   yahoo_auctions: "日本拍卖市场",
   firecrawl_market: "自动适配来源",
+  apify_ecommerce: "Apify 电商检索",
+  playwright_page: "动态商品页",
   mock: "本地测试来源",
 };
 
@@ -31,31 +33,42 @@ export class MonitoringService {
 
   async overview() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const [jobs, sources, itemTotal, activeTotal, discovered24h] =
-      await this.prisma.$transaction([
-        this.prisma.crawlJob.findMany({
-          where: { jobType: "search", createdAt: { gte: since } },
-          include: {
-            source: { select: { key: true, displayName: true } },
-          },
-          orderBy: { createdAt: "desc" },
-          take: 100,
-        }),
-        this.prisma.source.findMany({
-          where: { enabled: true },
-          select: {
-            key: true,
-            displayName: true,
-            circuitOpenAt: true,
-            failureCount: true,
-            _count: { select: { items: true } },
-          },
-          orderBy: { displayName: "asc" },
-        }),
-        this.prisma.item.count(),
-        this.prisma.item.count({ where: { status: "active" } }),
-        this.prisma.item.count({ where: { detectedAt: { gte: since } } }),
-      ]);
+    const [
+      jobs,
+      sources,
+      itemTotal,
+      activeTotal,
+      discovered24h,
+      productTotal,
+      pendingReviewTotal,
+      inventoryTotal,
+    ] = await this.prisma.$transaction([
+      this.prisma.crawlJob.findMany({
+        where: { jobType: "search", createdAt: { gte: since } },
+        include: {
+          source: { select: { key: true, displayName: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
+      this.prisma.source.findMany({
+        where: { enabled: true },
+        select: {
+          key: true,
+          displayName: true,
+          circuitOpenAt: true,
+          failureCount: true,
+          _count: { select: { items: true } },
+        },
+        orderBy: { displayName: "asc" },
+      }),
+      this.prisma.item.count(),
+      this.prisma.item.count({ where: { status: "active" } }),
+      this.prisma.item.count({ where: { detectedAt: { gte: since } } }),
+      this.prisma.product.count(),
+      this.prisma.reviewQueue.count({ where: { status: "pending" } }),
+      this.prisma.inventory.aggregate({ _sum: { quantity: true } }),
+    ]);
     const totals = jobs.reduce(
       (sum, job) => {
         const metrics = metricsOf(job.metrics);
@@ -107,6 +120,9 @@ export class MonitoringService {
       itemTotal,
       activeTotal,
       discovered24h,
+      productTotal,
+      pendingReviewTotal,
+      inventoryTotal: inventoryTotal._sum.quantity ?? 0,
       totals24h: totals,
       sources: sources.map((source) => ({
         key: source.key,
