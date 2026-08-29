@@ -161,7 +161,6 @@ model Item {
   unitCostEst        Int?
   confidence         Float                @default(0)
   needsReview        Boolean              @default(true)
-  procurementScore   Int                  @default(0)
   status             ItemStatus           @default(unknown)
   suspectedDuplicate Boolean              @default(false)
   favorite           Boolean              @default(false)
@@ -382,7 +381,6 @@ model DiscoveryFeedback {
   action              DiscoveryAction
   timestamp           DateTime            @default(now()) @db.Timestamptz
   position            Int
-  recommendationScore Int                 @map("recommendation_score")
   undoOfId            String?             @unique @map("undo_of_id")
   listing             Item                @relation("ListingDiscoveryFeedback", fields: [listingId], references: [id], onDelete: Cascade)
   product             Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)

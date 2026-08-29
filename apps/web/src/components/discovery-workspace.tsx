@@ -29,7 +29,6 @@ type DiscoveryListing = {
   conditionGrade: string;
   quantityEst?: number | null;
   unitCostEst?: number | null;
-  procurementScore: number;
   source: { key: string; displayName: string };
   images: { url: string; position: number }[];
   product?: {
@@ -64,7 +63,6 @@ type FeedbackRecord = {
   action: DiscoveryAction | "undo";
   timestamp: string;
   position: number;
-  recommendationScore: number;
 };
 
 type LastAction = {
@@ -126,12 +124,17 @@ function translateTitle(value: string) {
   );
 }
 
-function displayTitle(item: DiscoveryListing, language: "zh" | "original") {
+function displayTitle(
+  item: DiscoveryListing,
+  language: "zh" | "original",
+  translatedTitle?: string,
+) {
   if (language === "original") return item.titleRaw;
   return (
+    translatedTitle ??
     item.product?.titleZh ??
-    item.product?.canonicalName ??
-    translateTitle(item.titleRaw)
+    translateTitle(item.titleRaw) ??
+    item.titleRaw
   );
 }
 
@@ -148,30 +151,6 @@ function relativeTime(value?: string | null) {
   return `${Math.round(hours / 24)} 天前`;
 }
 
-function ArrowIcon({ direction }: { direction: ExitDirection }) {
-  const transform =
-    direction === "left"
-      ? "rotate(180 12 12)"
-      : direction === "down"
-        ? "rotate(90 12 12)"
-        : undefined;
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      transform={transform}
-    >
-      <path d="M5 12h14m-5-5 5 5-5 5" />
-    </svg>
-  );
-}
-
 function UndoIcon() {
   return (
     <svg
@@ -186,6 +165,40 @@ function UndoIcon() {
     >
       <path d="M9 7 4 12l5 5" />
       <path d="M20 17a7 7 0 0 0-7-7H4" />
+    </svg>
+  );
+}
+
+function DislikeIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <path d="m7 7 10 10M17 7 7 17" />
+    </svg>
+  );
+}
+
+function DetailIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" />
+      <circle cx="12" cy="12" r="2.5" />
     </svg>
   );
 }
@@ -213,7 +226,7 @@ function CardContent({
       : item.product?.toyTypeEntity?.nameJa;
   const title = showOriginal
     ? item.titleRaw
-    : (translatedTitle ?? displayTitle(item, "zh"));
+    : displayTitle(item, "zh", translatedTitle);
   return (
     <>
       <div className="relative min-h-0 overflow-hidden bg-ink md:h-full">
@@ -226,9 +239,6 @@ function CardContent({
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-ink/90 via-ink/30 to-transparent p-4 pt-14 text-white">
           <span className="rounded-md bg-white/90 px-2 py-1 text-[10px] font-black text-ink">
             {item.auctionEndAt ? "拍卖" : "直接购买"}
-          </span>
-          <span className="font-mono text-xs font-black text-amber-300">
-            采购分 {item.procurementScore}
           </span>
         </div>
         <button
@@ -300,7 +310,7 @@ function CardContent({
           <div>
             <dt className="text-ink/60">采购价值</dt>
             <dd className="mt-0.5 font-bold">
-              评分 {item.procurementScore} · 单件 {fmtYen(item.unitCostEst)}
+              单件 {fmtYen(item.unitCostEst)}
             </dd>
           </div>
           <div>
@@ -447,7 +457,7 @@ function SwipeCard({
     <motion.article
       role="button"
       tabIndex={0}
-      aria-label={`商品：${displayTitle(item, language)}。拖动筛选，点击查看详情。`}
+      aria-label={`商品：${displayTitle(item, language, translatedTitle)}。拖动筛选，点击查看详情。`}
       initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
       animate={exitTarget}
       transition={exitDirection ? springs.release : springs.gentle}
@@ -515,6 +525,7 @@ export function DiscoveryWorkspace({
   translations = {},
   onOpenDetail,
   onFavoriteChange,
+  onBack,
   interactionDisabled = false,
 }: {
   apiBaseUrl: string;
@@ -522,6 +533,7 @@ export function DiscoveryWorkspace({
   translations?: Record<string, string>;
   onOpenDetail: (listingId: string) => Promise<boolean>;
   onFavoriteChange: () => void;
+  onBack?: () => void;
   interactionDisabled?: boolean;
 }) {
   const [queue, setQueue] = useState<DiscoveryListing[]>([]);
@@ -539,6 +551,10 @@ export function DiscoveryWorkspace({
   const [pendingFeedback, setPendingFeedback] = useState<FeedbackRecord | null>(
     null,
   );
+  const [aiTranslations, setAiTranslations] = useState<Record<string, string>>(
+    {},
+  );
+  const translationRequestedRef = useRef(new Set<string>());
   const positionRef = useRef(0);
   const refillLengthRef = useRef<number | null>(null);
 
@@ -584,6 +600,44 @@ export function DiscoveryWorkspace({
   useEffect(() => {
     void loadFeed(false);
   }, [loadFeed]);
+
+  useEffect(() => {
+    const candidates = queue
+      .filter(
+        (item) =>
+          !translations[item.id] &&
+          !aiTranslations[item.id] &&
+          !translationRequestedRef.current.has(item.id),
+      )
+      .slice(0, 12);
+    if (!candidates.length) return;
+    candidates.forEach((item) => translationRequestedRef.current.add(item.id));
+    void (async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/analysis/translate`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            texts: candidates.map((item) => item.titleRaw),
+          }),
+        });
+        if (!response.ok) throw new Error(`API ${response.status}`);
+        const data = (await response.json()) as { translations?: string[] };
+        setAiTranslations((current) => {
+          const next = { ...current };
+          candidates.forEach((item, index) => {
+            const value = data.translations?.[index]?.trim();
+            if (value) next[item.id] = value;
+          });
+          return next;
+        });
+      } catch {
+        candidates.forEach((item) =>
+          translationRequestedRef.current.delete(item.id),
+        );
+      }
+    })();
+  }, [aiTranslations, apiBaseUrl, queue, translations]);
 
   useEffect(() => {
     if (!loadedOnce || loading || queue.length >= 6) {
@@ -633,7 +687,6 @@ export function DiscoveryWorkspace({
             listingId: item.id,
             action,
             position: positionRef.current,
-            recommendationScore: item.procurementScore,
           }),
         });
         if (!response.ok) throw new Error(`保存失败（API ${response.status}）`);
@@ -663,7 +716,6 @@ export function DiscoveryWorkspace({
           listingId: item.id,
           action: "detail_view",
           position: positionRef.current,
-          recommendationScore: item.procurementScore,
         }),
       });
       if (!response.ok)
@@ -737,17 +789,36 @@ export function DiscoveryWorkspace({
   const visible = queue.slice(0, 3);
   return (
     <section aria-labelledby="discovery-heading" className="js-shell-reveal">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-blue-100 pb-3">
-        <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 pb-3">
+        <div className="flex min-w-0 items-center gap-2">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="返回在售商品"
+              title="返回"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-blue-100 bg-white text-ink transition-colors hover:border-moss/40 hover:text-moss"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M19 12H5m7-7-7 7 7 7" />
+              </svg>
+            </button>
+          )}
           <h2
             id="discovery-heading"
             className="font-heading text-xl font-black"
           >
             发现
           </h2>
-          <p className="mt-1 max-w-2xl text-base/6 text-slate-600 sm:text-sm/6">
-            快速处理尚未判断的商品。系统会保存每一次选择，用于后续偏好排序。
-          </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-slate-500">
           <span>
@@ -774,7 +845,9 @@ export function DiscoveryWorkspace({
             <BackCard
               item={visible[2]}
               language={language}
-              translatedTitle={translations[visible[2].id]}
+              translatedTitle={
+                translations[visible[2].id] ?? aiTranslations[visible[2].id]
+              }
               index={2}
             />
           )}
@@ -782,7 +855,9 @@ export function DiscoveryWorkspace({
             <BackCard
               item={visible[1]}
               language={language}
-              translatedTitle={translations[visible[1].id]}
+              translatedTitle={
+                translations[visible[1].id] ?? aiTranslations[visible[1].id]
+              }
               index={1}
             />
           )}
@@ -791,7 +866,9 @@ export function DiscoveryWorkspace({
               key={visible[0].id}
               item={visible[0]}
               language={language}
-              translatedTitle={translations[visible[0].id]}
+              translatedTitle={
+                translations[visible[0].id] ?? aiTranslations[visible[0].id]
+              }
               busy={busy || interactionDisabled}
               exitDirection={exitDirection}
               onConsume={(action, direction) => void consume(action, direction)}
@@ -832,7 +909,7 @@ export function DiscoveryWorkspace({
             title="不感兴趣"
             className="grid min-h-11 place-items-center rounded-lg border border-rust/25 bg-white text-rust transition-colors hover:bg-rust/5 disabled:opacity-40"
           >
-            <ArrowIcon direction="left" />
+            <DislikeIcon />
           </button>
           <button
             type="button"
@@ -842,7 +919,7 @@ export function DiscoveryWorkspace({
             title="查看详情"
             className="grid min-h-11 place-items-center rounded-lg border border-ink/15 bg-white text-ink transition-colors hover:bg-blue-50 disabled:opacity-40"
           >
-            <ArrowIcon direction="down" />
+            <DetailIcon />
           </button>
           <button
             type="button"
@@ -865,12 +942,9 @@ export function DiscoveryWorkspace({
             <UndoIcon />
           </button>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
-          <p aria-live="polite">{status}</p>
-          <p className="hidden font-mono sm:block" aria-hidden="true">
-            ← · → · ↓ · Backspace
-          </p>
-        </div>
+        <p className="sr-only" aria-live="polite">
+          {status}
+        </p>
       </div>
     </section>
   );

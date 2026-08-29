@@ -7,7 +7,6 @@ import {
   SourceChannel,
   ToyType,
 } from "@tokusatsu/db";
-import { procurementScore } from "@tokusatsu/shared";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { PrismaService } from "../prisma.service.js";
@@ -250,7 +249,7 @@ export class ItemsService {
       this.prisma.item.findMany({
         where,
         include,
-        orderBy: [{ procurementScore: "desc" }, { detectedAt: "desc" }],
+        orderBy: [{ detectedAt: "desc" }, { listedAt: "desc" }],
         skip: query.offset,
         take: query.limit,
       }),
@@ -465,19 +464,6 @@ export class ItemsService {
     const quantity = changes.quantityEst ?? current.quantityEst;
     const priceTotal = current.priceTotalEst;
     const unitCostEst = quantity ? Math.round(priceTotal / quantity) : null;
-    const score = procurementScore({
-      unitCostEst: unitCostEst ?? undefined,
-      quantityEst: quantity ?? undefined,
-      categoryIp: (changes.categoryIp ?? current.categoryIp) as Parameters<
-        typeof procurementScore
-      >[0]["categoryIp"],
-      conditionGrade: (changes.conditionGrade ??
-        current.conditionGrade) as Parameters<
-        typeof procurementScore
-      >[0]["conditionGrade"],
-      confidence: changes.confidence ?? current.confidence,
-    });
-
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.item.update({
         where: { id },
@@ -488,7 +474,6 @@ export class ItemsService {
           manufacturer: changes.manufacturer as Manufacturer | undefined,
           conditionGrade: changes.conditionGrade as ConditionGrade | undefined,
           unitCostEst,
-          procurementScore: score,
           needsReview:
             changes.confidence != null
               ? changes.confidence < 0.9

@@ -94,7 +94,6 @@ export interface NormalizedItem extends RawItemDetail {
   unitCostEst?: number;
   confidence: number;
   needsReview: boolean;
-  procurementScore: number;
 }
 
 export interface StoredItem {

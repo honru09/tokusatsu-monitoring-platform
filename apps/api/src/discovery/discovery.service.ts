@@ -45,7 +45,6 @@ const feedSelect = {
   conditionGrade: true,
   quantityEst: true,
   unitCostEst: true,
-  procurementScore: true,
   source: { select: { key: true, displayName: true } },
   images: {
     orderBy: { position: "asc" as const },
@@ -94,7 +93,7 @@ export class DiscoveryService {
       this.prisma.item.findMany({
         where,
         select: feedSelect,
-        orderBy: [{ procurementScore: "desc" }, { detectedAt: "desc" }],
+        orderBy: [{ detectedAt: "desc" }, { listedAt: "desc" }],
         take: limit,
       }),
       this.prisma.item.count({ where }),
@@ -125,7 +124,6 @@ export class DiscoveryService {
           productId: listing.productId,
           action,
           position: body.position,
-          recommendationScore: body.recommendationScore,
         },
       });
       if (action === DiscoveryAction.favorite && !listing.favorite) {
@@ -169,7 +167,6 @@ export class DiscoveryService {
           productId: original.productId,
           action: DiscoveryAction.undo,
           position: original.position,
-          recommendationScore: original.recommendationScore,
           undoOfId: original.id,
         },
       });

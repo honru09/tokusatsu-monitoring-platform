@@ -123,37 +123,6 @@ export function classifyText(
   };
 }
 
-export function procurementScore(input: {
-  unitCostEst?: number;
-  quantityEst?: number;
-  categoryIp: CategoryIp;
-  conditionGrade: ConditionGrade;
-  confidence: number;
-}): number {
-  let score = 45;
-  if (input.unitCostEst != null)
-    score +=
-      input.unitCostEst < 300
-        ? 25
-        : input.unitCostEst < 800
-          ? 15
-          : input.unitCostEst < 1500
-            ? 6
-            : -8;
-  if ((input.quantityEst ?? 0) >= 20) score += 12;
-  else if ((input.quantityEst ?? 0) >= 5) score += 6;
-  if (input.categoryIp === "kamen_rider") score += 8;
-  if (
-    input.conditionGrade === "new_sealed" ||
-    input.conditionGrade === "like_new"
-  )
-    score += 8;
-  if (input.conditionGrade === "stained_or_damaged") score -= 10;
-  if (input.conditionGrade === "junk") score -= 18;
-  if (input.confidence < 0.6) score -= 10;
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
 export function normalizeRawItem(raw: RawItemDetail): NormalizedItem {
   const classification = classifyText(
     raw.titleRaw,
@@ -166,7 +135,6 @@ export function normalizeRawItem(raw: RawItemDetail): NormalizedItem {
     : undefined;
   const needsReview =
     classification.confidence < 0.6 || classification.conflicts.length > 0;
-  const score = procurementScore({ ...classification, unitCostEst });
   return {
     ...raw,
     priceTotalEst,
@@ -178,7 +146,6 @@ export function normalizeRawItem(raw: RawItemDetail): NormalizedItem {
     unitCostEst,
     confidence: classification.confidence,
     needsReview,
-    procurementScore: score,
   };
 }
 

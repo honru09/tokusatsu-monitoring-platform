@@ -31,7 +31,6 @@ type Item = {
   unitCostEst?: number | null;
   confidence: number;
   needsReview: boolean;
-  procurementScore: number;
   status: string;
   favorite: boolean;
   ignored: boolean;
@@ -130,7 +129,6 @@ type MarketAnalysis = {
   bestValue: Item | null;
   largestQuantity: Item | null;
   bestCondition: Item | null;
-  ranking: (Item & { rank: number })[];
   recommendation: string;
 };
 
@@ -256,6 +254,23 @@ function CloseIcon({ className = "h-5 w-5" }: IconProps) {
       strokeLinecap="round"
     >
       <path d="m6 6 12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
+function ArrowLeftIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19 12H5m7-7-7 7 7 7" />
     </svg>
   );
 }
@@ -456,7 +471,7 @@ function SettingsIcon({ className = "h-5 w-5" }: IconProps) {
 function RiderLogo({ className = "h-11 w-11" }: IconProps) {
   return (
     <svg
-      aria-label="采购中心标志"
+      aria-label="假面采购标志"
       role="img"
       viewBox="0 0 64 64"
       className={className}
@@ -529,25 +544,6 @@ const labels: Record<string, string> = {
   junk: "JUNK",
   online: "线上",
   physical_store: "线下店",
-};
-
-const confidenceFieldLabels: Record<string, string> = {
-  franchise: "作品系列",
-  series: "具体系列",
-  characters: "角色",
-  toyTypes: "玩具类型",
-  manufacturers: "厂商",
-  quantity: "数量",
-  sealedCount: "未开封数量",
-  packaging: "包装",
-  condition: "成色",
-  visibleDamage: "可见损伤",
-  missingParts: "缺件",
-  backMarkings: "背标",
-  year: "年份",
-  modelNumber: "型号",
-  copyrightText: "版权文字",
-  productMatch: "标准商品匹配",
 };
 
 const translationRules: [RegExp, string][] = [
@@ -672,18 +668,6 @@ const fmtDate = (value?: string | null) =>
       }).format(new Date(value))
     : "平台未提供";
 
-function confidenceValue(value: unknown) {
-  if (typeof value === "number") return value;
-  if (value && typeof value === "object" && "confidence" in value) {
-    const confidence = (value as { confidence?: unknown }).confidence;
-    return typeof confidence === "number" ? confidence : null;
-  }
-  return null;
-}
-
-const confidenceLabel = (value?: number | null) =>
-  value == null ? "待识别" : `${Math.round(value * 100)}%`;
-
 function relativeTime(value?: string | null) {
   if (!value) return "尚无记录";
   const seconds = Math.max(
@@ -771,10 +755,10 @@ function ProductCard({
   const displayTitle = showOriginal
     ? item.titleRaw
     : language === "zh"
-      ? (item.product?.titleZh ??
-        item.product?.canonicalName ??
-        translatedTitle ??
-        translateText(item.titleRaw))
+      ? (translatedTitle ??
+        item.product?.titleZh ??
+        translateText(item.titleRaw) ??
+        item.titleRaw)
       : item.titleRaw;
   const productTags = [
     item.product?.series?.nameZh,
@@ -823,9 +807,6 @@ function ProductCard({
             >
               <TranslateIcon className="h-4 w-4" />
             </button>
-            <span className="rounded-md bg-lime px-2 py-1 font-mono text-[11px] font-black text-ink">
-              {item.procurementScore}
-            </span>
           </div>
         </div>
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-ink/90 to-transparent p-2.5 pt-10 text-white">
@@ -866,9 +847,6 @@ function ProductCard({
             <span className="truncate">
               标准商品 · {item.product._count?.listings ?? 1} 个在售来源
             </span>
-            <span className="shrink-0 font-mono font-bold text-moss">
-              匹配 {confidenceLabel(item.matchConfidence)}
-            </span>
           </div>
         )}
         <div className="mt-2 flex items-end justify-between gap-3 border-y border-ink/8 py-2">
@@ -896,12 +874,8 @@ function ProductCard({
             <b className="font-mono text-xs">{fmtYen(item.priceTotalEst)}</b>
           </div>
           <div className="px-1">
-            <span className="block text-[9px] font-bold text-ink/45">
-              置信度
-            </span>
-            <b className="font-mono text-xs">
-              {Math.round(item.confidence * 100)}%
-            </b>
+            <span className="block text-[9px] font-bold text-ink/45">来源</span>
+            <b className="truncate text-xs">{sourceName(item.source.key)}</b>
           </div>
         </div>
         {remaining && (
@@ -964,10 +938,12 @@ function ProductCard({
 function FavoriteMiniCard({
   item,
   language,
+  translatedTitle,
   onOpen,
 }: {
   item: Item;
   language: "zh" | "original";
+  translatedTitle?: string;
   onOpen: () => void;
 }) {
   return (
@@ -991,11 +967,16 @@ function FavoriteMiniCard({
       </div>
       <span className="min-w-0">
         <span className="line-clamp-2 text-xs font-black leading-5 text-ink">
-          {language === "zh" ? translateText(item.titleRaw) : item.titleRaw}
+          {language === "zh"
+            ? (translatedTitle ??
+              item.product?.titleZh ??
+              translateText(item.titleRaw) ??
+              item.titleRaw)
+            : item.titleRaw}
         </span>
         <span className="mt-1 flex gap-2 font-mono text-[10px] text-ink/55">
           <b className="text-rust">{fmtYen(item.priceCurrent)}</b>
-          <span>SCORE {item.procurementScore}</span>
+          <span>{sourceName(item.source.key)}</span>
         </span>
       </span>
       <HeartIcon filled className="h-4 w-4 text-moss" />
@@ -1052,32 +1033,34 @@ function DetailDrawer({
   }
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-ink/55 backdrop-blur-sm"
+      className="fixed inset-0 z-50 grid place-items-center bg-ink/55 p-4 backdrop-blur-sm sm:p-6"
       onClick={onClose}
     >
       <aside
         role="dialog"
         aria-modal="true"
         aria-labelledby="detail-drawer-title"
-        className="scrollbar-thin h-full w-full max-w-2xl overflow-y-auto bg-paper shadow-2xl"
+        className="scrollbar-thin max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-paper shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink/10 bg-paper/95 px-5 py-4 backdrop-blur">
-          <div>
+        <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-ink/10 bg-paper/95 px-4 py-3 backdrop-blur sm:px-5">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="返回商品列表"
+            title="返回"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white shadow transition-colors hover:bg-fog"
+          >
+            <ArrowLeftIcon />
+          </button>
+          <div className="min-w-0 flex-1">
             <div className="text-xs font-black uppercase tracking-[.2em] text-moss">
-              商品情报 / 人工审计
+              商品情报
             </div>
             <h2 id="detail-drawer-title" className="mt-1 text-lg font-black">
-              详情与纠错
+              商品详情
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="关闭详情"
-            className="grid h-11 w-11 place-items-center rounded-full bg-white shadow transition-colors hover:bg-fog"
-          >
-            <CloseIcon />
-          </button>
           <button
             onClick={() => setShowOriginal((current) => !current)}
             aria-label={showOriginal ? "切换为中文" : "切换为原文"}
@@ -1085,6 +1068,15 @@ function DetailDrawer({
             className="grid h-11 w-11 place-items-center rounded-full bg-white shadow transition-colors hover:bg-fog"
           >
             <TranslateIcon />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭详情"
+            title="关闭"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white shadow transition-colors hover:bg-fog"
+          >
+            <CloseIcon />
           </button>
         </div>
         <div className="p-5">
@@ -1102,7 +1094,10 @@ function DetailDrawer({
           <h3 className="text-2xl font-black leading-tight">
             {showOriginal
               ? item.titleRaw
-              : (translatedTitle ?? translateText(item.titleRaw))}
+              : (translatedTitle ??
+                item.product?.titleZh ??
+                translateText(item.titleRaw) ??
+                item.titleRaw)}
           </h3>
           <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-white p-4 text-sm shadow-sm md:grid-cols-4">
             <div>
@@ -1274,10 +1269,12 @@ function DetailDrawer({
 
 function PurchaseDialog({
   item,
+  translatedTitle,
   onClose,
   onSaved,
 }: {
   item: Item;
+  translatedTitle?: string;
   onClose: () => void;
   onSaved: (purchase: PurchaseRecord) => void;
 }) {
@@ -1355,7 +1352,10 @@ function PurchaseDialog({
               记录已购买商品
             </h2>
             <p className="mt-1 line-clamp-2 text-xs text-ink/60">
-              {translateText(item.titleRaw)}
+              {translatedTitle ??
+                item.product?.titleZh ??
+                translateText(item.titleRaw) ??
+                item.titleRaw}
             </p>
           </div>
           <button
@@ -1487,45 +1487,65 @@ export default function Dashboard() {
     { scope: dashboardRef },
   );
 
-  const requestTranslations = useCallback(async (sourceItems: Item[]) => {
-    const jobs: { key: string; text: string }[] = [];
-    for (const item of sourceItems) {
-      const candidates = [
-        { key: `${item.id}:title`, text: item.titleRaw },
-        { key: `${item.id}:description`, text: item.descriptionRaw ?? "" },
-      ];
-      for (const candidate of candidates) {
-        if (
-          candidate.text.trim() &&
-          !translationRequestedRef.current.has(candidate.key)
-        ) {
-          translationRequestedRef.current.add(candidate.key);
-          jobs.push(candidate);
+  const requestTranslations = useCallback(
+    async (sourceItems: Item[], includeDescriptions = false) => {
+      const jobs: { key: string; text: string }[] = [];
+      for (const item of sourceItems) {
+        const candidates = [
+          { key: `${item.id}:title`, text: item.titleRaw },
+          ...(includeDescriptions
+            ? [
+                {
+                  key: `${item.id}:description`,
+                  text: (item.descriptionRaw ?? "").slice(0, 4_000),
+                },
+              ]
+            : []),
+        ];
+        for (const candidate of candidates) {
+          if (
+            candidate.text.trim() &&
+            !translationRequestedRef.current.has(candidate.key)
+          ) {
+            translationRequestedRef.current.add(candidate.key);
+            jobs.push(candidate);
+          }
         }
       }
-    }
-    if (!jobs.length) return;
-    try {
-      const response = await fetch(`${API}/analysis/translate`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ texts: jobs.map((job) => job.text) }),
-      });
-      if (!response.ok) throw new Error(`translation API ${response.status}`);
-      const data = (await response.json()) as { translations?: string[] };
-      const translated = data.translations ?? [];
-      setTranslations((current) => {
-        const next = { ...current };
-        jobs.forEach((job, index) => {
-          const value = translated[index]?.trim();
-          if (value && value !== job.text) next[job.key] = value;
-        });
-        return next;
-      });
-    } catch {
-      jobs.forEach((job) => translationRequestedRef.current.delete(job.key));
-    }
-  }, []);
+      if (!jobs.length) return;
+      for (let start = 0; start < jobs.length; start += 12) {
+        const batch = jobs.slice(start, start + 12);
+        try {
+          const response = await fetch(`${API}/analysis/translate`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ texts: batch.map((job) => job.text) }),
+          });
+          if (!response.ok)
+            throw new Error(`translation API ${response.status}`);
+          const data = (await response.json()) as { translations?: string[] };
+          const translated = data.translations ?? [];
+          setTranslations((current) => {
+            const next = { ...current };
+            batch.forEach((job, index) => {
+              const value = translated[index]?.trim();
+              if (value) next[job.key] = value;
+            });
+            return next;
+          });
+        } catch {
+          batch.forEach((job) =>
+            translationRequestedRef.current.delete(job.key),
+          );
+        }
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (selected) void requestTranslations([selected], true);
+  }, [requestTranslations, selected]);
 
   useGSAP(
     () => {
@@ -1674,9 +1694,18 @@ export default function Dashboard() {
       const response = await fetch(`${API}/analysis/market`, {
         cache: "no-store",
       });
-      if (response.ok) setAnalysis(await response.json());
+      if (response.ok) {
+        const nextAnalysis = (await response.json()) as MarketAnalysis;
+        setAnalysis(nextAnalysis);
+        const highlights = [
+          nextAnalysis.bestValue,
+          nextAnalysis.largestQuantity,
+          nextAnalysis.bestCondition,
+        ].filter((item): item is Item => Boolean(item));
+        void requestTranslations(highlights);
+      }
     } catch {}
-  }, []);
+  }, [requestTranslations]);
   const loadReviews = useCallback(async () => {
     try {
       const response = await fetch(`${API}/items/reviews/pending`, {
@@ -2023,6 +2052,7 @@ export default function Dashboard() {
             )}
             onOpenDetail={openAnalysisItem}
             onFavoriteChange={() => void load()}
+            onBack={() => setWorkspace("inventory")}
             interactionDisabled={Boolean(
               selected || purchaseItem || filtersOpen,
             )}
@@ -2042,7 +2072,8 @@ export default function Dashboard() {
                   AI 采购分析
                 </h2>
                 <p className="mt-0.5 max-w-3xl text-[11px] leading-4 text-white/65">
-                  持续计算当前库的性价比、数量与成色，点击任意结论可查看对应商品。
+                  DeepSeek
+                  会结合价格、数量、成色和交易状态给出可核验的采购建议。
                 </p>
               </div>
               <button
@@ -2054,7 +2085,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               {[
-                ["最高性价比", analysis?.bestValue],
+                ["价格与数量平衡", analysis?.bestValue],
                 ["数量最大", analysis?.largestQuantity],
                 ["质量最好", analysis?.bestCondition],
               ].map(([label, item]) => (
@@ -2073,13 +2104,15 @@ export default function Dashboard() {
                   <b className="mt-1 block line-clamp-2 text-sm">
                     {item
                       ? language === "zh"
-                        ? translateText((item as Item).titleRaw)
+                        ? (translations[`${(item as Item).id}:title`] ??
+                          translateText((item as Item).titleRaw) ??
+                          (item as Item).titleRaw)
                         : (item as Item).titleRaw
                       : "分析中…"}
                   </b>
-                  <span className="mt-1 block font-mono text-[11px] text-white/60">
+                  <span className="mt-1 block text-[11px] text-white/60">
                     {item
-                      ? `评分 ${(item as Item).procurementScore} · 单件 ${fmtYen((item as Item).unitCostEst)}`
+                      ? `单件 ${fmtYen((item as Item).unitCostEst)}`
                       : "等待数据"}
                   </span>
                   {item && (
@@ -2103,30 +2136,6 @@ export default function Dashboard() {
                     {analysis.engineLabel} · 样本 {analysis.sampleSize} 件
                   </span>
                   <span>更新于 {relativeTime(analysis.generatedAt)}</span>
-                </div>
-                <div className="mt-3 grid min-w-0 gap-1.5 md:grid-cols-2">
-                  {analysis.ranking.slice(0, 6).map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      disabled={analysisOpeningId === item.id}
-                      onClick={() => void openAnalysisItem(item.id)}
-                      className="group flex min-w-0 items-center gap-2 overflow-hidden rounded-lg bg-white/5 px-2.5 py-2 text-left text-xs transition-colors hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
-                    >
-                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-lime font-mono font-black text-ink">
-                        {item.rank}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        {language === "zh"
-                          ? translateText(item.titleRaw)
-                          : item.titleRaw}
-                      </span>
-                      <span className="font-mono text-lime">
-                        {item.procurementScore}
-                      </span>
-                      <ExternalLinkIcon className="h-3 w-3 shrink-0 text-white/40 transition-colors group-hover:text-lime" />
-                    </button>
-                  ))}
                 </div>
               </>
             )}
@@ -2335,7 +2344,12 @@ export default function Dashboard() {
                             <td className="max-w-[320px] p-3">
                               <div className="line-clamp-2 font-bold">
                                 {language === "zh"
-                                  ? translateText(purchase.item.titleRaw)
+                                  ? (translations[
+                                      `${purchase.item.id}:title`
+                                    ] ??
+                                    purchase.item.product?.titleZh ??
+                                    translateText(purchase.item.titleRaw) ??
+                                    purchase.item.titleRaw)
                                   : purchase.item.titleRaw}
                               </div>
                               <a
@@ -2435,9 +2449,6 @@ export default function Dashboard() {
                 >
                   人工审核 · {reviewTotal}
                 </h2>
-                <p className="mt-1 text-xs text-slate-600">
-                  70%–89% 的识别结果在这里确认；低于 70% 的字段不会被系统猜测。
-                </p>
               </div>
               <button
                 type="button"
@@ -2484,7 +2495,10 @@ export default function Dashboard() {
                         className="line-clamp-2 text-left text-sm font-black leading-5 hover:text-moss"
                       >
                         {language === "zh"
-                          ? translateText(review.item.titleRaw)
+                          ? (translations[`${review.item.id}:title`] ??
+                            review.item.product?.titleZh ??
+                            translateText(review.item.titleRaw) ??
+                            review.item.titleRaw)
                           : review.item.titleRaw}
                       </button>
                       <div className="mt-1 text-[10px] text-slate-500">
@@ -2496,8 +2510,8 @@ export default function Dashboard() {
                       </div>
                       <div className="mt-2 rounded-lg bg-blue-50 px-2.5 py-2 text-xs">
                         <b className="block text-ink">
-                          {review.product?.titleZh ??
-                            review.product?.canonicalName ??
+                          {translations[`${review.item.id}:title`] ??
+                            review.product?.titleZh ??
                             "尚未匹配标准商品"}
                         </b>
                         <span className="mt-0.5 block text-[10px] text-slate-600">
@@ -2513,31 +2527,9 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="min-w-0">
-                      <div className="flex flex-wrap gap-1.5">
-                        {Object.entries(review.fieldConfidences ?? {}).map(
-                          ([field, rawValue]) => {
-                            const value = confidenceValue(rawValue);
-                            if (value == null) return null;
-                            const level =
-                              value >= 0.9
-                                ? "bg-emerald-50 text-emerald-700"
-                                : value >= 0.7
-                                  ? "bg-amber-50 text-amber-800"
-                                  : "bg-red-50 text-red-700";
-                            return (
-                              <span
-                                key={field}
-                                className={`rounded px-2 py-1 text-[10px] font-bold ${level}`}
-                              >
-                                {confidenceFieldLabels[field] ?? field}{" "}
-                                {confidenceLabel(value)}
-                              </span>
-                            );
-                          },
-                        )}
-                      </div>
                       <p className="mt-2 text-[10px] leading-4 text-slate-500">
-                        {review.reasons.join("；") || "字段可信度需要人工确认"}
+                        {review.reasons.join("；") ||
+                          "请核对商品标题、图片和分类"}
                       </p>
                     </div>
                     <div className="flex gap-2 md:flex-col">
@@ -2994,7 +2986,7 @@ export default function Dashboard() {
                     {total} 条采购线索
                   </h2>
                   <p className="text-xs text-slate-500">
-                    按采购评分与发现时间排序 · 30 分钟内结束 {urgentCount} 件
+                    按发现时间排序 · 30 分钟内结束 {urgentCount} 件
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -3102,6 +3094,7 @@ export default function Dashboard() {
                         key={`favorite-${item.id}`}
                         item={item}
                         language={language}
+                        translatedTitle={translations[`${item.id}:title`]}
                         onOpen={() => setSelected(item)}
                       />
                     ))}
@@ -3303,6 +3296,7 @@ export default function Dashboard() {
       {purchaseItem && (
         <PurchaseDialog
           item={purchaseItem}
+          translatedTitle={translations[`${purchaseItem.id}:title`]}
           onClose={() => setPurchaseItem(null)}
           onSaved={() => {
             setPurchaseItem(null);

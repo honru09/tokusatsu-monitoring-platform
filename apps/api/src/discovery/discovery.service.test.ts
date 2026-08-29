@@ -70,7 +70,6 @@ describe("DiscoveryService", () => {
       listingId: "89a6ce89-a2d9-4ad8-8cb5-8f6d130c1c62",
       action: "favorite",
       position: 4,
-      recommendationScore: 91,
     });
 
     expect(result.feedback).toEqual({
@@ -81,7 +80,6 @@ describe("DiscoveryService", () => {
       data: expect.objectContaining({
         action: DiscoveryAction.favorite,
         position: 4,
-        recommendationScore: 91,
       }),
     });
     expect(prisma.item.update).toHaveBeenCalledWith({
@@ -98,7 +96,6 @@ describe("DiscoveryService", () => {
       productId: null,
       action: DiscoveryAction.favorite,
       position: 2,
-      recommendationScore: 87,
       undoEvents: [],
     });
     prisma.discoveryFeedback.create.mockResolvedValue({

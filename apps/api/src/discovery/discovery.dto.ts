@@ -20,12 +20,6 @@ export class DiscoveryFeedbackDto {
   @IsInt()
   @Min(0)
   position!: number;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(100)
-  recommendationScore!: number;
 }
 
 export class DiscoveryUndoDto {

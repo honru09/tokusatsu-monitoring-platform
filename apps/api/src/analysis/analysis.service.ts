@@ -107,43 +107,44 @@ export class AnalysisService {
         priceTotalEst: true,
         unitCostEst: true,
         quantityEst: true,
-        procurementScore: true,
         conditionGrade: true,
         status: true,
         imageCount: true,
+        detectedAt: true,
         source: { select: { key: true, displayName: true } },
       },
-      orderBy: { procurementScore: "desc" },
+      orderBy: { detectedAt: "desc" },
       take: 1000,
     });
-    const bestValue =
-      [...items].sort(
-        (a, b) =>
-          b.procurementScore - a.procurementScore ||
-          (a.unitCostEst ?? Number.MAX_SAFE_INTEGER) -
-            (b.unitCostEst ?? Number.MAX_SAFE_INTEGER),
-      )[0] ?? null;
-    const largestQuantity =
+    const fallbackBestValue =
+      items
+        .filter((item) => item.unitCostEst != null)
+        .sort(
+          (a, b) =>
+            (a.unitCostEst ?? Number.MAX_SAFE_INTEGER) -
+              (b.unitCostEst ?? Number.MAX_SAFE_INTEGER) ||
+            (b.quantityEst ?? 0) - (a.quantityEst ?? 0),
+        )[0] ?? null;
+    const fallbackLargestQuantity =
       [...items].sort(
         (a, b) => (b.quantityEst ?? 0) - (a.quantityEst ?? 0),
       )[0] ?? null;
-    const bestCondition =
+    const fallbackBestCondition =
       [...items].sort(
         (a, b) =>
           (conditionWeight[b.conditionGrade] ?? 0) -
-            (conditionWeight[a.conditionGrade] ?? 0) ||
-          b.procurementScore - a.procurementScore,
+          (conditionWeight[a.conditionGrade] ?? 0),
       )[0] ?? null;
-    const ranking = items
-      .slice(0, 10)
-      .map((item, index) => ({ rank: index + 1, ...item }));
-    const recommendation = bestValue
-      ? `优先关注「${bestValue.titleRaw.slice(0, 42)}」：采购评分 ${bestValue.procurementScore}，估算单件 ${bestValue.unitCostEst == null ? "未知" : `¥${bestValue.unitCostEst.toLocaleString("ja-JP")}`}。结合数量、成色和价格计算，建议先核验详情与竞拍截止时间。`
+    let bestValue = fallbackBestValue;
+    let largestQuantity = fallbackLargestQuantity;
+    let bestCondition = fallbackBestCondition;
+    const recommendation = fallbackBestValue
+      ? `建议先核验「${fallbackBestValue.titleRaw.slice(0, 42)}」：估算单件 ${fallbackBestValue.unitCostEst == null ? "未知" : `¥${fallbackBestValue.unitCostEst.toLocaleString("ja-JP")}`}。同时确认数量、成色、缺件情况与竞拍截止时间。`
       : "当前没有可分析的在售商品，等待下一轮市场扫描。";
     let mode: "rules" | "ai" = "rules";
     let engineLabel = "透明规则分析";
     let aiRecommendation: string | null = null;
-    if (bestValue && process.env.DEEPSEEK_API_KEY?.trim()) {
+    if (fallbackBestValue && process.env.DEEPSEEK_API_KEY?.trim()) {
       try {
         const promptItems = items.slice(0, 60).map((item) => ({
           id: item.id,
@@ -152,17 +153,21 @@ export class AnalysisService {
           total: item.priceTotalEst,
           unitCost: item.unitCostEst,
           quantity: item.quantityEst,
-          score: item.procurementScore,
           condition: item.conditionGrade,
           status: item.status,
           channel: item.source.displayName,
         }));
-        const result = await this.askDeepSeek<{ recommendation?: unknown }>(
+        const result = await this.askDeepSeek<{
+          bestValueId?: unknown;
+          largestQuantityId?: unknown;
+          bestConditionId?: unknown;
+          recommendation?: unknown;
+        }>(
           [
             {
               role: "system",
               content:
-                '你是日本特摄中古商品采购顾问。根据给出的商品数据，生成一段简洁、可执行的中文采购建议。必须指出最值得优先核验的商品，并说明价格、数量、成色或风险依据。只输出 JSON：{"recommendation":"..."}。',
+                '你是日本特摄中古商品采购顾问。严禁生成数字评分或虚构信息。根据商品标题、价格、数量、成色和状态选择三个可核验的商品，并给出简洁中文建议。bestValueId 表示价格与数量最值得核验，largestQuantityId 表示数量最大，bestConditionId 表示品相最好；ID 必须来自输入。只输出 JSON：{"bestValueId":"id","largestQuantityId":"id","bestConditionId":"id","recommendation":"..."}。',
             },
             { role: "user", content: JSON.stringify(promptItems) },
           ],
@@ -172,6 +177,14 @@ export class AnalysisService {
           typeof result.recommendation === "string" &&
           result.recommendation.trim()
         ) {
+          const byId = new Map(items.map((item) => [item.id, item]));
+          if (typeof result.bestValueId === "string")
+            bestValue = byId.get(result.bestValueId) ?? bestValue;
+          if (typeof result.largestQuantityId === "string")
+            largestQuantity =
+              byId.get(result.largestQuantityId) ?? largestQuantity;
+          if (typeof result.bestConditionId === "string")
+            bestCondition = byId.get(result.bestConditionId) ?? bestCondition;
           mode = "ai";
           engineLabel = "DeepSeek V4 Flash";
           aiRecommendation = result.recommendation.trim();
@@ -188,7 +201,6 @@ export class AnalysisService {
       bestValue,
       largestQuantity,
       bestCondition,
-      ranking,
       recommendation: aiRecommendation ?? recommendation,
     };
   }
