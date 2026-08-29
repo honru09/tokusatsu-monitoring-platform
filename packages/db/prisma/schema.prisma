@@ -1,0 +1,324 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SourceChannel {
+  online
+  physical_store
+}
+
+enum SellerType {
+  individual
+  store
+  unknown
+}
+
+enum CategoryIp {
+  kamen_rider
+  ultraman
+  other
+  unknown
+}
+
+enum ToyType {
+  gashapon
+  shokugan
+  figure
+  sofubi
+  finger_puppet
+  dx_belt
+  henshin_item
+  card
+  medal
+  model
+  set
+  other
+  unknown
+}
+
+enum Manufacturer {
+  bandai
+  bandai_spirits
+  banpresto
+  megahouse
+  plex
+  other
+  unknown
+}
+
+enum ConditionGrade {
+  new_sealed
+  like_new
+  used
+  stained_or_damaged
+  junk
+  unknown
+}
+
+enum ItemStatus {
+  active
+  sold
+  ended
+  reserved
+  unknown
+}
+
+enum JobStatus {
+  queued
+  running
+  succeeded
+  failed
+}
+
+enum ImportOrigin {
+  search
+  url
+}
+
+model Source {
+  id            String        @id @default(uuid())
+  key           String        @unique
+  displayName   String
+  baseUrl       String?
+  channel       SourceChannel @default(online)
+  enabled       Boolean       @default(true)
+  rateLimitMs   Int           @default(2000)
+  circuitOpenAt DateTime?
+  failureCount  Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  items         Item[]
+  sellers       Seller[]
+  crawlJobs     CrawlJob[]
+  physicalStores PhysicalStore[]
+}
+
+model Seller {
+  id         String     @id @default(uuid())
+  sourceId   String
+  name       String
+  sellerType SellerType @default(unknown)
+  locationText String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  source     Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  items      Item[]
+
+  @@unique([sourceId, name])
+  @@index([name])
+}
+
+model Item {
+  id                 String          @id @default(uuid())
+  sourceId           String
+  sourceItemId       String
+  sourceUrl          String
+  titleRaw           String
+  descriptionRaw     String?
+  sellerId           String?
+  locationText       String?
+  priceCurrent       Int
+  shippingFee        Int?
+  priceTotalEst      Int
+  listedAt           DateTime?
+  detectedAt         DateTime        @default(now())
+  lastSeenAt         DateTime        @default(now())
+  auctionEndAt       DateTime?
+  bidCount           Int?
+  conditionRaw       String?
+  categoryIp         CategoryIp      @default(unknown)
+  categoryToyType    ToyType         @default(unknown)
+  manufacturer       Manufacturer    @default(unknown)
+  conditionGrade     ConditionGrade  @default(unknown)
+  channel            SourceChannel   @default(online)
+  quantityEst        Int?
+  imageCount         Int             @default(0)
+  unitCostEst        Int?
+  confidence         Float           @default(0)
+  needsReview        Boolean         @default(true)
+  procurementScore   Int             @default(0)
+  status             ItemStatus      @default(unknown)
+  suspectedDuplicate Boolean         @default(false)
+  favorite           Boolean         @default(false)
+  ignored            Boolean         @default(false)
+  importOrigin       ImportOrigin    @default(search)
+  archivedAt         DateTime?
+  note               String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  source             Source          @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  seller             Seller?         @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  images             ItemImage[]
+  priceHistory       ItemPriceHistory[]
+  classifications    ItemClassification[]
+  manualReviews      ManualReview[]
+  alerts             Alert[]
+  purchaseRecord     PurchaseRecord?
+  urlImports         UrlImport[]
+
+  @@unique([sourceId, sourceItemId])
+  @@index([categoryIp, priceCurrent])
+  @@index([conditionGrade, categoryToyType, manufacturer])
+  @@index([auctionEndAt])
+  @@index([detectedAt])
+  @@index([listedAt])
+  @@index([archivedAt, status])
+  @@index([importOrigin, createdAt])
+}
+
+model ItemImage {
+  id        String   @id @default(uuid())
+  itemId    String
+  url       String
+  position  Int      @default(0)
+  localThumbnailUrl String?
+  perceptualHash String?
+  createdAt DateTime @default(now())
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, url])
+  @@index([itemId, position])
+}
+
+model ItemPriceHistory {
+  id           String   @id @default(uuid())
+  itemId       String
+  priceCurrent Int
+  shippingFee  Int?
+  bidCount     Int?
+  observedAt   DateTime @default(now())
+  item         Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, observedAt])
+}
+
+model ItemClassification {
+  id             String   @id @default(uuid())
+  itemId         String
+  classifierType String
+  modelVersion   String
+  result         Json
+  confidence     Float
+  conflict       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  item           Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, createdAt])
+}
+
+model PhysicalStore {
+  id           String   @id @default(uuid())
+  sourceId     String?
+  name         String
+  area         String?
+  address      String?
+  openingHours String?
+  websiteUrl   String?
+  socialUrl    String?
+  latitude     Float?
+  longitude    Float?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  source       Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([area])
+}
+
+model CrawlJob {
+  id         String    @id @default(uuid())
+  sourceId   String?
+  queueJobId String?
+  jobType    String
+  query      Json?
+  metrics    Json?
+  status     JobStatus @default(queued)
+  attempt    Int       @default(0)
+  errorText  String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  source     Source?   @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+}
+
+model UrlImport {
+  id          String    @id @default(uuid())
+  queueJobId  String?   @unique
+  sourceUrl   String
+  adapterKey  String
+  itemId      String?
+  status      JobStatus @default(queued)
+  progress    Int       @default(0)
+  currentStep String?
+  errorText   String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  item        Item?     @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([sourceUrl])
+}
+
+model PurchaseRecord {
+  id             String             @id @default(uuid())
+  itemId         String             @unique
+  purchaseAmount Int
+  purchasedAt    DateTime           @default(now())
+  note           String?
+  verifiedAt     DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  item           Item               @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  receipts       PurchaseReceipt[]
+
+  @@index([purchasedAt])
+  @@index([verifiedAt])
+}
+
+model PurchaseReceipt {
+  id          String         @id @default(uuid())
+  purchaseId  String
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  dataBase64  String
+  createdAt   DateTime       @default(now())
+  purchase    PurchaseRecord @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseId, createdAt])
+}
+
+model Alert {
+  id        String   @id @default(uuid())
+  itemId    String
+  ruleKey   String
+  payload   Json?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([readAt, createdAt])
+}
+
+model ManualReview {
+  id         String   @id @default(uuid())
+  itemId     String
+  actor      String
+  beforeData Json
+  afterData  Json
+  reason     String?
+  createdAt  DateTime @default(now())
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, createdAt])
+}

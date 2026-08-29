@@ -1,0 +1,11 @@
+node_modules/
+.pnpm-store/
+.next/
+dist/
+*.tsbuildinfo
+coverage/
+.env
+.env.local
+Keys.txt
+*.log
+packages/db/generated/

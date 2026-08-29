@@ -1,0 +1,668 @@
+import { classifyImages } from "@tokusatsu/classification";
+import { prisma, Prisma } from "@tokusatsu/db";
+import {
+  auctionRefreshDelay,
+  isExcludedCollectibleText,
+} from "@tokusatsu/shared";
+import type {
+  NormalizedItem,
+  SearchQuery,
+  SourceAdapter,
+} from "@tokusatsu/shared";
+import type { Job } from "bullmq";
+import { createHash } from "node:crypto";
+import { FirecrawlMarketplaceAdapter } from "./adapters/firecrawl-market.adapter.js";
+import { MandarakeAdapter } from "./adapters/mandarake.adapter.js";
+import { MercariAdapter } from "./adapters/mercari.adapter.js";
+import { MockAdapter } from "./adapters/mock.adapter.js";
+import { PublicPageAdapter } from "./adapters/public-page.adapter.js";
+import { YahooAuctionsAdapter } from "./adapters/yahoo-auctions.adapter.js";
+import { classificationQueue, connection, statusQueue } from "./queues.js";
+
+const adapters: Record<string, SourceAdapter> = {
+  mock: new MockAdapter(),
+  mandarake: new MandarakeAdapter(),
+  mercari: new MercariAdapter(),
+  yahoo_auctions: new YahooAuctionsAdapter(),
+  firecrawl_market: new FirecrawlMarketplaceAdapter(),
+  public_page: new PublicPageAdapter(),
+};
+
+type SearchMetrics = {
+  candidates: number;
+  inserted: number;
+  skippedKnown: number;
+  detailFailed: number;
+  pageStart: number;
+  pages: number;
+  scanMode: "incremental" | "backfill";
+  errors: string[];
+};
+
+function sourceBaseUrl(adapterKey: string): string {
+  if (adapterKey === "mandarake") return "https://order.mandarake.co.jp";
+  if (adapterKey === "mercari") return "https://jp.mercari.com";
+  if (adapterKey === "yahoo_auctions") return "https://auctions.yahoo.co.jp";
+  if (adapterKey === "firecrawl_market") return "https://api.firecrawl.dev";
+  if (adapterKey === "public_page") return "https://public.example";
+  return "https://example.com/mock";
+}
+
+async function resolveSearchQuery(adapterKey: string, query: SearchQuery) {
+  if (!query.rotatePages) return query;
+  const pages = Math.max(1, Math.min(query.pages ?? 1, 8));
+  const maxPages = Math.max(
+    pages,
+    Number(process.env.MARKET_BACKFILL_MAX_PAGES ?? 80),
+  );
+  const digest = createHash("sha256")
+    .update(`${adapterKey}:${query.keyword}`)
+    .digest("hex")
+    .slice(0, 20);
+  const key = `market-backfill-cursor:${digest}`;
+  const storedCursor = await connection.get(key);
+  const current = Number(storedCursor ?? query.pageStart ?? 0);
+  const pageStart = Number.isFinite(current) ? current % maxPages : 0;
+  await connection.set(key, String((pageStart + pages) % maxPages));
+  return { ...query, pageStart };
+}
+
+export async function processSearch(
+  job: Job<{ adapterKey: string; query: SearchQuery }>,
+) {
+  const adapter = adapters[job.data.adapterKey];
+  if (!adapter) throw new Error(`Unknown adapter: ${job.data.adapterKey}`);
+  const source = await prisma.source.upsert({
+    where: { key: adapter.key },
+    update: { displayName: adapter.displayName },
+    create: {
+      key: adapter.key,
+      displayName: adapter.displayName,
+      baseUrl: sourceBaseUrl(adapter.key),
+      rateLimitMs: [
+        "mandarake",
+        "mercari",
+        "yahoo_auctions",
+        "firecrawl_market",
+        "public_page",
+      ].includes(adapter.key)
+        ? 3000
+        : 0,
+    },
+  });
+  if (
+    source.circuitOpenAt &&
+    Date.now() - source.circuitOpenAt.getTime() < 15 * 60 * 1000
+  ) {
+    throw new Error(`Circuit open for ${adapter.key}`);
+  }
+
+  const effectiveQuery = await resolveSearchQuery(
+    job.data.adapterKey,
+    job.data.query,
+  );
+  const metrics: SearchMetrics = {
+    candidates: 0,
+    inserted: 0,
+    skippedKnown: 0,
+    detailFailed: 0,
+    pageStart: effectiveQuery.pageStart ?? 0,
+    pages: effectiveQuery.pages ?? 1,
+    scanMode: effectiveQuery.scanMode ?? "incremental",
+    errors: [],
+  };
+  const crawlJob = await prisma.crawlJob.create({
+    data: {
+      sourceId: source.id,
+      queueJobId: String(job.id),
+      jobType: "search",
+      query: effectiveQuery as unknown as Prisma.InputJsonValue,
+      status: "running",
+      startedAt: new Date(),
+      attempt: job.attemptsMade + 1,
+    },
+  });
+  try {
+    const results = await adapter.search(effectiveQuery);
+    metrics.candidates = results.length;
+    if (results.length === 0 && metrics.scanMode === "incremental") {
+      throw new Error(
+        `${adapter.displayName} incremental search returned zero candidates`,
+      );
+    }
+    const existing = await prisma.item.findMany({
+      where: {
+        sourceId: source.id,
+        sourceItemId: { in: results.map((result) => result.sourceItemId) },
+      },
+      select: { sourceItemId: true },
+    });
+    const existingIds = new Set(existing.map((item) => item.sourceItemId));
+    metrics.skippedKnown = existingIds.size;
+    if (existingIds.size > 0) {
+      await prisma.item.updateMany({
+        where: {
+          sourceId: source.id,
+          sourceItemId: { in: [...existingIds] },
+        },
+        data: { lastSeenAt: new Date() },
+      });
+    }
+    for (const result of results) {
+      if (existingIds.has(result.sourceItemId)) continue;
+      try {
+        const raw = await adapter.fetchDetail(result);
+        const normalized = await adapter.normalize(raw);
+        if (
+          isExcludedCollectibleText(
+            normalized.titleRaw,
+            normalized.descriptionRaw,
+          )
+        )
+          continue;
+        await persistNormalized(source.id, normalized);
+        metrics.inserted += 1;
+      } catch (error) {
+        metrics.detailFailed += 1;
+        if (metrics.errors.length < 8)
+          metrics.errors.push(
+            `${result.sourceItemId}: ${String(error).slice(0, 300)}`,
+          );
+      }
+    }
+    if (
+      results.length > 0 &&
+      metrics.inserted === 0 &&
+      metrics.skippedKnown === 0 &&
+      metrics.detailFailed > 0
+    ) {
+      throw new Error(
+        `${adapter.displayName} found candidates but every detail failed`,
+      );
+    }
+    await prisma.$transaction([
+      prisma.crawlJob.update({
+        where: { id: crawlJob.id },
+        data: {
+          status: "succeeded",
+          finishedAt: new Date(),
+          metrics: metrics as unknown as Prisma.InputJsonValue,
+          errorText:
+            metrics.detailFailed > 0
+              ? `${metrics.detailFailed} detail fetches failed; see metrics`
+              : null,
+        },
+      }),
+      prisma.source.update({
+        where: { id: source.id },
+        data: { failureCount: 0, circuitOpenAt: null },
+      }),
+    ]);
+    console.log(
+      JSON.stringify({
+        event: "search_completed",
+        adapter: adapter.key,
+        keyword: effectiveQuery.keyword,
+        ...metrics,
+      }),
+    );
+    return metrics;
+  } catch (error) {
+    const failureCount = source.failureCount + 1;
+    await prisma.$transaction([
+      prisma.crawlJob.update({
+        where: { id: crawlJob.id },
+        data: {
+          status: "failed",
+          errorText: String(error),
+          metrics: metrics as unknown as Prisma.InputJsonValue,
+          finishedAt: new Date(),
+        },
+      }),
+      prisma.source.update({
+        where: { id: source.id },
+        data: {
+          failureCount,
+          circuitOpenAt: failureCount >= 5 ? new Date() : null,
+        },
+      }),
+    ]);
+    console.error(
+      JSON.stringify({
+        event: "search_failed",
+        adapter: adapter.key,
+        keyword: effectiveQuery.keyword,
+        error: String(error),
+        ...metrics,
+      }),
+    );
+    throw error;
+  }
+}
+
+export async function processUrlAnalysis(
+  job: Job<{ adapterKey: string; sourceUrl: string; importId?: string }>,
+) {
+  const adapter = adapters[job.data.adapterKey];
+  if (!adapter) throw new Error(`Unknown adapter: ${job.data.adapterKey}`);
+  const source = await prisma.source.upsert({
+    where: { key: adapter.key },
+    update: { displayName: adapter.displayName },
+    create: {
+      key: adapter.key,
+      displayName: adapter.displayName,
+      baseUrl: sourceBaseUrl(adapter.key),
+      rateLimitMs: [
+        "mandarake",
+        "mercari",
+        "yahoo_auctions",
+        "firecrawl_market",
+        "public_page",
+      ].includes(adapter.key)
+        ? 3000
+        : 0,
+    },
+  });
+  const sourceItemId =
+    new URL(job.data.sourceUrl).searchParams.get("itemCode") ??
+    new URL(job.data.sourceUrl).pathname.split("/").filter(Boolean).at(-1) ??
+    job.data.sourceUrl;
+  const crawlJob = await prisma.crawlJob.create({
+    data: {
+      sourceId: source.id,
+      queueJobId: String(job.id),
+      jobType: "url_analysis",
+      query: { sourceUrl: job.data.sourceUrl } as Prisma.InputJsonValue,
+      status: "running",
+      startedAt: new Date(),
+      attempt: job.attemptsMade + 1,
+    },
+  });
+  if (job.data.importId) {
+    await prisma.urlImport.update({
+      where: { id: job.data.importId },
+      data: {
+        status: "running",
+        progress: 10,
+        currentStep: "正在读取公开商品页",
+        startedAt: new Date(),
+      },
+    });
+  }
+  try {
+    const raw = await adapter.fetchDetail({
+      sourceItemId,
+      sourceUrl: job.data.sourceUrl,
+    });
+    const normalized = await adapter.normalize(raw);
+    if (
+      isExcludedCollectibleText(normalized.titleRaw, normalized.descriptionRaw)
+    )
+      throw new Error("已过滤书籍或卡片类商品");
+    if (job.data.importId)
+      await prisma.urlImport.update({
+        where: { id: job.data.importId },
+        data: { progress: 75, currentStep: "商品已解析，正在写入链接专区" },
+      });
+    const saved = await persistNormalized(source.id, normalized, false, "url");
+    await prisma.crawlJob.update({
+      where: { id: crawlJob.id },
+      data: { status: "succeeded", finishedAt: new Date() },
+    });
+    if (job.data.importId)
+      await prisma.urlImport.update({
+        where: { id: job.data.importId },
+        data: {
+          status: "succeeded",
+          progress: 100,
+          currentStep: "已完成",
+          finishedAt: new Date(),
+          itemId: saved.id,
+        },
+      });
+    return { itemId: saved.id, title: saved.titleRaw, favorited: false };
+  } catch (error) {
+    await prisma.crawlJob.update({
+      where: { id: crawlJob.id },
+      data: {
+        status: "failed",
+        errorText: String(error),
+        finishedAt: new Date(),
+      },
+    });
+    if (job.data.importId)
+      await prisma.urlImport.update({
+        where: { id: job.data.importId },
+        data: {
+          status: "failed",
+          progress: 100,
+          currentStep: "分析失败",
+          errorText: String(error).slice(0, 1000),
+          finishedAt: new Date(),
+        },
+      });
+    throw error;
+  }
+}
+
+async function persistNormalized(
+  sourceId: string,
+  item: NormalizedItem,
+  favorite = false,
+  importOrigin: "search" | "url" = "search",
+) {
+  const seller = item.sellerName
+    ? await prisma.seller.upsert({
+        where: { sourceId_name: { sourceId, name: item.sellerName } },
+        update: {
+          sellerType: item.sellerType ?? "unknown",
+          locationText: item.locationText,
+        },
+        create: {
+          sourceId,
+          name: item.sellerName,
+          sellerType: item.sellerType ?? "unknown",
+          locationText: item.locationText,
+        },
+      })
+    : null;
+
+  const saved = await prisma.item.upsert({
+    where: {
+      sourceId_sourceItemId: { sourceId, sourceItemId: item.sourceItemId },
+    },
+    update: {
+      sourceUrl: item.sourceUrl,
+      titleRaw: item.titleRaw,
+      descriptionRaw: item.descriptionRaw,
+      sellerId: seller?.id,
+      locationText: item.locationText,
+      priceCurrent: item.priceCurrent,
+      shippingFee: item.shippingFee,
+      priceTotalEst: item.priceTotalEst,
+      listedAt: item.listedAt,
+      lastSeenAt: new Date(),
+      auctionEndAt: item.auctionEndAt,
+      bidCount: item.bidCount,
+      conditionRaw: item.conditionRaw,
+      categoryIp: item.categoryIp,
+      categoryToyType: item.categoryToyType,
+      manufacturer: item.manufacturer,
+      conditionGrade: item.conditionGrade,
+      channel: item.channel,
+      quantityEst: item.quantityEst,
+      imageCount: item.imageUrls.length,
+      unitCostEst: item.unitCostEst,
+      confidence: item.confidence,
+      needsReview: item.needsReview,
+      procurementScore: item.procurementScore,
+      status: item.status,
+      importOrigin,
+      ...(favorite ? { favorite: true, ignored: false } : {}),
+    },
+    create: {
+      sourceId,
+      sourceItemId: item.sourceItemId,
+      sourceUrl: item.sourceUrl,
+      titleRaw: item.titleRaw,
+      descriptionRaw: item.descriptionRaw,
+      sellerId: seller?.id,
+      locationText: item.locationText,
+      priceCurrent: item.priceCurrent,
+      shippingFee: item.shippingFee,
+      priceTotalEst: item.priceTotalEst,
+      listedAt: item.listedAt,
+      detectedAt: new Date(),
+      lastSeenAt: new Date(),
+      auctionEndAt: item.auctionEndAt,
+      bidCount: item.bidCount,
+      conditionRaw: item.conditionRaw,
+      categoryIp: item.categoryIp,
+      categoryToyType: item.categoryToyType,
+      manufacturer: item.manufacturer,
+      conditionGrade: item.conditionGrade,
+      channel: item.channel,
+      quantityEst: item.quantityEst,
+      imageCount: item.imageUrls.length,
+      unitCostEst: item.unitCostEst,
+      confidence: item.confidence,
+      needsReview: item.needsReview,
+      procurementScore: item.procurementScore,
+      status: item.status,
+      favorite,
+      importOrigin,
+    },
+  });
+  await prisma.itemImage.createMany({
+    data: item.imageUrls.map((url, position) => ({
+      itemId: saved.id,
+      url,
+      position,
+    })),
+    skipDuplicates: true,
+  });
+  const latest = await prisma.itemPriceHistory.findFirst({
+    where: { itemId: saved.id },
+    orderBy: { observedAt: "desc" },
+  });
+  if (
+    !latest ||
+    latest.priceCurrent !== item.priceCurrent ||
+    latest.shippingFee !== item.shippingFee ||
+    latest.bidCount !== item.bidCount
+  ) {
+    await prisma.itemPriceHistory.create({
+      data: {
+        itemId: saved.id,
+        priceCurrent: item.priceCurrent,
+        shippingFee: item.shippingFee,
+        bidCount: item.bidCount,
+      },
+    });
+  }
+  await prisma.itemClassification.create({
+    data: {
+      itemId: saved.id,
+      classifierType: "text_rule",
+      modelVersion: "rules-v1",
+      confidence: item.confidence,
+      conflict: item.needsReview,
+      result: item as unknown as Prisma.InputJsonValue,
+    },
+  });
+  await classificationQueue.add(
+    "classify-images",
+    { itemId: saved.id },
+    {
+      jobId: `vision-${saved.id}-${saved.updatedAt.getTime()}`,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 10_000 },
+      removeOnComplete: 100,
+      removeOnFail: 100,
+    },
+  );
+  await scheduleStatus(
+    saved.id,
+    saved.sourceItemId,
+    saved.sourceUrl,
+    saved.status,
+    saved.auctionEndAt,
+    item.sourcePlatform,
+  );
+  return saved;
+}
+
+async function scheduleStatus(
+  itemId: string,
+  sourceItemId: string,
+  sourceUrl: string,
+  status: string,
+  auctionEndAt: Date | null,
+  adapterKey: string,
+) {
+  const delay = auctionRefreshDelay(auctionEndAt);
+  await statusQueue.add(
+    "refresh-status",
+    { itemId, sourceItemId, sourceUrl, status, auctionEndAt, adapterKey },
+    {
+      delay,
+      jobId: `status-${itemId}-${Math.floor((Date.now() + delay) / 30_000)}`,
+      attempts: 4,
+      backoff: { type: "exponential", delay: 30_000 },
+      removeOnComplete: 100,
+      removeOnFail: 100,
+    },
+  );
+}
+
+export async function processClassification(job: Job<{ itemId: string }>) {
+  const item = await prisma.item.findUnique({
+    where: { id: job.data.itemId },
+    include: { images: { orderBy: { position: "asc" } } },
+  });
+  if (!item) return { skipped: "missing_item" };
+  const { provider, result } = await classifyImages({
+    title: item.titleRaw,
+    description: item.descriptionRaw,
+    imageUrls: item.images.map((image) => image.url),
+  });
+  const conflict =
+    (result.ip.length > 0 && !result.ip.includes(item.categoryIp)) ||
+    (result.conditionGrade !== "unknown" &&
+      result.conditionGrade !== item.conditionGrade);
+  await prisma.$transaction([
+    prisma.itemClassification.create({
+      data: {
+        itemId: item.id,
+        classifierType: "vision",
+        modelVersion: provider,
+        result: result as unknown as Prisma.InputJsonValue,
+        confidence: result.confidence,
+        conflict,
+      },
+    }),
+    prisma.item.update({
+      where: { id: item.id },
+      data: {
+        needsReview: item.needsReview || conflict || result.confidence < 0.6,
+      },
+    }),
+  ]);
+  return { provider, confidence: result.confidence, conflict };
+}
+
+export async function processStatus(
+  job: Job<{
+    itemId: string;
+    sourceItemId: string;
+    sourceUrl: string;
+    status: string;
+    auctionEndAt: string | Date | null;
+    adapterKey: string;
+  }>,
+) {
+  const adapter = adapters[job.data.adapterKey];
+  if (!adapter) return { skipped: "adapter_unavailable" };
+  const current = await prisma.item.findUnique({
+    where: { id: job.data.itemId },
+  });
+  if (!current) return { skipped: "missing_item" };
+  const update = await adapter.refreshStatus({
+    sourceItemId: job.data.sourceItemId,
+    sourceUrl: job.data.sourceUrl,
+    status: job.data.status as "active",
+    auctionEndAt: job.data.auctionEndAt
+      ? new Date(job.data.auctionEndAt)
+      : null,
+  });
+  const priceCurrent = update.priceCurrent ?? current.priceCurrent;
+  const shippingFee = update.shippingFee ?? current.shippingFee;
+  const auctionEndAt = update.auctionEndAt ?? current.auctionEndAt;
+  await prisma.item.update({
+    where: { id: current.id },
+    data: {
+      status: update.status,
+      priceCurrent,
+      shippingFee,
+      priceTotalEst: priceCurrent + (shippingFee ?? 0),
+      auctionEndAt,
+      bidCount: update.bidCount ?? current.bidCount,
+      lastSeenAt: new Date(),
+    },
+  });
+  if (
+    priceCurrent !== current.priceCurrent ||
+    shippingFee !== current.shippingFee ||
+    update.bidCount !== current.bidCount
+  ) {
+    await prisma.itemPriceHistory.create({
+      data: {
+        itemId: current.id,
+        priceCurrent,
+        shippingFee,
+        bidCount: update.bidCount ?? current.bidCount,
+      },
+    });
+  }
+  if (update.status === "active")
+    await scheduleStatus(
+      current.id,
+      current.sourceItemId,
+      current.sourceUrl,
+      update.status,
+      auctionEndAt,
+      job.data.adapterKey,
+    );
+  return update;
+}
+
+/** Archives terminal listings every two hours while keeping purchase history intact. */
+export async function processCleanup() {
+  const now = new Date();
+  const terminal = await prisma.item.findMany({
+    where: {
+      archivedAt: null,
+      OR: [
+        { status: { in: ["sold", "ended"] } },
+        { auctionEndAt: { lt: new Date(now.getTime() - 2 * 60 * 60 * 1000) } },
+      ],
+    },
+    select: { id: true },
+    take: 5000,
+  });
+  const terminalIds = terminal.map((item) => item.id);
+  if (terminalIds.length) {
+    await prisma.$transaction([
+      prisma.item.updateMany({
+        where: { id: { in: terminalIds } },
+        data: { archivedAt: now },
+      }),
+      prisma.itemImage.deleteMany({
+        where: { itemId: { in: terminalIds }, item: { purchaseRecord: null } },
+      }),
+    ]);
+  }
+  const cardIds = await prisma.item.findMany({
+    where: {
+      purchaseRecord: null,
+      OR: [
+        { categoryToyType: "card" },
+        { titleRaw: { contains: "トレカ", mode: "insensitive" } },
+        { titleRaw: { contains: "trading card", mode: "insensitive" } },
+        { titleRaw: { contains: "card game", mode: "insensitive" } },
+        { descriptionRaw: { contains: "カードダス", mode: "insensitive" } },
+      ],
+    },
+    select: { id: true },
+    take: 5000,
+  });
+  if (cardIds.length)
+    await prisma.item.deleteMany({
+      where: { id: { in: cardIds.map((item) => item.id) } },
+    });
+  return {
+    archived: terminalIds.length,
+    removedCards: cardIds.length,
+    cleanedAt: now.toISOString(),
+  };
+}

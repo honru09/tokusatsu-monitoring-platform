@@ -1,0 +1,147 @@
+name: tokusatsu-monitor
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tokusatsu}
+      POSTGRES_USER: ${POSTGRES_USER:-tokusatsu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-production}
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-tokusatsu} -d ${POSTGRES_DB:-tokusatsu}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://tokusatsu:change-me-in-production@postgres:5432/tokusatsu?schema=public}
+      REDIS_URL: redis://redis:6379
+      API_PORT: 3001
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      FIRECRAWL_INCLUDE_DOMAINS: ${FIRECRAWL_INCLUDE_DOMAINS:-jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp}
+      FIRECRAWL_ALLOW_ANY_DOMAIN: ${FIRECRAWL_ALLOW_ANY_DOMAIN:-false}
+      INVENTORY_CLEANUP_INTERVAL_MS: ${INVENTORY_CLEANUP_INTERVAL_MS:-7200000}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: workers/crawlers/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://tokusatsu:change-me-in-production@postgres:5432/tokusatsu?schema=public}
+      REDIS_URL: redis://redis:6379
+      REAL_ADAPTER_ENABLED: ${REAL_ADAPTER_ENABLED:-true}
+      MOCK_ADAPTER_ENABLED: ${MOCK_ADAPTER_ENABLED:-false}
+      MANDARAKE_SEARCH_ENABLED: ${MANDARAKE_SEARCH_ENABLED:-false}
+      YAHOO_AUCTIONS_SEARCH_ENABLED: ${YAHOO_AUCTIONS_SEARCH_ENABLED:-true}
+      MANDARAKE_SEARCH_KEYWORD: ${MANDARAKE_SEARCH_KEYWORD:-仮面ライダー まとめ売り}
+      CRAWLER_USER_AGENT: ${CRAWLER_USER_AGENT:-TokusatsuMonitor/1.0}
+      CRAWLER_CONTACT: ${CRAWLER_CONTACT:-operator@example.com}
+      MOCK_SEARCH_INTERVAL_MS: ${MOCK_SEARCH_INTERVAL_MS:-900000}
+      REAL_HIGH_PRIORITY_INTERVAL_MS: ${REAL_HIGH_PRIORITY_INTERVAL_MS:-600000}
+      REAL_SEARCH_INTERVAL_MS: ${REAL_SEARCH_INTERVAL_MS:-1800000}
+      MANDARAKE_NORMAL_KEYWORD: ${MANDARAKE_NORMAL_KEYWORD:-仮面ライダー}
+      MARKET_KEYWORDS: ${MARKET_KEYWORDS:-仮面ライダー|仮面ライダー まとめ売り|仮面ライダー DX|仮面ライダー ベルト|仮面ライダー ソフビ|仮面ライダー 食玩|仮面ライダー ガシャポン|ウルトラマン|特撮 まとめ売り}
+      MARKET_INCREMENTAL_INTERVAL_MS: ${MARKET_INCREMENTAL_INTERVAL_MS:-900000}
+      MARKET_BACKFILL_INTERVAL_MS: ${MARKET_BACKFILL_INTERVAL_MS:-10800000}
+      MARKET_BACKFILL_MAX_PAGES: ${MARKET_BACKFILL_MAX_PAGES:-80}
+      FIRECRAWL_DISCOVERY_ENABLED: ${FIRECRAWL_DISCOVERY_ENABLED:-false}
+      FIRECRAWL_DISCOVERY_INTERVAL_MS: ${FIRECRAWL_DISCOVERY_INTERVAL_MS:-7200000}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      FIRECRAWL_API_URL: ${FIRECRAWL_API_URL:-https://api.firecrawl.dev}
+      FIRECRAWL_INCLUDE_DOMAINS: ${FIRECRAWL_INCLUDE_DOMAINS:-jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp}
+      VISION_API_URL: ${VISION_API_URL:-}
+      VISION_API_KEY: ${VISION_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "workers/crawlers/dist/healthcheck.js"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001}
+      API_INTERNAL_URL: http://api:3001
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

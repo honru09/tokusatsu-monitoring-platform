@@ -1,0 +1,114 @@
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;600;700&family=Fira+Sans:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --color-primary: #1e40af;
+  --color-secondary: #3b82f6;
+  --color-accent: #d97706;
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  --color-muted: #e9eef6;
+  --color-border: #dbeafe;
+  --color-destructive: #dc2626;
+  --color-ring: #1e40af;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  min-width: 320px;
+  background: var(--color-background);
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  color: var(--color-foreground);
+  background:
+    radial-gradient(
+      circle at 4% 0%,
+      rgba(59, 130, 246, 0.11),
+      transparent 28rem
+    ),
+    radial-gradient(
+      circle at 96% 6%,
+      rgba(217, 119, 6, 0.08),
+      transparent 25rem
+    ),
+    var(--color-background);
+  font-family:
+    "Fira Sans", "Noto Sans SC", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  line-height: 1.5;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+select {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(30, 64, 175, 0.38);
+  outline-offset: 2px;
+}
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  transform: translateY(-160%);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 14px;
+  color: var(--color-primary);
+  font-weight: 700;
+  transition: transform 180ms ease-out;
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+.scanline {
+  background-image: linear-gradient(
+    rgba(30, 64, 175, 0.022) 1px,
+    transparent 1px
+  );
+  background-size: 100% 5px;
+}
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #93a4bd transparent;
+}
+.motion-layer {
+  transform: translateZ(0);
+}
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
