@@ -297,7 +297,7 @@ export class AnalysisService {
             }),
           },
         ],
-        1800,
+        5000,
       );
       const analysis = {
         sellerType:
