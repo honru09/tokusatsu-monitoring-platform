@@ -16,20 +16,36 @@ if (-not (Test-Path -LiteralPath '.env')) {
 if ($EnableRealAdapter) {
   $content = Get-Content -Raw -LiteralPath '.env'
   $content = $content -replace '(?m)^REAL_ADAPTER_ENABLED=.*$', 'REAL_ADAPTER_ENABLED=true'
+  $content = $content -replace '(?m)^MANDARAKE_SEARCH_ENABLED=.*$', 'MANDARAKE_SEARCH_ENABLED=true'
+  $content = $content -replace '(?m)^YAHOO_AUCTIONS_SEARCH_ENABLED=.*$', 'YAHOO_AUCTIONS_SEARCH_ENABLED=true'
   Set-Content -LiteralPath '.env' -Value $content -Encoding utf8NoBOM
 }
 
-# Keys.txt is intentionally ignored by git. Load only the DeepSeek key into
-# the child compose process; never write it to tracked files or print it.
+# Keys.txt is intentionally ignored by git. Load supported service keys only
+# into the child compose process; never write them to tracked files or print them.
 $keysPath = Join-Path $ProjectRoot 'Keys.txt'
-if (Test-Path -LiteralPath $keysPath) {
-  $deepSeekLine = Get-Content -LiteralPath $keysPath | Where-Object {
-    $_ -match '(?i)deepseek'
+function Get-LocalSecret([string]$labelPattern) {
+  if (-not (Test-Path -LiteralPath $keysPath)) { return $null }
+  $line = Get-Content -LiteralPath $keysPath | Where-Object {
+    $_ -match $labelPattern
   } | Select-Object -First 1
-  if ($deepSeekLine) {
-    # Accept common KEY=value, KEY: value, and label<TAB>value formats.
-    $candidate = ($deepSeekLine.Trim() -split '[\s:=]+' | Select-Object -Last 1).Trim().Trim([char]34, [char]39)
-    if ($candidate) { $env:DEEPSEEK_API_KEY = $candidate }
+  if (-not $line) { return $null }
+  return ($line.Trim() -split '[\s:=]+' | Select-Object -Last 1).Trim().Trim([char]34, [char]39)
+}
+
+if (Test-Path -LiteralPath $keysPath) {
+  $deepSeekKey = Get-LocalSecret '(?i)deepseek'
+  $firecrawlKey = Get-LocalSecret '(?i)firecrawl'
+  $apifyKey = Get-LocalSecret '(?i)apify'
+  if ($deepSeekKey) { $env:DEEPSEEK_API_KEY = $deepSeekKey }
+  if ($firecrawlKey) {
+    $env:FIRECRAWL_API_KEY = $firecrawlKey
+    $env:FIRECRAWL_DISCOVERY_ENABLED = 'true'
+    $env:FIRECRAWL_ALLOW_ANY_DOMAIN = 'true'
+  }
+  if ($apifyKey) {
+    $env:APIFY_TOKEN = $apifyKey
+    $env:APIFY_ECOMMERCE_ENABLED = 'true'
   }
 }
 $env:DEEPSEEK_API_URL = if ($env:DEEPSEEK_API_URL) { $env:DEEPSEEK_API_URL } else { 'https://api.deepseek.com' }
