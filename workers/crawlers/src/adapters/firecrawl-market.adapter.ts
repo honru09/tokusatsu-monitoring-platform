@@ -18,7 +18,26 @@ const DEFAULT_DOMAINS = [
   "item.fril.jp",
   "www.suruga-ya.jp",
   "order.mandarake.co.jp",
+  "paypayfleamarket.yahoo.co.jp",
+  "item.rakuten.co.jp",
+  "www.amazon.co.jp",
+  "www.ebay.com",
+  "netmall.hardoff.co.jp",
+  "store.shopping.yahoo.co.jp",
 ];
+
+const MARKETPLACE_NAMES: Record<string, string> = {
+  "jp.mercari.com": "Mercari 煤炉",
+  "item.fril.jp": "Rakuma 乐天二手",
+  "www.suruga-ya.jp": "骏河屋",
+  "order.mandarake.co.jp": "Mandarake",
+  "paypayfleamarket.yahoo.co.jp": "Yahoo! フリマ",
+  "item.rakuten.co.jp": "乐天市场",
+  "www.amazon.co.jp": "Amazon 日本",
+  "www.ebay.com": "eBay",
+  "netmall.hardoff.co.jp": "HARD OFF Netmall",
+  "store.shopping.yahoo.co.jp": "Yahoo! Shopping",
+};
 
 type RobotPolicy = {
   isAllowed(url: string, userAgent?: string): boolean | undefined;
@@ -54,8 +73,10 @@ export function isAllowedFirecrawlMarketplaceUrl(
   }
   const host = url.hostname.toLowerCase();
   const allowAny = process.env.FIRECRAWL_ALLOW_ANY_DOMAIN === "true";
-  if (url.protocol !== "https:" || (!domains.includes(host) && !allowAny))
-    return false;
+  const configured = domains.some(
+    (domain) => host === domain || host.endsWith(`.${domain}`),
+  );
+  if (url.protocol !== "https:" || (!configured && !allowAny)) return false;
   if (
     host === "localhost" ||
     (isIP(host) === 4 &&
@@ -72,7 +93,19 @@ export function isAllowedFirecrawlMarketplaceUrl(
     return /\/product\/detail\//.test(path);
   if (url.hostname === "order.mandarake.co.jp")
     return /\/order\/detailPage\/item/.test(path);
-  return allowAny && path !== "/";
+  if (url.hostname === "paypayfleamarket.yahoo.co.jp")
+    return /^\/item\/[a-z0-9_-]+\/?$/i.test(path);
+  if (url.hostname === "item.rakuten.co.jp")
+    return /^\/[^/]+\/[^/]+\/?$/.test(path);
+  if (url.hostname === "www.amazon.co.jp")
+    return /\/(?:dp|gp\/product)\/[A-Z0-9]{10}(?:\/|$)/i.test(path);
+  if (url.hostname === "www.ebay.com")
+    return /\/itm\/(?:[^/]+\/)?\d+(?:[/?]|$)/i.test(`${path}${url.search}`);
+  if (url.hostname === "netmall.hardoff.co.jp")
+    return /^\/product\/\d+\/?$/.test(path);
+  if (url.hostname === "store.shopping.yahoo.co.jp")
+    return /^\/[^/]+\/[^/]+\.html$/.test(path);
+  return (configured || allowAny) && path !== "/";
 }
 
 function sourceItemId(url: string): string {
@@ -145,6 +178,7 @@ export function parseFirecrawlMarketplaceDocument(
     images.add(new URL(metadata.ogImage, sourceUrl).toString());
   const listedAtText = metadata.publishedTime ?? metadata.dcDateCreated;
   const listedAt = listedAtText ? new Date(listedAtText) : undefined;
+  const marketplaceHost = new URL(sourceUrl).hostname.toLowerCase();
   return {
     sourcePlatform: "firecrawl_market",
     sourceItemId: sourceItemId(sourceUrl),
@@ -162,6 +196,13 @@ export function parseFirecrawlMarketplaceDocument(
         ? "中古"
         : undefined,
     imageUrls: [...images],
+    sourceData: {
+      marketplaceHost,
+      marketplaceName: MARKETPLACE_NAMES[marketplaceHost] ?? marketplaceHost,
+      metadata,
+      product: document.product,
+      markdown: document.markdown?.slice(0, 20_000),
+    },
     status,
     channel: "online",
   };
@@ -169,7 +210,7 @@ export function parseFirecrawlMarketplaceDocument(
 
 export class FirecrawlMarketplaceAdapter implements SourceAdapter {
   readonly key = "firecrawl_market";
-  readonly displayName = "自动适配来源";
+  readonly displayName = "Firecrawl";
   private readonly userAgent =
     process.env.CRAWLER_USER_AGENT ?? "TokusatsuMonitor/1.0";
   private readonly robots = new Map<string, RobotPolicy>();

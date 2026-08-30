@@ -11,6 +11,14 @@ import type {
 
 type ActorRow = Record<string, unknown>;
 
+const MARKETPLACE_NAMES: Record<string, string> = {
+  "www.amazon.co.jp": "Amazon 日本",
+  "item.rakuten.co.jp": "乐天市场",
+  "www.ebay.com": "eBay",
+  "store.shopping.yahoo.co.jp": "Yahoo! Shopping",
+  "netmall.hardoff.co.jp": "HARD OFF Netmall",
+};
+
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -65,6 +73,7 @@ export function parseApifyProduct(row: ActorRow): RawItemDetail {
   const availability = String(
     offers.availability ?? row.availability ?? row.inStock ?? "",
   );
+  const marketplaceHost = new URL(sourceUrl).hostname.toLowerCase();
   return {
     sourcePlatform: "apify_ecommerce",
     sourceItemId: rowId(row, sourceUrl),
@@ -87,6 +96,11 @@ export function parseApifyProduct(row: ActorRow): RawItemDetail {
       ...urls(row.images),
       ...urls(row.imageUrls),
     ].filter((value, index, all) => all.indexOf(value) === index),
+    sourceData: {
+      marketplaceHost,
+      marketplaceName: MARKETPLACE_NAMES[marketplaceHost] ?? marketplaceHost,
+      ...row,
+    },
     status: /out.?of.?stock|sold|false/i.test(availability) ? "sold" : "active",
     channel: "online",
   };
@@ -94,7 +108,7 @@ export function parseApifyProduct(row: ActorRow): RawItemDetail {
 
 export class ApifyEcommerceAdapter implements SourceAdapter {
   readonly key = "apify_ecommerce";
-  readonly displayName = "Apify 电商检索";
+  readonly displayName = "Apify";
   private readonly details = new Map<string, RawItemDetail>();
 
   private async run(input: Record<string, unknown>) {

@@ -4,7 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { DiscoveryAction, ItemStatus, Prisma, ToyType } from "@tokusatsu/db";
+import {
+  DiscoveryAction,
+  ItemStatus,
+  ListingType,
+  Prisma,
+  SourceChannel,
+  ToyType,
+} from "@tokusatsu/db";
 import { PrismaService } from "../prisma.service.js";
 import type { DiscoveryFeedbackDto } from "./discovery.dto.js";
 
@@ -24,6 +31,10 @@ const excludedTitleFragments = [
   "写真集",
   "攻略本",
   "図鑑",
+  "辞典",
+  "事典",
+  "図録",
+  "資料集",
   "雑誌",
   "絵本",
   "小説",
@@ -35,7 +46,9 @@ const feedSelect = {
   productId: true,
   sourceUrl: true,
   titleRaw: true,
+  titleZh: true,
   priceCurrent: true,
+  shippingFee: true,
   priceTotalEst: true,
   listedAt: true,
   detectedAt: true,
@@ -65,6 +78,7 @@ function eligibleWhere(excludedListingIds: string[]): Prisma.ItemWhereInput {
   return {
     id: excludedListingIds.length ? { notIn: excludedListingIds } : undefined,
     archivedAt: null,
+    channel: SourceChannel.online,
     purchaseRecord: null,
     ignored: false,
     favorite: false,
@@ -99,6 +113,45 @@ export class DiscoveryService {
       }),
       this.prisma.item.count({ where }),
     ]);
+
+    // The three-card discovery stack should expose both marketplace modes
+    // when both are available. A burst of newly detected direct listings must
+    // not hide auction-specific UI (especially the live countdown) behind a
+    // dozen swipes, and the same applies in reverse.
+    if (limit >= 3 && items.length >= 3) {
+      const topTypes = new Set(
+        items.slice(0, 3).map((item) => item.listingType),
+      );
+      const missingType = !topTypes.has(ListingType.auction)
+        ? ListingType.auction
+        : !topTypes.has(ListingType.direct)
+          ? ListingType.direct
+          : null;
+
+      if (missingType) {
+        const existingIndex = items.findIndex(
+          (item, index) => index >= 3 && item.listingType === missingType,
+        );
+        if (existingIndex >= 0) {
+          [items[2], items[existingIndex]] = [items[existingIndex], items[2]];
+        } else {
+          const fallback = await this.prisma.item.findFirst({
+            where: {
+              AND: [
+                where,
+                {
+                  listingType: missingType,
+                  id: { notIn: items.map((item) => item.id) },
+                },
+              ],
+            },
+            select: feedSelect,
+            orderBy: [{ detectedAt: "desc" }, { listedAt: "desc" }],
+          });
+          if (fallback) items[2] = fallback;
+        }
+      }
+    }
     return { items, total, serverTime: new Date().toISOString() };
   }
 

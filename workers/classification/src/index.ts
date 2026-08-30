@@ -92,55 +92,43 @@ export async function classifyImages(input: {
   title: string;
   description?: string | null;
   imageUrls: string[];
+  itemId?: string;
 }): Promise<{ provider: string; result: VisionClassification }> {
-  const endpoint = process.env.VISION_API_URL;
-  const apiKey = process.env.VISION_API_KEY;
-  if (!endpoint || !apiKey || input.imageUrls.length === 0) {
+  const apiBase = (
+    process.env.API_INTERNAL_URL ?? "http://localhost:3001"
+  ).replace(/\/$/, "");
+  if (input.imageUrls.length === 0) {
     return { provider: "unconfigured", result: conservativeFallback };
   }
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      task: "tokusatsu_item_classification",
-      title: input.title,
-      description: input.description,
-      images: input.imageUrls,
-      outputSchema: {
-        instruction:
-          "Every field must be {value, confidence, evidence}. Use null when the image does not prove a value. Never guess.",
-        franchise: { value: null, confidence: 0, evidence: [] },
-        series: { value: null, confidence: 0, evidence: [] },
-        characters: { value: null, confidence: 0, evidence: [] },
-        toy_types: { value: null, confidence: 0, evidence: [] },
-        manufacturers: { value: null, confidence: 0, evidence: [] },
-        quantity: { value: null, confidence: 0, evidence: [] },
-        sealed_count: { value: null, confidence: 0, evidence: [] },
-        packaging: { value: null, confidence: 0, evidence: [] },
-        condition: { value: null, confidence: 0, evidence: [] },
-        visible_damage: { value: null, confidence: 0, evidence: [] },
-        missing_parts: { value: null, confidence: 0, evidence: [] },
-        back_markings: { value: null, confidence: 0, evidence: [] },
-        year: { value: null, confidence: 0, evidence: [] },
-        model_number: { value: null, confidence: 0, evidence: [] },
-        copyright_text: { value: null, confidence: 0, evidence: [] },
+  const response = await fetch(
+    `${apiBase}/ai/image-analysis${input.itemId ? `?itemId=${encodeURIComponent(input.itemId)}` : ""}`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
       },
-    }),
-    signal: AbortSignal.timeout(90_000),
-  });
-  if (!response.ok)
-    throw new Error(`Vision provider returned ${response.status}`);
-  const payload = (await response.json()) as
-    | { result?: unknown }
-    | VisionClassification;
-  const result = normalizeProviderResult(
-    "result" in payload ? payload.result : payload,
+      body: JSON.stringify({
+        title: input.title,
+        description: input.description,
+        imageUrls: input.imageUrls,
+      }),
+      signal: AbortSignal.timeout(
+        Math.max(30_000, Number(process.env.AI_TIMEOUT_MS ?? 120_000) + 15_000),
+      ),
+    },
   );
+  if (!response.ok)
+    throw new Error(`AI Gateway vision returned ${response.status}`);
+  const payload = (await response.json()) as {
+    data?: unknown;
+    model?: unknown;
+  };
+  const result = normalizeProviderResult(payload.data);
   if (!isVisionClassification(result))
-    throw new Error("Vision provider returned an invalid schema");
-  return { provider: new URL(endpoint).host, result };
+    throw new Error("AI Gateway vision returned an invalid schema");
+  return {
+    provider: typeof payload.model === "string" ? payload.model : "AI Gateway",
+    result,
+  };
 }

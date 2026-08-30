@@ -1,0 +1,81 @@
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+} from "@nestjs/common";
+import { AiGatewayService } from "./ai-gateway.service.js";
+import {
+  AiFeedbackDto,
+  AssistantChatDto,
+  DiagnosisDto,
+  ImageAnalysisDto,
+  InternalExecuteDto,
+} from "./ai.dto.js";
+import { AiSystemService } from "./ai-system.service.js";
+
+@Controller("ai")
+export class AiController {
+  constructor(
+    private readonly system: AiSystemService,
+    private readonly gateway: AiGatewayService,
+  ) {}
+
+  @Get("system")
+  overview() {
+    return this.system.overview();
+  }
+
+  @Post("image-analysis")
+  analyzeImages(
+    @Body() body: ImageAnalysisDto,
+    @Query("itemId") itemId?: string,
+  ) {
+    return this.system.analyzeImages(body, itemId);
+  }
+
+  @Post("feedback/:itemId")
+  feedback(@Param("itemId") itemId: string, @Body() body: AiFeedbackDto) {
+    return this.system.feedback(itemId, body);
+  }
+
+  @Get("market-memory/:productId")
+  productMemory(@Param("productId") productId: string) {
+    return this.system.productMemory(productId);
+  }
+
+  @Post("system/diagnose")
+  diagnose(@Body() body: DiagnosisDto) {
+    return this.system.diagnose(body.source);
+  }
+
+  @Post("chat")
+  chat(@Body() body: AssistantChatDto) {
+    return this.system.chat(body);
+  }
+
+  @Post("internal/execute")
+  executeInternal(
+    @Headers("x-ai-internal-token") token: string | undefined,
+    @Body() body: InternalExecuteDto,
+  ) {
+    this.assertInternalToken(token);
+    return this.gateway.executeJson(body);
+  }
+
+  @Post("internal/refresh-memory")
+  refreshMemory(@Headers("x-ai-internal-token") token: string | undefined) {
+    this.assertInternalToken(token);
+    return this.system.refreshOperationalMemory();
+  }
+
+  private assertInternalToken(token?: string) {
+    const expected = process.env.AI_INTERNAL_TOKEN?.trim();
+    if (!expected || !token || token !== expected)
+      throw new ForbiddenException("Invalid AI internal token");
+  }
+}

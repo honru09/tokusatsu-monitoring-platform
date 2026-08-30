@@ -82,7 +82,7 @@ export function ImageGallery({
               event.stopPropagation();
               move(-1);
             }}
-            className="absolute left-0 top-1/2 z-20 grid h-14 w-14 -translate-y-1/2 touch-manipulation place-items-center text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70"
+            className="absolute left-0 top-1/2 z-20 grid h-16 w-16 -translate-y-1/2 touch-manipulation place-items-center p-1 text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70 sm:h-20 sm:w-20"
           >
             <span className="grid h-10 w-10 place-items-center rounded-full bg-ink/78 shadow-lg backdrop-blur transition-colors hover:bg-ink">
               <ChevronIcon direction="left" />
@@ -99,7 +99,7 @@ export function ImageGallery({
               event.stopPropagation();
               move(1);
             }}
-            className="absolute right-0 top-1/2 z-20 grid h-14 w-14 -translate-y-1/2 touch-manipulation place-items-center text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70"
+            className="absolute right-0 top-1/2 z-20 grid h-16 w-16 -translate-y-1/2 touch-manipulation place-items-center p-1 text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70 sm:h-20 sm:w-20"
           >
             <span className="grid h-10 w-10 place-items-center rounded-full bg-ink/78 shadow-lg backdrop-blur transition-colors hover:bg-ink">
               <ChevronIcon direction="right" />

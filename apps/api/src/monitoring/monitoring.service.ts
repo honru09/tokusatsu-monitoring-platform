@@ -13,12 +13,16 @@ type CrawlMetrics = {
 };
 
 const sourceLabels: Record<string, string> = {
-  mandarake: "日本中古店",
-  mercari: "日本二手市场",
-  yahoo_auctions: "日本拍卖市场",
-  firecrawl_market: "自动适配来源",
-  apify_ecommerce: "Apify 电商检索",
-  playwright_page: "动态商品页",
+  mandarake: "Mandarake",
+  mercari: "Mercari",
+  yahoo_auctions: "Yahoo!オークション",
+  yahoo_fleamarket: "Yahoo!フリマ",
+  rakuma: "ラクマ",
+  surugaya: "駿河屋",
+  firecrawl_market: "Firecrawl",
+  apify_ecommerce: "Apify",
+  public_page: "网页来源",
+  playwright_page: "Playwright",
   mock: "本地测试来源",
 };
 
@@ -96,7 +100,11 @@ export class MonitoringService {
     const recent = jobs.slice(0, 12).map((job) => ({
       id: job.id,
       source: job.source?.key ?? "unknown",
-      sourceName: sourceLabels[job.source?.key ?? ""] ?? "自动适配来源",
+      sourceName:
+        sourceLabels[job.source?.key ?? ""] ??
+        job.source?.displayName ??
+        job.source?.key ??
+        "未知来源",
       status: job.status,
       query: job.query,
       metrics: metricsOf(job.metrics),
@@ -126,7 +134,7 @@ export class MonitoringService {
       totals24h: totals,
       sources: sources.map((source) => ({
         key: source.key,
-        displayName: sourceLabels[source.key] ?? "自动适配来源",
+        displayName: sourceLabels[source.key] ?? source.displayName,
         itemCount: source._count.items,
         failureCount: source.failureCount,
         circuitOpenAt: source.circuitOpenAt,

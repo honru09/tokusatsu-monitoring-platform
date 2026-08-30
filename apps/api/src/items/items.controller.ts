@@ -10,6 +10,7 @@ import {
 import { ItemsService } from "./items.service.js";
 import {
   AnalyzeUrlDto,
+  ItemChangesQuery,
   ListItemsQuery,
   PurchaseDto,
   UpdateItemDto,
@@ -34,14 +35,31 @@ export class ItemsController {
     return this.items.listPurchases();
   }
 
+  @Get("changes")
+  changes(@Query() query: ItemChangesQuery) {
+    return this.items.changes(query.since);
+  }
+
   @Get("sellers")
-  sellers(@Query("search") search?: string) {
-    return this.items.listSellers(search);
+  sellers(
+    @Query("search") search?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.items.listSellers(
+      search,
+      Number(page ?? 1),
+      Number(limit ?? 60),
+    );
   }
 
   @Get("sellers/:id")
-  seller(@Param("id") id: string) {
-    return this.items.getSeller(id);
+  seller(
+    @Param("id") id: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.items.getSeller(id, Number(page ?? 1), Number(limit ?? 48));
   }
 
   @Get("reviews/pending")

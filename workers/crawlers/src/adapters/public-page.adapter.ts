@@ -13,6 +13,7 @@ import type {
   SourceAdapter,
   StoredItem,
 } from "@tokusatsu/shared";
+import { shippingEvidence } from "./shipping.js";
 
 type RobotPolicy = {
   isAllowed(url: string, userAgent?: string): boolean | undefined;
@@ -40,6 +41,106 @@ function yen(value: unknown): number | undefined {
   return match ? Number(match[1]) : undefined;
 }
 
+function numericYen(value: unknown): number | undefined {
+  const direct = yen(value);
+  if (direct != null) return direct;
+  const match = String(value ?? "")
+    .replace(/[,，\s]/g, "")
+    .match(/^(\d{1,10})(?:\.\d+)?$/);
+  return match ? Number(match[1]) : undefined;
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function firstRecord(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) {
+    return (
+      value
+        .map(record)
+        .find((entry): entry is Record<string, unknown> => Boolean(entry)) ??
+      null
+    );
+  }
+  return record(value);
+}
+
+function strings(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(strings);
+  return [];
+}
+
+function productNodes(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) return value.flatMap(productNodes);
+  const object = record(value);
+  if (!object) return [];
+  const graph = Array.isArray(object["@graph"])
+    ? object["@graph"]
+    : object["@graph"]
+      ? [object["@graph"]]
+      : [];
+  const nested = graph.flatMap(productNodes);
+  const type = strings(object["@type"]).map((entry) => entry.toLowerCase());
+  return type.some((entry) => entry === "product" || entry === "productgroup")
+    ? [object, ...nested]
+    : nested;
+}
+
+function parseWeightAndDimensions(text: string, structured: unknown) {
+  const candidates = [text];
+  for (const node of productNodes(structured)) {
+    for (const key of [
+      "weight",
+      "width",
+      "height",
+      "depth",
+      "length",
+      "size",
+      "dimensions",
+    ]) {
+      const value = node[key];
+      if (value != null) candidates.push(`${key}: ${JSON.stringify(value)}`);
+    }
+    const additional = Array.isArray(node.additionalProperty)
+      ? node.additionalProperty
+      : [];
+    for (const property of additional) {
+      const entry = record(property);
+      if (entry) candidates.push(`${entry.name ?? ""}: ${entry.value ?? ""}`);
+    }
+  }
+  const corpus = candidates.join(" ").replace(/\s+/g, " ");
+  const weightMatch = corpus.match(
+    /(?:重量|重さ|weight|mass)\s*[:：=]?\s*(\d+(?:[.,]\d+)?)\s*(kg|キロ|g|グラム)/i,
+  );
+  const dimensionsMatch = corpus.match(
+    /(?:寸法|サイズ|dimension|dimensions|梱包サイズ)\s*[:：=]?\s*(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)\s*(mm|cm)?/i,
+  );
+  const unit = dimensionsMatch?.[4]?.toLowerCase();
+  const scale = unit === "cm" ? 10 : 1;
+  return {
+    weightGrams: weightMatch
+      ? Math.round(
+          Number(weightMatch[1].replace(",", ".")) *
+            (/kg|キロ/i.test(weightMatch[2]) ? 1000 : 1),
+        )
+      : undefined,
+    lengthMm: dimensionsMatch
+      ? Math.round(Number(dimensionsMatch[1]) * scale)
+      : undefined,
+    widthMm: dimensionsMatch
+      ? Math.round(Number(dimensionsMatch[2]) * scale)
+      : undefined,
+    heightMm: dimensionsMatch
+      ? Math.round(Number(dimensionsMatch[3]) * scale)
+      : undefined,
+  };
+}
+
 export function parsePublicProductPage(
   html: string,
   sourceUrl: string,
@@ -55,25 +156,51 @@ export function parsePublicProductPage(
     .replace(/\s+/g, " ")
     .trim();
   if (!titleRaw) throw new Error("公开商品页没有可识别标题");
+  const structuredData = $('script[type="application/ld+json"]')
+    .toArray()
+    .flatMap((element) => {
+      try {
+        return [JSON.parse($(element).text()) as unknown];
+      } catch {
+        return [];
+      }
+    });
+  const product = productNodes(structuredData)[0] ?? null;
+  const offer = firstRecord(product?.offers);
+  const seller = firstRecord(product?.seller);
+  const body = $("body").text().replace(/\s+/g, " ").trim();
   const descriptionRaw =
     String(
-      $("meta[property='og:description']").attr("content") ??
+      product?.description ??
+        $("[itemprop='description']").first().text() ??
+        $("meta[property='og:description']").attr("content") ??
         $("meta[name='description']").attr("content") ??
+        $("article, main").first().text() ??
         "",
-    ).trim() || undefined;
+    )
+      .replace(/\s+/g, " ")
+      .trim() || undefined;
   const priceCurrent =
-    yen(
+    numericYen(offer?.price) ??
+    numericYen(product?.price) ??
+    numericYen(
       $("meta[property='product:price:amount'], meta[itemprop='price']").attr(
         "content",
       ),
-    ) ?? yen($("body").text());
+    ) ??
+    yen(body);
   if (priceCurrent == null) throw new Error("公开商品页没有可识别公开价格");
-  const body = $("body").text();
+  const shipping = shippingEvidence(structuredData, body);
   const status: ItemStatus =
     /sold\s*out|売り切れ|取引完了|落札済|在庫なし|out\s*of\s*stock/i.test(body)
       ? "sold"
       : "active";
   const images = new Set<string>();
+  strings(product?.image).forEach((value) => {
+    try {
+      images.add(new URL(value, sourceUrl).toString());
+    } catch {}
+  });
   $(
     "meta[property='og:image'], meta[name='twitter:image'], img[src], img[data-src]",
   ).each((_, element) => {
@@ -87,6 +214,34 @@ export function parsePublicProductPage(
     } catch {}
   });
   const parsed = new URL(sourceUrl);
+  const logisticsHints = parseWeightAndDimensions(body, product);
+  const sellerName =
+    (typeof seller?.name === "string" && seller.name.trim()) ||
+    $("[itemprop='seller'], .seller-name, .shop-name").first().text().trim() ||
+    parsed.hostname;
+  const sourceData = {
+    title: titleRaw,
+    description: descriptionRaw,
+    canonicalUrl: $("link[rel='canonical']").attr("href"),
+    publishedAt: $("time[datetime]").first().attr("datetime"),
+    bodyText: body.slice(0, 20_000),
+    shippingText: shipping.evidence,
+    shippingStatus: shipping.status,
+    seller: seller
+      ? { name: seller.name, url: seller.url, type: seller["@type"] }
+      : undefined,
+    product: product
+      ? {
+          sku: product.sku,
+          mpn: product.mpn,
+          brand: product.brand,
+          category: product.category,
+          availability: offer?.availability,
+          condition: offer?.itemCondition,
+        }
+      : undefined,
+    logisticsHints,
+  };
   const sourceItemId = createHash("sha256")
     .update(sourceUrl)
     .digest("hex")
@@ -97,10 +252,17 @@ export function parsePublicProductPage(
     sourceUrl,
     titleRaw,
     descriptionRaw,
-    sellerName: parsed.hostname,
-    sellerType: "unknown",
+    sellerName,
+    sellerType:
+      seller?.["@type"] === "Organization" || seller?.["@type"] === "Store"
+        ? "store"
+        : "unknown",
+    sellerProfileUrl: typeof seller?.url === "string" ? seller.url : undefined,
+    sellerData: seller ?? undefined,
     priceCurrent,
+    shippingFee: shipping.fee,
     imageUrls: [...images],
+    sourceData,
     status,
     channel: "online",
   };
@@ -108,7 +270,7 @@ export function parsePublicProductPage(
 
 export class PublicPageAdapter implements SourceAdapter {
   readonly key = "public_page";
-  readonly displayName = "自动适配来源";
+  readonly displayName = "网页来源";
   private readonly userAgent =
     process.env.CRAWLER_USER_AGENT ?? "TokusatsuMonitor/1.0";
   private readonly robots = new Map<string, RobotPolicy>();

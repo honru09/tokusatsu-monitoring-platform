@@ -46,16 +46,76 @@ export interface TextClassification {
 
 const cardTextPattern =
   /(?:trading\s*card|card\s*game|カードダス|トレカ|カード|卡片|集换式)/i;
+const paperCollectiblePattern =
+  /(?:シール|ステッカー|sticker|ブックマーク|クリアファイル)/i;
 const bookTextPattern =
-  /(?:mook|magazine|comic|novel|書籍|漫画|マンガ|コミック|写真集|攻略本|図鑑|雑誌|絵本|小説|パンフレット)|(?:^|[\s【】「」『』|/])本(?:$|[\s【】「」『』|/])/i;
+  /(?:mook|magazine|comic|novel|書籍|漫画|マンガ|コミック|写真集|攻略本|図鑑|辞典|事典|図録|資料集|雑誌|絵本|小説|パンフレット)|(?:^|[\s【】「」『』|/])本(?:$|[\s【】「」『』|/])/i;
+const mediaTextPattern =
+  /(?:\bDVD\b|Blu[‐\-]?ray|ブルーレイ|\bCD\b|サウンドトラック|ゲームソフト|プレイステーション|プレステ|レンタル落ち)/i;
+const cardOnlyPattern =
+  /(?:対応|専用|用)\s*カード|(?:トレカ|トレーディングカード|カードダス|カードゲーム)|カード\s*(?:のみ|だけ|まとめ売り)\b/i;
 
 /** Items outside the procurement scope must be rejected before persistence. */
 export function isExcludedCollectibleText(
   title: string,
   description = "",
 ): boolean {
-  const text = `${title}\n${description}`;
-  return cardTextPattern.test(text) || bookTextPattern.test(text);
+  const titleWithoutMissingAccessory = title.replace(
+    /(?:カード|シール|ステッカー)\s*(?:無し|なし|欠品|はがれ|剥がれ)/gi,
+    "",
+  );
+  const explicitToy =
+    /(?:DX|ベルト|ドライバー|フィギュア|ソフビ|ガシャット|ゴチゾウ|プログライズキー|アイコン|メモリ|バックル|変身|可動|プラモデル|消しゴム)/i.test(
+      titleWithoutMissingAccessory,
+    );
+  if (bookTextPattern.test(titleWithoutMissingAccessory)) return true;
+  // Audio/video/game media is outside the physical toy procurement scope.
+  // Keep bundles that clearly contain a real toy and merely mention a bonus
+  // disc (for example a belt with a DVD bonus).
+  const explicitPhysicalToy =
+    /(?:ベルト|ドライバー|ソフビ|フィギュア|ガシャポン|ガチャ|食玩|玩具|おもちゃ|変身|プラモデル|模型|メダル|ロックシード|ガシャット|アイテム|可動|人形|指人形|ワンダーライドブック)/i.test(
+      titleWithoutMissingAccessory,
+    );
+  if (
+    mediaTextPattern.test(titleWithoutMissingAccessory) &&
+    !explicitPhysicalToy
+  )
+    return true;
+  // "DX ... 対応カード" is a common false positive: the belt/driver is
+  // referenced only as the compatible device and the listing contains cards.
+  const cardOnly = cardOnlyPattern.test(titleWithoutMissingAccessory);
+  const toyIncludesCard =
+    explicitPhysicalToy &&
+    /(?:カード|トレカ).*(?:付き|付属|含む)|(?:付き|付属|含む).*(?:カード|トレカ)/i.test(
+      titleWithoutMissingAccessory,
+    );
+  if (cardOnly && !toyIncludesCard) return true;
+  if (
+    !explicitToy &&
+    (cardTextPattern.test(titleWithoutMissingAccessory) ||
+      paperCollectiblePattern.test(titleWithoutMissingAccessory))
+  )
+    return true;
+  // A generic title can still be a flat collectible when the seller explicitly
+  // says the listing contains only a card/sticker/book. Do not reject a real
+  // toy merely because its description mentions a missing label or insert.
+  if (
+    !explicitToy &&
+    /(?:カード|シール|ステッカー)\s*(?:のみ|だけ)|トレーディングカード|カードダス|書籍|雑誌|漫画|コミック|小説|写真集/i.test(
+      description,
+    )
+  )
+    return true;
+  return false;
+}
+
+export function isExcludedNormalizedItem(
+  item: Pick<NormalizedItem, "titleRaw" | "descriptionRaw" | "categoryToyType">,
+) {
+  return (
+    item.categoryToyType === "card" ||
+    isExcludedCollectibleText(item.titleRaw, item.descriptionRaw ?? "")
+  );
 }
 
 function firstMatch<T extends string>(
@@ -90,7 +150,9 @@ export function classifyText(
   else if (/中古|使用感|used/i.test(text)) conditionGrade = "used";
 
   const quantityCandidates = [
-    ...text.matchAll(/(?:全|計|約)?\s*(\d{1,3})\s*(?:点|個|体|枚|本|pcs?)/gi),
+    ...text.matchAll(
+      /(?:全|計|約)?\s*(\d{1,3})\s*(?:点|個|体|枚|本(?!体)|pcs?)/gi,
+    ),
   ]
     .map((match) => Number(match[1]))
     .filter((value) => value > 0 && value <= 500);
@@ -153,11 +215,17 @@ export function auctionRefreshDelay(
   endAt: Date | null | undefined,
   now = new Date(),
 ): number {
-  if (!endAt) return 60 * 60 * 1000;
+  // Buy-now listings are also revisited by the source search loops. A
+  // twelve-hour terminal-state check keeps sold listings fresh without
+  // flooding a marketplace with thousands of redundant detail requests.
+  if (!endAt) return 12 * 60 * 60 * 1000;
   const remaining = endAt.getTime() - now.getTime();
   if (remaining <= 0) return 30 * 60 * 1000;
   if (remaining <= 3 * 60 * 1000) return 30 * 1000;
   if (remaining <= 10 * 60 * 1000) return 60 * 1000;
   if (remaining <= 30 * 60 * 1000) return 2 * 60 * 1000;
-  return 15 * 60 * 1000;
+  if (remaining <= 2 * 60 * 60 * 1000) return 15 * 60 * 1000;
+  if (remaining <= 6 * 60 * 60 * 1000) return 60 * 60 * 1000;
+  if (remaining <= 24 * 60 * 60 * 1000) return 4 * 60 * 60 * 1000;
+  return 12 * 60 * 60 * 1000;
 }

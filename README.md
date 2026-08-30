@@ -99,7 +99,8 @@ docker compose -f infrastructure/docker-compose.yml down
 - `POSTGRES_PASSWORD`
 - `CRAWLER_CONTACT` 与带联系方式的 `CRAWLER_USER_AGENT`
 - `CORS_ORIGIN`、`NEXT_PUBLIC_API_BASE_URL`
-- `VISION_API_URL`、`VISION_API_KEY`（如需真实图片识别）
+- `BAI_API_KEY`（只配置在后端；六模型路由、图片分析、缓存与审计统一经过 AI Gateway）
+- `AI_INTERNAL_TOKEN`（API 与 Worker 使用同一个随机长令牌）
 - `APIFY_TOKEN` 并将 `APIFY_ECOMMERCE_ENABLED=true`（如需 Apify 电商检索）
 - `PLAYWRIGHT_WS_ENDPOINT`（如需在云端使用远程 Chromium 动态页面后备）
 - `SENTRY_DSN`（如接入错误追踪）

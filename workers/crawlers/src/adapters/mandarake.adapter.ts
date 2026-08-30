@@ -160,6 +160,12 @@ export function parseMandarakeDetailHtml(
     priceCurrent,
     conditionRaw,
     imageUrls: [...imageSet],
+    sourceData: {
+      structuredData: json ?? undefined,
+      conditionText: conditionRaw,
+      descriptionText: descriptionRaw,
+      bodyText: $("body").text().replace(/\s+/g, " ").trim().slice(0, 20_000),
+    },
     status,
     channel: "online",
   };
@@ -167,7 +173,7 @@ export function parseMandarakeDetailHtml(
 
 export class MandarakeAdapter implements SourceAdapter {
   readonly key = "mandarake";
-  readonly displayName = "日本中古店";
+  readonly displayName = "Mandarake";
   private lastRequestAt = 0;
   private robots?: RobotPolicy;
   private readonly userAgent =

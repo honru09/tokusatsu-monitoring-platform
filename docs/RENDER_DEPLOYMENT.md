@@ -15,7 +15,8 @@ Blueprint 默认使用付费常驻计算和持久化 Key Value。这样 Web 不�
    - `FIRECRAWL_API_KEY`：API 与 Worker 两处填写同一值；没有时先关闭 Worker 的 `FIRECRAWL_DISCOVERY_ENABLED`。
    - `CRAWLER_CONTACT`：真实联系邮箱。
    - `CRAWLER_USER_AGENT`：例如 `TokusatsuMonitor/1.0 (+mailto:you@example.com)`。
-   - `VISION_API_URL`、`VISION_API_KEY`：没有视觉服务时可留空，商品会进入人工复核。
+   - `BAI_API_KEY`：只填写在 API 服务；不要放进 Web 或 Worker。
+   - `AI_INTERNAL_TOKEN`：API 与 Worker 两处填写完全相同的随机长令牌。
    - `APIFY_TOKEN`：可选。填写后再把 Worker 的 `APIFY_ECOMMERCE_ENABLED` 改为 `true`。
    - `PLAYWRIGHT_WS_ENDPOINT`：可选。云端动态页面后备需要可访问的远程 Chromium WebSocket；不要填写本机路径。
 5. 点击 **Apply**。API 与 Worker 都会在启动前执行 Prisma migration。

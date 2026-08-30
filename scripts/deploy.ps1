@@ -18,7 +18,8 @@ if ($EnableRealAdapter) {
   $content = $content -replace '(?m)^REAL_ADAPTER_ENABLED=.*$', 'REAL_ADAPTER_ENABLED=true'
   $content = $content -replace '(?m)^MANDARAKE_SEARCH_ENABLED=.*$', 'MANDARAKE_SEARCH_ENABLED=true'
   $content = $content -replace '(?m)^YAHOO_AUCTIONS_SEARCH_ENABLED=.*$', 'YAHOO_AUCTIONS_SEARCH_ENABLED=true'
-  Set-Content -LiteralPath '.env' -Value $content -Encoding utf8NoBOM
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText((Join-Path $ProjectRoot '.env'), $content, $utf8NoBom)
 }
 
 # Keys.txt is intentionally ignored by git. Load supported service keys only
@@ -34,10 +35,8 @@ function Get-LocalSecret([string]$labelPattern) {
 }
 
 if (Test-Path -LiteralPath $keysPath) {
-  $deepSeekKey = Get-LocalSecret '(?i)deepseek'
   $firecrawlKey = Get-LocalSecret '(?i)firecrawl'
   $apifyKey = Get-LocalSecret '(?i)apify'
-  if ($deepSeekKey) { $env:DEEPSEEK_API_KEY = $deepSeekKey }
   if ($firecrawlKey) {
     $env:FIRECRAWL_API_KEY = $firecrawlKey
     $env:FIRECRAWL_DISCOVERY_ENABLED = 'true'
@@ -48,8 +47,8 @@ if (Test-Path -LiteralPath $keysPath) {
     $env:APIFY_ECOMMERCE_ENABLED = 'true'
   }
 }
-$env:DEEPSEEK_API_URL = if ($env:DEEPSEEK_API_URL) { $env:DEEPSEEK_API_URL } else { 'https://api.deepseek.com' }
-$env:DEEPSEEK_MODEL = if ($env:DEEPSEEK_MODEL) { $env:DEEPSEEK_MODEL } else { 'deepseek-v4-flash' }
+
+& "$PSScriptRoot\sync-ai-secrets.ps1" -RequireBai
 
 docker compose -f infrastructure/docker-compose.yml up -d --build
 if ($LASTEXITCODE -ne 0) { throw 'Docker Compose 部署失败。' }

@@ -14,8 +14,17 @@ import { AnalysisController } from "./analysis/analysis.controller.js";
 import { AnalysisService } from "./analysis/analysis.service.js";
 import { DiscoveryController } from "./discovery/discovery.controller.js";
 import { DiscoveryService } from "./discovery/discovery.service.js";
+import { MarketIntelController } from "./market-intel/market-intel.controller.js";
+import { MarketIntelService } from "./market-intel/market-intel.service.js";
+import { AiModule } from "./ai/ai.module.js";
+import { CartController } from "./cart/cart.controller.js";
+import { CartService } from "./cart/cart.service.js";
+import { ExchangeRateController } from "./exchange-rate/exchange-rate.controller.js";
+import { ExchangeRateService } from "./exchange-rate/exchange-rate.service.js";
+import { LogisticsModule } from "./logistics/logistics.module.js";
 
 @Module({
+  imports: [AiModule, LogisticsModule],
   controllers: [
     HealthController,
     TimeController,
@@ -25,6 +34,9 @@ import { DiscoveryService } from "./discovery/discovery.service.js";
     ImportsController,
     AnalysisController,
     DiscoveryController,
+    MarketIntelController,
+    CartController,
+    ExchangeRateController,
   ],
   providers: [
     PrismaService,
@@ -34,6 +46,9 @@ import { DiscoveryService } from "./discovery/discovery.service.js";
     ImportsService,
     AnalysisService,
     DiscoveryService,
+    MarketIntelService,
+    CartService,
+    ExchangeRateService,
   ],
 })
 export class AppModule {}

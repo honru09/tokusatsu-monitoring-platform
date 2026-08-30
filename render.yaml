@@ -30,15 +30,17 @@ services:
       - key: FIRECRAWL_API_KEY
         sync: false
       - key: FIRECRAWL_INCLUDE_DOMAINS
-        value: jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp
+        value: jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp,paypayfleamarket.yahoo.co.jp,item.rakuten.co.jp,www.amazon.co.jp,www.ebay.com,netmall.hardoff.co.jp,store.shopping.yahoo.co.jp
       - key: FIRECRAWL_ALLOW_ANY_DOMAIN
         value: "false"
-      - key: DEEPSEEK_API_KEY
+      - key: BAI_API_KEY
         sync: false
-      - key: DEEPSEEK_API_URL
-        value: https://api.deepseek.com
-      - key: DEEPSEEK_MODEL
-        value: deepseek-v4-flash
+      - key: BAI_API_URL
+        value: https://api.b.ai/v1
+      - key: AI_INTERNAL_TOKEN
+        sync: false
+      - key: AI_TIMEOUT_MS
+        value: "120000"
 
   - type: worker
     name: tokusatsu-monitor-worker
@@ -65,9 +67,43 @@ services:
       - key: MOCK_ADAPTER_ENABLED
         value: "false"
       - key: MANDARAKE_SEARCH_ENABLED
+        value: "false"
+      - key: MERCARI_SEARCH_ENABLED
         value: "true"
       - key: YAHOO_AUCTIONS_SEARCH_ENABLED
         value: "true"
+      - key: YAHOO_FLEAMARKET_SEARCH_ENABLED
+        value: "true"
+      - key: YAHOO_SHOPPING_SEARCH_ENABLED
+        value: "true"
+      - key: YAHOO_SHOPPING_CLIENT_ID
+        sync: false
+      - key: YAHOO_SHOPPING_API_URL
+        value: https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch
+      - key: YAHOO_SHOPPING_SEARCH_INTERVAL_MS
+        value: "7200000"
+      - key: YAHOO_SHOPPING_CRAWL_DELAY_MS
+        value: "1100"
+      - key: RAKUMA_SEARCH_ENABLED
+        value: "true"
+      - key: SURUGAYA_SEARCH_ENABLED
+        value: "true"
+      - key: YAHOO_FLEAMARKET_SEARCH_INTERVAL_MS
+        value: "3600000"
+      - key: RAKUMA_SEARCH_INTERVAL_MS
+        value: "7200000"
+      - key: SURUGAYA_SEARCH_INTERVAL_MS
+        value: "10800000"
+      - key: YAHOO_FLEAMARKET_BACKFILL_INTERVAL_MS
+        value: "21600000"
+      - key: RAKUMA_BACKFILL_INTERVAL_MS
+        value: "28800000"
+      - key: YAHOO_FLEAMARKET_CRAWL_DELAY_MS
+        value: "5000"
+      - key: RAKUMA_CRAWL_DELAY_MS
+        value: "3000"
+      - key: SURUGAYA_CRAWL_DELAY_MS
+        value: "30000"
       - key: MARKET_KEYWORDS
         value: 仮面ライダー|仮面ライダー まとめ売り|仮面ライダー DX|仮面ライダー ベルト|仮面ライダー ソフビ|仮面ライダー 食玩|仮面ライダー ガシャポン|ウルトラマン|特撮 まとめ売り
       - key: MARKET_INCREMENTAL_INTERVAL_MS
@@ -77,7 +113,7 @@ services:
       - key: MARKET_BACKFILL_MAX_PAGES
         value: "80"
       - key: FIRECRAWL_DISCOVERY_ENABLED
-        value: "true"
+        value: "false"
       - key: FIRECRAWL_DISCOVERY_INTERVAL_MS
         value: "7200000"
       - key: FIRECRAWL_API_KEY
@@ -85,9 +121,21 @@ services:
       - key: FIRECRAWL_API_URL
         value: https://api.firecrawl.dev
       - key: FIRECRAWL_INCLUDE_DOMAINS
-        value: jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp
+        value: jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp,paypayfleamarket.yahoo.co.jp,item.rakuten.co.jp,www.amazon.co.jp,www.ebay.com,netmall.hardoff.co.jp,store.shopping.yahoo.co.jp
       - key: FIRECRAWL_ALLOW_ANY_DOMAIN
         value: "false"
+      - key: AI_INTERNAL_TOKEN
+        sync: false
+      - key: AI_TIMEOUT_MS
+        value: "120000"
+      - key: TITLE_TRANSLATION_BATCH_SIZE
+        value: "2"
+      - key: DETAIL_TRANSLATION_BATCH_SIZE
+        value: "2"
+      - key: MARKET_INTEL_INTERVAL_MS
+        value: "3600000"
+      - key: MARKET_INTEL_MAX_AGE_DAYS
+        value: "90"
       - key: APIFY_ECOMMERCE_ENABLED
         value: "false"
       - key: APIFY_TOKEN
@@ -95,7 +143,7 @@ services:
       - key: APIFY_ECOMMERCE_ACTOR
         value: apify~e-commerce-scraping-tool
       - key: APIFY_MARKETPLACES
-        value: www.amazon.co.jp
+        value: www.amazon.co.jp,item.rakuten.co.jp,www.ebay.com,store.shopping.yahoo.co.jp,netmall.hardoff.co.jp
       - key: APIFY_DISCOVERY_INTERVAL_MS
         value: "21600000"
       - key: PLAYWRIGHT_WS_ENDPOINT
@@ -107,10 +155,6 @@ services:
       - key: CRAWLER_CONTACT
         sync: false
       - key: CRAWLER_USER_AGENT
-        sync: false
-      - key: VISION_API_URL
-        sync: false
-      - key: VISION_API_KEY
         sync: false
 
   - type: web

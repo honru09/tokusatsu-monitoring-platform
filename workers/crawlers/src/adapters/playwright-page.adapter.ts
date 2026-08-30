@@ -12,7 +12,7 @@ import type {
 
 export class PlaywrightPageAdapter implements SourceAdapter {
   readonly key = "playwright_page";
-  readonly displayName = "动态商品页";
+  readonly displayName = "Playwright";
 
   async search(_query: SearchQuery): Promise<SearchResult[]> {
     return [];

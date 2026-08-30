@@ -8,6 +8,7 @@ import {
   IsString,
   Length,
   Max,
+  MaxLength,
   Min,
 } from "class-validator";
 import {
@@ -61,9 +62,19 @@ export class ListItemsQuery {
   @IsOptional()
   @Transform(optionalBoolean)
   @IsBoolean()
+  ignored?: boolean;
+  @IsOptional()
+  @Transform(optionalBoolean)
+  @IsBoolean()
   favorite?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 50;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) offset = 0;
+}
+
+export class ItemChangesQuery {
+  @IsOptional()
+  @IsString()
+  since?: string;
 }
 
 export class UpdateItemDto {
@@ -85,7 +96,7 @@ export class UpdateItemDto {
   confidence?: number;
   @IsOptional() @IsBoolean() favorite?: boolean;
   @IsOptional() @IsBoolean() ignored?: boolean;
-  @IsOptional() @IsString() note?: string;
+  @IsOptional() @IsString() @MaxLength(10) note?: string;
   @IsOptional() @IsString() reason?: string;
   @IsOptional() @IsString() actor?: string;
 }
@@ -106,5 +117,8 @@ export class PurchaseDto {
   @IsOptional() @IsString() note?: string;
   @IsOptional() @IsString() receiptFileName?: string;
   @IsOptional() @IsString() receiptMimeType?: string;
-  @IsOptional() @IsString() @Length(1, 7_000_000) receiptDataBase64?: string;
+  @IsOptional()
+  @IsString()
+  @Length(1, 4_194_304)
+  receiptDataBase64?: string;
 }

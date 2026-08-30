@@ -19,7 +19,9 @@ type DiscoveryListing = {
   productId?: string | null;
   sourceUrl: string;
   titleRaw: string;
+  titleZh?: string | null;
   priceCurrent: number;
+  shippingFee?: number | null;
   priceTotalEst: number;
   listedAt?: string | null;
   detectedAt: string;
@@ -94,14 +96,22 @@ const labels: Record<string, string> = {
 };
 
 const sourceLabels: Record<string, string> = {
-  mandarake: "日本中古店",
-  mercari: "日本二手市场",
-  yahoo_auctions: "日本拍卖市场",
-  firecrawl_market: "自动适配来源",
-  apify_ecommerce: "Apify 电商检索",
-  playwright_page: "动态商品页",
-  public_page: "公开商品页",
+  mandarake: "Mandarake",
+  mercari: "Mercari",
+  yahoo_auctions: "Yahoo!オークション",
+  yahoo_fleamarket: "Yahoo!フリマ",
+  yahoo_shopping: "Yahoo!ショッピング",
+  rakuma: "ラクマ",
+  surugaya: "駿河屋",
+  firecrawl_market: "Firecrawl",
+  apify_ecommerce: "Apify",
+  playwright_page: "Playwright",
+  public_page: "网页来源",
 };
+
+function sourceLabel(item: DiscoveryListing) {
+  return sourceLabels[item.source.key] ?? item.source.displayName;
+}
 
 const simpleTranslations: [RegExp, string][] = [
   [/仮面ライダー/gi, "假面骑士"],
@@ -133,6 +143,7 @@ function displayTitle(
   if (language === "original") return item.titleRaw;
   return (
     translatedTitle ??
+    item.titleZh ??
     item.product?.titleZh ??
     translateTitle(item.titleRaw) ??
     item.titleRaw
@@ -142,6 +153,11 @@ function displayTitle(
 const fmtYen = (value?: number | null) =>
   value == null ? "未知" : `¥${value.toLocaleString("ja-JP")}`;
 
+const fmtCny = (value?: number | null, exchangeRate?: number) =>
+  value == null || !exchangeRate
+    ? ""
+    : `约 ¥${(value * exchangeRate).toFixed(2)}`;
+
 function relativeTime(value?: string | null) {
   if (!value) return "平台未提供";
   const difference = Date.now() - new Date(value).getTime();
@@ -150,6 +166,58 @@ function relativeTime(value?: string | null) {
   const hours = Math.round(minutes / 60);
   if (hours < 48) return `${hours} 小时前`;
   return `${Math.round(hours / 24)} 天前`;
+}
+
+function AuctionCountdown({ item }: { item: DiscoveryListing }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (item.listingType !== "auction" || !item.auctionEndAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [item.auctionEndAt, item.listingType]);
+  if (item.listingType !== "auction" || !item.auctionEndAt) return null;
+  const end = new Date(item.auctionEndAt).getTime();
+  const listed = item.listedAt ? new Date(item.listedAt).getTime() : Number.NaN;
+  const detected = new Date(item.detectedAt).getTime();
+  const start = Number.isFinite(listed) && listed < end ? listed : detected;
+  const remainingSeconds = Math.max(0, Math.floor((end - now) / 1_000));
+  const days = Math.floor(remainingSeconds / 86_400);
+  const hours = Math.floor((remainingSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((remainingSeconds % 3_600) / 60);
+  const seconds = remainingSeconds % 60;
+  const label =
+    remainingSeconds <= 0
+      ? "已结束"
+      : days > 0
+        ? `${days}天 ${hours}时 ${minutes}分`
+        : `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  const progress = Math.max(
+    0,
+    Math.min(1, (now - start) / Math.max(60_000, end - start)),
+  );
+  const urgent = end - now < 60 * 60_000;
+  return (
+    <div className="w-32 rounded-lg bg-black/65 px-2 py-1.5 text-right backdrop-blur-sm sm:w-36">
+      <span
+        className={`block font-mono text-[11px] font-bold tabular-nums ${urgent ? "text-[#ff9f0a]" : "text-white"}`}
+      >
+        {label}
+      </span>
+      <span
+        role="progressbar"
+        aria-label={`拍卖剩余时间 ${label}`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress * 100)}
+        className="mt-1 block h-1 overflow-hidden rounded-full bg-white/25"
+      >
+        <span
+          className={`block h-full origin-left rounded-full transition-transform duration-1000 ease-linear motion-reduce:transition-none ${urgent ? "bg-[#ff9f0a]" : "bg-[#64d2ff]"}`}
+          style={{ transform: `scaleX(${progress})` }}
+        />
+      </span>
+    </div>
+  );
 }
 
 function UndoIcon() {
@@ -208,10 +276,12 @@ function CardContent({
   item,
   language,
   translatedTitle,
+  exchangeRate,
 }: {
   item: DiscoveryListing;
   language: "zh" | "original";
   translatedTitle?: string;
+  exchangeRate?: number;
 }) {
   const [showOriginal, setShowOriginal] = useState(language === "original");
   useEffect(() => setShowOriginal(language === "original"), [language]);
@@ -230,17 +300,23 @@ function CardContent({
     : displayTitle(item, "zh", translatedTitle);
   return (
     <>
-      <div className="relative min-h-0 overflow-hidden bg-ink md:h-full">
+      <div className="discovery-card-media relative min-h-0 overflow-hidden bg-ink md:h-full">
         <ImageGallery
           images={item.images}
           alt={title}
-          className="h-[258px] w-full md:h-full"
+          className="h-[218px] w-full sm:h-[258px] md:h-full"
           imageClassName="select-none"
         />
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-ink/90 via-ink/30 to-transparent p-4 pt-14 text-white">
-          <span className="rounded-md bg-white/90 px-2 py-1 text-[10px] font-black text-ink">
-            {item.listingType === "auction" ? "拍卖" : "直接购买"}
-          </span>
+          <div>
+            <span className="rounded-md bg-white/90 px-2 py-1 text-[10px] font-black text-ink">
+              {item.listingType === "auction" ? "拍卖" : "直接购买"}
+            </span>
+            <span className="mt-1.5 block max-w-36 truncate text-[10px] font-semibold text-white/90">
+              {sourceLabel(item)}
+            </span>
+          </div>
+          <AuctionCountdown item={item} />
         </div>
         <button
           type="button"
@@ -250,7 +326,7 @@ function CardContent({
           }}
           aria-label={showOriginal ? "切换为中文" : "切换为原文"}
           title={showOriginal ? "中文" : "原文"}
-          className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-ink/75 text-white backdrop-blur transition-colors hover:bg-ink"
+          className="absolute right-3 top-3 grid h-11 w-11 place-items-center rounded-full bg-ink/75 text-white backdrop-blur transition-colors hover:bg-ink"
         >
           <svg
             aria-hidden="true"
@@ -266,8 +342,8 @@ function CardContent({
           </svg>
         </button>
       </div>
-      <div className="flex min-h-0 flex-col p-4 md:p-5">
-        <h2 className="line-clamp-3 text-lg font-black leading-6 text-ink md:text-xl md:leading-7">
+      <div className="discovery-card-content flex min-h-0 flex-col p-4 md:p-5">
+        <h2 className="line-clamp-2 text-base font-bold leading-5 text-ink sm:text-lg sm:leading-6 md:line-clamp-3 md:text-xl md:leading-7">
           {title}
         </h2>
         <div className="mt-3 flex items-end justify-between gap-3 border-b border-ink/10 pb-3">
@@ -278,12 +354,23 @@ function CardContent({
             <b className="font-mono text-2xl font-black text-rust tabular-nums">
               {fmtYen(item.priceCurrent)}
             </b>
+            <span className="block font-mono text-[10px] font-semibold text-ink/45">
+              {fmtCny(item.priceCurrent, exchangeRate)}
+            </span>
+            <span className="mt-0.5 block text-[10px] text-ink/45">
+              邮费 {item.shippingFee === 0 ? "包邮" : fmtYen(item.shippingFee)}
+              {item.shippingFee != null && item.shippingFee > 0 && (
+                <span className="ml-1 font-mono text-[9px]">
+                  {fmtCny(item.shippingFee, exchangeRate)}
+                </span>
+              )}
+            </span>
           </div>
-          <span className="text-right text-xs font-bold text-moss">
-            {sourceLabels[item.source.key] ?? item.source.displayName}
+          <span className="max-w-32 truncate text-right text-xs font-semibold text-moss">
+            {sourceLabel(item)}
           </span>
         </div>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+        <dl className="discovery-priority-grid mt-3 grid grid-cols-3 gap-x-2 gap-y-2 text-[11px] sm:text-xs md:grid-cols-2 md:gap-x-4">
           <div>
             <dt className="text-ink/60">数量</dt>
             <dd className="mt-0.5 font-bold">
@@ -296,13 +383,13 @@ function CardContent({
               {series ?? labels[item.categoryIp] ?? "待识别"}
             </dd>
           </div>
-          <div>
+          <div className="hidden md:block">
             <dt className="text-ink/60">玩具类型</dt>
             <dd className="mt-0.5 font-bold">
               {toyType ?? labels[item.categoryToyType] ?? "待识别"}
             </dd>
           </div>
-          <div>
+          <div className="hidden md:block">
             <dt className="text-ink/60">品相</dt>
             <dd className="mt-0.5 font-bold">
               {labels[item.conditionGrade] ?? "待识别"}
@@ -313,8 +400,13 @@ function CardContent({
             <dd className="mt-0.5 font-bold">
               单件 {fmtYen(item.unitCostEst)}
             </dd>
+            {item.unitCostEst != null && (
+              <span className="block font-mono text-[9px] font-semibold text-ink/45">
+                {fmtCny(item.unitCostEst, exchangeRate)}
+              </span>
+            )}
           </div>
-          <div>
+          <div className="hidden md:block">
             <dt className="text-ink/60">上架时间</dt>
             <dd className="mt-0.5 font-bold">
               {relativeTime(item.listedAt ?? item.detectedAt)}
@@ -330,11 +422,13 @@ function BackCard({
   item,
   language,
   translatedTitle,
+  exchangeRate,
   index,
 }: {
   item: DiscoveryListing;
   language: "zh" | "original";
   translatedTitle?: string;
+  exchangeRate?: number;
   index: 1 | 2;
 }) {
   const second = index === 1;
@@ -360,12 +454,13 @@ function BackCard({
         y: second ? motionTokens.stack.secondY : motionTokens.stack.thirdY,
       }}
       transition={springs.release}
-      className="pointer-events-none absolute inset-0 grid overflow-hidden rounded-2xl bg-white shadow-panel md:grid-cols-[1.08fr_.92fr]"
+      className="discovery-swipe-card pointer-events-none absolute inset-0 grid overflow-hidden rounded-2xl bg-white shadow-panel md:grid-cols-[1.08fr_.92fr]"
     >
       <CardContent
         item={item}
         language={language}
         translatedTitle={translatedTitle}
+        exchangeRate={exchangeRate}
       />
     </motion.article>
   );
@@ -375,6 +470,7 @@ function SwipeCard({
   item,
   language,
   translatedTitle,
+  exchangeRate,
   busy,
   exitDirection,
   onConsume,
@@ -384,6 +480,7 @@ function SwipeCard({
   item: DiscoveryListing;
   language: "zh" | "original";
   translatedTitle?: string;
+  exchangeRate?: number;
   busy: boolean;
   exitDirection: ExitDirection | null;
   onConsume: (action: "dislike" | "favorite", direction: ExitDirection) => void;
@@ -488,12 +585,13 @@ function SwipeCard({
         if (exitDirection) onExitComplete();
       }}
       style={{ x, y, rotate, touchAction: "none" }}
-      className="absolute inset-0 grid cursor-grab select-none overflow-hidden rounded-2xl bg-white shadow-modal outline-none focus-visible:ring-4 focus-visible:ring-moss/30 active:cursor-grabbing md:grid-cols-[1.08fr_.92fr]"
+      className="discovery-swipe-card absolute inset-0 grid cursor-grab select-none overflow-hidden rounded-2xl bg-white shadow-modal outline-none focus-visible:ring-4 focus-visible:ring-moss/30 active:cursor-grabbing md:grid-cols-[1.08fr_.92fr]"
     >
       <CardContent
         item={item}
         language={language}
         translatedTitle={translatedTitle}
+        exchangeRate={exchangeRate}
       />
       <motion.div
         aria-hidden="true"
@@ -526,7 +624,7 @@ export function DiscoveryWorkspace({
   translations = {},
   onOpenDetail,
   onFavoriteChange,
-  onBack,
+  exchangeRate,
   interactionDisabled = false,
 }: {
   apiBaseUrl: string;
@@ -534,7 +632,7 @@ export function DiscoveryWorkspace({
   translations?: Record<string, string>;
   onOpenDetail: (listingId: string) => Promise<boolean>;
   onFavoriteChange: () => void;
-  onBack?: () => void;
+  exchangeRate?: number;
   interactionDisabled?: boolean;
 }) {
   const [queue, setQueue] = useState<DiscoveryListing[]>([]);
@@ -608,6 +706,7 @@ export function DiscoveryWorkspace({
         (item) =>
           !translations[item.id] &&
           !aiTranslations[item.id] &&
+          !item.titleZh &&
           !translationRequestedRef.current.has(item.id),
       )
       .slice(0, 12);
@@ -620,6 +719,7 @@ export function DiscoveryWorkspace({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             texts: candidates.map((item) => item.titleRaw),
+            itemIds: candidates.map((item) => item.id),
           }),
         });
         if (!response.ok) throw new Error(`API ${response.status}`);
@@ -792,28 +892,6 @@ export function DiscoveryWorkspace({
     <section aria-labelledby="discovery-heading" className="js-shell-reveal">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 pb-3">
         <div className="flex min-w-0 items-center gap-2">
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              aria-label="返回在售商品"
-              title="返回"
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-blue-100 bg-white text-ink transition-colors hover:border-moss/40 hover:text-moss"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M19 12H5m7-7-7 7 7 7" />
-              </svg>
-            </button>
-          )}
           <h2
             id="discovery-heading"
             className="font-heading text-xl font-black"
@@ -841,7 +919,7 @@ export function DiscoveryWorkspace({
       )}
 
       <div className="mx-auto max-w-4xl">
-        <div className="discovery-card-shell relative h-[min(118vw,470px)] min-h-[420px] overflow-hidden overscroll-contain sm:h-[520px] md:h-[520px]">
+        <div className="discovery-card-shell relative h-[calc(100dvh-295px)] min-h-[380px] max-h-[500px] overflow-hidden overscroll-contain sm:h-[520px] sm:min-h-[420px] sm:max-h-none md:h-[520px]">
           {visible.length >= 3 && (
             <BackCard
               item={visible[2]}
@@ -849,6 +927,7 @@ export function DiscoveryWorkspace({
               translatedTitle={
                 translations[visible[2].id] ?? aiTranslations[visible[2].id]
               }
+              exchangeRate={exchangeRate}
               index={2}
             />
           )}
@@ -859,6 +938,7 @@ export function DiscoveryWorkspace({
               translatedTitle={
                 translations[visible[1].id] ?? aiTranslations[visible[1].id]
               }
+              exchangeRate={exchangeRate}
               index={1}
             />
           )}
@@ -870,6 +950,7 @@ export function DiscoveryWorkspace({
               translatedTitle={
                 translations[visible[0].id] ?? aiTranslations[visible[0].id]
               }
+              exchangeRate={exchangeRate}
               busy={busy || interactionDisabled}
               exitDirection={exitDirection}
               onConsume={(action, direction) => void consume(action, direction)}
@@ -901,7 +982,7 @@ export function DiscoveryWorkspace({
           )}
         </div>
 
-        <div className="relative z-10 mt-9 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="relative z-10 mt-4 grid grid-cols-4 gap-2 sm:mt-9">
           <button
             type="button"
             disabled={!visible[0] || busy || interactionDisabled}

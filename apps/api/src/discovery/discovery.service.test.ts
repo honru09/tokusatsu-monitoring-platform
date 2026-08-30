@@ -12,6 +12,7 @@ function serviceWith(overrides: Record<string, unknown> = {}) {
     },
     item: {
       findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null),
       findUnique: vi.fn(),
       count: vi.fn().mockResolvedValue(0),
       update: vi.fn(),
@@ -47,7 +48,36 @@ describe("DiscoveryService", () => {
         where: expect.objectContaining({
           id: { notIn: ["consumed-listing"] },
           favorite: false,
+          channel: "online",
         }),
+      }),
+    );
+  });
+
+  it("keeps an auction with a countdown in the preloaded three-card stack", async () => {
+    const { prisma, service } = serviceWith();
+    prisma.item.findMany.mockResolvedValue([
+      { id: "direct-1", listingType: "direct" },
+      { id: "direct-2", listingType: "direct" },
+      { id: "direct-3", listingType: "direct" },
+      { id: "direct-4", listingType: "direct" },
+      {
+        id: "auction-1",
+        listingType: "auction",
+        auctionEndAt: new Date("2026-09-01T00:00:00Z"),
+      },
+    ]);
+    prisma.item.count.mockResolvedValue(5);
+
+    const result = await service.feed(12);
+
+    expect(result.items.slice(0, 3).map((item) => item.listingType)).toContain(
+      "auction",
+    );
+    expect(result.items[2]).toEqual(
+      expect.objectContaining({
+        id: "auction-1",
+        auctionEndAt: new Date("2026-09-01T00:00:00Z"),
       }),
     );
   });

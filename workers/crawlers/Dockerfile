@@ -9,7 +9,8 @@ COPY packages/db/package.json packages/db/package.json
 COPY packages/product-dictionary/package.json packages/product-dictionary/package.json
 COPY services/matching/package.json services/matching/package.json
 COPY services/product-intelligence/package.json services/product-intelligence/package.json
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=tokusatsu-pnpm,target=/root/.local/share/pnpm/store \
+  pnpm install --frozen-lockfile
 COPY workers/crawlers workers/crawlers
 COPY workers/classification workers/classification
 COPY packages/shared packages/shared

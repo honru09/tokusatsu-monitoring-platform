@@ -7,7 +7,9 @@ import {
 describe("Firecrawl marketplace adapter", () => {
   it("accepts only whitelisted public product routes", () => {
     expect(
-      isAllowedFirecrawlMarketplaceUrl("https://jp.mercari.com/item/m123456789"),
+      isAllowedFirecrawlMarketplaceUrl(
+        "https://jp.mercari.com/item/m123456789",
+      ),
     ).toBe(true);
     expect(
       isAllowedFirecrawlMarketplaceUrl("https://jp.mercari.com/mypage/"),

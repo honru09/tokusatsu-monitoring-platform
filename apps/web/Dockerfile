@@ -6,7 +6,8 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_STANDALONE=true
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json apps/web/package.json
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=tokusatsu-pnpm,target=/root/.local/share/pnpm/store \
+  pnpm install --frozen-lockfile
 COPY apps/web apps/web
 RUN pnpm --filter @tokusatsu/web build
 

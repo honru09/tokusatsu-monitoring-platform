@@ -105,6 +105,17 @@ enum DiscoveryAction {
   undo
 }
 
+enum MarketIntelKind {
+  news
+  forum
+  post
+}
+
+enum ShippingBasis {
+  weight
+  volume
+}
+
 model Source {
   id             String          @id @default(uuid())
   key            String          @unique
@@ -129,10 +140,16 @@ model Seller {
   name         String
   sellerType   SellerType @default(unknown)
   locationText String?
+  /// Public seller/profile fields captured from marketplace responses.
+  /// This is intentionally JSON because each marketplace exposes different
+  /// fields; private account data is never stored here.
+  sourceData   Json?      @map("source_data")
+  profileUrl   String?    @map("profile_url")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   source       Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   items        Item[]
+  aiRuns       AiRun[]
 
   @@unique([sourceId, name])
   @@index([name])
@@ -177,6 +194,15 @@ model Item {
   normalizedTitle    String?              @map("normalized_title")
   fieldConfidences   Json?                @map("field_confidences")
   extractionEvidence Json?                @map("extraction_evidence")
+  sourceData         Json?                @map("source_data")
+  /// Complete AI Gateway translation persisted for every surface.
+  titleZh            String?              @map("title_zh")
+  descriptionZh      String?              @map("description_zh")
+  conditionZh        String?              @map("condition_zh")
+  shippingZh         String?              @map("shipping_zh")
+  detailsZh          Json?                @map("details_zh")
+  translationStatus  String               @default("pending") @map("translation_status")
+  translatedAt       DateTime?            @map("translated_at")
   matchConfidence    Float?               @map("match_confidence")
   matchDecision      MatchDecision        @default(unmatched) @map("match_decision")
   archivedAt         DateTime?
@@ -195,6 +221,10 @@ model Item {
   product            Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
   reviewQueue        ReviewQueue[]
   discoveryFeedback  DiscoveryFeedback[]  @relation("ListingDiscoveryFeedback")
+  aiRuns             AiRun[]
+  aiFeedback         AiFeedback[]
+  cartItems          ShoppingCartItem[]
+  logistics          ItemLogistics?
 
   @@unique([sourceId, sourceItemId])
   @@index([categoryIp, priceCurrent])
@@ -207,6 +237,91 @@ model Item {
   @@index([importOrigin, createdAt])
   @@index([productId])
   @@index([needsReview, detectedAt])
+}
+
+/// Optional package and margin inputs for deterministic delivery planning.
+/// Dimensions are stored in millimetres, weights in grams and all money in JPY.
+model ItemLogistics {
+  id                    String   @id @default(uuid())
+  itemId                String   @unique @map("item_id")
+  weightGrams           Int?     @map("weight_grams")
+  packageWeightGrams    Int?     @map("package_weight_grams")
+  lengthMm              Int?     @map("length_mm")
+  widthMm               Int?     @map("width_mm")
+  heightMm              Int?     @map("height_mm")
+  volumeCm3             Int?     @map("volume_cm3")
+  estimatedSalePriceYen Int?     @map("estimated_sale_price_yen")
+  estimatedProfitYen    Int?     @map("estimated_profit_yen")
+  notes                 String?
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  item                  Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
+  @@map("item_logistics")
+}
+
+/// Carrier catalogue is editable by operators; tariff rows preserve the
+/// source and effective range instead of hard-coding a single provider.
+model ShippingCarrier {
+  id          String           @id @default(uuid())
+  key         String           @unique
+  displayName String           @map("display_name")
+  currency    String           @default("JPY")
+  sourceUrl   String?          @map("source_url")
+  note        String?
+  enabled     Boolean          @default(true)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  tariffs     ShippingTariff[]
+
+  @@index([enabled, displayName])
+  @@map("shipping_carriers")
+}
+
+model ShippingTariff {
+  id          String         @id @default(uuid())
+  carrierId   String         @map("carrier_id")
+  serviceName String         @map("service_name")
+  basis       ShippingBasis
+  minValue    Int            @map("min_value")
+  maxValue    Int?           @map("max_value")
+  priceYen    Int            @map("price_yen")
+  zone        String         @default("JP")
+  sourceNote  String?        @map("source_note")
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  carrier     ShippingCarrier @relation(fields: [carrierId], references: [id], onDelete: Cascade)
+
+  @@index([carrierId, basis, minValue])
+  @@index([zone, basis, minValue])
+  @@map("shipping_tariffs")
+}
+
+/// Public news and forum intelligence relevant to tokusatsu procurement.
+/// Only public pages are retained; private groups and login-gated posts are excluded.
+model MarketIntel {
+  id                String          @id @default(uuid())
+  sourceUrl         String          @unique @map("source_url")
+  sourcePlatform    String          @map("source_platform")
+  sourceName        String          @map("source_name")
+  kind              MarketIntelKind
+  author            String?
+  titleRaw          String          @map("title_raw")
+  bodyRaw           String          @map("body_raw")
+  titleZh           String?         @map("title_zh")
+  bodyZh            String?         @map("body_zh")
+  translationStatus String          @default("pending") @map("translation_status")
+  publishedAt       DateTime?       @map("published_at")
+  detectedAt        DateTime        @default(now()) @map("detected_at")
+  translatedAt      DateTime?       @map("translated_at")
+  productLinks      Json?           @map("product_links")
+  sourceData        Json?           @map("source_data")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@index([kind, publishedAt])
+  @@index([detectedAt])
+  @@map("market_intel")
 }
 
 /// Canonical product entity. Multiple marketplace Item rows (listings) can
@@ -235,6 +350,7 @@ model Product {
   inventory            Inventory?
   reviewQueue          ReviewQueue[]
   discoveryFeedback    DiscoveryFeedback[]
+  marketSnapshots      MarketSnapshot[]
 
   @@index([normalizedName])
   @@index([franchiseId, seriesId])
@@ -382,17 +498,17 @@ model Inventory {
 /// Append-only interaction history for the discovery workspace. Undo is a
 /// separate event so preference-model training can reconstruct user intent.
 model DiscoveryFeedback {
-  id                  String              @id @default(uuid())
-  listingId           String              @map("listing_id")
-  productId           String?             @map("product_id")
-  action              DiscoveryAction
-  timestamp           DateTime            @default(now()) @db.Timestamptz
-  position            Int
-  undoOfId            String?             @unique @map("undo_of_id")
-  listing             Item                @relation("ListingDiscoveryFeedback", fields: [listingId], references: [id], onDelete: Cascade)
-  product             Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
-  undoOf              DiscoveryFeedback?  @relation("DiscoveryUndo", fields: [undoOfId], references: [id], onDelete: SetNull)
-  undoEvents          DiscoveryFeedback[] @relation("DiscoveryUndo")
+  id         String              @id @default(uuid())
+  listingId  String              @map("listing_id")
+  productId  String?             @map("product_id")
+  action     DiscoveryAction
+  timestamp  DateTime            @default(now()) @db.Timestamptz
+  position   Int
+  undoOfId   String?             @unique @map("undo_of_id")
+  listing    Item                @relation("ListingDiscoveryFeedback", fields: [listingId], references: [id], onDelete: Cascade)
+  product    Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  undoOf     DiscoveryFeedback?  @relation("DiscoveryUndo", fields: [undoOfId], references: [id], onDelete: SetNull)
+  undoEvents DiscoveryFeedback[] @relation("DiscoveryUndo")
 
   @@index([listingId, timestamp])
   @@index([productId, timestamp])
@@ -550,4 +666,221 @@ model ManualReview {
   item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([itemId, createdAt])
+}
+
+/// Append-only record for every model attempt, including fallbacks and
+/// failures. Inputs contain public marketplace data only; provider secrets are
+/// never persisted. This table is intentionally separate from the hot Item row.
+model AiRun {
+  id             String       @id @default(uuid())
+  itemId         String?      @map("item_id")
+  sellerId       String?      @map("seller_id")
+  task           String
+  provider       String
+  requestedModel String       @map("requested_model")
+  actualModel    String?      @map("actual_model")
+  status         String
+  inputHash      String       @map("input_hash")
+  input          Json
+  output         Json?
+  confidence     Float?
+  finalDecision  Json?        @map("final_decision")
+  correctedById  String?      @map("corrected_by_id")
+  humanModified  Boolean      @default(false) @map("human_modified")
+  fallbackUsed   Boolean      @default(false) @map("fallback_used")
+  attempt        Int          @default(1)
+  latencyMs      Int?         @map("latency_ms")
+  inputTokens    Int?         @map("input_tokens")
+  outputTokens   Int?         @map("output_tokens")
+  errorCode      String?      @map("error_code")
+  errorMessage   String?      @map("error_message")
+  startedAt      DateTime     @default(now()) @map("started_at") @db.Timestamptz
+  completedAt    DateTime?    @map("completed_at") @db.Timestamptz
+  item           Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  seller         Seller?      @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  correctedBy    AiRun?       @relation("AiRunCorrection", fields: [correctedById], references: [id], onDelete: SetNull)
+  corrections    AiRun[]      @relation("AiRunCorrection")
+  feedback       AiFeedback[]
+
+  @@index([task, startedAt])
+  @@index([status, startedAt])
+  @@index([requestedModel, startedAt])
+  @@index([itemId, startedAt])
+  @@index([sellerId, startedAt])
+  @@index([inputHash, task])
+  @@map("ai_runs")
+}
+
+/// Content-addressed AI cache. Any title, description, image or commercial
+/// field change alters inputHash and naturally invalidates the entry.
+model AiCache {
+  key           String   @id
+  task          String
+  inputHash     String   @map("input_hash")
+  routeRevision String   @map("route_revision")
+  model         String
+  output        Json
+  confidence    Float?
+  expiresAt     DateTime @map("expires_at") @db.Timestamptz
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([task, inputHash, routeRevision])
+  @@index([expiresAt])
+  @@map("ai_cache")
+}
+
+/// Last known health for each routed model. Usage counters are calculated from
+/// AiRun so this row remains small and update-friendly.
+model AiModelState {
+  model               String    @id
+  provider            String
+  role                String
+  configured          Boolean   @default(false)
+  status              String    @default("unknown")
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  lastSuccessAt       DateTime? @map("last_success_at") @db.Timestamptz
+  lastFailureAt       DateTime? @map("last_failure_at") @db.Timestamptz
+  lastErrorCode       String?   @map("last_error_code")
+  lastCheckedAt       DateTime  @default(now()) @map("last_checked_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([status, updatedAt])
+  @@map("ai_model_state")
+}
+
+/// Explicit human feedback about an AI judgment. Purchase, favorite and
+/// discovery actions remain in their domain tables and are joined when the
+/// preference context is assembled.
+model AiFeedback {
+  id        String   @id @default(uuid())
+  itemId    String   @map("item_id")
+  aiRunId   String?  @map("ai_run_id")
+  action    String
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  aiRun     AiRun?   @relation(fields: [aiRunId], references: [id], onDelete: SetNull)
+
+  @@index([itemId, createdAt])
+  @@index([aiRunId])
+  @@index([action, createdAt])
+  @@map("ai_feedback")
+}
+
+/// Daily market memory for one canonical product and analysis window.
+model MarketSnapshot {
+  id               String   @id @default(uuid())
+  productId        String   @map("product_id")
+  windowDays       Int      @map("window_days")
+  snapshotDate     DateTime @map("snapshot_date") @db.Date
+  observedCount    Int      @map("observed_count")
+  soldCount        Int      @map("sold_count")
+  activeCount      Int      @map("active_count")
+  priceMin         Decimal? @map("price_min") @db.Decimal(12, 2)
+  priceMax         Decimal? @map("price_max") @db.Decimal(12, 2)
+  priceAverage     Decimal? @map("price_average") @db.Decimal(12, 2)
+  priceMedian      Decimal? @map("price_median") @db.Decimal(12, 2)
+  averageSellHours Decimal? @map("average_sell_hours") @db.Decimal(12, 2)
+  priceTrendPct    Decimal? @map("price_trend_pct") @db.Decimal(8, 2)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, windowDays, snapshotDate])
+  @@index([windowDays, snapshotDate])
+  @@index([productId, snapshotDate])
+  @@map("market_snapshots")
+}
+
+model KeywordInsight {
+  keyword        String   @id
+  listingCount   Int      @default(0) @map("listing_count")
+  averagePrice   Decimal? @map("average_price") @db.Decimal(12, 2)
+  lowPriceRatio  Decimal? @map("low_price_ratio") @db.Decimal(8, 4)
+  purchaseRatio  Decimal? @map("purchase_ratio") @db.Decimal(8, 4)
+  highValueRatio Decimal? @map("high_value_ratio") @db.Decimal(8, 4)
+  recommended    Boolean  @default(false)
+  rationale      String?
+  lastAnalyzedAt DateTime @default(now()) @map("last_analyzed_at") @db.Timestamptz
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([recommended, lastAnalyzedAt])
+  @@map("keyword_insights")
+}
+
+/// Persisted 24h/7d/30d/90d operational and market brief. The result always
+/// separates known facts, inferences, risks and recommended actions.
+model AiBrief {
+  id          String   @id @default(uuid())
+  period      String
+  periodStart DateTime @map("period_start") @db.Timestamptz
+  periodEnd   DateTime @map("period_end") @db.Timestamptz
+  model       String
+  result      Json
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([period, periodStart])
+  @@index([period, createdAt])
+  @@map("ai_briefs")
+}
+
+/// Last reliable market reference rate. The API refreshes this record on a
+/// short cadence and keeps it as a safe fallback when the upstream is down.
+model ExchangeRate {
+  pair            String   @id
+  baseCurrency    String   @map("base_currency")
+  quoteCurrency   String   @map("quote_currency")
+  rate            Decimal  @db.Decimal(18, 8)
+  source          String
+  referenceDate   DateTime @map("reference_date") @db.Date
+  fetchedAt       DateTime @map("fetched_at") @db.Timestamptz
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([fetchedAt])
+  @@map("exchange_rates")
+}
+
+/// One collaborative cart is used by the current no-login workspace. Keeping
+/// it in PostgreSQL makes additions visible to every browser using the site.
+model ShoppingCart {
+  id        String             @id @default(uuid())
+  key       String             @unique
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  items     ShoppingCartItem[]
+  shares    CartShare[]
+
+  @@map("shopping_carts")
+}
+
+model ShoppingCartItem {
+  id        String       @id @default(uuid())
+  cartId    String       @map("cart_id")
+  itemId    String       @map("item_id")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  cart      ShoppingCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  item      Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, itemId])
+  @@index([itemId])
+  @@map("shopping_cart_items")
+}
+
+/// Public, read-only cart snapshot. A snapshot remains readable even if the
+/// live collaborative cart is edited after the link was shared.
+model CartShare {
+  id        String       @id @default(uuid())
+  token     String       @unique
+  cartId    String?      @map("cart_id")
+  snapshot  Json
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt DateTime?    @map("expires_at") @db.Timestamptz
+  cart      ShoppingCart? @relation(fields: [cartId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@map("cart_shares")
 }

@@ -62,6 +62,8 @@ export interface SearchResult {
   sourceItemId: string;
   sourceUrl: string;
   titleHint?: string;
+  /** Detail fields already exposed by a marketplace search response. */
+  detailHint?: RawItemDetail;
 }
 
 export interface RawItemDetail {
@@ -72,6 +74,10 @@ export interface RawItemDetail {
   descriptionRaw?: string;
   sellerName?: string;
   sellerType?: "individual" | "store" | "unknown";
+  /** Public seller profile URL when the marketplace exposes one. */
+  sellerProfileUrl?: string;
+  /** Marketplace-specific public seller fields. */
+  sellerData?: Record<string, unknown>;
   locationText?: string;
   priceCurrent: number;
   shippingFee?: number;
@@ -80,6 +86,8 @@ export interface RawItemDetail {
   bidCount?: number;
   conditionRaw?: string;
   imageUrls: string[];
+  /** Public fields that do not have a stable cross-marketplace column. */
+  sourceData?: Record<string, unknown>;
   status: ItemStatus;
   channel: SourceChannel;
 }

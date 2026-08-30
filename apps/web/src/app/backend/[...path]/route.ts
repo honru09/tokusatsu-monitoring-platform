@@ -5,10 +5,16 @@ function internalApiBase() {
   return /^https?:\/\//.test(configured) ? configured : `http://${configured}`;
 }
 
-async function proxy(request: Request, context: { params: Promise<{ path: string[] }> }) {
+async function proxy(
+  request: Request,
+  context: { params: Promise<{ path: string[] }> },
+) {
   const { path } = await context.params;
   const incoming = new URL(request.url);
-  const target = new URL(path.map(encodeURIComponent).join("/"), `${internalApiBase()}/`);
+  const target = new URL(
+    path.map(encodeURIComponent).join("/"),
+    `${internalApiBase()}/`,
+  );
   target.search = incoming.search;
 
   const headers = new Headers();
@@ -30,6 +36,7 @@ async function proxy(request: Request, context: { params: Promise<{ path: string
     const value = response.headers.get(name);
     if (value) responseHeaders.set(name, value);
   }
+  responseHeaders.set("cache-control", "no-store, max-age=0");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

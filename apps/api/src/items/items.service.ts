@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import {
   CategoryIp,
   ConditionGrade,
@@ -19,8 +23,18 @@ import type {
 
 const include = {
   source: { select: { key: true, displayName: true } },
-  seller: { select: { id: true, name: true, sellerType: true, locationText: true } },
+  seller: {
+    select: {
+      id: true,
+      name: true,
+      sellerType: true,
+      locationText: true,
+      profileUrl: true,
+      sourceData: true,
+    },
+  },
   images: { orderBy: { position: "asc" as const } },
+  logistics: true,
   priceHistory: { orderBy: { observedAt: "desc" as const }, take: 8 },
   purchaseRecord: {
     include: {
@@ -47,15 +61,64 @@ const include = {
   },
 };
 
+// Used by the collaborative dashboard sync path. Keeping this projection
+// deliberately small avoids reloading image galleries, price history and
+// purchase receipts when another operator only changes a favorite or note.
+const syncSelect = {
+  id: true,
+  favorite: true,
+  ignored: true,
+  ignoredAt: true,
+  archivedAt: true,
+  note: true,
+  updatedAt: true,
+} satisfies Prisma.ItemSelect;
+
 const sourceLabels: Record<string, string> = {
-  mandarake: "日本中古店",
-  mercari: "日本二手市场",
-  yahoo_auctions: "日本拍卖市场",
-  firecrawl_market: "自动适配来源",
-  apify_ecommerce: "Apify 电商检索",
-  playwright_page: "动态商品页",
+  mandarake: "Mandarake",
+  mercari: "Mercari",
+  yahoo_auctions: "Yahoo!オークション",
+  yahoo_fleamarket: "Yahoo!フリマ",
+  yahoo_shopping: "Yahoo!ショッピング",
+  rakuma: "ラクマ",
+  surugaya: "駿河屋",
+  firecrawl_market: "Firecrawl",
+  apify_ecommerce: "Apify",
+  playwright_page: "Playwright",
+  public_page: "网页来源",
   mock: "本地测试来源",
 };
+
+function sourceDisplayName(
+  key: string,
+  fallback: string,
+  sourceData: Prisma.JsonValue | null,
+) {
+  if (
+    ![
+      "firecrawl_market",
+      "apify_ecommerce",
+      "public_page",
+      "playwright_page",
+    ].includes(key)
+  ) {
+    return sourceLabels[key] ?? fallback;
+  }
+  if (
+    sourceData &&
+    typeof sourceData === "object" &&
+    !Array.isArray(sourceData)
+  ) {
+    const value = sourceData as Prisma.JsonObject;
+    const marketplaceName = value.marketplaceName;
+    const marketplaceHost = value.marketplaceHost;
+    if (typeof marketplaceName === "string" && marketplaceName.trim())
+      return marketplaceName.trim();
+    if (typeof marketplaceHost === "string" && marketplaceHost.trim())
+      return marketplaceHost.trim();
+  }
+  return sourceLabels[key] ?? fallback;
+}
 
 export function resolveAdapterKey(
   url: URL,
@@ -65,6 +128,16 @@ export function resolveAdapterKey(
   const host = url.hostname.toLowerCase();
   if (host.endsWith("mandarake.co.jp")) return "mandarake";
   if (host === "example.com") return "mock";
+  if (
+    host === "shopping.yahoo.co.jp" ||
+    host.endsWith(".shopping.yahoo.co.jp") ||
+    host === "store.shopping.yahoo.co.jp"
+  )
+    return process.env.YAHOO_SHOPPING_CLIENT_ID?.trim()
+      ? "yahoo_shopping"
+      : firecrawlConfigured && firecrawlHosts.has(host)
+        ? "firecrawl_market"
+        : "public_page";
   if (host === "jp.mercari.com" || host.endsWith(".mercari.com"))
     return "mercari";
   if (
@@ -74,6 +147,30 @@ export function resolveAdapterKey(
     return "yahoo_auctions";
   if (["auctions.yahoo.co.jp", "page.auctions.yahoo.co.jp"].includes(host))
     return undefined;
+  if (
+    host === "paypayfleamarket.yahoo.co.jp" &&
+    /^\/item\/z\d+\/?$/i.test(url.pathname)
+  )
+    return "yahoo_fleamarket";
+  if (host === "paypayfleamarket.yahoo.co.jp")
+    return firecrawlConfigured && firecrawlHosts.has(host)
+      ? "firecrawl_market"
+      : undefined;
+  if (host === "item.fril.jp" && /^\/[a-f0-9]{20,64}\/?$/i.test(url.pathname))
+    return "rakuma";
+  if (host === "fril.jp" || host === "item.fril.jp")
+    return firecrawlConfigured && firecrawlHosts.has(host)
+      ? "firecrawl_market"
+      : undefined;
+  if (
+    host === "www.suruga-ya.jp" &&
+    /^\/product\/(?:detail|other)\/\d+\/?$/i.test(url.pathname)
+  )
+    return "surugaya";
+  if (host === "www.suruga-ya.jp")
+    return firecrawlConfigured && firecrawlHosts.has(host)
+      ? "firecrawl_market"
+      : undefined;
   if (
     host.endsWith("mandarake.co.jp") ||
     host === "jp.mercari.com" ||
@@ -175,11 +272,22 @@ export class ItemsService {
       channel: SourceChannel.online,
       purchaseRecord: null,
       categoryToyType: { not: ToyType.card },
+      AND: [
+        {
+          OR: [
+            { descriptionRaw: null },
+            {
+              NOT: {
+                descriptionRaw: { contains: "カードダス", mode: "insensitive" },
+              },
+            },
+          ],
+        },
+      ],
       NOT: [
         { titleRaw: { contains: "トレカ", mode: "insensitive" } },
         { titleRaw: { contains: "trading card", mode: "insensitive" } },
         { titleRaw: { contains: "card game", mode: "insensitive" } },
-        { descriptionRaw: { contains: "カードダス", mode: "insensitive" } },
         { titleRaw: { contains: "mook", mode: "insensitive" } },
         { titleRaw: { contains: "magazine", mode: "insensitive" } },
         { titleRaw: { contains: "comic", mode: "insensitive" } },
@@ -191,6 +299,10 @@ export class ItemsService {
         { titleRaw: { contains: "写真集", mode: "insensitive" } },
         { titleRaw: { contains: "攻略本", mode: "insensitive" } },
         { titleRaw: { contains: "図鑑", mode: "insensitive" } },
+        { titleRaw: { contains: "辞典", mode: "insensitive" } },
+        { titleRaw: { contains: "事典", mode: "insensitive" } },
+        { titleRaw: { contains: "図録", mode: "insensitive" } },
+        { titleRaw: { contains: "資料集", mode: "insensitive" } },
         { titleRaw: { contains: "雑誌", mode: "insensitive" } },
         { titleRaw: { contains: "絵本", mode: "insensitive" } },
         { titleRaw: { contains: "小説", mode: "insensitive" } },
@@ -198,6 +310,7 @@ export class ItemsService {
       ],
     };
     if (!query.includeIgnored) where.ignored = false;
+    if (query.ignored != null) where.ignored = query.ignored;
     if (query.favorite != null) where.favorite = query.favorite;
     if (query.ip) where.categoryIp = query.ip as CategoryIp;
     if (query.condition)
@@ -207,9 +320,13 @@ export class ItemsService {
     if (query.manufacturer)
       where.manufacturer = query.manufacturer as Manufacturer;
     // 采购范围只保留线上商品；历史线下记录不会进入在售库。
-    if (query.channel === "physical_store") return {
-      items: [], total: 0, facets: { auction: 0, direct: 0 }, serverTime: new Date().toISOString(),
-    };
+    if (query.channel === "physical_store")
+      return {
+        items: [],
+        total: 0,
+        facets: { auction: 0, direct: 0 },
+        serverTime: new Date().toISOString(),
+      };
     if (query.platform) where.source = { key: query.platform };
     if (query.importOrigin)
       where.importOrigin = query.importOrigin as "search" | "url";
@@ -275,11 +392,32 @@ export class ItemsService {
         ...item,
         source: {
           ...item.source,
-          displayName: sourceLabels[item.source.key] ?? "自动适配来源",
+          displayName: sourceDisplayName(
+            item.source.key,
+            item.source.displayName,
+            item.sourceData,
+          ),
         },
       })),
       total,
       facets: { auction: auctionTotal, direct: directTotal },
+      serverTime: new Date().toISOString(),
+    };
+  }
+
+  async changes(since?: string) {
+    const parsed = since ? new Date(since) : new Date(Date.now() - 15_000);
+    const sinceDate = Number.isNaN(parsed.getTime())
+      ? new Date(Date.now() - 15_000)
+      : parsed;
+    const changes = await this.prisma.item.findMany({
+      where: { updatedAt: { gt: sinceDate } },
+      select: syncSelect,
+      orderBy: { updatedAt: "asc" },
+      take: 500,
+    });
+    return {
+      changes,
       serverTime: new Date().toISOString(),
     };
   }
@@ -300,7 +438,11 @@ export class ItemsService {
         ...item,
         source: {
           ...item.source,
-          displayName: sourceLabels[item.source.key] ?? "自动适配来源",
+          displayName: sourceDisplayName(
+            item.source.key,
+            item.source.displayName,
+            item.sourceData,
+          ),
         },
       },
       serverTime: new Date().toISOString(),
@@ -314,7 +456,16 @@ export class ItemsService {
       : new Date();
     if (Number.isNaN(purchasedAt.getTime()))
       throw new Error("购买时间格式无效");
-    const verified = Boolean(body.receiptDataBase64);
+    const receiptSize = body.receiptDataBase64
+      ? Buffer.byteLength(body.receiptDataBase64, "base64")
+      : 0;
+    if (receiptSize > 3 * 1024 * 1024) {
+      throw new BadRequestException("购买凭证图片不能超过 3MB");
+    }
+    if (body.receiptDataBase64 && !body.receiptMimeType?.startsWith("image/")) {
+      throw new BadRequestException("购买凭证必须是图片文件");
+    }
+    const verified = receiptSize > 0;
     const record = await this.prisma.$transaction(async (tx) => {
       const purchase = await tx.purchaseRecord.upsert({
         where: { itemId: id },
@@ -342,7 +493,7 @@ export class ItemsService {
             fileName:
               body.receiptFileName?.slice(0, 200) ?? "purchase-receipt.png",
             mimeType,
-            sizeBytes: Math.ceil((body.receiptDataBase64.length * 3) / 4),
+            sizeBytes: receiptSize,
             dataBase64: body.receiptDataBase64,
           },
         });
@@ -422,40 +573,101 @@ export class ItemsService {
     };
   }
 
-  async listSellers(search?: string) {
+  async listSellers(search?: string, page = 1, limit = 60) {
+    const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+    const safeLimit = Number.isFinite(limit)
+      ? Math.max(1, Math.min(100, Math.floor(limit)))
+      : 60;
+    const visibleItemWhere = {
+      archivedAt: null,
+      channel: SourceChannel.online,
+      purchaseRecord: null,
+      categoryToyType: { not: ToyType.card },
+    } satisfies Prisma.ItemWhereInput;
+    const where: Prisma.SellerWhereInput = {
+      AND: [
+        ...(search?.trim()
+          ? [
+              {
+                name: {
+                  contains: search.trim(),
+                  mode: "insensitive" as const,
+                },
+              },
+            ]
+          : []),
+        { items: { some: visibleItemWhere } },
+      ],
+    };
     const sellers = await this.prisma.seller.findMany({
-      where: search
-        ? { name: { contains: search.trim(), mode: "insensitive" } }
-        : undefined,
+      where,
       include: {
         source: { select: { key: true, displayName: true } },
-        _count: { select: { items: true } },
+        _count: {
+          select: {
+            items: {
+              where: visibleItemWhere,
+            },
+          },
+        },
       },
       orderBy: { updatedAt: "desc" },
-      take: 200,
+      skip: (safePage - 1) * safeLimit,
+      take: safeLimit,
     });
+    const total = await this.prisma.seller.count({ where });
     return {
       sellers,
-      total: sellers.length,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      pageCount: Math.max(1, Math.ceil(total / safeLimit)),
       serverTime: new Date().toISOString(),
     };
   }
 
-  async getSeller(id: string) {
+  async getSeller(id: string, page = 1, limit = 48) {
+    const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+    const safeLimit = Number.isFinite(limit)
+      ? Math.max(1, Math.min(100, Math.floor(limit)))
+      : 48;
+    const itemWhere = {
+      sellerId: id,
+      archivedAt: null,
+      channel: SourceChannel.online,
+      purchaseRecord: null,
+      categoryToyType: { not: ToyType.card },
+    };
     const seller = await this.prisma.seller.findUnique({
       where: { id },
       include: {
         source: { select: { key: true, displayName: true } },
         items: {
-          where: { archivedAt: null },
+          where: {
+            archivedAt: null,
+            channel: SourceChannel.online,
+            purchaseRecord: null,
+            categoryToyType: { not: ToyType.card },
+          },
           include,
           orderBy: { detectedAt: "desc" },
-          take: 200,
+          skip: (safePage - 1) * safeLimit,
+          take: safeLimit,
         },
       },
     });
     if (!seller) throw new NotFoundException("Seller not found");
-    return { seller, serverTime: new Date().toISOString() };
+    const total = await this.prisma.item.count({ where: itemWhere });
+    const { items, ...sellerProfile } = seller;
+    return {
+      seller: sellerProfile,
+      items,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      pageCount: Math.max(1, Math.ceil(total / safeLimit)),
+      serverTime: new Date().toISOString(),
+    };
   }
 
   async receipt(id: string, receiptId: string) {
@@ -512,6 +724,45 @@ export class ItemsService {
       (changes as Prisma.ItemUpdateInput).ignoredAt = new Date();
     } else if (changes.ignored === false) {
       (changes as Prisma.ItemUpdateInput).ignoredAt = null;
+    }
+    const changedKeys = Object.entries(changes)
+      .filter(([, value]) => value !== undefined)
+      .map(([key]) => key);
+    const isCollaborativePatch =
+      changedKeys.length > 0 &&
+      changedKeys.every((key) =>
+        ["favorite", "ignored", "ignoredAt", "note"].includes(key),
+      );
+    if (isCollaborativePatch) {
+      return this.prisma.$transaction(async (tx) => {
+        const updated = await tx.item.update({
+          where: { id },
+          data: changes as Prisma.ItemUpdateInput,
+          select: syncSelect,
+        });
+        await tx.manualReview.create({
+          data: {
+            itemId: id,
+            actor,
+            reason,
+            beforeData: JSON.parse(
+              JSON.stringify(current),
+            ) as Prisma.InputJsonValue,
+            afterData: JSON.parse(
+              JSON.stringify(updated),
+            ) as Prisma.InputJsonValue,
+          },
+        });
+        await tx.reviewQueue.updateMany({
+          where: { itemId: id, status: "pending" },
+          data: {
+            status: "confirmed",
+            resolvedBy: actor,
+            resolvedAt: new Date(),
+          },
+        });
+        return { item: updated, serverTime: new Date().toISOString() };
+      });
     }
     const quantity = changes.quantityEst ?? current.quantityEst;
     const priceTotal = current.priceTotalEst;

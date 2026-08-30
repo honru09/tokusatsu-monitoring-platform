@@ -12,6 +12,8 @@ import { CheerioCrawler } from "@crawlee/cheerio";
 import { Configuration } from "@crawlee/core";
 import * as cheerio from "cheerio";
 import { createRequire } from "node:module";
+import { sanitizeProductImageUrls } from "./images.js";
+import { shippingEvidence } from "./shipping.js";
 
 const SEARCH_ORIGIN = "https://auctions.yahoo.co.jp";
 const DETAIL_ORIGIN = SEARCH_ORIGIN;
@@ -48,6 +50,66 @@ function productJson(html: string): Record<string, unknown> | undefined {
     }
   }
   return undefined;
+}
+
+function publicYahooSeller(html: string) {
+  const $ = cheerio.load(html);
+  const raw = $("#__NEXT_DATA__").text();
+  if (!raw) return undefined;
+  try {
+    const root = JSON.parse(raw) as unknown;
+    const visit = (
+      value: unknown,
+      depth = 0,
+    ): Record<string, unknown> | undefined => {
+      if (!value || typeof value !== "object" || depth > 12) return undefined;
+      if (!Array.isArray(value)) {
+        const record = value as Record<string, unknown>;
+        if (
+          typeof record.displayName === "string" &&
+          (typeof record.aucUserId === "string" ||
+            typeof record.listUrl === "string")
+        )
+          return record;
+        for (const child of Object.values(record)) {
+          const found = visit(child, depth + 1);
+          if (found) return found;
+        }
+      } else {
+        for (const child of value) {
+          const found = visit(child, depth + 1);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+    const seller = visit(root);
+    if (!seller) return undefined;
+    const location =
+      seller.location && typeof seller.location === "object"
+        ? (seller.location as Record<string, unknown>)
+        : undefined;
+    return {
+      displayName: seller.displayName,
+      aucUserId: seller.aucUserId,
+      profileUrl: seller.listUrl,
+      isStore: seller.isStore === true,
+      isBestStore: seller.isBestStore === true,
+      isExcellentSeller: seller.isExcellentSeller === true,
+      isIdentityVerified: seller.isEkycVerified === true,
+      sellerMessage: seller.sellerMessage,
+      rating: seller.rating,
+      sellerPerformance: seller.sellerPerformance,
+      location: location
+        ? {
+            prefecture: location.prefecture,
+            prefectureCode: location.prefCode,
+          }
+        : undefined,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 export function parseYahooAuctionSearch(
@@ -120,9 +182,12 @@ export function parseYahooAuctionDetailHtml(
       "Yahoo Auctions detail page did not contain a public price",
     );
   const availability = String(offers.availability ?? "").toLowerCase();
+  const visibleBody = $("body").clone();
+  visibleBody.find("script, style, noscript, template").remove();
+  const bodyText = visibleBody.text().replace(/\s+/g, " ").trim();
   const status: ItemStatus =
     availability.includes("outofstock") ||
-    /このオークションは終了|落札されました|終了しました/i.test($("body").text())
+    /このオークションは終了|落札されました|終了しました/i.test(bodyText)
       ? "ended"
       : "active";
   const imageSet = new Set<string>();
@@ -163,19 +228,94 @@ export function parseYahooAuctionDetailHtml(
     "UsedCondition",
   )
     ? "中古"
+    : String(
+        $('[class*="condition"], [data-testid*="condition"]').first().text(),
+      ).trim() || undefined;
+  const shipping = shippingEvidence(json, bodyText);
+  const shippingFee = shipping.fee;
+  const bidText = bodyText.match(
+    /(?:入札(?:件数)?|bid(?:s)?)[^\d]{0,12}(\d+)\s*(?:件|人|回)?/i,
+  )?.[0];
+  const parsedBidCount = bidText
+    ? Number(bidText.match(/(\d+)/)?.[1])
     : undefined;
+  // The public page contains unrelated large numeric IDs next to the bid
+  // label. Keep only a plausible count that fits PostgreSQL INT4.
+  const bidCount =
+    parsedBidCount != null && parsedBidCount >= 0 && parsedBidCount <= 2_000_000
+      ? parsedBidCount
+      : undefined;
+  const embeddedSeller = publicYahooSeller(html);
+  const sellerAnchor = $(
+    '[data-testid*="seller"], [class*="Seller"], a[href*="/seller/"], a[href*="/user/"]',
+  ).first();
+  const sellerName =
+    (typeof embeddedSeller?.displayName === "string"
+      ? embeddedSeller.displayName.trim()
+      : "") ||
+    String(sellerAnchor.text()).replace(/\s+/g, " ").trim() ||
+    "Yahoo!オークション出品者";
+  const sellerHref =
+    (typeof embeddedSeller?.profileUrl === "string"
+      ? embeddedSeller.profileUrl
+      : undefined) ?? sellerAnchor.attr("href");
+  const sellerProfileUrl = sellerHref
+    ? (() => {
+        try {
+          return new URL(sellerHref, sourceUrl).toString();
+        } catch {
+          return undefined;
+        }
+      })()
+    : undefined;
+  const locationText =
+    (typeof embeddedSeller?.location === "object" &&
+    embeddedSeller.location &&
+    typeof (embeddedSeller.location as Record<string, unknown>).prefecture ===
+      "string"
+      ? String(
+          (embeddedSeller.location as Record<string, unknown>).prefecture,
+        ).trim()
+      : "") ||
+    String($('[class*="location"], [data-testid*="location"]').first().text())
+      .replace(/\s+/g, " ")
+      .trim() ||
+    undefined;
+  const listedAtValue = $("time[datetime]").first().attr("datetime");
+  const listedAt = listedAtValue ? new Date(listedAtValue) : undefined;
   return {
     sourcePlatform: "yahoo_auctions",
     sourceItemId,
     sourceUrl,
     titleRaw,
     descriptionRaw,
-    sellerName: "Yahoo!オークション出品者",
-    sellerType: "unknown",
+    sellerName,
+    sellerType: embeddedSeller?.isStore ? "store" : "individual",
+    sellerProfileUrl,
+    sellerData: embeddedSeller,
+    locationText,
     priceCurrent,
+    shippingFee,
+    listedAt:
+      listedAt && !Number.isNaN(listedAt.getTime()) ? listedAt : undefined,
     auctionEndAt: safeAuctionEndAt,
+    bidCount,
     conditionRaw,
-    imageUrls: [...imageSet],
+    imageUrls: sanitizeProductImageUrls(imageSet),
+    sourceData: {
+      structuredData: json ?? undefined,
+      shippingText: shipping.evidence,
+      shippingStatus: shipping.status,
+      sellerText: sellerName,
+      sellerProfileUrl,
+      sellerPublicData: embeddedSeller,
+      locationText,
+      bidText,
+      conditionText: conditionRaw,
+      // Preserve the complete public page text for later AI translation and
+      // seller analysis; normalized columns remain the fast query surface.
+      bodyText: bodyText.slice(0, 20_000),
+    },
     status,
     channel: "online",
   };
@@ -183,7 +323,7 @@ export function parseYahooAuctionDetailHtml(
 
 export class YahooAuctionsAdapter implements SourceAdapter {
   readonly key = "yahoo_auctions";
-  readonly displayName = "日本拍卖市场";
+  readonly displayName = "Yahoo!オークション";
   private lastRequestAt = 0;
   private readonly userAgent =
     process.env.CRAWLER_USER_AGENT ?? "TokusatsuMonitor/1.0";
@@ -250,16 +390,26 @@ export class YahooAuctionsAdapter implements SourceAdapter {
   }
 
   async refreshStatus(item: StoredItem): Promise<ItemStatusUpdate> {
-    const detail = await this.fetchDetail({
-      sourceItemId: item.sourceItemId,
-      sourceUrl: item.sourceUrl,
-    });
-    return {
-      status: detail.status,
-      priceCurrent: detail.priceCurrent,
-      auctionEndAt: detail.auctionEndAt,
-      bidCount: detail.bidCount,
-    };
+    try {
+      const detail = await this.fetchDetail({
+        sourceItemId: item.sourceItemId,
+        sourceUrl: item.sourceUrl,
+      });
+      return {
+        status: detail.status,
+        priceCurrent: detail.priceCurrent,
+        auctionEndAt: detail.auctionEndAt,
+        bidCount: detail.bidCount,
+      };
+    } catch (error) {
+      if (
+        /Yahoo Auctions returned (?:404|410)|did not contain a public price/i.test(
+          String(error),
+        )
+      )
+        return { status: "ended" };
+      throw error;
+    }
   }
 
   async normalize(raw: RawItemDetail) {
