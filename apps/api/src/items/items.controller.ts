@@ -12,6 +12,7 @@ import {
   AnalyzeUrlDto,
   ItemChangesQuery,
   ListItemsQuery,
+  ListSellersQuery,
   PurchaseDto,
   UpdateItemDto,
 } from "./items.dto.js";
@@ -41,15 +42,12 @@ export class ItemsController {
   }
 
   @Get("sellers")
-  sellers(
-    @Query("search") search?: string,
-    @Query("page") page?: string,
-    @Query("limit") limit?: string,
-  ) {
+  sellers(@Query() query: ListSellersQuery) {
     return this.items.listSellers(
-      search,
-      Number(page ?? 1),
-      Number(limit ?? 60),
+      query.search,
+      query.page,
+      query.limit,
+      query.segment,
     );
   }
 

@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { PrismaService } from "../prisma.service.js";
+import { configuredProviderRuntimes } from "./ai-provider-registry.js";
 
 const queueNames = [
   "source-search",
@@ -23,6 +24,7 @@ export class SystemContextService {
 
   async snapshot() {
     const now = new Date();
+    const configuredProviders = configuredProviderRuntimes();
     const since24h = new Date(now.getTime() - 24 * 60 * 60_000);
     const startOfDay = new Date(now);
     startOfDay.setUTCHours(0, 0, 0, 0);
@@ -35,6 +37,7 @@ export class SystemContextService {
       crawlerJobs,
       aiTasks,
       aiModels,
+      aiProviderStates,
       aiCacheEntries,
       marketSummary,
       recentErrors,
@@ -75,8 +78,11 @@ export class SystemContextService {
       this.prisma.aiModelState.findMany({
         select: {
           model: true,
+          provider: true,
           role: true,
           status: true,
+          cooldownUntil: true,
+          quotaResetAt: true,
           consecutiveFailures: true,
           lastSuccessAt: true,
           lastFailureAt: true,
@@ -84,7 +90,23 @@ export class SystemContextService {
         },
         orderBy: { model: "asc" },
       }),
-      this.prisma.aiCache.count({ where: { expiresAt: { gt: now } } }),
+      this.prisma.aiProviderState.findMany({
+        select: {
+          provider: true,
+          status: true,
+          cooldownUntil: true,
+          quotaResetAt: true,
+          remainingRequests: true,
+          remainingTokens: true,
+          lastErrorCode: true,
+          consecutiveFailures: true,
+          updatedAt: true,
+        },
+        orderBy: { provider: "asc" },
+      }),
+      this.prisma.aiCache.count({
+        where: { expiresAt: { gt: now }, provider: { not: null } },
+      }),
       Promise.all([
         this.prisma.marketIntel.count({
           where: { detectedAt: { gte: since24h } },
@@ -112,7 +134,9 @@ export class SystemContextService {
           select: {
             id: true,
             task: true,
+            provider: true,
             requestedModel: true,
+            attempt: true,
             errorCode: true,
             startedAt: true,
           },
@@ -159,8 +183,13 @@ export class SystemContextService {
         })),
       },
       ai: {
-        provider: "B.AI",
-        providerConfigured: Boolean(process.env.BAI_API_KEY?.trim()),
+        providers: configuredProviders.map((provider) => ({
+          id: provider.id,
+          label: provider.label,
+          tier: provider.apiTier,
+        })),
+        providerConfigured: configuredProviders.length > 0,
+        providerStates: aiProviderStates,
         tasksToday: aiTasks,
         models: aiModels,
         cacheEntries: aiCacheEntries,
@@ -191,7 +220,8 @@ export class SystemContextService {
     const queues: Queue[] = [];
     try {
       await redis.connect();
-      for (const name of queueNames) queues.push(new Queue(name, { connection: redis }));
+      for (const name of queueNames)
+        queues.push(new Queue(name, { connection: redis }));
       const counts = await Promise.all(
         queues.map(async (queue) => ({
           name: queue.name,
@@ -212,8 +242,14 @@ export class SystemContextService {
         counts: [],
       };
     } finally {
-      await Promise.all(queues.map((queue) => queue.close().catch(() => undefined)));
+      await Promise.all(
+        queues.map((queue) => queue.close().catch(() => undefined)),
+      );
       redis.disconnect();
     }
   }
 }
+
+export type SystemSnapshot = Awaited<
+  ReturnType<SystemContextService["snapshot"]>
+>;

@@ -343,7 +343,7 @@ function CardContent({
         </button>
       </div>
       <div className="discovery-card-content flex min-h-0 flex-col p-4 md:p-5">
-        <h2 className="line-clamp-2 text-base font-bold leading-5 text-ink sm:text-lg sm:leading-6 md:line-clamp-3 md:text-xl md:leading-7">
+        <h2 className="discovery-card-title line-clamp-2 text-base font-bold leading-5 text-ink sm:text-lg sm:leading-6 md:line-clamp-3 md:text-xl md:leading-7">
           {title}
         </h2>
         <div className="mt-3 flex items-end justify-between gap-3 border-b border-ink/10 pb-3">
@@ -454,7 +454,7 @@ function BackCard({
         y: second ? motionTokens.stack.secondY : motionTokens.stack.thirdY,
       }}
       transition={springs.release}
-      className="discovery-swipe-card pointer-events-none absolute inset-0 grid overflow-hidden rounded-2xl bg-white shadow-panel md:grid-cols-[1.08fr_.92fr]"
+      className="discovery-swipe-card discovery-stack-card pointer-events-none absolute inset-0 grid overflow-hidden rounded-2xl bg-white shadow-panel md:grid-cols-[1.08fr_.92fr]"
     >
       <CardContent
         item={item}
@@ -585,7 +585,7 @@ function SwipeCard({
         if (exitDirection) onExitComplete();
       }}
       style={{ x, y, rotate, touchAction: "none" }}
-      className="discovery-swipe-card absolute inset-0 grid cursor-grab select-none overflow-hidden rounded-2xl bg-white shadow-modal outline-none focus-visible:ring-4 focus-visible:ring-moss/30 active:cursor-grabbing md:grid-cols-[1.08fr_.92fr]"
+      className="discovery-swipe-card discovery-active-card absolute inset-0 grid cursor-grab select-none overflow-hidden rounded-2xl bg-white shadow-modal outline-none focus-visible:ring-4 focus-visible:ring-moss/30 active:cursor-grabbing md:grid-cols-[1.08fr_.92fr]"
     >
       <CardContent
         item={item}
@@ -889,8 +889,11 @@ export function DiscoveryWorkspace({
 
   const visible = queue.slice(0, 3);
   return (
-    <section aria-labelledby="discovery-heading" className="js-shell-reveal">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 pb-3">
+    <section
+      aria-labelledby="discovery-heading"
+      className="discovery-workspace js-shell-reveal"
+    >
+      <div className="discovery-toolbar mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 pb-3">
         <div className="flex min-w-0 items-center gap-2">
           <h2
             id="discovery-heading"
@@ -919,7 +922,7 @@ export function DiscoveryWorkspace({
       )}
 
       <div className="mx-auto max-w-4xl">
-        <div className="discovery-card-shell relative h-[calc(100dvh-295px)] min-h-[380px] max-h-[500px] overflow-hidden overscroll-contain sm:h-[520px] sm:min-h-[420px] sm:max-h-none md:h-[520px]">
+        <div className="discovery-card-shell relative overflow-hidden overscroll-contain">
           {visible.length >= 3 && (
             <BackCard
               item={visible[2]}
@@ -959,12 +962,12 @@ export function DiscoveryWorkspace({
             />
           )}
           {loading && !visible.length && (
-            <div className="absolute inset-0 grid place-items-center rounded-2xl border border-dashed border-blue-200 bg-white text-sm font-bold text-slate-500">
+            <div className="discovery-empty absolute inset-0 grid place-items-center rounded-2xl border border-dashed border-blue-200 bg-white text-sm font-bold text-slate-500">
               正在预载商品卡片…
             </div>
           )}
           {!loading && loadedOnce && !visible.length && (
-            <div className="absolute inset-0 grid place-items-center rounded-2xl border border-dashed border-blue-200 bg-white px-6 text-center">
+            <div className="discovery-empty absolute inset-0 grid place-items-center rounded-2xl border border-dashed border-blue-200 bg-white px-6 text-center">
               <div>
                 <b className="font-heading text-lg">当前队列已处理完</b>
                 <p className="mt-2 text-sm text-slate-500">
@@ -982,7 +985,7 @@ export function DiscoveryWorkspace({
           )}
         </div>
 
-        <div className="relative z-10 mt-4 grid grid-cols-4 gap-2 sm:mt-9">
+        <div className="discovery-actions relative z-10 mt-4 grid grid-cols-4 gap-2 sm:mt-9">
           <button
             type="button"
             disabled={!visible[0] || busy || interactionDisabled}

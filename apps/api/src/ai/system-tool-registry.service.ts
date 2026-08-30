@@ -1,7 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@tokusatsu/db";
 import { PrismaService } from "../prisma.service.js";
-import { SystemContextService } from "./system-context.service.js";
+import {
+  configuredProviderRuntimes,
+  providerLabel,
+} from "./ai-provider-registry.js";
+import { AI_PROVIDER_IDS, isAiProvider, type AiProvider } from "./ai-router.js";
+import {
+  SystemContextService,
+  type SystemSnapshot,
+} from "./system-context.service.js";
 
 export const SYSTEM_TOOL_CATALOG = [
   ["search_products", "按中日文标题、描述和卖家搜索商品"],
@@ -30,8 +38,8 @@ export const SYSTEM_TOOL_CATALOG = [
   ["crawler_errors", "读取最近抓取错误"],
   ["crawler_statistics", "汇总抓取任务和入库量"],
   ["crawler_recent_activity", "读取最近抓取活动"],
-  ["ai_system_status", "读取 B.AI 和任务状态"],
-  ["ai_model_health", "读取六个模型健康状态"],
+  ["ai_system_status", "读取 AI Provider、模型路由和任务状态"],
+  ["ai_model_health", "读取模型健康状态"],
   ["ai_task_queue", "读取 AI 任务和队列积压"],
   ["ai_error_summary", "读取最近 AI 错误"],
   ["ai_usage_stats", "读取模型调用量和 token 用量"],
@@ -77,11 +85,22 @@ export class SystemToolRegistryService {
 
   fallbackSelection(question: string): SystemToolName[] {
     const selected = new Set<SystemToolName>();
-    if (/商品|找|腰带|软胶|手办|批量|价格|拍卖|直购/i.test(question)) {
+    const asksAi =
+      /AI|provider|API|接口|模型(?:池|状态|调用|服务|额度|配额|切换)|翻译(?:模型|接口|服务)/i.test(
+        question,
+      );
+    const asksInventoryAggregate =
+      /(?:系统|库存).*(?:总数|数量|多少|统计|概况)|(?:总数|数量|多少).*(?:商品|库存)/i.test(
+        question,
+      );
+    const asksProducts =
+      /商品|找|腰带|软胶|手办|玩具|批量|价格|拍卖|直购/i.test(question) ||
+      (/模型/i.test(question) && !asksAi);
+    if (asksProducts && !asksInventoryAggregate) {
       selected.add("search_products");
       selected.add("get_product_analysis");
     }
-    if (/库存|新增|入库|变化/i.test(question)) {
+    if (/库存|新增|入库|变化|商品总数|在售数量/i.test(question)) {
       selected.add("inventory_summary");
       selected.add("inventory_changes");
       selected.add("platform_stats");
@@ -103,41 +122,60 @@ export class SystemToolRegistryService {
       selected.add("crawler_status");
       selected.add("crawler_errors");
     }
-    if (/AI|模型|翻译|任务|积压|缓存|provider/i.test(question)) {
+    if (asksAi || /任务|积压|缓存/i.test(question)) {
       selected.add("ai_system_status");
-      selected.add("ai_model_health");
+    }
+    if (/AI.*(?:任务|积压|队列)|(?:任务|积压|队列).*AI/i.test(question)) {
       selected.add("ai_task_queue");
     }
-    if (/系统|异常|健康|队列|worker|服务|现在怎么样/i.test(question)) {
+    if (
+      /系统|健康|服务/i.test(question) ||
+      (/现在怎么样/i.test(question) && !asksAi)
+    ) {
       selected.add("system_health");
+    }
+    if (/队列|worker/i.test(question)) {
       selected.add("queue_status");
+    }
+    if (/异常|错误|失败/i.test(question)) {
       selected.add("recent_system_errors");
     }
     if (!selected.size) {
-      selected.add("search_products");
-      selected.add("inventory_summary");
       selected.add("system_health");
     }
     return [...selected].slice(0, 8);
   }
 
-  async execute(names: SystemToolName[], question: string) {
+  async execute(
+    names: SystemToolName[],
+    question: string,
+    snapshot?: SystemSnapshot | Promise<SystemSnapshot>,
+  ) {
     return Promise.all(
       names.map(async (name) => {
         try {
-          return { name, ok: true, data: await this.executeOne(name, question) };
+          return {
+            name,
+            ok: true,
+            data: await this.executeOne(name, question, snapshot),
+          };
         } catch (error) {
           return {
             name,
             ok: false,
-            error: error instanceof Error ? error.message.slice(0, 300) : "unknown",
+            error:
+              error instanceof Error ? error.message.slice(0, 300) : "unknown",
           };
         }
       }),
     );
   }
 
-  private async executeOne(name: SystemToolName, question: string) {
+  private async executeOne(
+    name: SystemToolName,
+    question: string,
+    snapshot?: SystemSnapshot | Promise<SystemSnapshot>,
+  ) {
     const since24h = new Date(Date.now() - 24 * 60 * 60_000);
     const since7d = new Date(Date.now() - 7 * 24 * 60 * 60_000);
     const terms = this.searchTerms(question);
@@ -155,7 +193,12 @@ export class SystemToolRegistryService {
           where: terms.length
             ? {
                 OR: terms.flatMap((term) => [
-                  { canonicalName: { contains: term, mode: "insensitive" as const } },
+                  {
+                    canonicalName: {
+                      contains: term,
+                      mode: "insensitive" as const,
+                    },
+                  },
                   { titleZh: { contains: term, mode: "insensitive" as const } },
                 ]),
               }
@@ -164,7 +207,11 @@ export class SystemToolRegistryService {
             series: true,
             manufacturerEntity: true,
             toyTypeEntity: true,
-            listings: { where: { archivedAt: null }, take: 12, select: this.itemProjection() },
+            listings: {
+              where: { archivedAt: null },
+              take: 12,
+              select: this.itemProjection(),
+            },
           },
         });
       case "get_recent_products":
@@ -196,8 +243,13 @@ export class SystemToolRegistryService {
         });
       case "inventory_summary":
         return Promise.all([
-          this.prisma.inventory.aggregate({ _sum: { quantity: true }, _count: { _all: true } }),
-          this.prisma.item.count({ where: { archivedAt: null, ignored: false, purchaseRecord: null } }),
+          this.prisma.inventory.aggregate({
+            _sum: { quantity: true },
+            _count: { _all: true },
+          }),
+          this.prisma.item.count({
+            where: { archivedAt: null, ignored: false, purchaseRecord: null },
+          }),
           this.prisma.purchaseRecord.count(),
         ]);
       case "inventory_breakdown":
@@ -218,7 +270,11 @@ export class SystemToolRegistryService {
       case "search_inventory":
         return this.prisma.inventory.findMany({
           where: terms.length
-            ? { product: { canonicalName: { contains: terms[0], mode: "insensitive" } } }
+            ? {
+                product: {
+                  canonicalName: { contains: terms[0], mode: "insensitive" },
+                },
+              }
             : undefined,
           include: { product: true },
           orderBy: { updatedAt: "desc" },
@@ -228,13 +284,17 @@ export class SystemToolRegistryService {
         return Promise.all([
           this.prisma.item.count({ where: { detectedAt: { gte: since24h } } }),
           this.prisma.item.count({ where: { detectedAt: { gte: since7d } } }),
-          this.prisma.purchaseRecord.count({ where: { purchasedAt: { gte: since7d } } }),
+          this.prisma.purchaseRecord.count({
+            where: { purchasedAt: { gte: since7d } },
+          }),
         ]);
       case "market_stats":
       case "market_trend":
         return this.prisma.marketSnapshot.findMany({
           where: { windowDays: { in: [7, 30] } },
-          include: { product: { select: { canonicalName: true, titleZh: true } } },
+          include: {
+            product: { select: { canonicalName: true, titleZh: true } },
+          },
           orderBy: { snapshotDate: "desc" },
           take: 30,
         });
@@ -255,7 +315,12 @@ export class SystemToolRegistryService {
       case "platform_stats":
         return this.prisma.source.findMany({
           where: { enabled: true },
-          select: { key: true, displayName: true, failureCount: true, _count: { select: { items: true } } },
+          select: {
+            key: true,
+            displayName: true,
+            failureCount: true,
+            _count: { select: { items: true } },
+          },
           orderBy: { displayName: "asc" },
         });
       case "seller_stats":
@@ -276,7 +341,11 @@ export class SystemToolRegistryService {
             locationText: true,
             profileUrl: true,
             source: { select: { displayName: true } },
-            items: { orderBy: { detectedAt: "desc" }, take: 30, select: this.itemProjection() },
+            items: {
+              orderBy: { detectedAt: "desc" },
+              take: 30,
+              select: this.itemProjection(),
+            },
           },
           orderBy: { updatedAt: "desc" },
           take: 12,
@@ -285,7 +354,10 @@ export class SystemToolRegistryService {
         return Promise.all([
           this.prisma.item.count({ where: { favorite: true } }),
           this.prisma.purchaseRecord.count(),
-          this.prisma.discoveryFeedback.groupBy({ by: ["action"], _count: { _all: true } }),
+          this.prisma.discoveryFeedback.groupBy({
+            by: ["action"],
+            _count: { _all: true },
+          }),
         ]);
       case "favorites":
         return this.prisma.item.findMany({
@@ -309,24 +381,77 @@ export class SystemToolRegistryService {
         });
       case "feedback_summary":
         return Promise.all([
-          this.prisma.discoveryFeedback.groupBy({ by: ["action"], _count: { _all: true } }),
-          this.prisma.aiFeedback.groupBy({ by: ["action"], _count: { _all: true } }),
+          this.prisma.discoveryFeedback.groupBy({
+            by: ["action"],
+            _count: { _all: true },
+          }),
+          this.prisma.aiFeedback.groupBy({
+            by: ["action"],
+            _count: { _all: true },
+          }),
         ]);
-      case "crawler_status":
-      case "system_health":
-      case "worker_status":
-      case "queue_status":
-      case "service_status":
       case "ai_system_status":
-      case "ai_task_queue":
-        return this.context.snapshot();
+        return this.aiSystemStatus(since24h);
+      case "crawler_status": {
+        const current = await this.resolveSnapshot(snapshot);
+        return { generatedAt: current.generatedAt, ...current.crawlers };
+      }
+      case "system_health": {
+        const current = await this.resolveSnapshot(snapshot);
+        return {
+          generatedAt: current.generatedAt,
+          inventory: current.inventory,
+          crawlerJobs24h: current.crawlers.jobs24h,
+          sourceHealth: current.crawlers.sources,
+          ai: current.ai,
+          queues: current.queues,
+          recentErrors: current.recentErrors,
+        };
+      }
+      case "worker_status":
+      case "queue_status": {
+        const current = await this.resolveSnapshot(snapshot);
+        return { generatedAt: current.generatedAt, ...current.queues };
+      }
+      case "service_status": {
+        const current = await this.resolveSnapshot(snapshot);
+        return {
+          generatedAt: current.generatedAt,
+          database: "ok",
+          redis: current.queues.status,
+          aiConfigured: current.ai.providerConfigured,
+          configuredProviders: current.ai.providers,
+        };
+      }
+      case "ai_task_queue": {
+        const current = await this.resolveSnapshot(snapshot);
+        return {
+          generatedAt: current.generatedAt,
+          tasksToday: current.ai.tasksToday,
+          queues: current.queues.counts.filter((queue) =>
+            [
+              "ai-operations",
+              "title-translation",
+              "item-detail-translation",
+              "image-classification",
+            ].includes(queue.name),
+          ),
+        };
+      }
       case "crawler_errors":
       case "recent_system_errors":
         return this.prisma.crawlJob.findMany({
           where: { status: "failed" },
-          include: { source: { select: { displayName: true } } },
+          select: {
+            id: true,
+            jobType: true,
+            status: true,
+            errorText: true,
+            createdAt: true,
+            source: { select: { displayName: true } },
+          },
           orderBy: { createdAt: "desc" },
-          take: 30,
+          take: 8,
         });
       case "crawler_statistics":
         return this.prisma.crawlJob.groupBy({
@@ -345,22 +470,125 @@ export class SystemToolRegistryService {
       case "ai_error_summary":
         return this.prisma.aiRun.findMany({
           where: { status: "failed" },
+          select: {
+            id: true,
+            task: true,
+            provider: true,
+            requestedModel: true,
+            attempt: true,
+            errorCode: true,
+            startedAt: true,
+          },
           orderBy: { startedAt: "desc" },
-          take: 30,
+          take: 12,
         });
       case "ai_usage_stats":
         return this.prisma.aiRun.groupBy({
-          by: ["requestedModel", "status"],
+          by: ["provider", "requestedModel", "status"],
           where: { startedAt: { gte: since7d } },
           _count: { _all: true },
           _sum: { inputTokens: true, outputTokens: true, latencyMs: true },
         });
       case "ai_cache_stats":
+        const activeCacheWhere = {
+          provider: { not: null },
+          expiresAt: { gt: new Date() },
+        } satisfies Prisma.AiCacheWhereInput;
         return Promise.all([
-          this.prisma.aiCache.count({ where: { expiresAt: { gt: new Date() } } }),
-          this.prisma.aiCache.groupBy({ by: ["task"], _count: { _all: true } }),
+          this.prisma.aiCache.count({
+            where: activeCacheWhere,
+          }),
+          this.prisma.aiCache.groupBy({
+            by: ["provider", "task"],
+            where: activeCacheWhere,
+            _count: { _all: true },
+          }),
         ]);
     }
+  }
+
+  private resolveSnapshot(
+    snapshot?: SystemSnapshot | Promise<SystemSnapshot>,
+  ): Promise<SystemSnapshot> {
+    return snapshot ? Promise.resolve(snapshot) : this.context.snapshot();
+  }
+
+  private async aiSystemStatus(since24h: Date) {
+    const configured = configuredProviderRuntimes();
+    const configuredIds = new Set(configured.map((provider) => provider.id));
+    const [providerStates, models, tasks] = await Promise.all([
+      this.prisma.aiProviderState.findMany({
+        select: {
+          provider: true,
+          status: true,
+          cooldownUntil: true,
+          quotaResetAt: true,
+          remainingRequests: true,
+          remainingTokens: true,
+          lastErrorCode: true,
+          consecutiveFailures: true,
+          updatedAt: true,
+        },
+        orderBy: { provider: "asc" },
+      }),
+      this.prisma.aiModelState.findMany({
+        select: {
+          provider: true,
+          model: true,
+          role: true,
+          status: true,
+          cooldownUntil: true,
+          quotaResetAt: true,
+          consecutiveFailures: true,
+          lastSuccessAt: true,
+          lastFailureAt: true,
+          lastErrorCode: true,
+        },
+        orderBy: [{ provider: "asc" }, { model: "asc" }],
+      }),
+      this.prisma.aiRun.groupBy({
+        by: ["provider", "task", "status"],
+        where: { startedAt: { gte: since24h } },
+        _count: { _all: true },
+      }),
+    ]);
+    const stateByProvider = new Map(
+      providerStates.map((state) => [state.provider, state]),
+    );
+    const providerIds = [
+      ...new Set([
+        ...AI_PROVIDER_IDS,
+        ...configured.map((provider) => provider.id),
+        ...providerStates.map((state) => state.provider),
+      ]),
+    ];
+    return {
+      generatedAt: new Date().toISOString(),
+      providers: providerIds.map((provider) => {
+        const state = stateByProvider.get(provider);
+        return {
+          provider,
+          label: isAiProvider(provider)
+            ? providerLabel(provider as AiProvider)
+            : provider,
+          configured: configuredIds.has(provider as AiProvider),
+          status:
+            state?.status ??
+            (configuredIds.has(provider as AiProvider)
+              ? "ready"
+              : "not_configured"),
+          cooldownUntil: state?.cooldownUntil ?? null,
+          quotaResetAt: state?.quotaResetAt ?? null,
+          remainingRequests: state?.remainingRequests ?? null,
+          remainingTokens: state?.remainingTokens ?? null,
+          lastErrorCode: state?.lastErrorCode ?? null,
+          consecutiveFailures: state?.consecutiveFailures ?? 0,
+          updatedAt: state?.updatedAt ?? null,
+        };
+      }),
+      models,
+      tasks24h: tasks,
+    };
   }
 
   private searchTerms(question: string) {
@@ -373,7 +601,9 @@ export class SystemToolRegistryService {
           .filter(
             (term) =>
               term.length >= 2 &&
-              !/^(现在|当前|系统|商品|分析|查看|什么|哪些|怎么|情况|一下)$/.test(term),
+              !/^(现在|当前|系统|商品|分析|查看|什么|哪些|怎么|情况|一下)$/.test(
+                term,
+              ),
           ),
       ),
     ].slice(0, 8);
@@ -390,8 +620,15 @@ export class SystemToolRegistryService {
             OR: terms.flatMap((term) => [
               { titleRaw: { contains: term, mode: "insensitive" as const } },
               { titleZh: { contains: term, mode: "insensitive" as const } },
-              { descriptionRaw: { contains: term, mode: "insensitive" as const } },
-              { descriptionZh: { contains: term, mode: "insensitive" as const } },
+              {
+                descriptionRaw: {
+                  contains: term,
+                  mode: "insensitive" as const,
+                },
+              },
+              {
+                descriptionZh: { contains: term, mode: "insensitive" as const },
+              },
             ]),
           }
         : {}),
@@ -418,7 +655,11 @@ export class SystemToolRegistryService {
       detectedAt: true,
       source: { select: { key: true, displayName: true } },
       seller: { select: { id: true, name: true, sellerType: true } },
-      images: { orderBy: { position: "asc" as const }, take: 3, select: { url: true, position: true } },
+      images: {
+        orderBy: { position: "asc" as const },
+        take: 3,
+        select: { url: true, position: true },
+      },
     } satisfies Prisma.ItemSelect;
   }
 }

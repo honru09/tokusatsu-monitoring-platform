@@ -37,10 +37,214 @@ services:
         sync: false
       - key: BAI_API_URL
         value: https://api.b.ai/v1
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_API_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai
+      - key: GEMINI_API_TIER
+        value: unknown
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_API_URL
+        value: https://api.groq.com/openai/v1
+      - key: GROQ_API_TIER
+        value: unknown
+      - key: SILICONFLOW_API_KEY
+        sync: false
+      - key: SILICONFLOW_API_URL
+        value: https://api.siliconflow.cn/v1
+      - key: SILICONFLOW_API_TIER
+        value: unknown
+      - key: SILICONFLOW_FREE_MODELS
+        value: tencent/Hunyuan-MT-7B|Qwen/Qwen2.5-7B-Instruct
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: CEREBRAS_API_URL
+        value: https://api.cerebras.ai/v1
+      - key: CEREBRAS_API_TIER
+        value: unknown
+      - key: CEREBRAS_PRIVATE_DATA_AUTHORIZED
+        value: "false"
+      - key: CLOUDFLARE_AI_API_TOKEN
+        sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_AI_API_URL
+        value: https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1
+      - key: CLOUDFLARE_AI_API_TIER
+        value: unknown
+      - key: CLOUDFLARE_AI_ALLOW_OVERAGE
+        value: "false"
+      - key: CLOUDFLARE_AI_DAILY_NEURON_BUDGET
+        value: "8000"
+      - key: CLOUDFLARE_AI_PRIVATE_DATA_AUTHORIZED
+        value: "false"
+      - key: COHERE_API_KEY
+        sync: false
+      - key: COHERE_API_URL
+        value: https://api.cohere.ai/compatibility/v1
+      - key: COHERE_API_TIER
+        value: unknown
+      - key: COHERE_INTERNAL_EVALUATION
+        value: "false"
+      - key: COHERE_PRODUCTION_AUTHORIZED
+        value: "false"
+      - key: COHERE_PRIVATE_DATA_AUTHORIZED
+        value: "false"
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NVIDIA_API_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: NVIDIA_API_TIER
+        value: unknown
+      - key: NVIDIA_PRODUCTION_AUTHORIZED
+        value: "false"
+      - key: NVIDIA_INTERNAL_EVALUATION
+        value: "false"
+      - key: NVIDIA_PRIVATE_DATA_AUTHORIZED
+        value: "false"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_API_URL
+        value: https://openrouter.ai/api/v1
+      - key: OPENROUTER_SITE_URL
+        value: https://tokusatsu-monitor-web.onrender.com
+      - key: OPENROUTER_APP_NAME
+        value: Kamen Procurement
+      - key: AI_PROVIDER_ORDER
+        value: bai|gemini|groq|siliconflow|cerebras|cloudflare|cohere|nvidia|openrouter
+      - key: AI_COST_POLICY
+        value: free_only
+      - key: AI_ALLOW_PAID_MODELS
+        value: "false"
+      - key: AI_PUBLIC_COST_POLICY
+        value: free_only
+      - key: AI_PUBLIC_ALLOW_PAID_MODELS
+        value: "false"
+      - key: AI_PUBLIC_CHAT_RATE_LIMIT
+        value: "12"
+      - key: AI_PUBLIC_CHAT_RATE_WINDOW_MS
+        value: "900000"
+      - key: AI_PUBLIC_DIAGNOSE_RATE_LIMIT
+        value: "2"
+      - key: AI_PUBLIC_DIAGNOSE_RATE_WINDOW_MS
+        value: "3600000"
+      - key: AI_PUBLIC_RATE_LIMIT_MAX_BUCKETS
+        value: "10000"
+      - key: AI_PUBLIC_RATE_LIMIT_CLEANUP_MS
+        value: "60000"
+      - key: AI_TRUSTED_PROXY_CIDRS
+        value: 127.0.0.1/32,::1,172.16.0.0/12
+      - key: AI_CATALOG_REFRESH_INTERVAL_MS
+        value: "21600000"
+      - key: AI_CATALOG_NEGATIVE_CACHE_MS
+        value: "60000"
+      - key: AI_CATALOG_TIMEOUT_MS
+        value: "5000"
+      - key: AI_PRICING_VERIFICATION_MAX_AGE_MS
+        value: "86400000"
+      - key: AI_PROVIDER_CIRCUIT_COOLDOWN_MS
+        value: "60000"
+      - key: AI_PROVIDER_ORDER_BULK_FILTER
+        value: groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|openrouter
+      - key: AI_PROVIDER_ORDER_TRANSLATION
+        value: gemini|cloudflare|siliconflow|cerebras|nvidia|bai|groq|cohere|openrouter
+      - key: AI_PROVIDER_ORDER_CLASSIFICATION
+        value: groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|openrouter
+      - key: AI_PROVIDER_ORDER_IMAGE_ANALYSIS
+        value: gemini|bai|cloudflare|cohere|cerebras|siliconflow|groq|openrouter
+      - key: AI_PROVIDER_ORDER_SELLER_ANALYSIS
+        value: gemini|groq|cloudflare|cerebras|nvidia|bai|siliconflow|cohere|openrouter
+      - key: AI_PROVIDER_ORDER_COMPLEX_ANALYSIS
+        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|openrouter|siliconflow
+      - key: AI_PROVIDER_ORDER_CROSS_VALIDATION
+        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|siliconflow|openrouter
+      - key: AI_PROVIDER_ORDER_MARKET_ANALYSIS
+        value: groq|gemini|cloudflare|cerebras|nvidia|bai|cohere|openrouter|siliconflow
+      - key: AI_PROVIDER_ORDER_CRAWLER_DIAGNOSIS
+        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|openrouter|siliconflow
+      - key: AI_PROVIDER_ORDER_LOGISTICS_ANALYSIS
+        value: gemini|cloudflare|cerebras|nvidia|bai|groq|siliconflow|cohere|openrouter
+      - key: AI_PROVIDER_ORDER_ASSISTANT_CHAT
+        value: groq|cloudflare|cerebras|gemini|nvidia|bai|cohere|siliconflow|openrouter
+      - key: AI_ROUTE_CEREBRAS_BULK_FILTER
+        value: gemma-4-31b|gpt-oss-120b
+      - key: AI_ROUTE_CEREBRAS_TRANSLATION
+        value: gemma-4-31b|gpt-oss-120b
+      - key: AI_ROUTE_CEREBRAS_CLASSIFICATION
+        value: gemma-4-31b|gpt-oss-120b
+      - key: AI_ROUTE_CEREBRAS_IMAGE_ANALYSIS
+        value: ""
+      - key: AI_ROUTE_CEREBRAS_SELLER_ANALYSIS
+        value: gpt-oss-120b|gemma-4-31b
+      - key: AI_ROUTE_CEREBRAS_COMPLEX_ANALYSIS
+        value: gpt-oss-120b|gemma-4-31b
+      - key: AI_ROUTE_CEREBRAS_CROSS_VALIDATION
+        value: gpt-oss-120b|gemma-4-31b
+      - key: AI_ROUTE_CEREBRAS_MARKET_ANALYSIS
+        value: gpt-oss-120b|gemma-4-31b
+      - key: AI_ROUTE_CEREBRAS_CRAWLER_DIAGNOSIS
+        value: gpt-oss-120b|gemma-4-31b
+      - key: AI_ROUTE_CEREBRAS_LOGISTICS_ANALYSIS
+        value: gemma-4-31b|gpt-oss-120b
+      - key: AI_ROUTE_CEREBRAS_ASSISTANT_CHAT
+        value: gpt-oss-120b|gemma-4-31b
+      - key: AI_ROUTE_CLOUDFLARE_BULK_FILTER
+        value: "@cf/google/gemma-4-26b-a4b-it|@cf/zai-org/glm-4.7-flash|@cf/openai/gpt-oss-120b"
+      - key: AI_ROUTE_CLOUDFLARE_TRANSLATION
+        value: "@cf/zai-org/glm-4.7-flash|@cf/google/gemma-4-26b-a4b-it|@cf/openai/gpt-oss-120b"
+      - key: AI_ROUTE_CLOUDFLARE_CLASSIFICATION
+        value: "@cf/google/gemma-4-26b-a4b-it|@cf/zai-org/glm-4.7-flash|@cf/openai/gpt-oss-120b"
+      - key: AI_ROUTE_CLOUDFLARE_IMAGE_ANALYSIS
+        value: "@cf/meta/llama-3.2-11b-vision-instruct"
+      - key: AI_ROUTE_CLOUDFLARE_SELLER_ANALYSIS
+        value: "@cf/zai-org/glm-4.7-flash|@cf/nvidia/nemotron-3-120b-a12b|@cf/openai/gpt-oss-120b"
+      - key: AI_ROUTE_CLOUDFLARE_COMPLEX_ANALYSIS
+        value: "@cf/nvidia/nemotron-3-120b-a12b|@cf/openai/gpt-oss-120b|@cf/zai-org/glm-4.7-flash"
+      - key: AI_ROUTE_CLOUDFLARE_CROSS_VALIDATION
+        value: "@cf/nvidia/nemotron-3-120b-a12b|@cf/openai/gpt-oss-120b|@cf/zai-org/glm-4.7-flash"
+      - key: AI_ROUTE_CLOUDFLARE_MARKET_ANALYSIS
+        value: "@cf/nvidia/nemotron-3-120b-a12b|@cf/zai-org/glm-4.7-flash|@cf/openai/gpt-oss-120b"
+      - key: AI_ROUTE_CLOUDFLARE_CRAWLER_DIAGNOSIS
+        value: "@cf/openai/gpt-oss-120b|@cf/nvidia/nemotron-3-120b-a12b|@cf/zai-org/glm-4.7-flash"
+      - key: AI_ROUTE_CLOUDFLARE_LOGISTICS_ANALYSIS
+        value: "@cf/zai-org/glm-4.7-flash|@cf/google/gemma-4-26b-a4b-it"
+      - key: AI_ROUTE_CLOUDFLARE_ASSISTANT_CHAT
+        value: "@cf/zai-org/glm-4.7-flash|@cf/google/gemma-4-26b-a4b-it|@cf/nvidia/nemotron-3-120b-a12b"
+      - key: AI_ROUTE_COHERE_BULK_FILTER
+        value: command-a-plus-05-2026|command-a-reasoning-08-2025
+      - key: AI_ROUTE_COHERE_TRANSLATION
+        value: command-a-translate-08-2025|command-a-plus-05-2026
+      - key: AI_ROUTE_COHERE_CLASSIFICATION
+        value: command-a-plus-05-2026|command-a-reasoning-08-2025
+      - key: AI_ROUTE_COHERE_IMAGE_ANALYSIS
+        value: command-a-plus-05-2026
+      - key: AI_ROUTE_COHERE_SELLER_ANALYSIS
+        value: command-a-plus-05-2026|command-a-reasoning-08-2025
+      - key: AI_ROUTE_COHERE_COMPLEX_ANALYSIS
+        value: command-a-reasoning-08-2025|command-a-plus-05-2026
+      - key: AI_ROUTE_COHERE_CROSS_VALIDATION
+        value: command-a-reasoning-08-2025|command-a-plus-05-2026
+      - key: AI_ROUTE_COHERE_MARKET_ANALYSIS
+        value: command-a-reasoning-08-2025|command-a-plus-05-2026
+      - key: AI_ROUTE_COHERE_CRAWLER_DIAGNOSIS
+        value: command-a-reasoning-08-2025|command-a-plus-05-2026
+      - key: AI_ROUTE_COHERE_LOGISTICS_ANALYSIS
+        value: command-a-plus-05-2026|command-a-reasoning-08-2025
+      - key: AI_ROUTE_COHERE_ASSISTANT_CHAT
+        value: command-a-plus-05-2026|command-a-reasoning-08-2025
       - key: AI_INTERNAL_TOKEN
         sync: false
       - key: AI_TIMEOUT_MS
-        value: "120000"
+        value: "30000"
+      - key: AI_MODEL_TIMEOUT_MS
+        value: "30000"
+      - key: AI_GATEWAY_DEADLINE_MS
+        value: "240000"
+      - key: AI_HTTP_RETRIES
+        value: "1"
+      - key: AI_CHAT_PLANNER_ENABLED
+        value: "false"
 
   - type: worker
     name: tokusatsu-monitor-worker
@@ -124,10 +328,34 @@ services:
         value: jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp,paypayfleamarket.yahoo.co.jp,item.rakuten.co.jp,www.amazon.co.jp,www.ebay.com,netmall.hardoff.co.jp,store.shopping.yahoo.co.jp
       - key: FIRECRAWL_ALLOW_ANY_DOMAIN
         value: "false"
+      # Provider credentials are intentionally API-only. Empty Worker values
+      # make the isolation explicit even if environment groups are added later.
+      - key: BAI_API_KEY
+        value: ""
+      - key: GEMINI_API_KEY
+        value: ""
+      - key: GROQ_API_KEY
+        value: ""
+      - key: SILICONFLOW_API_KEY
+        value: ""
+      - key: CEREBRAS_API_KEY
+        value: ""
+      - key: CLOUDFLARE_AI_API_TOKEN
+        value: ""
+      - key: CLOUDFLARE_ACCOUNT_ID
+        value: ""
+      - key: COHERE_API_KEY
+        value: ""
+      - key: NVIDIA_API_KEY
+        value: ""
+      - key: OPENROUTER_API_KEY
+        value: ""
       - key: AI_INTERNAL_TOKEN
         sync: false
       - key: AI_TIMEOUT_MS
-        value: "120000"
+        value: "30000"
+      - key: AI_GATEWAY_CLIENT_TIMEOUT_MS
+        value: "270000"
       - key: TITLE_TRANSLATION_BATCH_SIZE
         value: "2"
       - key: DETAIL_TRANSLATION_BATCH_SIZE
@@ -174,6 +402,8 @@ services:
           name: tokusatsu-monitor-api
           type: pserv
           property: hostport
+      - key: AI_PROXY_TIMEOUT_MS
+        value: "270000"
 
 databases:
   - name: tokusatsu-monitor-db

@@ -38,6 +38,8 @@ async function unavailableCode(response: Response) {
       return "AI_GATEWAY_NOT_CONFIGURED";
     if (payload.code === "AI_GATEWAY_UNAVAILABLE")
       return "AI_GATEWAY_UNAVAILABLE";
+    if (payload.code === "AI_GATEWAY_DEADLINE_EXCEEDED")
+      return "AI_GATEWAY_UNAVAILABLE";
   } catch {}
   if (/AI Gateway|B\.AI|模型路由均不可用/i.test(body))
     return "AI_GATEWAY_UNAVAILABLE";
@@ -61,8 +63,11 @@ export async function fetchTranslationWithRetry(
         headers: { accept: "application/json" },
         signal: AbortSignal.timeout(
           Math.max(
-            120_000,
-            Number(process.env.AI_TIMEOUT_MS ?? 120_000) + 30_000,
+            250_000,
+            Math.min(
+              Number(process.env.AI_GATEWAY_CLIENT_TIMEOUT_MS ?? 270_000),
+              300_000,
+            ),
           ),
         ),
       });

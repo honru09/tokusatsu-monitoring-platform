@@ -280,16 +280,16 @@ model ShippingCarrier {
 }
 
 model ShippingTariff {
-  id          String         @id @default(uuid())
-  carrierId   String         @map("carrier_id")
-  serviceName String         @map("service_name")
+  id          String          @id @default(uuid())
+  carrierId   String          @map("carrier_id")
+  serviceName String          @map("service_name")
   basis       ShippingBasis
-  minValue    Int            @map("min_value")
-  maxValue    Int?           @map("max_value")
-  priceYen    Int            @map("price_yen")
-  zone        String         @default("JP")
-  sourceNote  String?        @map("source_note")
-  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  minValue    Int             @map("min_value")
+  maxValue    Int?            @map("max_value")
+  priceYen    Int             @map("price_yen")
+  zone        String          @default("JP")
+  sourceNote  String?         @map("source_note")
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz
   carrier     ShippingCarrier @relation(fields: [carrierId], references: [id], onDelete: Cascade)
 
   @@index([carrierId, basis, minValue])
@@ -692,6 +692,8 @@ model AiRun {
   latencyMs      Int?         @map("latency_ms")
   inputTokens    Int?         @map("input_tokens")
   outputTokens   Int?         @map("output_tokens")
+  /// Provider-native metering unit when supplied (for example Cloudflare Neurons).
+  providerUsage  Float?       @map("provider_usage")
   errorCode      String?      @map("error_code")
   errorMessage   String?      @map("error_message")
   startedAt      DateTime     @default(now()) @map("started_at") @db.Timestamptz
@@ -718,6 +720,9 @@ model AiCache {
   task          String
   inputHash     String   @map("input_hash")
   routeRevision String   @map("route_revision")
+  /// Nullable only for cache rows created before provider-aware routing.
+  /// Runtime cache reads must treat a null provider as stale.
+  provider      String?
   model         String
   output        Json
   confidence    Float?
@@ -727,17 +732,21 @@ model AiCache {
 
   @@unique([task, inputHash, routeRevision])
   @@index([expiresAt])
+  @@index([provider, model])
   @@map("ai_cache")
 }
 
 /// Last known health for each routed model. Usage counters are calculated from
 /// AiRun so this row remains small and update-friendly.
 model AiModelState {
-  model               String    @id
+  id                  String    @id @default(uuid())
   provider            String
+  model               String
   role                String
   configured          Boolean   @default(false)
   status              String    @default("unknown")
+  cooldownUntil       DateTime? @map("cooldown_until") @db.Timestamptz
+  quotaResetAt        DateTime? @map("quota_reset_at") @db.Timestamptz
   consecutiveFailures Int       @default(0) @map("consecutive_failures")
   lastSuccessAt       DateTime? @map("last_success_at") @db.Timestamptz
   lastFailureAt       DateTime? @map("last_failure_at") @db.Timestamptz
@@ -745,8 +754,30 @@ model AiModelState {
   lastCheckedAt       DateTime  @default(now()) @map("last_checked_at") @db.Timestamptz
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
+  @@unique([provider, model])
   @@index([status, updatedAt])
+  @@index([cooldownUntil])
   @@map("ai_model_state")
+}
+
+/// Provider-level circuit and quota state. Model-specific failures stay in
+/// AiModelState, while this row gates an entire upstream provider when needed.
+model AiProviderState {
+  id                  String    @id @default(uuid())
+  provider            String    @unique
+  status              String    @default("unknown")
+  cooldownUntil       DateTime? @map("cooldown_until") @db.Timestamptz
+  quotaResetAt        DateTime? @map("quota_reset_at") @db.Timestamptz
+  remainingRequests   Int?      @map("remaining_requests")
+  remainingTokens     Int?      @map("remaining_tokens")
+  lastErrorCode       String?   @map("last_error_code")
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([status, updatedAt])
+  @@index([cooldownUntil])
+  @@map("ai_provider_state")
 }
 
 /// Explicit human feedback about an AI judgment. Purchase, favorite and
@@ -828,15 +859,15 @@ model AiBrief {
 /// Last reliable market reference rate. The API refreshes this record on a
 /// short cadence and keeps it as a safe fallback when the upstream is down.
 model ExchangeRate {
-  pair            String   @id
-  baseCurrency    String   @map("base_currency")
-  quoteCurrency   String   @map("quote_currency")
-  rate            Decimal  @db.Decimal(18, 8)
-  source          String
-  referenceDate   DateTime @map("reference_date") @db.Date
-  fetchedAt       DateTime @map("fetched_at") @db.Timestamptz
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  pair          String   @id
+  baseCurrency  String   @map("base_currency")
+  quoteCurrency String   @map("quote_currency")
+  rate          Decimal  @db.Decimal(18, 8)
+  source        String
+  referenceDate DateTime @map("reference_date") @db.Date
+  fetchedAt     DateTime @map("fetched_at") @db.Timestamptz
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([fetchedAt])
   @@map("exchange_rates")
@@ -872,12 +903,12 @@ model ShoppingCartItem {
 /// Public, read-only cart snapshot. A snapshot remains readable even if the
 /// live collaborative cart is edited after the link was shared.
 model CartShare {
-  id        String       @id @default(uuid())
-  token     String       @unique
-  cartId    String?      @map("cart_id")
+  id        String        @id @default(uuid())
+  token     String        @unique
+  cartId    String?       @map("cart_id")
   snapshot  Json
-  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  expiresAt DateTime?    @map("expires_at") @db.Timestamptz
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt DateTime?     @map("expires_at") @db.Timestamptz
   cart      ShoppingCart? @relation(fields: [cartId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])

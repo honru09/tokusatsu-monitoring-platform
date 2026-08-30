@@ -4,10 +4,21 @@ import { createHash } from "node:crypto";
 import { PrismaService } from "../prisma.service.js";
 import {
   AI_ROUTE_REVISION,
+  PROVIDER_MODEL_ALLOWLIST,
+  candidatesForTask,
+  isAiProvider,
+  modelRole,
+  modelStateKey,
+  providerOrder,
+  type AiCostPolicy,
+  type AiDataClass,
+  type AiProvider,
   type AiTask,
-  modelRoleLabels,
-  routeFor,
 } from "./ai-router.js";
+import {
+  configuredProviderRuntimes,
+  type ProviderRuntime,
+} from "./ai-provider-registry.js";
 
 export type AiMessage = {
   role: "system" | "user" | "assistant";
@@ -22,12 +33,15 @@ export type AiGatewayRequest = {
   imageUrls?: string[];
   itemId?: string;
   sellerId?: string;
+  dataClass?: AiDataClass;
+  costPolicy?: AiCostPolicy;
   cacheTtlMs?: number;
   bypassCache?: boolean;
 };
 
 export type AiGatewayResult<T> = {
   data: T;
+  provider: AiProvider;
   model: string;
   requestedModel: string;
   runId: string;
@@ -36,14 +50,34 @@ export type AiGatewayResult<T> = {
   confidence: number | null;
 };
 
-type BaiChatPayload = {
+type ChatPayload = {
   model?: string;
   provider?: string;
   choices?: Array<{ message?: { content?: string | null } }>;
   usage?: {
     prompt_tokens?: number;
     completion_tokens?: number;
+    neurons?: number;
   };
+};
+
+type AttemptError = {
+  provider: AiProvider;
+  model: string;
+  attempt: number;
+  code: string;
+};
+
+type CatalogueCache = {
+  expiresAt: number;
+  models?: Set<string>;
+};
+
+type RateMetadata = {
+  cooldownUntil?: Date;
+  quotaResetAt?: Date;
+  remainingRequests?: number;
+  remainingTokens?: number;
 };
 
 class ModelCallError extends Error {
@@ -51,6 +85,8 @@ class ModelCallError extends Error {
     message: string,
     readonly code: string,
     readonly retryable: boolean,
+    readonly providerWide = false,
+    readonly rate: RateMetadata = {},
   ) {
     super(message);
     this.name = "ModelCallError";
@@ -78,30 +114,148 @@ function sleep(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function finiteInteger(value: string | null) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : undefined;
+}
+
+function finiteNonnegative(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : undefined;
+}
+
+function cloudflareErrorCode(responseText: string) {
+  try {
+    const payload = JSON.parse(responseText) as Record<string, unknown>;
+    const error =
+      payload.error && typeof payload.error === "object"
+        ? (payload.error as Record<string, unknown>)
+        : undefined;
+    const firstError = Array.isArray(payload.errors)
+      ? payload.errors.find((entry): entry is Record<string, unknown> =>
+          Boolean(entry && typeof entry === "object"),
+        )
+      : undefined;
+    const code = error?.code ?? firstError?.code;
+    return typeof code === "string" || typeof code === "number"
+      ? String(code)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function firstHeader(headers: Headers, names: readonly string[]) {
+  for (const name of names) {
+    const value = headers.get(name);
+    if (value != null) return value;
+  }
+  return null;
+}
+
+function durationMilliseconds(value: string | null) {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1_000);
+  const match = value.match(
+    /^(?:(\d+(?:\.\d+)?)h)?(?:(\d+(?:\.\d+)?)m)?(?:(\d+(?:\.\d+)?)s)?$/i,
+  );
+  if (!match) return undefined;
+  return (
+    Number(match[1] ?? 0) * 3_600_000 +
+    Number(match[2] ?? 0) * 60_000 +
+    Number(match[3] ?? 0) * 1_000
+  );
+}
+
+function isUniqueConflict(error: unknown) {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "P2002",
+  );
+}
+
+const cloudflareNeuronRates: Record<string, { input: number; output: number }> =
+  {
+    "@cf/zai-org/glm-4.7-flash": { input: 5_500, output: 36_400 },
+    "@cf/google/gemma-4-26b-a4b-it": { input: 9_100, output: 27_300 },
+    "@cf/nvidia/nemotron-3-120b-a12b": {
+      input: 45_500,
+      output: 136_400,
+    },
+    "@cf/openai/gpt-oss-120b": { input: 31_900, output: 68_200 },
+    "@cf/meta/llama-3.2-11b-vision-instruct": {
+      input: 4_500,
+      output: 62_000,
+    },
+  };
+
+function nextUtcDay(now = new Date()) {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
+  );
+}
+
+function utcDayKey(now = new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+
 @Injectable()
 export class AiGatewayService {
-  private catalogue?: { expiresAt: number; models: Set<string> };
+  private readonly catalogues = new Map<AiProvider, CatalogueCache>();
+  private readonly catalogueRequests = new Map<
+    AiProvider,
+    Promise<Set<string> | undefined>
+  >();
+  private cloudflareReservationDay = "";
+  private cloudflareReservedNeurons = 0;
 
   constructor(private readonly prisma: PrismaService) {}
 
   configured() {
-    return Boolean(process.env.BAI_API_KEY?.trim());
+    return this.providers().length > 0;
+  }
+
+  configuredProviderIds() {
+    return this.providers().map((provider) => provider.id);
   }
 
   async executeJson<T extends Record<string, unknown>>(
     request: AiGatewayRequest,
   ): Promise<AiGatewayResult<T>> {
-    const apiKey = process.env.BAI_API_KEY?.trim();
-    if (!apiKey)
+    const gatewayDeadlineMs = this.gatewayDeadlineMs();
+    const deadlineAt = Date.now() + gatewayDeadlineMs;
+    const dataClass = request.dataClass ?? "user_private";
+    const costPolicy = this.costPolicy(request.costPolicy);
+    const configuredProviders = this.providers();
+    if (!configuredProviders.length)
       throw new ServiceUnavailableException({
         code: "AI_GATEWAY_NOT_CONFIGURED",
-        message: "B.AI API 尚未配置",
+        message: "AI 服务尚未配置，请添加至少一个模型服务凭证",
       });
+
+    const privacyEligible = configuredProviders.filter((provider) =>
+      provider.allowsDataClass(dataClass),
+    );
+    const providerReadiness = await Promise.all(
+      privacyEligible.map(async (provider) => ({
+        provider,
+        ready: await this.providerReady(provider.id),
+      })),
+    );
+    const providers = providerReadiness.flatMap(({ provider, ready }) =>
+      ready ? [provider] : [],
+    );
+
     const input = {
       messages: request.messages,
       imageUrls: request.imageUrls ?? [],
       maxTokens: request.maxTokens,
       temperature: request.temperature ?? 0.1,
+      dataClass,
+      costPolicy,
     };
     const inputHash = createHash("sha256")
       .update(JSON.stringify(input))
@@ -109,100 +263,173 @@ export class AiGatewayService {
     const cacheKey = createHash("sha256")
       .update(`${request.task}:${inputHash}:${AI_ROUTE_REVISION}`)
       .digest("hex");
+
     if (!request.bypassCache) {
-      const cached = await this.prisma.aiCache.findUnique({
-        where: { key: cacheKey },
-      });
-      if (cached && cached.expiresAt > new Date()) {
-        const run = await this.prisma.aiRun.create({
-          data: {
-            itemId: request.itemId,
-            sellerId: request.sellerId,
-            task: request.task,
-            provider: "bai",
-            requestedModel: cached.model,
-            actualModel: cached.model,
-            status: "cached",
-            inputHash,
-            input: input as Prisma.InputJsonValue,
-            output: cached.output as Prisma.InputJsonValue,
-            confidence: cached.confidence,
-            completedAt: new Date(),
-          },
-        });
-        return {
-          data: cached.output as T,
-          model: cached.model,
-          requestedModel: cached.model,
-          runId: run.id,
-          cached: true,
-          fallbackUsed: false,
-          confidence: cached.confidence,
-        };
-      }
+      const cachedResult = await this.cachedResult<T>(
+        cacheKey,
+        request,
+        input,
+        inputHash,
+        providers,
+        dataClass,
+        costPolicy,
+      );
+      if (cachedResult) return cachedResult;
     }
 
-    const route = routeFor(request.task);
-    const catalogue = await this.availableModelIds();
-    const errors: Array<{ model: string; code: string }> = [];
-    for (const [index, requestedModel] of route.entries()) {
-      if (catalogue && !catalogue.has(requestedModel)) {
-        errors.push({ model: requestedModel, code: "MODEL_NOT_AVAILABLE" });
-        await Promise.all([
-          this.prisma.aiRun.create({
-            data: {
-              itemId: request.itemId,
-              sellerId: request.sellerId,
-              task: request.task,
-              provider: "bai",
-              requestedModel,
-              status: "failed",
-              inputHash,
-              input: input as Prisma.InputJsonValue,
-              fallbackUsed: index > 0,
-              attempt: index + 1,
-              latencyMs: 0,
-              errorCode: "MODEL_NOT_AVAILABLE",
-              errorMessage: "模型当前不在 B.AI 当前账号目录中",
-              completedAt: new Date(),
-            },
-          }),
-          this.updateModelFailure(
-            requestedModel,
-            request.task,
-            "MODEL_NOT_AVAILABLE",
-            "unavailable",
+    const catalogues = new Map<AiProvider, Set<string> | undefined>();
+    await Promise.all(
+      providers.map(async (provider) => {
+        catalogues.set(
+          provider.id,
+          await this.availableModelIdsFor(provider, false, deadlineAt),
+        );
+      }),
+    );
+
+    const providerById = new Map(
+      providers.map((provider) => [provider.id, provider]),
+    );
+    const candidates = candidatesForTask(
+      request.task,
+      providers.map((provider) => provider.id),
+      {
+        costPolicy,
+        requiresVision: Boolean(request.imageUrls?.length),
+        rotationSeed: inputHash,
+        costTierFor: (provider, model) =>
+          providerById.get(provider)?.costTierFor(model) ?? "unknown",
+      },
+    );
+    if (!candidates.length) {
+      throw new ServiceUnavailableException({
+        code: "AI_GATEWAY_NO_ELIGIBLE_MODEL",
+        message: "当前隐私、费用或视觉策略下没有可用模型",
+        retryable: false,
+        dataClass,
+        costPolicy,
+      });
+    }
+
+    const errors: AttemptError[] = [];
+    const disabledProviders = new Set<AiProvider>();
+    const attemptedProviders = new Set<AiProvider>();
+    let attempt = 0;
+
+    for (const [candidateIndex, candidate] of candidates.entries()) {
+      const provider = providerById.get(candidate.provider);
+      if (!provider || disabledProviders.has(candidate.provider)) continue;
+      attempt += 1;
+      if (Date.now() >= deadlineAt) {
+        errors.push({ ...candidate, attempt, code: "GATEWAY_DEADLINE" });
+        break;
+      }
+      const fallbackUsed = attempt > 1;
+      const catalogue = catalogues.get(provider.id);
+      if (!catalogue) {
+        errors.push({
+          provider: provider.id,
+          model: candidate.model,
+          attempt,
+          code: "CATALOGUE_UNAVAILABLE",
+        });
+        disabledProviders.add(provider.id);
+        await this.recordCatalogueUnavailable(
+          provider,
+          candidate.model,
+          request,
+          input,
+          inputHash,
+          attempt,
+          fallbackUsed,
+        );
+        continue;
+      }
+      if (!catalogue.has(candidate.model)) {
+        errors.push({
+          provider: provider.id,
+          model: candidate.model,
+          attempt,
+          code: "MODEL_NOT_AVAILABLE",
+        });
+        await this.recordUnavailableModel(
+          provider,
+          candidate.model,
+          request,
+          input,
+          inputHash,
+          attempt,
+          fallbackUsed,
+        );
+        continue;
+      }
+      if (await this.modelCooldown(provider.id, candidate.model)) {
+        errors.push({
+          provider: provider.id,
+          model: candidate.model,
+          attempt,
+          code: "MODEL_COOLDOWN",
+        });
+        continue;
+      }
+
+      const untriedProviderCount = new Set(
+        candidates
+          .slice(candidateIndex + 1)
+          .map((entry) => entry.provider)
+          .filter(
+            (id) =>
+              id !== provider.id &&
+              !attemptedProviders.has(id) &&
+              !disabledProviders.has(id),
           ),
-        ]);
-        continue;
-      }
-
-      const cooldown = await this.modelCooldown(requestedModel);
-      if (cooldown) {
-        errors.push({ model: requestedModel, code: "MODEL_COOLDOWN" });
-        continue;
-      }
-
+      ).size;
+      attemptedProviders.add(provider.id);
+      const candidateDeadlineAt = this.fairCandidateDeadline(
+        deadlineAt,
+        untriedProviderCount,
+      );
+      const attemptStartedAt = new Date();
       const run = await this.prisma.aiRun.create({
         data: {
           itemId: request.itemId,
           sellerId: request.sellerId,
           task: request.task,
-          provider: "bai",
-          requestedModel,
+          provider: provider.id,
+          requestedModel: candidate.model,
           status: "running",
           inputHash,
           input: input as Prisma.InputJsonValue,
-          fallbackUsed: index > 0,
-          attempt: index + 1,
+          fallbackUsed,
+          attempt,
+          startedAt: attemptStartedAt,
         },
       });
       const startedAt = Date.now();
+      let providerBudgetReservation = 0;
+      let responseProviderUsage: number | undefined;
       try {
-        const response = await this.callModel(apiKey, requestedModel, request);
+        providerBudgetReservation = await this.reserveProviderBudget(
+          provider,
+          candidate.model,
+          request,
+        );
+        const response = await this.callModel(
+          provider,
+          candidate.model,
+          request,
+          candidateDeadlineAt,
+          deadlineAt,
+        );
+        responseProviderUsage =
+          finiteNonnegative(response.usage?.neurons) ??
+          (provider.id === "cloudflare" && providerBudgetReservation > 0
+            ? providerBudgetReservation
+            : undefined);
         const content = response.choices?.[0]?.message?.content?.trim();
         if (!content)
           throw new ModelCallError("模型返回为空", "EMPTY_RESPONSE", true);
+
         let data: T;
         try {
           const parsed = JSON.parse(cleanJson(content)) as unknown;
@@ -216,9 +443,22 @@ export class AiGatewayService {
             true,
           );
         }
-        const actualModel = response.model?.trim() || requestedModel;
+
+        const reportedModel = response.model?.trim();
+        const normalizedReportedModel = reportedModel
+          ? provider.normalizeCatalogueModelId(reportedModel)
+          : undefined;
+        const actualModel =
+          normalizedReportedModel &&
+          PROVIDER_MODEL_ALLOWLIST[provider.id].has(normalizedReportedModel)
+            ? normalizedReportedModel
+            : candidate.model;
         const confidence = confidenceOf(data);
         const completedAt = new Date();
+        const expiresAt = new Date(
+          Date.now() +
+            (request.cacheTtlMs ?? this.defaultCacheTtl(request.task)),
+        );
         await Promise.all([
           this.prisma.aiRun.update({
             where: { id: run.id },
@@ -230,48 +470,63 @@ export class AiGatewayService {
               latencyMs: Date.now() - startedAt,
               inputTokens: response.usage?.prompt_tokens,
               outputTokens: response.usage?.completion_tokens,
+              providerUsage: responseProviderUsage,
               completedAt,
             },
           }),
-          this.updateModelSuccess(actualModel, request.task),
+          this.updateModelSuccess(
+            provider.id,
+            actualModel,
+            request.task,
+            attemptStartedAt,
+          ),
+          this.updateProviderSuccess(provider.id, attemptStartedAt),
           this.prisma.aiCache.upsert({
             where: { key: cacheKey },
             update: {
+              provider: provider.id,
               model: actualModel,
               output: data as Prisma.InputJsonValue,
               confidence,
-              expiresAt: new Date(
-                Date.now() +
-                  (request.cacheTtlMs ?? this.defaultCacheTtl(request.task)),
-              ),
+              expiresAt,
             },
             create: {
               key: cacheKey,
               task: request.task,
               inputHash,
               routeRevision: AI_ROUTE_REVISION,
+              provider: provider.id,
               model: actualModel,
               output: data as Prisma.InputJsonValue,
               confidence,
-              expiresAt: new Date(
-                Date.now() +
-                  (request.cacheTtlMs ?? this.defaultCacheTtl(request.task)),
-              ),
+              expiresAt,
             },
           }),
         ]);
         return {
           data,
+          provider: provider.id,
           model: actualModel,
-          requestedModel,
+          requestedModel: candidate.model,
           runId: run.id,
           cached: false,
-          fallbackUsed: index > 0,
+          fallbackUsed,
           confidence,
         };
       } catch (error) {
         const normalized = this.normalizeError(error);
-        errors.push({ model: requestedModel, code: normalized.code });
+        errors.push({
+          provider: provider.id,
+          model: candidate.model,
+          attempt,
+          code: normalized.code,
+        });
+        if (normalized.providerWide) disabledProviders.add(provider.id);
+        if (
+          normalized.code === "MODEL_NOT_AVAILABLE" ||
+          normalized.code === "MODEL_CAPABILITY"
+        )
+          this.catalogues.delete(provider.id);
         await Promise.all([
           this.prisma.aiRun.update({
             where: { id: run.id },
@@ -280,65 +535,203 @@ export class AiGatewayService {
               latencyMs: Date.now() - startedAt,
               errorCode: normalized.code,
               errorMessage: normalized.message.slice(0, 500),
+              providerUsage: responseProviderUsage,
               completedAt: new Date(),
             },
           }),
           this.updateModelFailure(
-            requestedModel,
+            provider.id,
+            candidate.model,
             request.task,
-            normalized.code,
-            normalized.code === "MODEL_NOT_AVAILABLE"
-              ? "unavailable"
-              : "degraded",
+            normalized,
           ),
+          normalized.providerWide
+            ? this.updateProviderFailure(provider.id, normalized)
+            : Promise.resolve(),
         ]);
+        if (normalized.code === "GATEWAY_DEADLINE") break;
+      } finally {
+        if (providerBudgetReservation > 0)
+          this.releaseProviderBudget(provider.id, providerBudgetReservation);
       }
     }
+
+    const deadlineExceeded =
+      Date.now() >= deadlineAt ||
+      errors.some((error) => error.code === "GATEWAY_DEADLINE");
     throw new ServiceUnavailableException({
-      code: "AI_GATEWAY_UNAVAILABLE",
-      message: "当前 B.AI 模型路由均不可用，任务已保留等待后续重试",
+      code: deadlineExceeded
+        ? "AI_GATEWAY_DEADLINE_EXCEEDED"
+        : "AI_GATEWAY_UNAVAILABLE",
+      message: deadlineExceeded
+        ? "AI 模型池已达到本轮时间上限，请重试"
+        : "当前 AI 模型池均不可用，请稍后重试",
+      retryable: true,
+      deadlineMs: gatewayDeadlineMs,
+      dataClass,
+      costPolicy,
       attempts: errors,
     });
   }
 
   async availableModelIds(force = false) {
-    if (!force && this.catalogue && this.catalogue.expiresAt > Date.now())
-      return this.catalogue.models;
+    const providers = this.providers();
+    const modelSets = await Promise.all(
+      providers.map(async (provider) => ({
+        provider: provider.id,
+        models: await this.availableModelIdsFor(provider, force),
+      })),
+    );
+    const available = modelSets.filter(
+      (entry): entry is { provider: AiProvider; models: Set<string> } =>
+        entry.models instanceof Set,
+    );
+    if (!available.length) return undefined;
+    return new Set(
+      available.flatMap(({ provider, models }) =>
+        [...models].map((model) => modelStateKey(provider, model)),
+      ),
+    );
+  }
+
+  private providers() {
+    return configuredProviderRuntimes(providerOrder());
+  }
+
+  private async cachedResult<T extends Record<string, unknown>>(
+    cacheKey: string,
+    request: AiGatewayRequest,
+    input: Record<string, unknown>,
+    inputHash: string,
+    providers: ProviderRuntime[],
+    dataClass: AiDataClass,
+    costPolicy: AiCostPolicy,
+  ): Promise<AiGatewayResult<T> | undefined> {
+    const cached = await this.prisma.aiCache.findUnique({
+      where: { key: cacheKey },
+    });
+    if (
+      !cached ||
+      cached.expiresAt <= new Date() ||
+      !cached.provider ||
+      !isAiProvider(cached.provider)
+    )
+      return undefined;
+    const provider = providers.find((entry) => entry.id === cached.provider);
+    if (!provider || !provider.allowsDataClass(dataClass)) return undefined;
+    const tier = provider.costTierFor(cached.model);
+    if (costPolicy === "free_only" && tier !== "free" && tier !== "promotion")
+      return undefined;
+    const run = await this.prisma.aiRun.create({
+      data: {
+        itemId: request.itemId,
+        sellerId: request.sellerId,
+        task: request.task,
+        provider: provider.id,
+        requestedModel: cached.model,
+        actualModel: cached.model,
+        status: "cached",
+        inputHash,
+        input: input as Prisma.InputJsonValue,
+        output: cached.output as Prisma.InputJsonValue,
+        confidence: cached.confidence,
+        completedAt: new Date(),
+      },
+    });
+    return {
+      data: cached.output as T,
+      provider: provider.id,
+      model: cached.model,
+      requestedModel: cached.model,
+      runId: run.id,
+      cached: true,
+      fallbackUsed: false,
+      confidence: cached.confidence,
+    };
+  }
+
+  private async availableModelIdsFor(
+    provider: ProviderRuntime,
+    force = false,
+    deadlineAt?: number,
+  ) {
+    const cached = this.catalogues.get(provider.id);
+    if (!force && cached && cached.expiresAt > Date.now()) return cached.models;
+    const inFlight = this.catalogueRequests.get(provider.id);
+    if (!force && inFlight) return inFlight;
+    const request = this.fetchCatalogue(provider, deadlineAt).finally(() => {
+      this.catalogueRequests.delete(provider.id);
+    });
+    this.catalogueRequests.set(provider.id, request);
+    return request;
+  }
+
+  private async fetchCatalogue(
+    provider: ProviderRuntime,
+    deadlineAt?: number,
+  ): Promise<Set<string> | undefined> {
+    const configuredTimeout = Number(
+      process.env.AI_CATALOG_TIMEOUT_MS ?? 5_000,
+    );
+    const catalogueTimeout = Math.max(
+      500,
+      Math.min(
+        Number.isFinite(configuredTimeout) ? configuredTimeout : 5_000,
+        15_000,
+      ),
+    );
+    const remainingMs = deadlineAt
+      ? Math.max(1, deadlineAt - Date.now())
+      : catalogueTimeout;
     try {
-      const apiUrl = (
-        process.env.BAI_API_URL ?? "https://api.b.ai/v1"
-      ).replace(/\/$/, "");
-      const response = await fetch(`${apiUrl}/models`, {
-        headers: {
-          accept: "application/json",
-          authorization: `Bearer ${process.env.BAI_API_KEY?.trim() ?? ""}`,
-        },
-        signal: AbortSignal.timeout(15_000),
+      const response = await fetch(provider.catalogueUrl, {
+        headers: provider.headers(false),
+        signal: AbortSignal.timeout(Math.min(catalogueTimeout, remainingMs)),
       });
-      if (!response.ok) return undefined;
-      const payload = (await response.json()) as {
-        data?: Array<{ id?: unknown }>;
-      };
+      if (!response.ok) throw new Error(`catalogue HTTP ${response.status}`);
+      const text = await response.text();
+      if (!text.trim()) throw new Error("empty catalogue");
+      const payload = JSON.parse(text) as unknown;
       const models = new Set(
-        (payload.data ?? []).flatMap((entry) =>
-          typeof entry.id === "string" ? [entry.id] : [],
-        ),
+        provider
+          .extractCatalogueModelIds(payload)
+          .map((modelId) => provider.normalizeCatalogueModelId(modelId)),
       );
-      this.catalogue = { expiresAt: Date.now() + 10 * 60_000, models };
+      const configuredTtl = Number(
+        process.env.AI_CATALOG_REFRESH_INTERVAL_MS ?? 6 * 60 * 60_000,
+      );
+      const ttl = Math.max(
+        60_000,
+        Number.isFinite(configuredTtl) ? configuredTtl : 6 * 60 * 60_000,
+      );
+      this.catalogues.set(provider.id, {
+        expiresAt: Date.now() + ttl,
+        models,
+      });
       return models;
     } catch {
+      const configuredTtl = Number(
+        process.env.AI_CATALOG_NEGATIVE_CACHE_MS ?? 60_000,
+      );
+      const ttl = Math.max(
+        1_000,
+        Number.isFinite(configuredTtl) ? configuredTtl : 60_000,
+      );
+      this.catalogues.set(provider.id, {
+        expiresAt: Date.now() + ttl,
+        models: undefined,
+      });
       return undefined;
     }
   }
 
   private async callModel(
-    apiKey: string,
+    provider: ProviderRuntime,
     model: string,
     request: AiGatewayRequest,
+    candidateDeadlineAt: number,
+    gatewayDeadlineAt: number,
   ) {
-    const apiUrl = (
-      process.env.BAI_API_URL ?? "https://api.b.ai/v1"
-    ).replace(/\/$/, "");
     const messages: Array<Record<string, unknown>> = request.messages.map(
       (message) => ({ ...message }),
     );
@@ -357,65 +750,91 @@ export class AiGatewayService {
         ];
       }
     }
-    let lastError: unknown;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-      const controller = new AbortController();
+
+    const maxAttempts = Math.max(
+      1,
+      Math.min(Number(process.env.AI_HTTP_RETRIES ?? 1), 2),
+    );
+    let lastError: ModelCallError | undefined;
+    for (let httpAttempt = 1; httpAttempt <= maxAttempts; httpAttempt += 1) {
+      const deadlineAt = Math.min(candidateDeadlineAt, gatewayDeadlineAt);
+      const remainingMs = deadlineAt - Date.now();
+      if (remainingMs <= 0)
+        throw gatewayDeadlineAt <= Date.now()
+          ? this.deadlineError()
+          : new ModelCallError("模型请求超时", "TIMEOUT", true);
       const timeoutMs = Math.max(
-        20_000,
-        Math.min(Number(process.env.AI_TIMEOUT_MS ?? 120_000), 240_000),
+        1,
+        Math.min(this.modelTimeoutMs(), remainingMs),
       );
+      const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const response = await fetch(`${apiUrl}/chat/completions`, {
+        const body = provider.normalizeRequestBody({
+          model,
+          messages,
+          max_tokens: request.maxTokens,
+          temperature: request.temperature ?? 0.1,
+        });
+        const response = await fetch(`${provider.apiUrl}/chat/completions`, {
           method: "POST",
-          headers: {
-            authorization: `Bearer ${apiKey}`,
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            model,
-            messages,
-            max_tokens: request.maxTokens,
-            temperature: request.temperature ?? 0.1,
-          }),
+          headers: provider.headers(true),
+          body: JSON.stringify(body),
           signal: controller.signal,
         });
+        const responseText = await response.text().catch(() => "");
         if (!response.ok) {
-          const body = await response.text().catch(() => "");
-          const code =
-            response.status === 401 || response.status === 403
-              ? "AUTH"
-              : response.status === 402
-                ? "CREDITS"
-                : response.status === 404
-                  ? "MODEL_NOT_AVAILABLE"
-                  : response.status === 429
-                    ? "RATE_LIMIT"
-                    : response.status >= 500
-                      ? "PROVIDER_ERROR"
-                      : `HTTP_${response.status}`;
-          const retryable = response.status === 429 || response.status >= 500;
-          const error = new ModelCallError(
-            `${code}${body ? `: ${body.slice(0, 200)}` : ""}`,
-            code,
-            retryable,
+          const normalized = this.responseError(
+            provider,
+            response.status,
+            responseText,
+            response.headers,
           );
-          if (!retryable || attempt === 2) throw error;
-          lastError = error;
-          const retryAfter = Number(response.headers.get("retry-after"));
-          await sleep(
-            Number.isFinite(retryAfter)
-              ? Math.max(1_000, retryAfter * 1_000)
-              : 1_000 * attempt,
-          );
+          // Account/quota failures and every 429 switch candidates immediately.
+          if (
+            !normalized.retryable ||
+            normalized.code === "RATE_LIMIT" ||
+            httpAttempt === maxAttempts
+          )
+            throw normalized;
+          lastError = normalized;
+          const delayMs = 500 * httpAttempt;
+          if (Date.now() + delayMs >= deadlineAt)
+            throw new ModelCallError("模型请求超时", "TIMEOUT", true);
+          await sleep(delayMs);
           continue;
         }
-        return (await response.json()) as BaiChatPayload;
+        if (!responseText.trim())
+          throw new ModelCallError("模型返回空响应体", "EMPTY_RESPONSE", true);
+        try {
+          return JSON.parse(responseText) as ChatPayload;
+        } catch {
+          throw new ModelCallError(
+            "模型返回了无法解析的响应体",
+            "INVALID_PROVIDER_JSON",
+            true,
+          );
+        }
       } catch (error) {
-        const normalized = this.normalizeError(error);
-        if (!normalized.retryable || attempt === 2) throw normalized;
+        const abortedAtGatewayBoundary =
+          error instanceof Error &&
+          (error.name === "AbortError" || error.name === "TimeoutError") &&
+          candidateDeadlineAt >= gatewayDeadlineAt;
+        const normalized =
+          Date.now() >= gatewayDeadlineAt || abortedAtGatewayBoundary
+            ? this.deadlineError()
+            : this.normalizeError(error);
+        if (
+          !normalized.retryable ||
+          normalized.code === "RATE_LIMIT" ||
+          httpAttempt === maxAttempts
+        )
+          throw normalized;
         lastError = normalized;
-        await sleep(1_000 * attempt);
+        const delayMs = 500 * httpAttempt;
+        if (Date.now() + delayMs >= candidateDeadlineAt)
+          throw new ModelCallError("模型请求超时", "TIMEOUT", true);
+        await sleep(delayMs);
       } finally {
         clearTimeout(timeout);
       }
@@ -423,92 +842,513 @@ export class AiGatewayService {
     throw lastError ?? new ModelCallError("未知模型错误", "UNKNOWN", false);
   }
 
+  private responseError(
+    provider: ProviderRuntime,
+    status: number,
+    responseText: string,
+    headers: Headers,
+  ) {
+    const suffix = responseText ? `: ${responseText.slice(0, 200)}` : "";
+    if (
+      provider.id === "cloudflare" &&
+      status === 403 &&
+      ["3041", "5016", "5018", "5035"].includes(
+        cloudflareErrorCode(responseText) ?? "",
+      )
+    )
+      return new ModelCallError(
+        `${provider.label} MODEL_NOT_AVAILABLE${suffix}`,
+        "MODEL_NOT_AVAILABLE",
+        false,
+      );
+    if (status === 401 || status === 403)
+      return new ModelCallError(
+        `${provider.label} AUTH${suffix}`,
+        "AUTH",
+        false,
+        true,
+      );
+    if (status === 402)
+      return new ModelCallError(
+        `${provider.label} CREDITS${suffix}`,
+        "CREDITS",
+        false,
+        true,
+      );
+    if (
+      status === 404 ||
+      (status === 400 &&
+        /(?:invalid|unknown|not found).{0,30}model/i.test(responseText))
+    )
+      return new ModelCallError(
+        `${provider.label} MODEL_NOT_AVAILABLE${suffix}`,
+        "MODEL_NOT_AVAILABLE",
+        false,
+      );
+    if (
+      status === 400 &&
+      /(?:unsupported|does not support|capabilit)/i.test(responseText)
+    )
+      return new ModelCallError(
+        `${provider.label} MODEL_CAPABILITY${suffix}`,
+        "MODEL_CAPABILITY",
+        false,
+      );
+    if (status === 429) {
+      const retryAfterMs = durationMilliseconds(headers.get("retry-after"));
+      const resetRequestsMs = durationMilliseconds(
+        firstHeader(headers, [
+          "x-ratelimit-reset-requests",
+          "x-ratelimit-reset-requests-day",
+          "x-ratelimit-reset-requests-month",
+        ]),
+      );
+      const resetTokensMs = durationMilliseconds(
+        firstHeader(headers, [
+          "x-ratelimit-reset-tokens",
+          "x-ratelimit-reset-tokens-minute",
+          "x-ratelimit-reset-tokens-day",
+        ]),
+      );
+      const resetMs = Math.max(
+        retryAfterMs ?? 0,
+        resetRequestsMs ?? 0,
+        resetTokensMs ?? 0,
+      );
+      const providerWide =
+        provider.id === "bai" ||
+        provider.id === "gemini" ||
+        (provider.id === "openrouter" &&
+          /(?:daily|account|key|credit|requests per day)/i.test(
+            responseText,
+          )) ||
+        (provider.id === "cloudflare" &&
+          /(?:daily|account|credit|neurons)/i.test(responseText)) ||
+        (provider.id === "cohere" &&
+          /(?:monthly|account|key|requests per month)/i.test(responseText)) ||
+        (provider.id === "cerebras" &&
+          /(?:daily|account|organization|key|requests per day|tokens per day)/i.test(
+            responseText,
+          )) ||
+        (provider.id === "nvidia" &&
+          /(?:account|key|credit|daily)/i.test(responseText));
+      const fallbackCooldown = providerWide ? 60_000 : 5 * 60_000;
+      const cooldownUntil = new Date(
+        Date.now() + Math.max(resetMs, fallbackCooldown),
+      );
+      return new ModelCallError(
+        `${provider.label} RATE_LIMIT${suffix}`,
+        "RATE_LIMIT",
+        false,
+        providerWide,
+        {
+          cooldownUntil,
+          quotaResetAt: resetMs ? new Date(Date.now() + resetMs) : undefined,
+          remainingRequests: finiteInteger(
+            firstHeader(headers, [
+              "x-ratelimit-remaining-requests",
+              "x-ratelimit-remaining-requests-day",
+              "x-ratelimit-remaining-requests-month",
+            ]),
+          ),
+          remainingTokens: finiteInteger(
+            firstHeader(headers, [
+              "x-ratelimit-remaining-tokens",
+              "x-ratelimit-remaining-tokens-minute",
+              "x-ratelimit-remaining-tokens-day",
+            ]),
+          ),
+        },
+      );
+    }
+    const code = status >= 500 ? "PROVIDER_ERROR" : `HTTP_${status}`;
+    return new ModelCallError(
+      `${provider.label} ${code}${suffix}`,
+      code,
+      status >= 500,
+    );
+  }
+
   private normalizeError(error: unknown) {
     if (error instanceof ModelCallError) return error;
-    if (error instanceof Error && error.name === "AbortError")
+    if (
+      error instanceof Error &&
+      (error.name === "AbortError" || error.name === "TimeoutError")
+    )
       return new ModelCallError("模型请求超时", "TIMEOUT", true);
     const message = error instanceof Error ? error.message : String(error);
     return new ModelCallError(message, "NETWORK", true);
   }
 
-  private async updateModelSuccess(model: string, task: AiTask) {
-    await this.prisma.aiModelState.upsert({
-      where: { model },
+  private fairCandidateDeadline(deadlineAt: number, untriedProviders: number) {
+    const now = Date.now();
+    const remaining = Math.max(1, deadlineAt - now);
+    const fairShare = Math.max(
+      1,
+      Math.floor(remaining / (untriedProviders + 1)),
+    );
+    return now + Math.min(this.modelTimeoutMs(), fairShare);
+  }
+
+  private modelTimeoutMs() {
+    const legacyTimeout = Number(process.env.AI_TIMEOUT_MS ?? 30_000);
+    const configured = Number(process.env.AI_MODEL_TIMEOUT_MS ?? legacyTimeout);
+    return Math.max(
+      5_000,
+      Math.min(Number.isFinite(configured) ? configured : 30_000, 30_000),
+    );
+  }
+
+  private gatewayDeadlineMs() {
+    const configured = Number(process.env.AI_GATEWAY_DEADLINE_MS ?? 240_000);
+    return Math.max(
+      30_000,
+      Math.min(Number.isFinite(configured) ? configured : 240_000, 240_000),
+    );
+  }
+
+  private costPolicy(requested?: AiCostPolicy): AiCostPolicy {
+    if (process.env.AI_ALLOW_PAID_MODELS?.trim().toLowerCase() !== "true")
+      return "free_only";
+    const configured = process.env.AI_COST_POLICY?.trim();
+    const globalPolicy: AiCostPolicy =
+      configured === "free_first" || configured === "paid_allowed"
+        ? configured
+        : "free_only";
+    if (globalPolicy === "free_only" || requested === "free_only")
+      return "free_only";
+    if (globalPolicy === "free_first" || requested === "free_first")
+      return "free_first";
+    return "paid_allowed";
+  }
+
+  private async reserveProviderBudget(
+    provider: ProviderRuntime,
+    model: string,
+    request: AiGatewayRequest,
+  ) {
+    if (provider.id !== "cloudflare" || provider.apiTier !== "free") return 0;
+    const configuredBudget = Number(
+      process.env.CLOUDFLARE_AI_DAILY_NEURON_BUDGET ?? 8_000,
+    );
+    const budget = Math.max(
+      100,
+      Math.min(
+        Number.isFinite(configuredBudget) ? configuredBudget : 8_000,
+        9_500,
+      ),
+    );
+    const now = new Date();
+    const day = utcDayKey(now);
+    if (this.cloudflareReservationDay !== day) {
+      this.cloudflareReservationDay = day;
+      this.cloudflareReservedNeurons = 0;
+    }
+    const used = await this.prisma.aiRun.aggregate({
+      where: {
+        provider: "cloudflare",
+        // A provider call is billable even when its content later fails our
+        // validation, so every persisted usage value must consume the budget.
+        providerUsage: { not: null },
+        startedAt: {
+          gte: new Date(
+            Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+          ),
+        },
+      },
+      _sum: { providerUsage: true },
+    });
+    const rates = cloudflareNeuronRates[model] ?? {
+      input: 50_000,
+      output: 150_000,
+    };
+    const inputCharacters = JSON.stringify(request.messages).length;
+    const estimated = Math.max(
+      1,
+      Math.ceil(
+        (inputCharacters * rates.input + request.maxTokens * rates.output) /
+          1_000_000 +
+          (request.imageUrls?.length ?? 0) * 500,
+      ),
+    );
+    const consumed = Number(used._sum.providerUsage ?? 0);
+    const remaining = budget - consumed - this.cloudflareReservedNeurons;
+    if (estimated > remaining) {
+      const resetAt = nextUtcDay(now);
+      throw new ModelCallError(
+        "Cloudflare Workers AI 免费日预算已保留完毕",
+        "FREE_QUOTA_BUDGET",
+        false,
+        true,
+        {
+          cooldownUntil: resetAt,
+          quotaResetAt: resetAt,
+          remainingTokens: Math.max(0, Math.floor(remaining)),
+        },
+      );
+    }
+    this.cloudflareReservedNeurons += estimated;
+    return estimated;
+  }
+
+  private releaseProviderBudget(provider: AiProvider, reservation: number) {
+    if (provider !== "cloudflare") return;
+    this.cloudflareReservedNeurons = Math.max(
+      0,
+      this.cloudflareReservedNeurons - reservation,
+    );
+  }
+
+  private deadlineError() {
+    return new ModelCallError(
+      "AI Gateway execution deadline exceeded",
+      "GATEWAY_DEADLINE",
+      false,
+    );
+  }
+
+  private async providerReady(provider: AiProvider) {
+    const state = await this.prisma.aiProviderState.findUnique({
+      where: { provider },
+      select: { cooldownUntil: true },
+    });
+    return !state?.cooldownUntil || state.cooldownUntil <= new Date();
+  }
+
+  private async updateProviderSuccess(
+    provider: AiProvider,
+    attemptStartedAt: Date,
+  ) {
+    const updated = await this.prisma.aiProviderState.updateMany({
+      where: { provider, updatedAt: { lte: attemptStartedAt } },
+      data: {
+        status: "online",
+        cooldownUntil: null,
+        quotaResetAt: null,
+        lastErrorCode: null,
+        consecutiveFailures: 0,
+      },
+    });
+    if (updated.count > 0) return;
+    try {
+      await this.prisma.aiProviderState.create({
+        data: { provider, status: "online" },
+      });
+    } catch (error) {
+      // A newer failure state won the race after this attempt started. Preserve
+      // its cooldown instead of letting this older success clear it.
+      if (!isUniqueConflict(error)) throw error;
+    }
+  }
+
+  private async updateProviderFailure(
+    provider: AiProvider,
+    error: ModelCallError,
+  ) {
+    const current = await this.prisma.aiProviderState.findUnique({
+      where: { provider },
+      select: { consecutiveFailures: true },
+    });
+    const defaultCooldown =
+      error.code === "AUTH" || error.code === "CREDITS"
+        ? 30 * 60_000
+        : Number(process.env.AI_PROVIDER_CIRCUIT_COOLDOWN_MS ?? 60_000);
+    const cooldownUntil =
+      error.rate.cooldownUntil ??
+      new Date(Date.now() + Math.max(10_000, defaultCooldown));
+    await this.prisma.aiProviderState.upsert({
+      where: { provider },
       update: {
-        provider: "bai",
-        role: modelRoleLabels[model] ?? task,
+        status: "cooldown",
+        cooldownUntil,
+        quotaResetAt: error.rate.quotaResetAt,
+        remainingRequests: error.rate.remainingRequests,
+        remainingTokens: error.rate.remainingTokens,
+        lastErrorCode: error.code,
+        consecutiveFailures: (current?.consecutiveFailures ?? 0) + 1,
+      },
+      create: {
+        provider,
+        status: "cooldown",
+        cooldownUntil,
+        quotaResetAt: error.rate.quotaResetAt,
+        remainingRequests: error.rate.remainingRequests,
+        remainingTokens: error.rate.remainingTokens,
+        lastErrorCode: error.code,
+        consecutiveFailures: 1,
+      },
+    });
+  }
+
+  private async recordUnavailableModel(
+    provider: ProviderRuntime,
+    model: string,
+    request: AiGatewayRequest,
+    input: Record<string, unknown>,
+    inputHash: string,
+    attempt: number,
+    fallbackUsed: boolean,
+  ) {
+    const error = new ModelCallError(
+      `模型当前不在 ${provider.label} 账号目录中`,
+      "MODEL_NOT_AVAILABLE",
+      false,
+    );
+    await Promise.all([
+      this.prisma.aiRun.create({
+        data: {
+          itemId: request.itemId,
+          sellerId: request.sellerId,
+          task: request.task,
+          provider: provider.id,
+          requestedModel: model,
+          status: "failed",
+          inputHash,
+          input: input as Prisma.InputJsonValue,
+          fallbackUsed,
+          attempt,
+          latencyMs: 0,
+          errorCode: error.code,
+          errorMessage: error.message,
+          completedAt: new Date(),
+        },
+      }),
+      this.updateModelFailure(provider.id, model, request.task, error),
+    ]);
+  }
+
+  private async recordCatalogueUnavailable(
+    provider: ProviderRuntime,
+    model: string,
+    request: AiGatewayRequest,
+    input: Record<string, unknown>,
+    inputHash: string,
+    attempt: number,
+    fallbackUsed: boolean,
+  ) {
+    await this.prisma.aiRun.create({
+      data: {
+        itemId: request.itemId,
+        sellerId: request.sellerId,
+        task: request.task,
+        provider: provider.id,
+        requestedModel: model,
+        status: "failed",
+        inputHash,
+        input: input as Prisma.InputJsonValue,
+        fallbackUsed,
+        attempt,
+        latencyMs: 0,
+        errorCode: "CATALOGUE_UNAVAILABLE",
+        errorMessage: `${provider.label} 模型目录暂不可用`,
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  private async updateModelSuccess(
+    provider: AiProvider,
+    model: string,
+    task: AiTask,
+    attemptStartedAt: Date,
+  ) {
+    const updated = await this.prisma.aiModelState.updateMany({
+      where: { provider, model, updatedAt: { lte: attemptStartedAt } },
+      data: {
+        role: modelRole(provider, model, task),
         configured: true,
         status: "online",
+        cooldownUntil: null,
+        quotaResetAt: null,
         consecutiveFailures: 0,
         lastSuccessAt: new Date(),
         lastErrorCode: null,
         lastCheckedAt: new Date(),
       },
-      create: {
-        model,
-        provider: "bai",
-        role: modelRoleLabels[model] ?? task,
-        configured: true,
-        status: "online",
-        lastSuccessAt: new Date(),
-      },
     });
+    if (updated.count > 0) return;
+    try {
+      await this.prisma.aiModelState.create({
+        data: {
+          model,
+          provider,
+          role: modelRole(provider, model, task),
+          configured: true,
+          status: "online",
+          lastSuccessAt: new Date(),
+        },
+      });
+    } catch (error) {
+      // See updateProviderSuccess: a unique conflict means a newer state must
+      // remain authoritative for cooldown and quota decisions.
+      if (!isUniqueConflict(error)) throw error;
+    }
   }
 
-  private async modelCooldown(model: string) {
+  private async modelCooldown(provider: AiProvider, model: string) {
     const state = await this.prisma.aiModelState.findUnique({
-      where: { model },
-      select: { lastFailureAt: true, lastErrorCode: true },
+      where: { provider_model: { provider, model } },
+      select: { cooldownUntil: true },
     });
-    if (!state?.lastFailureAt || !state.lastErrorCode) return false;
-    const cooldownMs =
-      state.lastErrorCode === "MODEL_NOT_AVAILABLE"
-        ? 24 * 60 * 60_000
-        : state.lastErrorCode === "RATE_LIMIT"
-        ? 5 * 60_000
-        : state.lastErrorCode === "AUTH" || state.lastErrorCode === "CREDITS"
-          ? 30 * 60_000
-          : state.lastErrorCode === "PROVIDER_ERROR" ||
-              state.lastErrorCode === "NETWORK" ||
-              state.lastErrorCode === "TIMEOUT"
-            ? 60_000
-            : 0;
-    return (
-      cooldownMs > 0 && Date.now() - state.lastFailureAt.getTime() < cooldownMs
-    );
+    return Boolean(state?.cooldownUntil && state.cooldownUntil > new Date());
   }
 
   private async updateModelFailure(
+    provider: AiProvider,
     model: string,
     task: AiTask,
-    code: string,
-    status: "degraded" | "unavailable",
+    error: ModelCallError,
   ) {
     const current = await this.prisma.aiModelState.findUnique({
-      where: { model },
+      where: { provider_model: { provider, model } },
       select: { consecutiveFailures: true },
     });
+    const fallbackCooldown =
+      error.code === "MODEL_NOT_AVAILABLE"
+        ? 24 * 60 * 60_000
+        : error.code === "MODEL_CAPABILITY"
+          ? 24 * 60 * 60_000
+          : error.code === "INVALID_JSON" ||
+              error.code === "INVALID_PROVIDER_JSON"
+            ? 15 * 60_000
+            : error.code === "RATE_LIMIT"
+              ? 5 * 60_000
+              : error.code === "AUTH" || error.code === "CREDITS"
+                ? 30 * 60_000
+                : error.code === "PROVIDER_ERROR" ||
+                    error.code === "NETWORK" ||
+                    error.code === "TIMEOUT"
+                  ? 60_000
+                  : 0;
+    const cooldownUntil =
+      error.rate.cooldownUntil ??
+      (fallbackCooldown ? new Date(Date.now() + fallbackCooldown) : undefined);
+    const status =
+      error.code === "MODEL_NOT_AVAILABLE" ? "unavailable" : "degraded";
     await this.prisma.aiModelState.upsert({
-      where: { model },
+      where: { provider_model: { provider, model } },
       update: {
-        provider: "bai",
-        role: modelRoleLabels[model] ?? task,
+        role: modelRole(provider, model, task),
         configured: true,
         status,
+        cooldownUntil,
+        quotaResetAt: error.rate.quotaResetAt,
         consecutiveFailures: (current?.consecutiveFailures ?? 0) + 1,
         lastFailureAt: new Date(),
-        lastErrorCode: code,
+        lastErrorCode: error.code,
         lastCheckedAt: new Date(),
       },
       create: {
         model,
-        provider: "bai",
-        role: modelRoleLabels[model] ?? task,
+        provider,
+        role: modelRole(provider, model, task),
         configured: true,
         status,
+        cooldownUntil,
+        quotaResetAt: error.rate.quotaResetAt,
         consecutiveFailures: 1,
         lastFailureAt: new Date(),
-        lastErrorCode: code,
+        lastErrorCode: error.code,
       },
     });
   }

@@ -211,6 +211,15 @@ type SellerSummary = {
   profileUrl?: string | null;
   source: { key: string; displayName: string };
   _count: { items: number };
+  segment?: SellerSegment;
+};
+
+type SellerSegment = {
+  key: string;
+  label: string;
+  description: string;
+  count?: number;
+  reasons?: string[];
 };
 
 type Filters = Record<string, string>;
@@ -1059,7 +1068,7 @@ function ProductCard({
   return (
     <article
       data-item-id={item.id}
-      className="ios-card js-product-card motion-layer group flex h-full min-w-0 flex-col overflow-hidden rounded-[18px] border border-ink/10 shadow-panel transition-shadow duration-200 hover:border-moss/30 hover:shadow-lg"
+      className="ios-card product-card js-product-card motion-layer group flex h-full min-w-0 flex-col overflow-hidden rounded-[18px] shadow-panel"
     >
       <div
         role="button"
@@ -1072,7 +1081,7 @@ function ProductCard({
           }
         }}
         aria-label={`打开商品：${displayTitle}`}
-        className="relative block aspect-[3/2] w-full overflow-hidden bg-gradient-to-br from-moss to-ink text-left outline-none focus-visible:ring-4 focus-visible:ring-moss/30"
+        className="product-card-media relative block aspect-[3/2] w-full overflow-hidden bg-ink text-left outline-none focus-visible:ring-4 focus-visible:ring-moss/30"
       >
         <ImageGallery
           images={item.images}
@@ -1109,7 +1118,7 @@ function ProductCard({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col p-3">
+      <div className="product-card-body flex flex-1 flex-col p-3">
         <div className="product-card-tags mb-2 flex min-h-6 flex-wrap gap-1">
           {productTags.map((tag, index) => (
             <span
@@ -1127,7 +1136,7 @@ function ProductCard({
         </div>
         <button
           onClick={onOpen}
-          className="line-clamp-2 min-h-11 w-full text-left text-sm font-black leading-[1.35rem] text-ink transition-colors hover:text-moss"
+          className="product-card-title line-clamp-2 min-h-11 w-full text-left text-sm font-black leading-[1.35rem] text-ink transition-colors hover:text-moss"
         >
           {displayTitle}
         </button>
@@ -1529,7 +1538,7 @@ function FavoriteMiniCard({
   return (
     <button
       onClick={onOpen}
-      className="grid min-h-[84px] w-full grid-cols-[64px_1fr_auto] items-center gap-3 rounded-xl border border-moss/15 bg-white p-2 text-left shadow-sm transition-colors hover:border-moss/40"
+      className="favorite-mini-card grid min-h-[84px] w-full grid-cols-[64px_1fr_auto] items-center gap-3 rounded-xl bg-white p-2 text-left shadow-sm"
     >
       <div className="h-16 w-16 overflow-hidden rounded-lg bg-ink">
         {item.images[0] ? (
@@ -1600,7 +1609,9 @@ function FavoritesWorkspace({
           total?: number;
         };
         setItems((current) =>
-          append ? [...current, ...(payload.items ?? [])] : (payload.items ?? []),
+          append
+            ? [...current, ...(payload.items ?? [])]
+            : (payload.items ?? []),
         );
         setTotal(payload.total ?? 0);
         setOffset(nextOffset + (payload.items?.length ?? 0));
@@ -1617,16 +1628,29 @@ function FavoritesWorkspace({
     void load();
   }, [load]);
   return (
-    <section className="portal-page" aria-labelledby="favorites-title">
+    <section
+      className="favorites-workspace portal-page"
+      aria-labelledby="favorites-title"
+    >
       <div className="portal-heading">
-        <p>工作台 · 商品</p>
         <h2 id="favorites-title">收藏</h2>
       </div>
-      {error && <p role="alert" className="mt-4 rounded-xl bg-rust p-3 text-xs font-bold text-white">{error}</p>}
+      {error && (
+        <p
+          role="alert"
+          className="mt-4 rounded-xl bg-rust p-3 text-xs font-bold text-white"
+        >
+          {error}
+        </p>
+      )}
       {loading ? (
-        <p className="mt-6 rounded-2xl border border-dashed border-black/10 p-8 text-center text-sm text-ink/45">正在读取收藏…</p>
+        <p className="mt-6 rounded-2xl border border-dashed border-black/10 p-8 text-center text-sm text-ink/45">
+          正在读取收藏…
+        </p>
       ) : items.length === 0 ? (
-        <p className="mt-6 rounded-2xl border border-dashed border-black/10 p-8 text-center text-sm text-ink/45">还没有收藏商品</p>
+        <p className="mt-6 rounded-2xl border border-dashed border-black/10 p-8 text-center text-sm text-ink/45">
+          还没有收藏商品
+        </p>
       ) : (
         <>
           <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -1892,11 +1916,19 @@ function SellerDirectory({
   const [search, setSearch] = useState("");
   const [sellerPage, setSellerPage] = useState(1);
   const [sellerPageCount, setSellerPageCount] = useState(1);
+  const [sellerTotal, setSellerTotal] = useState(0);
+  const [segments, setSegments] = useState<SellerSegment[]>([]);
+  const [activeSegment, setActiveSegment] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const load = useCallback(
-    async (query: string, nextPage = 1, append = false) => {
+    async (
+      query: string,
+      nextPage = 1,
+      append = false,
+      segment = activeSegment,
+    ) => {
       if (append) setLoadingMore(true);
       else setLoading(true);
       setError("");
@@ -1906,6 +1938,7 @@ function SellerDirectory({
           limit: "60",
         });
         if (query.trim()) params.set("search", query.trim());
+        if (segment) params.set("segment", segment);
         const response = await fetch(
           `${apiBaseUrl}/items/sellers?${params.toString()}`,
           {
@@ -1915,12 +1948,18 @@ function SellerDirectory({
         if (!response.ok) throw new Error(`API ${response.status}`);
         const data = (await response.json()) as {
           sellers?: SellerSummary[];
+          segments?: SellerSegment[];
+          activeSegment?: string | null;
+          total?: number;
           page?: number;
           pageCount?: number;
         };
         setSellers((current) =>
           append ? [...current, ...(data.sellers ?? [])] : (data.sellers ?? []),
         );
+        setSegments(data.segments ?? []);
+        setActiveSegment(data.activeSegment ?? segment);
+        setSellerTotal(data.total ?? 0);
         setSellerPage(data.page ?? nextPage);
         setSellerPageCount(data.pageCount ?? 1);
       } catch (reason) {
@@ -1930,22 +1969,25 @@ function SellerDirectory({
         setLoadingMore(false);
       }
     },
-    [apiBaseUrl],
+    [activeSegment, apiBaseUrl],
   );
   useEffect(() => {
-    const timer = window.setTimeout(() => void load(search, 1, false), 220);
+    const timer = window.setTimeout(
+      () => void load(search, 1, false, activeSegment),
+      220,
+    );
     return () => window.clearTimeout(timer);
-  }, [load, search]);
+  }, [activeSegment, load, search]);
+  const activeSegmentDefinition = segments.find(
+    (segment) => segment.key === activeSegment,
+  );
   return (
     <section
-      className="ios-surface mt-3 rounded-2xl border border-white/70 p-4 shadow-panel"
+      className="seller-directory ios-surface mt-3 rounded-2xl border border-white/70 p-4 shadow-panel"
       aria-labelledby="seller-directory-heading"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[.2em] text-moss">
-            Seller index
-          </div>
           <h3
             id="seller-directory-heading"
             className="font-heading text-lg font-black"
@@ -1953,7 +1995,7 @@ function SellerDirectory({
             商家目录
           </h3>
           <p className="mt-1 text-xs text-ink/55">
-            按来源聚合公开卖家，点击可查看该商家的全部在售商品与 AI 画像。
+            已整合 {sellerTotal} 个公开卖家，按经营特征归为五类。
           </p>
         </div>
         <label className="relative min-w-[220px] flex-1 sm:max-w-xs">
@@ -1966,6 +2008,42 @@ function SellerDirectory({
           />
         </label>
       </div>
+      {segments.length > 0 && (
+        <div className="seller-segment-section mt-4">
+          <div
+            className="seller-segment-strip"
+            role="group"
+            aria-label="卖家群体分类"
+          >
+            <button
+              type="button"
+              aria-pressed={!activeSegment}
+              onClick={() => setActiveSegment("")}
+              className="seller-segment-chip"
+            >
+              全部
+            </button>
+            {segments.map((segment) => (
+              <button
+                key={segment.key}
+                type="button"
+                aria-pressed={activeSegment === segment.key}
+                onClick={() => setActiveSegment(segment.key)}
+                className="seller-segment-chip"
+                title={segment.description}
+              >
+                <span>{segment.label}</span>
+                <b>{segment.count ?? 0}</b>
+              </button>
+            ))}
+          </div>
+          {activeSegmentDefinition && (
+            <p className="seller-segment-description" aria-live="polite">
+              {activeSegmentDefinition.description}
+            </p>
+          )}
+        </div>
+      )}
       {error && (
         <p
           role="alert"
@@ -1989,7 +2067,7 @@ function SellerDirectory({
               type="button"
               key={seller.id}
               onClick={() => onOpenSeller(seller.id)}
-              className="group min-w-0 rounded-xl border border-white/80 bg-white/65 p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-moss/35 hover:shadow-md"
+              className="seller-directory-card group min-w-0 rounded-xl bg-white p-3 text-left shadow-sm"
             >
               <div className="flex items-start justify-between gap-2">
                 <b className="line-clamp-2 min-w-0 text-sm text-ink">
@@ -2004,11 +2082,12 @@ function SellerDirectory({
                   {sourceName(seller.source.key, seller.source.displayName)}
                 </span>
                 <span className="rounded-md bg-fog/80 px-1.5 py-1">
-                  {seller.sellerType === "store"
-                    ? "专业售卖"
-                    : seller.sellerType === "individual"
-                      ? "个人卖家"
-                      : "待分析"}
+                  {seller.segment?.label ??
+                    (seller.sellerType === "store"
+                      ? "专业售卖"
+                      : seller.sellerType === "individual"
+                        ? "个人卖家"
+                        : "待分析")}
                 </span>
                 {seller.locationText && (
                   <span className="rounded-md bg-fog/80 px-1.5 py-1">
@@ -2016,6 +2095,11 @@ function SellerDirectory({
                   </span>
                 )}
               </div>
+              {seller.segment?.reasons?.[0] && (
+                <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-ink/55">
+                  {seller.segment.reasons[0]}
+                </p>
+              )}
               <span className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold text-moss opacity-75 transition group-hover:opacity-100">
                 查看商家画像 <ExternalLinkIcon className="h-3 w-3" />
               </span>
@@ -2026,7 +2110,7 @@ function SellerDirectory({
       {!loading && sellerPage < sellerPageCount && (
         <button
           type="button"
-          onClick={() => void load(search, sellerPage + 1, true)}
+          onClick={() => void load(search, sellerPage + 1, true, activeSegment)}
           disabled={loadingMore}
           className="mt-3 min-h-10 w-full rounded-xl border border-moss/25 bg-moss/5 text-xs font-bold text-moss transition hover:bg-moss/10 disabled:opacity-50"
         >
@@ -3710,7 +3794,8 @@ export default function Dashboard() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(itemIds?.length ? { itemIds } : {}),
       });
-      if (!response.ok) throw new Error(`读取原始链接失败（${response.status}）`);
+      if (!response.ok)
+        throw new Error(`读取原始链接失败（${response.status}）`);
       const result = (await response.json()) as {
         itemCount: number;
         primaryUrl: string;
@@ -3731,9 +3816,7 @@ export default function Dashboard() {
           result.sourceUrls.length === 1
             ? "商品原始来源"
             : `${result.itemCount} 件商品原始来源：\n${linksText}`,
-        ...(result.sourceUrls.length === 1
-          ? { url: result.primaryUrl }
-          : {}),
+        ...(result.sourceUrls.length === 1 ? { url: result.primaryUrl } : {}),
       };
       if (navigator.share) {
         try {
@@ -3929,9 +4012,15 @@ export default function Dashboard() {
       ? "assistant"
       : workspace === "discovery"
         ? "discovery"
-        : ["links", "purchases", "favorites", "sellers", "intel", "logistics", "workbench"].includes(
-              workspace,
-            )
+        : [
+              "links",
+              "purchases",
+              "favorites",
+              "sellers",
+              "intel",
+              "logistics",
+              "workbench",
+            ].includes(workspace)
           ? "workbench"
           : ["disliked", "reviews", "monitoring", "ai", "menu"].includes(
                 workspace,
@@ -4012,17 +4101,17 @@ export default function Dashboard() {
 
       {settingsOpen && (
         <div
-          className="modal-backdrop fixed inset-0 z-[70] grid place-items-center bg-ink/40 p-4 backdrop-blur-sm"
+          className="modal-backdrop settings-backdrop fixed inset-0 z-[70] grid place-items-center bg-ink/40 p-4"
           onMouseDown={() => setSettingsOpen(false)}
         >
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-title"
-            className="modal-panel w-full max-w-sm rounded-3xl bg-paper p-3 shadow-modal"
+            className="modal-panel settings-dialog w-full max-w-sm rounded-3xl bg-paper p-3 shadow-modal"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-3 px-2 pb-2">
+            <div className="settings-dialog-header flex items-center justify-between gap-3 px-2 pb-2">
               <h2 id="settings-title" className="text-base font-bold text-ink">
                 设置
               </h2>
@@ -4040,7 +4129,7 @@ export default function Dashboard() {
               onClick={() =>
                 setLanguage((current) => (current === "zh" ? "original" : "zh"))
               }
-              className="mb-1 flex min-h-12 w-full items-center gap-3 rounded-2xl bg-white px-3 text-left text-sm font-semibold text-ink shadow-sm"
+              className="settings-row mb-1 flex min-h-12 w-full items-center gap-3 rounded-2xl bg-white px-3 text-left text-sm font-semibold text-ink shadow-sm"
             >
               <TranslateIcon />
               <span className="flex-1">显示语言</span>
@@ -4070,7 +4159,7 @@ export default function Dashboard() {
                   navigateWorkspace(key);
                   setSettingsOpen(false);
                 }}
-                className={`flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-left text-sm font-semibold transition-colors hover:bg-white ${workspace === key ? "bg-white text-moss shadow-sm" : "text-ink"}`}
+                className={`settings-row flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-left text-sm font-semibold transition-colors hover:bg-white ${workspace === key ? "bg-white text-moss shadow-sm" : "text-ink"}`}
               >
                 <Icon />
                 <span className="flex-1">{label}</span>
@@ -4096,12 +4185,7 @@ export default function Dashboard() {
         {workspace === "workbench" && (
           <section className="portal-page" aria-labelledby="workbench-title">
             <div className="portal-heading">
-              <p>假面采购</p>
               <h2 id="workbench-title">工作台</h2>
-            </div>
-            <div className="portal-search" aria-hidden="true">
-              <FilterIcon className="h-5 w-5" />
-              <span>选择要处理的工作</span>
             </div>
             <div className="portal-grid">
               {(
@@ -4135,7 +4219,6 @@ export default function Dashboard() {
             aria-labelledby="menu-title"
           >
             <div className="portal-heading">
-              <p>假面采购</p>
               <h2 id="menu-title">菜单</h2>
             </div>
             <div className="menu-groups">
@@ -4242,14 +4325,11 @@ export default function Dashboard() {
           </div>
         )}
         {(workspace === "links" || workspace === "purchases") && (
-          <section className="ios-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel">
+          <section className="ios-surface workspace-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel">
             {workspace === "links" ? (
               <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-[10px] font-black uppercase tracking-[.2em] text-moss">
-                      URL workspace
-                    </div>
                     <h2 className="font-heading text-xl font-black">
                       链接专区
                     </h2>
@@ -4445,9 +4525,6 @@ export default function Dashboard() {
               <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-[10px] font-black uppercase tracking-[.2em] text-rust">
-                      Purchase workspace
-                    </div>
                     <h2 className="font-heading text-xl font-black">
                       购买记录 · {purchases.length} 件
                     </h2>
@@ -5276,12 +5353,9 @@ export default function Dashboard() {
               </div>
             )}
 
-            <section className="js-shell-reveal mt-3 rounded-2xl border border-blue-100 bg-white p-3 shadow-panel">
+            <section className="workspace-surface js-shell-reveal mt-3 rounded-2xl border border-blue-100 bg-white p-3 shadow-panel">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-[10px] font-black uppercase tracking-[.2em] text-moss">
-                    在售库
-                  </div>
                   <h2
                     id="inventory"
                     className="font-heading text-lg font-black"

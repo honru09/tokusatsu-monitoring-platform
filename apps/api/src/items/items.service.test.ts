@@ -115,21 +115,76 @@ describe("ItemsService.list", () => {
 });
 
 describe("ItemsService seller pagination", () => {
-  it("returns the real seller-directory total instead of the current page length", async () => {
+  const sellerRow = (
+    id: string,
+    sellerType: "individual" | "store" | "unknown" = "individual",
+    categoryToyTypes = ["figure"],
+  ) => ({
+    id,
+    name: id,
+    sellerType,
+    locationText: null,
+    sourceData: null,
+    profileUrl: null,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+    source: { key: "yahoo_auctions", displayName: "Yahoo!オークション" },
+    items: categoryToyTypes.map((categoryToyType) => ({ categoryToyType })),
+  });
+
+  it("returns the real seller-directory total and paginates after classification", async () => {
+    const rows = Array.from({ length: 1_105 }, (_, index) =>
+      sellerRow(`seller-${index + 1}`),
+    );
     const prisma = {
       seller: {
-        findMany: vi.fn().mockResolvedValue([{ id: "seller-61" }]),
-        count: vi.fn().mockResolvedValue(1_105),
+        findMany: vi.fn().mockResolvedValue(rows),
       },
     };
     const service = new ItemsService(prisma as never);
 
     const result = await service.listSellers("", 3, 60);
 
-    expect(prisma.seller.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 120, take: 60 }),
-    );
     expect(result).toMatchObject({ total: 1_105, page: 3, pageCount: 19 });
+    expect(result.sellers[0]).toMatchObject({ id: "seller-121" });
+    expect(result.sellers).toHaveLength(60);
+    expect(result.segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "occasional", count: 1_105 }),
+      ]),
+    );
+  });
+
+  it("filters by one segment while returning counts and descriptions for every group", async () => {
+    const rows = [
+      sellerRow("store", "store"),
+      sellerRow("volume", "individual", Array(20).fill("figure")),
+      sellerRow("specialist", "individual", Array(4).fill("sofubi")),
+      sellerRow("active", "individual", ["figure", "sofubi"]),
+      sellerRow("occasional", "unknown"),
+    ];
+    const prisma = { seller: { findMany: vi.fn().mockResolvedValue(rows) } };
+    const service = new ItemsService(prisma as never);
+
+    const result = await service.listSellers("", 1, 60, "specialist");
+
+    expect(result).toMatchObject({
+      total: 1,
+      activeSegment: "specialist",
+      sellers: [
+        expect.objectContaining({
+          id: "specialist",
+          segment: expect.objectContaining({ key: "specialist" }),
+        }),
+      ],
+      segments: [
+        expect.objectContaining({ key: "professional_store", count: 1 }),
+        expect.objectContaining({ key: "high_volume", count: 1 }),
+        expect.objectContaining({ key: "specialist", count: 1 }),
+        expect.objectContaining({ key: "active_individual", count: 1 }),
+        expect.objectContaining({ key: "occasional", count: 1 }),
+      ],
+    });
   });
 
   it("pages through every active item from one seller", async () => {
@@ -145,7 +200,13 @@ describe("ItemsService seller pagination", () => {
           items: rows,
         }),
       },
-      item: { count: vi.fn().mockResolvedValue(237) },
+      item: {
+        findMany: vi.fn().mockResolvedValue(
+          Array.from({ length: 237 }, () => ({
+            categoryToyType: "figure",
+          })),
+        ),
+      },
     };
     const service = new ItemsService(prisma as never);
 
@@ -163,6 +224,9 @@ describe("ItemsService seller pagination", () => {
       page: 2,
       pageCount: 5,
       items: rows,
+      seller: expect.objectContaining({
+        segment: expect.objectContaining({ key: "high_volume" }),
+      }),
     });
   });
 });

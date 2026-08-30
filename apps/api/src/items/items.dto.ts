@@ -17,6 +17,7 @@ import {
   manufacturers,
   toyTypes,
 } from "@tokusatsu/shared";
+import { sellerSegmentKeys } from "./seller-segments.js";
 
 const optionalBoolean = ({ value }: { value: unknown }) =>
   value === true || value === "true";
@@ -75,6 +76,13 @@ export class ItemChangesQuery {
   @IsOptional()
   @IsString()
   since?: string;
+}
+
+export class ListSellersQuery {
+  @IsOptional() @IsString() search?: string;
+  @IsOptional() @IsIn(sellerSegmentKeys) segment?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 60;
 }
 
 export class UpdateItemDto {

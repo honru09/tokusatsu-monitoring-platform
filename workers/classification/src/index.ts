@@ -100,6 +100,8 @@ export async function classifyImages(input: {
   if (input.imageUrls.length === 0) {
     return { provider: "unconfigured", result: conservativeFallback };
   }
+  const internalToken = process.env.AI_INTERNAL_TOKEN?.trim();
+  if (!internalToken) throw new Error("AI Gateway 内部令牌未配置");
 
   const response = await fetch(
     `${apiBase}/ai/image-analysis${input.itemId ? `?itemId=${encodeURIComponent(input.itemId)}` : ""}`,
@@ -107,6 +109,7 @@ export async function classifyImages(input: {
       method: "POST",
       headers: {
         "content-type": "application/json",
+        "x-ai-internal-token": internalToken,
       },
       body: JSON.stringify({
         title: input.title,
@@ -114,7 +117,13 @@ export async function classifyImages(input: {
         imageUrls: input.imageUrls,
       }),
       signal: AbortSignal.timeout(
-        Math.max(30_000, Number(process.env.AI_TIMEOUT_MS ?? 120_000) + 15_000),
+        Math.max(
+          250_000,
+          Math.min(
+            Number(process.env.AI_GATEWAY_CLIENT_TIMEOUT_MS ?? 270_000),
+            300_000,
+          ),
+        ),
       ),
     },
   );

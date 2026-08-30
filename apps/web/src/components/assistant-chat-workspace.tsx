@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { readJsonResponse } from "../lib/http-json";
 
 type ChatItem = {
   id: string;
@@ -22,6 +23,7 @@ type ChatResponse = {
   items: ChatItem[];
   suggestions: string[];
   model: string;
+  provider?: "bai" | "openrouter";
   fallbackUsed: boolean;
   generatedAt: string;
 };
@@ -141,10 +143,11 @@ export function AssistantChatWorkspace({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ message, history }),
       });
-      const data = (await response.json()) as ChatResponse & {
-        message?: string;
-      };
-      if (!response.ok) throw new Error(data.message ?? "AI 暂时无法回答");
+      const data = await readJsonResponse<
+        ChatResponse & {
+          message?: string;
+        }
+      >(response, "AI 暂时无法回答");
       setMessages((current) => [
         ...current,
         {
@@ -158,6 +161,7 @@ export function AssistantChatWorkspace({
         },
       ]);
     } catch (reason) {
+      setInput(message);
       setError(reason instanceof Error ? reason.message : "AI 暂时无法回答");
     } finally {
       setLoading(false);

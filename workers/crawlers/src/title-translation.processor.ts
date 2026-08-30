@@ -85,7 +85,13 @@ export async function processTitleTranslation() {
         itemIds: items.map((item) => item.id),
       }),
       signal: AbortSignal.timeout(
-        Math.max(30_000, Number(process.env.AI_TIMEOUT_MS ?? 120_000) + 15_000),
+        Math.max(
+          250_000,
+          Math.min(
+            Number(process.env.AI_GATEWAY_CLIENT_TIMEOUT_MS ?? 270_000),
+            300_000,
+          ),
+        ),
       ),
     });
     if (!response.ok) {

@@ -14,3 +14,4 @@ playwright-artifacts/
 playwright-tests/
 test-results/
 .impeccable/review-public-final/
+.local-backups/

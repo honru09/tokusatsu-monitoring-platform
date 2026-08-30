@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Get,
   Headers,
+  HttpCode,
   Param,
   Post,
   Query,
@@ -17,6 +18,7 @@ import {
   InternalExecuteDto,
 } from "./ai.dto.js";
 import { AiSystemService } from "./ai-system.service.js";
+import { PublicAiAccess } from "./public-ai-access.guard.js";
 
 @Controller("ai")
 export class AiController {
@@ -32,9 +34,11 @@ export class AiController {
 
   @Post("image-analysis")
   analyzeImages(
+    @Headers("x-ai-internal-token") token: string | undefined,
     @Body() body: ImageAnalysisDto,
     @Query("itemId") itemId?: string,
   ) {
+    this.assertInternalToken(token);
     return this.system.analyzeImages(body, itemId);
   }
 
@@ -49,11 +53,15 @@ export class AiController {
   }
 
   @Post("system/diagnose")
+  @HttpCode(200)
+  @PublicAiAccess("diagnose")
   diagnose(@Body() body: DiagnosisDto) {
     return this.system.diagnose(body.source);
   }
 
   @Post("chat")
+  @HttpCode(200)
+  @PublicAiAccess("chat")
   chat(@Body() body: AssistantChatDto) {
     return this.system.chat(body);
   }

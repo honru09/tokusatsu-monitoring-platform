@@ -118,6 +118,7 @@ describe("AnalysisService seller catalogue", () => {
       listingType: "auction",
       conditionRaw: "中古",
       conditionGrade: "used",
+      categoryToyType: "figure",
       status: "active",
       listedAt: null,
       sourceUrl: `https://example.test/${index + 1}`,
@@ -153,6 +154,12 @@ describe("AnalysisService seller catalogue", () => {
       page: 2,
       pageCount: 5,
       mode: "rules",
+      seller: expect.objectContaining({
+        segment: expect.objectContaining({
+          key: "professional_store",
+          reasons: [expect.any(String)],
+        }),
+      }),
     });
     expect(result?.items).toHaveLength(48);
     expect(result?.items[0]?.id).toBe("listing-49");

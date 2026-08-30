@@ -20,6 +20,12 @@ import type {
   PurchaseDto,
   UpdateItemDto,
 } from "./items.dto.js";
+import {
+  classifySellerSegment,
+  sellerSegmentKeys,
+  sellerSegmentStats,
+  type SellerSegmentKey,
+} from "./seller-segments.js";
 
 const include = {
   source: { select: { key: true, displayName: true } },
@@ -573,7 +579,7 @@ export class ItemsService {
     };
   }
 
-  async listSellers(search?: string, page = 1, limit = 60) {
+  async listSellers(search?: string, page = 1, limit = 60, segment?: string) {
     const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
     const safeLimit = Number.isFinite(limit)
       ? Math.max(1, Math.min(100, Math.floor(limit)))
@@ -599,25 +605,54 @@ export class ItemsService {
         { items: { some: visibleItemWhere } },
       ],
     };
-    const sellers = await this.prisma.seller.findMany({
+    const sellerRows = await this.prisma.seller.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        sellerType: true,
+        locationText: true,
+        sourceData: true,
+        profileUrl: true,
+        createdAt: true,
+        updatedAt: true,
         source: { select: { key: true, displayName: true } },
-        _count: {
-          select: {
-            items: {
-              where: visibleItemWhere,
-            },
-          },
+        items: {
+          where: visibleItemWhere,
+          select: { categoryToyType: true },
         },
       },
       orderBy: { updatedAt: "desc" },
-      skip: (safePage - 1) * safeLimit,
-      take: safeLimit,
     });
-    const total = await this.prisma.seller.count({ where });
+    const classified = sellerRows.map(({ items, sourceData, ...seller }) => ({
+      ...seller,
+      _count: { items: items.length },
+      segment: classifySellerSegment({
+        sellerType: seller.sellerType,
+        sourceKey: seller.source.key,
+        sourceDisplayName: seller.source.displayName,
+        sourceData,
+        visibleItems: items,
+      }),
+    }));
+    const segments = sellerSegmentStats(classified.map((row) => row.segment));
+    const activeSegment = sellerSegmentKeys.includes(
+      segment as SellerSegmentKey,
+    )
+      ? (segment as SellerSegmentKey)
+      : null;
+    const filtered = activeSegment
+      ? classified.filter((row) => row.segment.key === activeSegment)
+      : classified;
+    const total = filtered.length;
+    const sellers = filtered.slice(
+      (safePage - 1) * safeLimit,
+      safePage * safeLimit,
+    );
     return {
       sellers,
+      segments,
+      activeSegment,
       total,
       page: safePage,
       limit: safeLimit,
@@ -637,30 +672,43 @@ export class ItemsService {
       channel: SourceChannel.online,
       purchaseRecord: null,
       categoryToyType: { not: ToyType.card },
-    };
-    const seller = await this.prisma.seller.findUnique({
-      where: { id },
-      include: {
-        source: { select: { key: true, displayName: true } },
-        items: {
-          where: {
-            archivedAt: null,
-            channel: SourceChannel.online,
-            purchaseRecord: null,
-            categoryToyType: { not: ToyType.card },
+    } satisfies Prisma.ItemWhereInput;
+    const [seller, segmentItems] = await Promise.all([
+      this.prisma.seller.findUnique({
+        where: { id },
+        include: {
+          source: { select: { key: true, displayName: true } },
+          items: {
+            where: {
+              archivedAt: null,
+              channel: SourceChannel.online,
+              purchaseRecord: null,
+              categoryToyType: { not: ToyType.card },
+            },
+            include,
+            orderBy: { detectedAt: "desc" },
+            skip: (safePage - 1) * safeLimit,
+            take: safeLimit,
           },
-          include,
-          orderBy: { detectedAt: "desc" },
-          skip: (safePage - 1) * safeLimit,
-          take: safeLimit,
         },
-      },
-    });
+      }),
+      this.prisma.item.findMany({
+        where: itemWhere,
+        select: { categoryToyType: true },
+      }),
+    ]);
     if (!seller) throw new NotFoundException("Seller not found");
-    const total = await this.prisma.item.count({ where: itemWhere });
+    const total = segmentItems.length;
     const { items, ...sellerProfile } = seller;
+    const segment = classifySellerSegment({
+      sellerType: seller.sellerType,
+      sourceKey: seller.source.key,
+      sourceDisplayName: seller.source.displayName,
+      sourceData: seller.sourceData,
+      visibleItems: segmentItems,
+    });
     return {
-      seller: sellerProfile,
+      seller: { ...sellerProfile, segment },
       items,
       total,
       page: safePage,

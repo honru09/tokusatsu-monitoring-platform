@@ -50,8 +50,10 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       FIRECRAWL_INCLUDE_DOMAINS: ${FIRECRAWL_INCLUDE_DOMAINS:-jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp,paypayfleamarket.yahoo.co.jp,item.rakuten.co.jp,www.amazon.co.jp,www.ebay.com,netmall.hardoff.co.jp,store.shopping.yahoo.co.jp}
       FIRECRAWL_ALLOW_ANY_DOMAIN: ${FIRECRAWL_ALLOW_ANY_DOMAIN:-false}
-      BAI_API_URL: ${BAI_API_URL:-https://api.b.ai/v1}
-      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-120000}
+      NVIDIA_INTERNAL_EVALUATION: ${NVIDIA_INTERNAL_EVALUATION:-false}
+      # AI Provider keys, account tiers, task routes, and safety gates come
+      # directly from ../.env. Repeating them here with interpolation defaults
+      # would override env_file values when the compose file lives elsewhere.
       TITLE_TRANSLATION_INTERVAL_MS: ${TITLE_TRANSLATION_INTERVAL_MS:-15000}
       INVENTORY_CLEANUP_INTERVAL_MS: ${INVENTORY_CLEANUP_INTERVAL_MS:-7200000}
     ports:
@@ -119,7 +121,20 @@ services:
       FIRECRAWL_DISCOVERY_INTERVAL_MS: ${FIRECRAWL_DISCOVERY_INTERVAL_MS:-7200000}
       FIRECRAWL_API_URL: ${FIRECRAWL_API_URL:-https://api.firecrawl.dev}
       FIRECRAWL_INCLUDE_DOMAINS: ${FIRECRAWL_INCLUDE_DOMAINS:-jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp,paypayfleamarket.yahoo.co.jp,item.rakuten.co.jp,www.amazon.co.jp,www.ebay.com,netmall.hardoff.co.jp,store.shopping.yahoo.co.jp}
-      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-120000}
+      # The Worker calls the private API for AI tasks. Override env_file values so
+      # provider credentials exist only inside the API container.
+      BAI_API_KEY: ""
+      GEMINI_API_KEY: ""
+      GROQ_API_KEY: ""
+      SILICONFLOW_API_KEY: ""
+      CEREBRAS_API_KEY: ""
+      CLOUDFLARE_AI_API_TOKEN: ""
+      CLOUDFLARE_ACCOUNT_ID: ""
+      COHERE_API_KEY: ""
+      NVIDIA_API_KEY: ""
+      OPENROUTER_API_KEY: ""
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-30000}
+      AI_GATEWAY_CLIENT_TIMEOUT_MS: ${AI_GATEWAY_CLIENT_TIMEOUT_MS:-270000}
       TITLE_TRANSLATION_INTERVAL_MS: ${TITLE_TRANSLATION_INTERVAL_MS:-15000}
       DETAIL_TRANSLATION_INTERVAL_MS: ${DETAIL_TRANSLATION_INTERVAL_MS:-15000}
       TITLE_TRANSLATION_BATCH_SIZE: ${TITLE_TRANSLATION_BATCH_SIZE:-2}
@@ -158,6 +173,7 @@ services:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/backend}
       API_INTERNAL_URL: http://api:3001
       PORT: 3000
+      AI_PROXY_TIMEOUT_MS: ${AI_PROXY_TIMEOUT_MS:-270000}
     ports:
       - "3000:3000"
     depends_on:

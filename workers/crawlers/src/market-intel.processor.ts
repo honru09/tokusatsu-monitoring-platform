@@ -113,12 +113,20 @@ async function gatewayJson<T>(
     },
     body: JSON.stringify({
       task: "translation",
+      dataClass: "public_market",
+      costPolicy: "free_first",
       temperature: 0.1,
       maxTokens,
       messages,
     }),
     signal: AbortSignal.timeout(
-      Math.max(30_000, Number(process.env.AI_TIMEOUT_MS ?? 120_000) + 15_000),
+      Math.max(
+        250_000,
+        Math.min(
+          Number(process.env.AI_GATEWAY_CLIENT_TIMEOUT_MS ?? 270_000),
+          300_000,
+        ),
+      ),
     ),
   });
   if (!response.ok) throw new Error(`AI Gateway ${response.status}`);

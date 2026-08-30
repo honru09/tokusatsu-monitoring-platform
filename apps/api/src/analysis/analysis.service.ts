@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { SourceChannel, ToyType } from "@tokusatsu/db";
 import { AiGatewayService } from "../ai/ai-gateway.service.js";
+import { classifySellerSegment } from "../items/seller-segments.js";
 import { PrismaService } from "../prisma.service.js";
 import type { TranslateDto } from "./analysis.dto.js";
 
@@ -252,6 +253,8 @@ export class AnalysisService {
           risks?: unknown;
         }>({
           task: "market_analysis",
+          dataClass: "public_market",
+          costPolicy: "free_first",
           maxTokens: 1_200,
           messages: [
             {
@@ -338,6 +341,8 @@ export class AnalysisService {
       confidence?: unknown;
     }>({
       task: "translation",
+      dataClass: "public_market",
+      costPolicy: "free_first",
       maxTokens: 9_000,
       messages: [
         {
@@ -435,6 +440,8 @@ export class AnalysisService {
         confidence?: unknown;
       }>({
         task: "classification",
+        dataClass: "public_market",
+        costPolicy: "free_first",
         itemId: id,
         maxTokens: 12_000,
         messages: [
@@ -575,6 +582,7 @@ export class AnalysisService {
             listingType: true,
             conditionRaw: true,
             conditionGrade: true,
+            categoryToyType: true,
             status: true,
             listedAt: true,
             sourceUrl: true,
@@ -597,14 +605,17 @@ export class AnalysisService {
       safePage * safeLimit,
     );
     const { items: _allItems, ...sellerProfile } = seller;
+    const segment = classifySellerSegment({
+      sellerType: seller.sellerType,
+      sourceKey: seller.source.key,
+      sourceDisplayName: seller.source.displayName,
+      sourceData: seller.sourceData,
+      visibleItems: allItems,
+    });
+    const sellerProfileWithSegment = { ...sellerProfile, segment };
     const fallbackNegotiation = negotiationFallback(targetPrice);
     const fallback = {
-      sellerType:
-        seller.sellerType === "store"
-          ? "专业售卖"
-          : seller.sellerType === "individual"
-            ? "个人卖家"
-            : "普通二手商家",
+      sellerType: segment.label,
       profile: `该卖家在${seller.source.displayName}有 ${allItems.length} 条在售记录。请结合商品描述、成色、运费和成交状态核验。`,
       ...fallbackNegotiation,
       negotiation: fallbackNegotiation.negotiationJa,
@@ -634,7 +645,7 @@ export class AnalysisService {
     );
     if (!this.gateway.configured() || allItems.length === 0) {
       return {
-        seller: sellerProfile,
+        seller: sellerProfileWithSegment,
         items,
         total: allItems.length,
         page: safePage,
@@ -669,11 +680,13 @@ export class AnalysisService {
         sourceUrl: item.sourceUrl,
       }));
       const systemPrompt =
-        '你是日本中古特摄采购谈判顾问。根据卖家全部可见商品、描述、价格、运费、成色和真实平台，判断卖家类型（个人画像/专业售卖/普通二手商家/随便卖的），总结可核验的中文画像。针对用户给定预算生成礼貌、自然、可直接复制给日本卖家的日语砍价消息 negotiationJa，并提供逐意对应的简体中文小字翻译 negotiationZh。日语必须是主文，中文不能混进日语正文。明确询问商品状态、配件和运费，只有输入了预算才写入具体价格。禁止虚构卖家信息，禁止评分。只输出 JSON：{"sellerType":"...","profile":"...","negotiationJa":"...","negotiationZh":"...","suggestedPrice":数字或null}。';
+        '你是日本中古特摄采购谈判顾问。系统已经根据公开资料和全部可见商品确定卖家群体标签；你只能解释该标签，不得改写或推断私人身份。根据商品描述、价格、运费、成色和真实平台总结可核验的中文画像。针对用户给定预算生成礼貌、自然、可直接复制给日本卖家的日语砍价消息 negotiationJa，并提供逐意对应的简体中文小字翻译 negotiationZh。日语必须是主文，中文不能混进日语正文。明确询问商品状态、配件和运费，只有输入了预算才写入具体价格。禁止虚构卖家信息，禁止评分。只输出 JSON：{"profile":"...","negotiationJa":"...","negotiationZh":"...","suggestedPrice":数字或null}。';
       let execution: { data: SellerModelResult; model: string };
       if (sellerRows.length <= 120) {
         execution = await this.gateway.executeJson<SellerModelResult>({
           task: "seller_analysis",
+          dataClass: "public_market",
+          costPolicy: "free_first",
           sellerId: id,
           maxTokens: 5_000,
           messages: [
@@ -683,6 +696,7 @@ export class AnalysisService {
               content: JSON.stringify({
                 targetPrice: targetPrice ?? null,
                 seller: { name: seller.name, type: seller.sellerType },
+                sellerSegment: segment,
                 catalogStats,
                 items: sellerRows,
               }),
@@ -699,6 +713,8 @@ export class AnalysisService {
             risks?: unknown;
           }>({
             task: "seller_analysis",
+            dataClass: "public_market",
+            costPolicy: "free_first",
             sellerId: id,
             maxTokens: 2_500,
             messages: [
@@ -721,6 +737,8 @@ export class AnalysisService {
         }
         execution = await this.gateway.executeJson<SellerModelResult>({
           task: "seller_analysis",
+          dataClass: "public_market",
+          costPolicy: "free_first",
           sellerId: id,
           maxTokens: 5_000,
           messages: [
@@ -730,6 +748,7 @@ export class AnalysisService {
               content: JSON.stringify({
                 targetPrice: targetPrice ?? null,
                 seller: { name: seller.name, type: seller.sellerType },
+                sellerSegment: segment,
                 catalogStats,
                 catalogueBatches: batchSummaries,
                 instruction:
@@ -741,10 +760,7 @@ export class AnalysisService {
       }
       const result = execution.data;
       const analysis = {
-        sellerType:
-          typeof result.sellerType === "string" && result.sellerType.trim()
-            ? result.sellerType.trim()
-            : fallback.sellerType,
+        sellerType: segment.label,
         profile:
           typeof result.profile === "string" && result.profile.trim()
             ? result.profile.trim()
@@ -769,7 +785,7 @@ export class AnalysisService {
         confidence: "基于卖家当前可见商品与原始描述",
       };
       return {
-        seller: sellerProfile,
+        seller: sellerProfileWithSegment,
         items,
         total: allItems.length,
         page: safePage,
@@ -781,7 +797,7 @@ export class AnalysisService {
       };
     } catch {
       return {
-        seller: sellerProfile,
+        seller: sellerProfileWithSegment,
         items,
         total: allItems.length,
         page: safePage,

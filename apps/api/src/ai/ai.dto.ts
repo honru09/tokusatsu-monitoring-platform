@@ -86,6 +86,14 @@ export class InternalExecuteDto {
   ])
   task!: AiTask;
 
+  @IsOptional()
+  @IsIn(["public_market", "user_private", "sensitive_image"])
+  dataClass?: "public_market" | "user_private" | "sensitive_image";
+
+  @IsOptional()
+  @IsIn(["free_only", "free_first", "paid_allowed"])
+  costPolicy?: "free_only" | "free_first" | "paid_allowed";
+
   @IsArray()
   @ArrayNotEmpty()
   @ArrayMaxSize(30)
