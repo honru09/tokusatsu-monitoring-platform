@@ -59,6 +59,7 @@ const feedSelect = {
   conditionGrade: true,
   quantityEst: true,
   unitCostEst: true,
+  note: true,
   source: { select: { key: true, displayName: true } },
   images: {
     orderBy: { position: "asc" as const },
@@ -74,7 +75,10 @@ const feedSelect = {
   },
 } satisfies Prisma.ItemSelect;
 
-function eligibleWhere(excludedListingIds: string[]): Prisma.ItemWhereInput {
+function eligibleWhere(
+  excludedListingIds: string[],
+  listingType?: ListingType,
+): Prisma.ItemWhereInput {
   return {
     id: excludedListingIds.length ? { notIn: excludedListingIds } : undefined,
     archivedAt: null,
@@ -82,6 +86,7 @@ function eligibleWhere(excludedListingIds: string[]): Prisma.ItemWhereInput {
     purchaseRecord: null,
     ignored: false,
     favorite: false,
+    listingType,
     categoryToyType: { not: ToyType.card },
     status: { in: [ItemStatus.active, ItemStatus.unknown] },
     NOT: excludedTitleFragments.map((fragment) => ({
@@ -94,7 +99,7 @@ function eligibleWhere(excludedListingIds: string[]): Prisma.ItemWhereInput {
 export class DiscoveryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async feed(limit: number) {
+  async feed(limit: number, listingType?: "auction" | "direct") {
     const consumed = await this.prisma.discoveryFeedback.findMany({
       where: {
         action: { in: [DiscoveryAction.dislike, DiscoveryAction.favorite] },
@@ -103,7 +108,10 @@ export class DiscoveryService {
       distinct: ["listingId"],
       select: { listingId: true },
     });
-    const where = eligibleWhere(consumed.map(({ listingId }) => listingId));
+    const where = eligibleWhere(
+      consumed.map(({ listingId }) => listingId),
+      listingType as ListingType | undefined,
+    );
     const [items, total] = await this.prisma.$transaction([
       this.prisma.item.findMany({
         where,
@@ -118,7 +126,7 @@ export class DiscoveryService {
     // when both are available. A burst of newly detected direct listings must
     // not hide auction-specific UI (especially the live countdown) behind a
     // dozen swipes, and the same applies in reverse.
-    if (limit >= 3 && items.length >= 3) {
+    if (!listingType && limit >= 3 && items.length >= 3) {
       const topTypes = new Set(
         items.slice(0, 3).map((item) => item.listingType),
       );

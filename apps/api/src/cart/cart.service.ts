@@ -17,6 +17,37 @@ const itemInclude = {
   },
 } satisfies Prisma.ItemInclude;
 
+function publicSourceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function preferredShareTitle(item: {
+  titleZh?: string | null;
+  titleRaw?: string | null;
+  product?: {
+    titleZh?: string | null;
+    canonicalName?: string | null;
+  } | null;
+}) {
+  return (
+    [
+      item.titleZh,
+      item.product?.titleZh,
+      item.product?.canonicalName,
+      item.titleRaw,
+    ]
+      .find((value): value is string =>
+        Boolean(typeof value === "string" && value.trim()),
+      )
+      ?.trim() ?? "未命名商品"
+  );
+}
+
 @Injectable()
 export class CartService {
   constructor(private readonly prisma: PrismaService) {}
@@ -50,10 +81,19 @@ export class CartService {
   async createShare(itemIds?: string[]) {
     const cart = await this.ensureCart();
     const requestedIds = [...new Set(itemIds?.filter(Boolean) ?? [])];
-    const items = requestedIds.length
+    const requestedItems = requestedIds.length
       ? await this.prisma.item.findMany({
           where: { id: { in: requestedIds } },
           include: itemInclude,
+        })
+      : null;
+    const requestedById = requestedItems
+      ? new Map(requestedItems.map((item) => [item.id, item]))
+      : null;
+    const items = requestedById
+      ? requestedIds.flatMap((id) => {
+          const item = requestedById.get(id);
+          return item ? [item] : [];
         })
       : (
           await this.prisma.shoppingCartItem.findMany({
@@ -63,19 +103,30 @@ export class CartService {
           })
         ).map((entry) => entry.item);
     if (!items.length) throw new NotFoundException("购物车中没有可分享的商品");
-    const sourceUrls = [
-      ...new Set(
-        items.flatMap((item) =>
-          /^https?:\/\//i.test(item.sourceUrl) ? [item.sourceUrl] : [],
-        ),
-      ),
-    ];
-    if (!sourceUrls.length)
+    const shareItems = items.flatMap((item) => {
+      const sourceUrl = publicSourceUrl(item.sourceUrl);
+      return sourceUrl
+        ? [
+            {
+              id: item.id,
+              title: preferredShareTitle(item),
+              sourceUrl,
+            },
+          ]
+        : [];
+    });
+    if (!shareItems.length)
       throw new NotFoundException("所选商品没有可分享的原始来源链接");
+    const sourceUrls = shareItems.map((item) => item.sourceUrl);
+    const text = shareItems
+      .map((item) => `${item.title}\n${item.sourceUrl}`)
+      .join("\n\n");
     return {
-      itemCount: sourceUrls.length,
+      itemCount: shareItems.length,
       primaryUrl: sourceUrls[0],
       sourceUrls,
+      items: shareItems,
+      text,
     };
   }
 

@@ -12,7 +12,7 @@ export class DiscoveryController {
 
   @Get()
   feed(@Query() query: DiscoveryFeedQuery) {
-    return this.discovery.feed(query.limit);
+    return this.discovery.feed(query.limit, query.listingType);
   }
 
   @Post("feedback")

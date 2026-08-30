@@ -1,5 +1,13 @@
 import { Type } from "class-transformer";
-import { IsIn, IsInt, IsString, IsUUID, Max, Min } from "class-validator";
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from "class-validator";
 
 export class DiscoveryFeedQuery {
   @Type(() => Number)
@@ -7,6 +15,10 @@ export class DiscoveryFeedQuery {
   @Min(3)
   @Max(50)
   limit = 12;
+
+  @IsOptional()
+  @IsIn(["auction", "direct"])
+  listingType?: "auction" | "direct";
 }
 
 export class DiscoveryFeedbackDto {

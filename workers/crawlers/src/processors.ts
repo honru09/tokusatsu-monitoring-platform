@@ -27,7 +27,10 @@ import { PublicPageAdapter } from "./adapters/public-page.adapter.js";
 import { RakumaAdapter } from "./adapters/rakuma.adapter.js";
 import { SurugayaAdapter } from "./adapters/surugaya.adapter.js";
 import { YahooAuctionsAdapter } from "./adapters/yahoo-auctions.adapter.js";
-import { YahooFleamarketAdapter } from "./adapters/yahoo-fleamarket.adapter.js";
+import {
+  YahooFleamarketAdapter,
+  isYahooFleamarketPlaceholderSellerName,
+} from "./adapters/yahoo-fleamarket.adapter.js";
 import { YahooShoppingAdapter } from "./adapters/yahoo-shopping.adapter.js";
 import { classificationQueue, connection, statusQueue } from "./queues.js";
 
@@ -489,12 +492,20 @@ export async function backfillExplicitMercariProfileUrls() {
  * fit our shared columns.  Credentials, cookies and private account fields
  * are never collected by the adapters.
  */
-function sellerMetadata(item: NormalizedItem) {
+export function sellerMetadata(item: NormalizedItem) {
   const sourceData = item.sellerData ?? item.sourceData;
   if (!sourceData || typeof sourceData !== "object") {
-    return { sourceData: undefined, profileUrl: undefined };
+    return {
+      sourceData: undefined,
+      profileUrl: item.sellerProfileUrl,
+      sourceSellerId: undefined,
+    };
   }
   const value = sourceData as Record<string, unknown>;
+  const nestedSeller =
+    value.seller && typeof value.seller === "object"
+      ? (value.seller as Record<string, unknown>)
+      : undefined;
   const profileUrl = [
     item.sellerProfileUrl,
     value.sellerProfileUrl,
@@ -504,10 +515,77 @@ function sellerMetadata(item: NormalizedItem) {
     (candidate): candidate is string =>
       typeof candidate === "string" && /^https?:\/\//i.test(candidate),
   );
+  const sourceSellerId =
+    item.sourcePlatform === "yahoo_fleamarket"
+      ? [value.sellerId, nestedSeller?.id, nestedSeller?.sellerId]
+          .map((candidate) =>
+            typeof candidate === "string" || typeof candidate === "number"
+              ? String(candidate).trim()
+              : "",
+          )
+          .find(Boolean)
+      : undefined;
   return {
     sourceData: sourceData as Prisma.InputJsonValue,
     profileUrl,
+    sourceSellerId,
   };
+}
+
+async function upsertPublicSeller(sourceId: string, item: NormalizedItem) {
+  const name = item.sellerName?.trim();
+  if (
+    !name ||
+    (item.sourcePlatform === "yahoo_fleamarket" &&
+      isYahooFleamarketPlaceholderSellerName(name))
+  )
+    return null;
+  const metadata = sellerMetadata(item);
+  const data = {
+    name,
+    sellerType: item.sellerType ?? "unknown",
+    locationText: item.locationText,
+    sourceData: metadata.sourceData,
+    profileUrl: metadata.profileUrl,
+  } as const;
+  if (metadata.sourceSellerId) {
+    return prisma.seller.upsert({
+      where: {
+        sourceId_sourceSellerId: {
+          sourceId,
+          sourceSellerId: metadata.sourceSellerId,
+        },
+      },
+      update: data,
+      create: {
+        sourceId,
+        sourceSellerId: metadata.sourceSellerId,
+        ...data,
+      },
+    });
+  }
+
+  const existing = await prisma.seller.findFirst({
+    where: { sourceId, name, sourceSellerId: null },
+  });
+  if (existing)
+    return prisma.seller.update({ where: { id: existing.id }, data });
+  try {
+    return await prisma.seller.create({
+      data: { sourceId, sourceSellerId: null, ...data },
+    });
+  } catch (error) {
+    if ((error as { code?: unknown }).code !== "P2002") throw error;
+    const raced = await prisma.seller.findFirst({
+      where: { sourceId, name, sourceSellerId: null },
+    });
+    if (!raced) throw error;
+    return prisma.seller.update({ where: { id: raced.id }, data });
+  }
+}
+
+export function sellerIdForWrite(seller?: { id: string } | null) {
+  return seller?.id;
 }
 
 export function resetItemTranslation() {
@@ -527,33 +605,14 @@ async function enrichKnownItem(
   itemId: string,
   item: NormalizedItem,
 ) {
-  const sellerMeta = sellerMetadata(item);
-  const seller = item.sellerName
-    ? await prisma.seller.upsert({
-        where: { sourceId_name: { sourceId, name: item.sellerName } },
-        update: {
-          sellerType: item.sellerType ?? "unknown",
-          locationText: item.locationText,
-          sourceData: sellerMeta.sourceData,
-          profileUrl: sellerMeta.profileUrl,
-        },
-        create: {
-          sourceId,
-          name: item.sellerName,
-          sellerType: item.sellerType ?? "unknown",
-          locationText: item.locationText,
-          sourceData: sellerMeta.sourceData,
-          profileUrl: sellerMeta.profileUrl,
-        },
-      })
-    : null;
+  const seller = await upsertPublicSeller(sourceId, item);
   await prisma.item.update({
     where: { id: itemId },
     data: {
       sourceUrl: item.sourceUrl,
       titleRaw: item.titleRaw,
       descriptionRaw: item.descriptionRaw,
-      sellerId: seller?.id,
+      sellerId: sellerIdForWrite(seller),
       locationText: item.locationText,
       priceCurrent: item.priceCurrent,
       shippingFee: item.shippingFee,
@@ -781,7 +840,7 @@ export function needsCompleteEnrichment(
     (adapterKey === "mercari" &&
       !!current.seller?.name.match(/^Mercari 卖家(?: \d+)?$/)) ||
     (adapterKey === "yahoo_fleamarket" &&
-      current.seller?.name === "Yahoo!フリマ出品者") ||
+      isYahooFleamarketPlaceholderSellerName(current.seller?.name)) ||
     (adapterKey === "rakuma" && current.seller?.name === "ラクマ出品者");
   return (
     current.sourceData == null ||
@@ -808,26 +867,7 @@ async function persistNormalized(
   importOrigin: "search" | "url" = "search",
 ) {
   const imageUrls = sanitizeProductImageUrls(item.imageUrls);
-  const sellerMeta = sellerMetadata(item);
-  const seller = item.sellerName
-    ? await prisma.seller.upsert({
-        where: { sourceId_name: { sourceId, name: item.sellerName } },
-        update: {
-          sellerType: item.sellerType ?? "unknown",
-          locationText: item.locationText,
-          sourceData: sellerMeta.sourceData,
-          profileUrl: sellerMeta.profileUrl,
-        },
-        create: {
-          sourceId,
-          name: item.sellerName,
-          sellerType: item.sellerType ?? "unknown",
-          locationText: item.locationText,
-          sourceData: sellerMeta.sourceData,
-          profileUrl: sellerMeta.profileUrl,
-        },
-      })
-    : null;
+  const seller = await upsertPublicSeller(sourceId, item);
 
   const saved = await prisma.item.upsert({
     where: {
@@ -837,7 +877,7 @@ async function persistNormalized(
       sourceUrl: item.sourceUrl,
       titleRaw: item.titleRaw,
       descriptionRaw: item.descriptionRaw,
-      sellerId: seller?.id,
+      sellerId: sellerIdForWrite(seller),
       locationText: item.locationText,
       priceCurrent: item.priceCurrent,
       shippingFee: item.shippingFee,
@@ -870,7 +910,7 @@ async function persistNormalized(
       sourceUrl: item.sourceUrl,
       titleRaw: item.titleRaw,
       descriptionRaw: item.descriptionRaw,
-      sellerId: seller?.id,
+      sellerId: sellerIdForWrite(seller),
       locationText: item.locationText,
       priceCurrent: item.priceCurrent,
       shippingFee: item.shippingFee,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   YahooFleamarketAdapter,
+  isYahooFleamarketPlaceholderSellerName,
   parseYahooFleamarketDetailHtml,
   parseYahooFleamarketSearchHtml,
 } from "./yahoo-fleamarket.adapter.js";
@@ -63,7 +64,9 @@ describe("Yahoo! Fleamarket parsing", () => {
       shippingFee: 0,
       status: "active",
       sellerProfileUrl: "https://paypayfleamarket.yahoo.co.jp/user/p1",
+      sellerData: { sellerId: "p1" },
     });
+    expect(results[0].detailHint?.sellerName).toBeUndefined();
   });
 
   it("preserves full public item, seller, shipping and gallery data", () => {
@@ -86,6 +89,7 @@ describe("Yahoo! Fleamarket parsing", () => {
         nickname: "ジョー",
         rating: { total: 641, goodRatio: 100 },
         tradingRecord: { displayLabel: "取引実績99+" },
+        image: { url: "https://displayname-pctr.c.yimg.jp/avatar.jpg" },
         isKycCompleted: true,
         isTrusted: true,
       },
@@ -115,6 +119,19 @@ describe("Yahoo! Fleamarket parsing", () => {
       status: "active",
     });
     expect(detail.imageUrls).toHaveLength(2);
-    expect(detail.sellerData).toMatchObject({ isKycCompleted: true });
+    expect(detail.sellerData).toMatchObject({
+      sellerId: "p1",
+      nickname: "ジョー",
+      isKycCompleted: true,
+      image: { url: "https://displayname-pctr.c.yimg.jp/avatar.jpg" },
+    });
+  });
+
+  it("never promotes a marketplace placeholder to a seller identity", () => {
+    expect(isYahooFleamarketPlaceholderSellerName("Yahoo!フリマ")).toBe(true);
+    expect(
+      isYahooFleamarketPlaceholderSellerName("Yahoo!フリマ出品者 p188926"),
+    ).toBe(true);
+    expect(isYahooFleamarketPlaceholderSellerName("ジョー")).toBe(false);
   });
 });

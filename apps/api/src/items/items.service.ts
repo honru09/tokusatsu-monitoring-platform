@@ -341,7 +341,12 @@ export class ItemsService {
     if (query.maxUnitCost != null)
       where.unitCostEst = { lte: query.maxUnitCost };
     if (query.needsReview != null) where.needsReview = query.needsReview;
-    if (query.auctionHours != null) {
+    if (query.auctionMinutes != null) {
+      where.auctionEndAt = {
+        gt: new Date(),
+        lte: new Date(Date.now() + query.auctionMinutes * 60_000),
+      };
+    } else if (query.auctionHours != null) {
       where.auctionEndAt = {
         gt: new Date(),
         lte: new Date(Date.now() + query.auctionHours * 3_600_000),
@@ -375,13 +380,24 @@ export class ItemsService {
 
     const facetWhere: Prisma.ItemWhereInput = { ...where };
     if (query.listingType) where.listingType = query.listingType as ListingType;
+    const sortOrder = query.sortOrder ?? "asc";
+    const orderBy: Prisma.ItemOrderByWithRelationInput[] =
+      query.sortBy === "price"
+        ? [{ priceCurrent: sortOrder }, { detectedAt: "desc" }, { id: "asc" }]
+        : query.sortBy === "auctionEndAt"
+          ? [
+              { auctionEndAt: { sort: sortOrder, nulls: "last" } },
+              { detectedAt: "desc" },
+              { id: "asc" },
+            ]
+          : [{ detectedAt: "desc" }, { listedAt: "desc" }, { id: "asc" }];
 
     const [items, total, auctionTotal, directTotal] =
       await this.prisma.$transaction([
         this.prisma.item.findMany({
           where,
           include,
-          orderBy: [{ detectedAt: "desc" }, { listedAt: "desc" }],
+          orderBy,
           skip: query.offset,
           take: query.limit,
         }),
@@ -768,9 +784,18 @@ export class ItemsService {
   async update(id: string, body: UpdateItemDto) {
     const current = await this.ensureExists(id);
     const { actor = "operator", reason, ...changes } = body;
+    if (changes.note != null && changes.note.length > 25)
+      throw new BadRequestException("采购备注不能超过 25 个字符");
+    if (changes.favorite === true && changes.ignored === true)
+      throw new BadRequestException("商品不能同时收藏并标记为不感兴趣");
     if (changes.ignored === true) {
       (changes as Prisma.ItemUpdateInput).ignoredAt = new Date();
+      changes.favorite = false;
     } else if (changes.ignored === false) {
+      (changes as Prisma.ItemUpdateInput).ignoredAt = null;
+    }
+    if (changes.favorite === true) {
+      changes.ignored = false;
       (changes as Prisma.ItemUpdateInput).ignoredAt = null;
     }
     const changedKeys = Object.entries(changes)

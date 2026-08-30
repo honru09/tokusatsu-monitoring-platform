@@ -32,6 +32,7 @@ type DiscoveryListing = {
   conditionGrade: string;
   quantityEst?: number | null;
   unitCostEst?: number | null;
+  note?: string | null;
   source: { key: string; displayName: string };
   images: { url: string; position: number }[];
   product?: {
@@ -272,16 +273,132 @@ function DetailIcon() {
   );
 }
 
+function CommentIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 5h14v11H9l-4 3V5Z" />
+    </svg>
+  );
+}
+
+function DiscoveryNote({
+  note,
+  onSave,
+}: {
+  note?: string | null;
+  onSave?: (note: string | null) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(note ?? "");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  useEffect(() => setDraft(note ?? ""), [note]);
+
+  if (!onSave) {
+    if (!note) return null;
+    return (
+      <div
+        className="discovery-note mt-2 flex min-h-9 items-center gap-2 rounded-xl bg-ink/[0.035] px-3 text-xs text-ink/65"
+        title={note}
+      >
+        <CommentIcon />
+        <span className="truncate">{note}</span>
+      </div>
+    );
+  }
+  const saveNote = onSave;
+
+  async function save() {
+    const next = draft.trim().slice(0, 25);
+    if (next === (note ?? "")) {
+      setOpen(false);
+      return;
+    }
+    setSaving(true);
+    setSaveError("");
+    try {
+      await saveNote(next || null);
+      setOpen(false);
+    } catch (reason) {
+      setSaveError(reason instanceof Error ? reason.message : "备注保存失败");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="discovery-note mt-2 min-h-11"
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {open ? (
+        <div className="flex min-h-11 items-center gap-2 rounded-xl border border-ink/10 bg-ink/[0.025] px-3">
+          <CommentIcon />
+          <input
+            autoFocus
+            value={draft}
+            maxLength={25}
+            disabled={saving}
+            onChange={(event) => setDraft(event.target.value.slice(0, 25))}
+            onBlur={() => void save()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+              if (event.key === "Escape") {
+                setDraft(note ?? "");
+                setOpen(false);
+              }
+            }}
+            aria-label="采购备注"
+            placeholder="采购备注，最多 25 字"
+            className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-ink/35"
+          />
+          <span className="font-mono text-[9px] text-ink/35">
+            {draft.length}/25
+          </span>
+          {saveError && (
+            <span className="sr-only" role="alert">
+              {saveError}
+            </span>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={note ? `编辑采购备注：${note}` : "添加采购备注"}
+          title={note ?? "添加采购备注"}
+          className={`flex min-h-11 max-w-full items-center gap-2 rounded-full border border-ink/10 bg-white text-xs text-ink/60 transition-[width,background-color] hover:bg-ink/[0.035] ${note ? "w-fit px-3" : "w-11 justify-center"}`}
+        >
+          <CommentIcon />
+          {note && <span className="max-w-48 truncate">{note}</span>}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function CardContent({
   item,
   language,
   translatedTitle,
   exchangeRate,
+  onSaveNote,
 }: {
   item: DiscoveryListing;
   language: "zh" | "original";
   translatedTitle?: string;
   exchangeRate?: number;
+  onSaveNote?: (note: string | null) => Promise<void>;
 }) {
   const [showOriginal, setShowOriginal] = useState(language === "original");
   useEffect(() => setShowOriginal(language === "original"), [language]);
@@ -346,7 +463,7 @@ function CardContent({
         <h2 className="discovery-card-title line-clamp-2 text-base font-bold leading-5 text-ink sm:text-lg sm:leading-6 md:line-clamp-3 md:text-xl md:leading-7">
           {title}
         </h2>
-        <div className="mt-3 flex items-end justify-between gap-3 border-b border-ink/10 pb-3">
+        <div className="discovery-price-row mt-3 flex items-end justify-between gap-3 border-b border-ink/10 pb-3">
           <div>
             <span className="block text-[10px] font-bold text-ink/60">
               当前价
@@ -370,6 +487,7 @@ function CardContent({
             {sourceLabel(item)}
           </span>
         </div>
+        <DiscoveryNote note={item.note} onSave={onSaveNote} />
         <dl className="discovery-priority-grid mt-3 grid grid-cols-3 gap-x-2 gap-y-2 text-[11px] sm:text-xs md:grid-cols-2 md:gap-x-4">
           <div>
             <dt className="text-ink/60">数量</dt>
@@ -476,6 +594,7 @@ function SwipeCard({
   onConsume,
   onDetail,
   onExitComplete,
+  onSaveNote,
 }: {
   item: DiscoveryListing;
   language: "zh" | "original";
@@ -486,9 +605,17 @@ function SwipeCard({
   onConsume: (action: "dislike" | "favorite", direction: ExitDirection) => void;
   onDetail: () => void;
   onExitComplete: () => void;
+  onSaveNote: (note: string | null) => Promise<void>;
 }) {
   const reducedMotion = useReducedMotion();
+  const [coarsePointer, setCoarsePointer] = useState(false);
+  const [touchDetailProgress, setTouchDetailProgress] = useState(0);
   const didDragRef = useRef(false);
+  const pointerStartRef = useRef<{
+    x: number;
+    y: number;
+    pointerType: string;
+  } | null>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const rotate = useTransform(
@@ -511,6 +638,14 @@ function SwipeCard({
     [0, motionTokens.gesture.feedbackDistance],
     [0, 1],
   );
+
+  useEffect(() => {
+    const query = window.matchMedia("(pointer: coarse)");
+    const update = () => setCoarsePointer(query.matches);
+    update();
+    query.addEventListener?.("change", update);
+    return () => query.removeEventListener?.("change", update);
+  }, []);
 
   function handleDragEnd(
     _: MouseEvent | TouchEvent | PointerEvent,
@@ -559,13 +694,41 @@ function SwipeCard({
       initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
       animate={exitTarget}
       transition={exitDirection ? springs.release : springs.gentle}
-      drag={!reducedMotion && !busy}
+      drag={!reducedMotion && !busy ? (coarsePointer ? "x" : true) : false}
+      dragDirectionLock
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       dragElastic={motionTokens.gesture.elastic}
       dragMomentum
       dragTransition={springs.release}
-      onPointerDown={() => {
+      onPointerDown={(event) => {
         didDragRef.current = false;
+        pointerStartRef.current = {
+          x: event.clientX,
+          y: event.clientY,
+          pointerType: event.pointerType,
+        };
+      }}
+      onPointerMove={(event) => {
+        const start = pointerStartRef.current;
+        if (!start || start.pointerType !== "touch" || busy) return;
+        const dx = event.clientX - start.x;
+        const dy = event.clientY - start.y;
+        if (dy > 0 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+          if (dy > 8) didDragRef.current = true;
+          setTouchDetailProgress(Math.min(1, dy / 96));
+        } else if (touchDetailProgress) {
+          setTouchDetailProgress(0);
+        }
+      }}
+      onPointerUp={() => {
+        const shouldOpen = touchDetailProgress >= 1;
+        pointerStartRef.current = null;
+        setTouchDetailProgress(0);
+        if (shouldOpen && !busy) onDetail();
+      }}
+      onPointerCancel={() => {
+        pointerStartRef.current = null;
+        setTouchDetailProgress(0);
       }}
       onDragStart={() => {
         didDragRef.current = true;
@@ -584,7 +747,12 @@ function SwipeCard({
       onAnimationComplete={() => {
         if (exitDirection) onExitComplete();
       }}
-      style={{ x, y, rotate, touchAction: "none" }}
+      style={{
+        x,
+        y,
+        rotate,
+        touchAction: coarsePointer ? "pan-y" : "none",
+      }}
       className="discovery-swipe-card discovery-active-card absolute inset-0 grid cursor-grab select-none overflow-hidden rounded-2xl bg-white shadow-modal outline-none focus-visible:ring-4 focus-visible:ring-moss/30 active:cursor-grabbing md:grid-cols-[1.08fr_.92fr]"
     >
       <CardContent
@@ -592,6 +760,7 @@ function SwipeCard({
         language={language}
         translatedTitle={translatedTitle}
         exchangeRate={exchangeRate}
+        onSaveNote={onSaveNote}
       />
       <motion.div
         aria-hidden="true"
@@ -614,6 +783,14 @@ function SwipeCard({
       >
         查看详情
       </motion.div>
+      <motion.div
+        aria-hidden="true"
+        animate={{ opacity: touchDetailProgress }}
+        transition={{ duration: 0.08 }}
+        className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-lg bg-ink px-4 py-2 text-sm font-black text-amber-300 shadow-panel md:hidden"
+      >
+        查看详情
+      </motion.div>
     </motion.article>
   );
 }
@@ -624,6 +801,7 @@ export function DiscoveryWorkspace({
   translations = {},
   onOpenDetail,
   onFavoriteChange,
+  onNoteChange,
   exchangeRate,
   interactionDisabled = false,
 }: {
@@ -632,11 +810,18 @@ export function DiscoveryWorkspace({
   translations?: Record<string, string>;
   onOpenDetail: (listingId: string) => Promise<boolean>;
   onFavoriteChange: () => void;
+  onNoteChange?: (listingId: string, note: string | null) => Promise<void>;
   exchangeRate?: number;
   interactionDisabled?: boolean;
 }) {
   const [queue, setQueue] = useState<DiscoveryListing[]>([]);
   const [total, setTotal] = useState(0);
+  const [listingType, setListingType] = useState<"direct" | "auction">(
+    "direct",
+  );
+  const [modeTotals, setModeTotals] = useState<
+    Partial<Record<"direct" | "auction", number>>
+  >({});
   const [loading, setLoading] = useState(true);
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -656,13 +841,16 @@ export function DiscoveryWorkspace({
   const translationRequestedRef = useRef(new Set<string>());
   const positionRef = useRef(0);
   const refillLengthRef = useRef<number | null>(null);
+  const feedRequestRef = useRef(0);
 
   const loadFeed = useCallback(
     async (append: boolean) => {
+      const requestId = ++feedRequestRef.current;
       setLoading(true);
       setError("");
       try {
-        const response = await fetch(`${apiBaseUrl}/discovery?limit=12`, {
+        const params = new URLSearchParams({ limit: "12", listingType });
+        const response = await fetch(`${apiBaseUrl}/discovery?${params}`, {
           cache: "no-store",
         });
         if (!response.ok) throw new Error(`API ${response.status}`);
@@ -670,7 +858,12 @@ export function DiscoveryWorkspace({
           items: DiscoveryListing[];
           total: number;
         };
+        if (requestId !== feedRequestRef.current) return;
         setTotal(data.total);
+        setModeTotals((current) => ({
+          ...current,
+          [listingType]: data.total,
+        }));
         setQueue((current) => {
           if (!append) return data.items;
           const known = new Set(current.map((item) => item.id));
@@ -687,18 +880,29 @@ export function DiscoveryWorkspace({
           );
         }
       } catch (reason) {
+        if (requestId !== feedRequestRef.current) return;
         setError(reason instanceof Error ? reason.message : "发现队列加载失败");
       } finally {
-        setLoading(false);
-        setLoadedOnce(true);
+        if (requestId === feedRequestRef.current) {
+          setLoading(false);
+          setLoadedOnce(true);
+        }
       }
     },
-    [apiBaseUrl],
+    [apiBaseUrl, listingType],
   );
 
   useEffect(() => {
+    setQueue([]);
+    setTotal(modeTotals[listingType] ?? 0);
+    setLoadedOnce(false);
+    setLastAction(null);
+    setPendingFeedback(null);
+    setExitDirection(null);
+    setExitFinished(false);
+    refillLengthRef.current = null;
     void loadFeed(false);
-  }, [loadFeed]);
+  }, [listingType, loadFeed]);
 
   useEffect(() => {
     const candidates = queue
@@ -755,6 +959,11 @@ export function DiscoveryWorkspace({
     const current = queue[0];
     if (current) setLastAction({ feedback: pendingFeedback, item: current });
     setQueue((items) => items.slice(1));
+    setTotal((currentTotal) => Math.max(0, currentTotal - 1));
+    setModeTotals((currentTotals) => ({
+      ...currentTotals,
+      [listingType]: Math.max(0, (currentTotals[listingType] ?? total) - 1),
+    }));
     positionRef.current += 1;
     setStatus(
       pendingFeedback.action === "favorite"
@@ -766,7 +975,14 @@ export function DiscoveryWorkspace({
     setExitFinished(false);
     setExitDirection(null);
     setBusy(false);
-  }, [exitFinished, onFavoriteChange, pendingFeedback, queue]);
+  }, [
+    exitFinished,
+    listingType,
+    onFavoriteChange,
+    pendingFeedback,
+    queue,
+    total,
+  ]);
 
   useEffect(() => {
     finalizeConsume();
@@ -852,6 +1068,11 @@ export function DiscoveryWorkspace({
         restored,
         ...current.filter((item) => item.id !== restored.id),
       ]);
+      setTotal((currentTotal) => currentTotal + 1);
+      setModeTotals((currentTotals) => ({
+        ...currentTotals,
+        [listingType]: (currentTotals[listingType] ?? total) + 1,
+      }));
       positionRef.current = Math.max(0, positionRef.current - 1);
       setLastAction(null);
       setStatus("已撤销，上一个商品已回到队首");
@@ -861,7 +1082,39 @@ export function DiscoveryWorkspace({
     } finally {
       setBusy(false);
     }
-  }, [apiBaseUrl, busy, interactionDisabled, lastAction, onFavoriteChange]);
+  }, [
+    apiBaseUrl,
+    busy,
+    interactionDisabled,
+    lastAction,
+    listingType,
+    onFavoriteChange,
+    total,
+  ]);
+
+  const saveNote = useCallback(
+    async (listingId: string, note: string | null) => {
+      if (interactionDisabled) return;
+      if (onNoteChange) {
+        await onNoteChange(listingId, note);
+      } else {
+        const response = await fetch(`${apiBaseUrl}/items/${listingId}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ note }),
+        });
+        if (!response.ok)
+          throw new Error(`备注保存失败（API ${response.status}）`);
+      }
+      setQueue((current) =>
+        current.map((item) =>
+          item.id === listingId ? { ...item, note } : item,
+        ),
+      );
+      setStatus(note ? "采购备注已保存" : "采购备注已清除");
+    },
+    [apiBaseUrl, interactionDisabled, onNoteChange],
+  );
 
   useEffect(() => {
     if (interactionDisabled) return;
@@ -912,6 +1165,29 @@ export function DiscoveryWorkspace({
         </div>
       </div>
 
+      <div
+        className="ios-segment discovery-mode-switch mb-3 grid grid-cols-2 rounded-2xl p-1"
+        aria-label="发现商品交易方式"
+      >
+        {(["direct", "auction"] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            aria-pressed={listingType === mode}
+            disabled={busy || interactionDisabled}
+            onClick={() => setListingType(mode)}
+            className="min-h-11 rounded-xl px-3 text-sm font-bold transition-colors disabled:opacity-50"
+          >
+            {mode === "direct" ? "直购" : "拍卖"}
+            {modeTotals[mode] != null && (
+              <span className="ml-1 font-mono text-[10px] opacity-70">
+                {modeTotals[mode]}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {error && (
         <div
           role="alert"
@@ -922,7 +1198,7 @@ export function DiscoveryWorkspace({
       )}
 
       <div className="mx-auto max-w-4xl">
-        <div className="discovery-card-shell relative overflow-hidden overscroll-contain">
+        <div className="discovery-card-shell relative overflow-visible overscroll-contain">
           {visible.length >= 3 && (
             <BackCard
               item={visible[2]}
@@ -959,6 +1235,7 @@ export function DiscoveryWorkspace({
               onConsume={(action, direction) => void consume(action, direction)}
               onDetail={() => void openDetail()}
               onExitComplete={() => setExitFinished(true)}
+              onSaveNote={(note) => saveNote(visible[0].id, note)}
             />
           )}
           {loading && !visible.length && (

@@ -1,5 +1,7 @@
+import "reflect-metadata";
 import { describe, expect, it, vi } from "vitest";
-import type { ListItemsQuery } from "./items.dto.js";
+import { validate } from "class-validator";
+import { ListItemsQuery, UpdateItemDto } from "./items.dto.js";
 import { ItemsService, resolveAdapterKey } from "./items.service.js";
 
 describe("resolveAdapterKey", () => {
@@ -111,6 +113,159 @@ describe("ItemsService.list", () => {
       total: 37,
       facets: { auction: 37, direct: 2_941 },
     });
+  });
+
+  it("sorts a fully filtered page by price without losing pagination", async () => {
+    const prisma = {
+      item: {
+        findMany: vi.fn().mockResolvedValue([]),
+        count: vi.fn().mockResolvedValue(0),
+      },
+      $transaction: vi.fn(async (queries: Promise<unknown>[]) =>
+        Promise.all(queries),
+      ),
+    };
+    const service = new ItemsService(prisma as never);
+
+    await service.list({
+      favorite: true,
+      listingType: "direct",
+      sortBy: "price",
+      sortOrder: "desc",
+      limit: 20,
+      offset: 60,
+    } as ListItemsQuery);
+
+    expect(prisma.item.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          favorite: true,
+          listingType: "direct",
+        }),
+        orderBy: [
+          { priceCurrent: "desc" },
+          { detectedAt: "desc" },
+          { id: "asc" },
+        ],
+        skip: 60,
+        take: 20,
+      }),
+    );
+  });
+
+  it("uses minute precision for closing auctions and supports deadline ordering", async () => {
+    const prisma = {
+      item: {
+        findMany: vi.fn().mockResolvedValue([]),
+        count: vi.fn().mockResolvedValue(0),
+      },
+      $transaction: vi.fn(async (queries: Promise<unknown>[]) =>
+        Promise.all(queries),
+      ),
+    };
+    const service = new ItemsService(prisma as never);
+    const before = Date.now();
+
+    await service.list({
+      listingType: "auction",
+      auctionMinutes: 30,
+      auctionHours: 12,
+      sortBy: "auctionEndAt",
+      sortOrder: "asc",
+      limit: 30,
+      offset: 0,
+    } as ListItemsQuery);
+
+    const call = prisma.item.findMany.mock.calls[0][0];
+    expect(call.where.listingType).toBe("auction");
+    expect(call.where.auctionEndAt.gt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(call.where.auctionEndAt.lte.getTime()).toBeGreaterThanOrEqual(
+      before + 30 * 60_000,
+    );
+    expect(call.where.auctionEndAt.lte.getTime()).toBeLessThan(
+      before + 30 * 60_000 + 2_000,
+    );
+    expect(call.orderBy).toEqual([
+      { auctionEndAt: { sort: "asc", nulls: "last" } },
+      { detectedAt: "desc" },
+      { id: "asc" },
+    ]);
+  });
+});
+
+describe("UpdateItemDto note validation", () => {
+  it("accepts 25 characters and rejects 26", async () => {
+    const accepted = Object.assign(new UpdateItemDto(), {
+      note: "购".repeat(25),
+    });
+    const rejected = Object.assign(new UpdateItemDto(), {
+      note: "购".repeat(26),
+    });
+
+    expect(await validate(accepted)).toHaveLength(0);
+    expect(await validate(rejected)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ property: "note" })]),
+    );
+  });
+});
+
+describe("ItemsService collaborative states", () => {
+  it("moves an item into the shared ignored warehouse without deleting it", async () => {
+    const current = {
+      id: "ignored-item",
+      favorite: true,
+      ignored: false,
+      ignoredAt: null,
+      note: null,
+      quantityEst: 1,
+      priceTotalEst: 1_000,
+      needsReview: false,
+    };
+    const tx = {
+      item: {
+        update: vi.fn().mockImplementation(({ data }) => ({
+          ...current,
+          ...data,
+          updatedAt: new Date(),
+        })),
+      },
+      manualReview: { create: vi.fn().mockResolvedValue({}) },
+      reviewQueue: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+    };
+    const prisma = {
+      item: { findUnique: vi.fn().mockResolvedValue(current) },
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    };
+    const service = new ItemsService(prisma as never);
+
+    await service.update("ignored-item", { ignored: true });
+
+    expect(tx.item.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "ignored-item" },
+        data: expect.objectContaining({
+          ignored: true,
+          ignoredAt: expect.any(Date),
+          favorite: false,
+        }),
+      }),
+    );
+    expect(prisma.item).not.toHaveProperty("delete");
+  });
+
+  it("rejects a direct service call whose procurement note exceeds 25 characters", async () => {
+    const prisma = {
+      item: {
+        findUnique: vi.fn().mockResolvedValue({ id: "item-1" }),
+      },
+    };
+    const service = new ItemsService(prisma as never);
+
+    await expect(
+      service.update("item-1", { note: "购".repeat(26) }),
+    ).rejects.toThrow("采购备注不能超过 25 个字符");
   });
 });
 

@@ -181,22 +181,25 @@ async function scheduleYahooSellerBackfill() {
   // sellers immediately, while the rate-limited detail queue replaces the
   // placeholder with the public display name/profile. No identity is guessed.
   for (const [accountHash, itemIds] of publicImageGroups) {
-    const seller = await prisma.seller.upsert({
-      where: {
-        sourceId_name: {
-          sourceId: yahooSource.id,
-          name: `Yahoo!出品者 ${accountHash}（公开资料回补中）`,
-        },
-      },
-      update: {},
-      create: {
-        sourceId: yahooSource.id,
-        name: `Yahoo!出品者 ${accountHash}（公开资料回补中）`,
-        sellerType: "unknown",
-        sourceData: { provisional: true, publicImageAccountHash: accountHash },
-      },
+    const name = `Yahoo!出品者 ${accountHash}（公开资料回补中）`;
+    const existing = await prisma.seller.findFirst({
+      where: { sourceId: yahooSource.id, name, sourceSellerId: null },
       select: { id: true },
     });
+    const seller =
+      existing ??
+      (await prisma.seller.create({
+        data: {
+          sourceId: yahooSource.id,
+          name,
+          sellerType: "unknown",
+          sourceData: {
+            provisional: true,
+            publicImageAccountHash: accountHash,
+          },
+        },
+        select: { id: true },
+      }));
     await prisma.item.updateMany({
       where: { id: { in: itemIds } },
       data: { sellerId: seller.id },
@@ -371,6 +374,98 @@ async function scheduleYahooSellerBackfill() {
     );
 }
 
+async function scheduleYahooFleamarketSellerBackfill() {
+  const source = await prisma.source.findUnique({
+    where: { key: "yahoo_fleamarket" },
+    select: { id: true },
+  });
+  if (!source) return;
+
+  let cursor: string | undefined;
+  let scheduled = 0;
+  for (;;) {
+    const candidates = await prisma.item.findMany({
+      where: {
+        sourceId: source.id,
+        OR: [
+          { sellerId: null },
+          {
+            seller: {
+              OR: [
+                {
+                  name: {
+                    in: [
+                      "Yahoo!フリマ",
+                      "Yahoo！フリマ",
+                      "Yahoo!フリマ出品者",
+                      "Yahoo！フリマ出品者",
+                      "Yahoo!フリマ卖家",
+                      "Yahoo！フリマ卖家",
+                    ],
+                  },
+                },
+                { name: { startsWith: "Yahoo!フリマ出品者 " } },
+                { name: { startsWith: "Yahoo！フリマ出品者 " } },
+                { name: { startsWith: "Yahoo!フリマ卖家 " } },
+                { name: { startsWith: "Yahoo！フリマ卖家 " } },
+              ],
+            },
+          },
+        ],
+        archivedAt: null,
+        status: { in: ["active", "unknown"] },
+        ...(cursor ? { id: { gt: cursor } } : {}),
+      },
+      select: {
+        id: true,
+        sourceItemId: true,
+        sourceUrl: true,
+        status: true,
+        auctionEndAt: true,
+      },
+      orderBy: { id: "asc" },
+      take: 1000,
+    });
+    if (!candidates.length) break;
+    cursor = candidates.at(-1)?.id;
+    for (let index = 0; index < candidates.length; index += 250) {
+      const batch = candidates.slice(index, index + 250);
+      await sellerBackfillQueue.addBulk(
+        batch.map((item) => ({
+          name: "backfill-public-seller-profile",
+          data: {
+            itemId: item.id,
+            sourceItemId: item.sourceItemId,
+            sourceUrl: item.sourceUrl,
+            status: item.status,
+            auctionEndAt: item.auctionEndAt,
+            adapterKey: "yahoo_fleamarket",
+          },
+          opts: {
+            jobId: `seller-profile-backfill-yahoo-fleamarket-${item.id}`,
+            attempts: 4,
+            backoff: { type: "exponential" as const, delay: 30_000 },
+            // A listing can remain seller-less after a transient detail-page
+            // failure. Remove the terminal BullMQ record so the next worker
+            // startup can enqueue the same listing again with this stable ID.
+            removeOnComplete: true,
+            removeOnFail: true,
+          },
+        })),
+      );
+      scheduled += batch.length;
+    }
+  }
+  if (scheduled > 0)
+    console.log(
+      JSON.stringify({
+        event: "seller_profile_backfill_scheduled",
+        adapter: "yahoo_fleamarket",
+        jobs: scheduled,
+      }),
+    );
+}
+
 async function removeRepeatJobs(
   prefixes: string[],
   adapterKeys: string[] = [],
@@ -424,6 +519,7 @@ export async function scheduleJobs() {
     ],
   );
   await scheduleYahooSellerBackfill();
+  await scheduleYahooFleamarketSellerBackfill();
   const pendingAiClassification = await prisma.item.findMany({
     where: {
       archivedAt: null,

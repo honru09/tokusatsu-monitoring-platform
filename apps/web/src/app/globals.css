@@ -857,15 +857,24 @@ textarea:focus-visible {
 }
 
 .discovery-card-shell {
-  height: 520px;
+  height: 500px;
   min-height: 420px;
-  max-height: 520px;
+  max-height: 500px;
+  margin-inline: clamp(8px, 2vw, 22px);
+}
+.discovery-workspace {
+  overflow-x: clip;
+}
+.discovery-mode-switch {
+  width: min(100%, 360px);
+  margin-inline: auto;
 }
 .discovery-swipe-card {
   border: 0;
   border-radius: 18px !important;
   background: #fff;
   box-shadow: var(--app-card-shadow);
+  will-change: transform;
 }
 .discovery-active-card {
   box-shadow:
@@ -874,6 +883,10 @@ textarea:focus-visible {
 }
 .discovery-card-content {
   overflow: hidden;
+}
+.discovery-note button,
+.discovery-note input {
+  min-height: 44px;
 }
 .discovery-toolbar {
   border-color: rgba(29, 29, 31, 0.08) !important;
@@ -994,28 +1007,50 @@ textarea:focus-visible {
     padding-bottom: 10px;
   }
   .discovery-card-shell {
-    width: 100%;
+    width: calc(100% - 14px);
     height: auto;
     min-height: 0;
     max-height: none;
+    margin-inline: 7px;
   }
   .discovery-swipe-card {
-    grid-template-rows: minmax(168px, 52%) minmax(0, 1fr);
+    grid-template-rows: minmax(148px, 42%) minmax(0, 1fr);
   }
   .discovery-card-media,
   .discovery-card-media > div {
     height: 100%;
   }
   .discovery-card-content {
-    padding: 11px;
+    padding: 8px 10px;
+  }
+  .discovery-mode-switch {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  .discovery-note {
+    margin-top: 5px;
+  }
+  .discovery-note button,
+  .discovery-note input {
+    min-height: 44px;
   }
   .discovery-card-title {
     flex: 0 0 auto;
     font-size: 15px;
     line-height: 1.25rem;
   }
+  .discovery-price-row {
+    margin-top: 5px;
+    padding-bottom: 5px;
+  }
+  .discovery-price-row .text-2xl {
+    font-size: 1.25rem;
+    line-height: 1.5rem;
+  }
   .discovery-priority-grid {
-    margin-top: 8px;
+    margin-top: 5px;
+    gap: 4px 8px;
+    line-height: 1rem;
   }
   .discovery-actions {
     margin-top: 10px;

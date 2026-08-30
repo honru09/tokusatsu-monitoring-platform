@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { SearchResult } from "@tokusatsu/shared";
+import type { NormalizedItem, SearchResult } from "@tokusatsu/shared";
 import {
   needsCompleteEnrichment,
   pickExactMercariBackfillResult,
   resetItemTranslation,
+  sellerMetadata,
+  sellerIdForWrite,
   statusJobId,
 } from "./processors.js";
 
@@ -69,6 +71,41 @@ describe("historical seller enrichment", () => {
       ),
     ).toBe(true);
   });
+
+  it.each(["Yahoo!フリマ", "Yahoo!フリマ出品者", "Yahoo!フリマ出品者 p188926"])(
+    "re-crawls Yahoo! Fleamarket rows using the legacy placeholder %s",
+    (name) => {
+      expect(
+        needsCompleteEnrichment(
+          {
+            sourceData: { sellerId: "p188926" },
+            descriptionRaw: "商品説明",
+            sellerId: "seller-placeholder",
+            seller: { name, sourceData: { sellerId: "p188926" } },
+          },
+          "yahoo_fleamarket",
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it("keeps a real Yahoo! Fleamarket nickname associated with its public profile", () => {
+    expect(
+      needsCompleteEnrichment(
+        {
+          sourceData: { sellerId: "p188926" },
+          descriptionRaw: "商品説明",
+          sellerId: "seller-real",
+          seller: {
+            name: "ハッピー1に伴い今日より全再出品",
+            profileUrl: "https://paypayfleamarket.yahoo.co.jp/user/p188926",
+            sourceData: { sellerId: "p188926" },
+          },
+        },
+        "yahoo_fleamarket",
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("item translation invalidation", () => {
@@ -118,5 +155,35 @@ describe("status refresh scheduling", () => {
   it("uses one stable job id per item so repeated scheduling cannot queue duplicates", () => {
     expect(statusJobId("item-123")).toBe("status-item-123");
     expect(statusJobId("item-123")).toBe(statusJobId("item-123"));
+  });
+});
+
+describe("seller association writes", () => {
+  it("leaves an existing seller relation untouched when a detail response has no public seller", () => {
+    expect(sellerIdForWrite(undefined)).toBeUndefined();
+    expect(sellerIdForWrite(null)).toBeUndefined();
+    expect(sellerIdForWrite({ id: "seller-real" })).toBe("seller-real");
+  });
+
+  it("uses the public seller ID instead of a non-unique nickname", () => {
+    const item = (sellerId: string) =>
+      ({
+        sourcePlatform: "yahoo_fleamarket",
+        sellerName: "同名出品者",
+        sellerProfileUrl: `https://paypayfleamarket.yahoo.co.jp/user/${sellerId}`,
+        sellerData: { sellerId, nickname: "同名出品者" },
+      }) as unknown as NormalizedItem;
+
+    expect(sellerMetadata(item("p100")).sourceSellerId).toBe("p100");
+    expect(sellerMetadata(item("p200")).sourceSellerId).toBe("p200");
+  });
+
+  it("does not change seller grouping semantics for platforms without an identity migration", () => {
+    expect(
+      sellerMetadata({
+        sourcePlatform: "mercari",
+        sellerData: { sellerId: "123" },
+      } as unknown as NormalizedItem).sourceSellerId,
+    ).toBeUndefined();
   });
 });

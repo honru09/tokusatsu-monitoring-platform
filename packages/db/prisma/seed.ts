@@ -126,16 +126,23 @@ async function main() {
       rateLimitMs: 0,
     },
   });
-  const seller = await prisma.seller.upsert({
-    where: { sourceId_name: { sourceId: source.id, name: "东京示例中古店" } },
-    update: {},
-    create: {
+  const existingSeller = await prisma.seller.findFirst({
+    where: {
       sourceId: source.id,
       name: "东京示例中古店",
-      sellerType: "store",
-      locationText: "东京",
+      sourceSellerId: null,
     },
   });
+  const seller =
+    existingSeller ??
+    (await prisma.seller.create({
+      data: {
+        sourceId: source.id,
+        name: "东京示例中古店",
+        sellerType: "store",
+        locationText: "东京",
+      },
+    }));
 
   for (const record of items) {
     const { images, ...data } = record;

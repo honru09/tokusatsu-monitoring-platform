@@ -146,6 +146,29 @@ type CartPayload = {
   updatedAt: string;
 };
 
+type CartSharePayload = {
+  itemCount?: number;
+  primaryUrl?: string;
+  sourceUrls?: string[];
+  text?: string;
+  items?: {
+    id?: string;
+    title?: string;
+    titleZh?: string | null;
+    titleRaw?: string;
+    sourceUrl?: string;
+    url?: string;
+  }[];
+  links?: {
+    id?: string;
+    title?: string;
+    titleZh?: string | null;
+    titleRaw?: string;
+    sourceUrl?: string;
+    url?: string;
+  }[];
+};
+
 type UrlImport = {
   id: string;
   sourceUrl: string;
@@ -761,6 +784,7 @@ const sourceName = (key: string, fallback?: string) =>
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 const PAGE_SIZE = 40;
+const NOTE_MAX_LENGTH = 25;
 const labels: Record<string, string> = {
   kamen_rider: "假面骑士",
   ultraman: "奥特曼",
@@ -967,6 +991,15 @@ function auctionTimeline(item: Item, serverOffset: number) {
   };
 }
 
+function median(values: number[]) {
+  if (!values.length) return null;
+  const ordered = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(ordered.length / 2);
+  return ordered.length % 2
+    ? ordered[middle]
+    : (ordered[middle - 1] + ordered[middle]) / 2;
+}
+
 function FilterSelect({
   label,
   name,
@@ -1033,15 +1066,15 @@ function ProductCard({
   const [noteOpen, setNoteOpen] = useState(false);
   useEffect(() => setNoteDraft(item.note ?? ""), [item.note]);
   async function saveNote() {
-    const next = noteDraft.slice(0, 10);
+    const next = noteDraft.slice(0, NOTE_MAX_LENGTH);
     if (next === (item.note ?? "")) {
-      if (!next) setNoteOpen(false);
+      setNoteOpen(false);
       return;
     }
     setNoteSaving(true);
     try {
       await onPatch({ note: next || null });
-      if (!next) setNoteOpen(false);
+      setNoteOpen(false);
     } finally {
       setNoteSaving(false);
     }
@@ -1235,9 +1268,9 @@ function ProductCard({
               <input
                 autoFocus
                 value={noteDraft}
-                maxLength={10}
+                maxLength={NOTE_MAX_LENGTH}
                 onChange={(event) =>
-                  setNoteDraft(event.target.value.slice(0, 10))
+                  setNoteDraft(event.target.value.slice(0, NOTE_MAX_LENGTH))
                 }
                 onBlur={() => void saveNote()}
                 onKeyDown={(event) => {
@@ -1250,25 +1283,31 @@ function ProductCard({
                     setNoteOpen(false);
                   }
                 }}
-                aria-label="商品备注"
-                placeholder="最多 10 字"
+                aria-label="采购备注"
+                placeholder={`最多 ${NOTE_MAX_LENGTH} 字`}
                 disabled={noteSaving}
                 className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink/35"
               />
               <span className="shrink-0 font-mono text-[9px] text-ink/35">
-                {noteDraft.length}/10
+                {noteDraft.length}/{NOTE_MAX_LENGTH}
               </span>
             </div>
           ) : (
             <button
               type="button"
               onClick={() => setNoteOpen(true)}
-              aria-label={item.note ? `编辑备注：${item.note}` : "添加商品备注"}
-              title={item.note ? "编辑备注" : "添加备注"}
+              aria-label={
+                item.note ? `编辑采购备注：${item.note}` : "添加采购备注"
+              }
+              title={item.note ? "编辑采购备注" : "添加采购备注"}
               className={`flex h-11 max-w-full items-center gap-1.5 rounded-full border border-ink/10 bg-white px-3 text-xs text-ink/60 transition-[width,background-color] duration-200 hover:bg-fog motion-reduce:transition-none ${item.note ? "w-fit" : "w-11 justify-center px-0"}`}
             >
               <CommentIcon className="h-4 w-4 shrink-0" />
-              {item.note && <span className="truncate">{item.note}</span>}
+              {item.note && (
+                <span className="min-w-0 truncate" title={item.note}>
+                  {item.note}
+                </span>
+              )}
             </button>
           )}
         </div>
@@ -1506,7 +1545,7 @@ function CartDialog({
             onClick={onShare}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#0071e3] px-4 text-sm font-bold text-white disabled:opacity-40"
           >
-            <ShareIcon /> {sharing ? "正在生成…" : "分享购物车确认页"}
+            <ShareIcon /> {sharing ? "正在生成…" : "分享原始商品链接"}
           </button>
           {message && (
             <p
@@ -1527,20 +1566,63 @@ function FavoriteMiniCard({
   language,
   translatedTitle,
   exchangeRate,
+  serverOffset,
+  nowTick,
   onOpen,
+  onSaveNote,
 }: {
   item: Item;
   language: "zh" | "original";
   translatedTitle?: string;
   exchangeRate?: number;
+  serverOffset: number;
+  nowTick: number;
   onOpen: () => void;
+  onSaveNote: (note: string | null) => Promise<void>;
 }) {
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(item.note ?? "");
+  const [noteSaving, setNoteSaving] = useState(false);
+  useEffect(() => setNoteDraft(item.note ?? ""), [item.note]);
+  async function saveNote() {
+    const next = noteDraft.trim().slice(0, NOTE_MAX_LENGTH);
+    if (next === (item.note ?? "")) {
+      setNoteOpen(false);
+      return;
+    }
+    setNoteSaving(true);
+    try {
+      await onSaveNote(next || null);
+      setNoteOpen(false);
+    } catch {
+      // Keep the editor open; the workspace already displays the API error.
+    } finally {
+      setNoteSaving(false);
+    }
+  }
+  const title =
+    language === "zh"
+      ? (translatedTitle ??
+        item.titleZh ??
+        item.product?.titleZh ??
+        translateText(item.titleRaw) ??
+        item.titleRaw)
+      : item.titleRaw;
+  const auctionRemaining = useMemo(
+    () =>
+      item.listingType === "auction" && item.auctionEndAt
+        ? countdown(item.auctionEndAt, serverOffset)
+        : null,
+    [item.auctionEndAt, item.listingType, nowTick, serverOffset],
+  );
   return (
-    <button
-      onClick={onOpen}
-      className="favorite-mini-card grid min-h-[84px] w-full grid-cols-[64px_1fr_auto] items-center gap-3 rounded-xl bg-white p-2 text-left shadow-sm"
-    >
-      <div className="h-16 w-16 overflow-hidden rounded-lg bg-ink">
+    <article className="favorite-mini-card grid min-h-[84px] w-full grid-cols-[64px_minmax(0,1fr)_44px] items-center gap-3 rounded-xl bg-white p-2 text-left shadow-sm">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`查看 ${title}`}
+        className="h-16 w-16 overflow-hidden rounded-lg bg-ink outline-none focus-visible:ring-4 focus-visible:ring-moss/30"
+      >
         {item.images[0] ? (
           <img
             src={item.images[0].url}
@@ -1553,26 +1635,87 @@ function FavoriteMiniCard({
             特
           </span>
         )}
-      </div>
-      <span className="min-w-0">
+      </button>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="min-w-0 text-left outline-none focus-visible:ring-4 focus-visible:ring-moss/20"
+      >
         <span className="line-clamp-2 text-xs font-black leading-5 text-ink">
-          {language === "zh"
-            ? (translatedTitle ??
-              item.product?.titleZh ??
-              translateText(item.titleRaw) ??
-              item.titleRaw)
-            : item.titleRaw}
+          {title}
         </span>
-        <span className="mt-1 flex gap-2 font-mono text-[10px] text-ink/55">
+        <span className="mt-1 flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 font-mono text-[10px] text-ink/55">
           <b className="text-rust">{fmtYen(item.priceCurrent)}</b>
           <span className="text-[9px] text-ink/45">
             {fmtCny(item.priceCurrent, exchangeRate)}
           </span>
           <span>{sourceName(item.source.key)}</span>
+          {auctionRemaining && (
+            <b className="text-amber-700">剩 {auctionRemaining}</b>
+          )}
         </span>
-      </span>
-      <HeartIcon filled className="h-4 w-4 text-moss" />
-    </button>
+      </button>
+      <div className="grid justify-items-center gap-0.5">
+        <span
+          className="grid h-5 w-5 place-items-center text-moss"
+          aria-label="已收藏"
+          role="img"
+        >
+          <HeartIcon filled className="h-4 w-4" />
+        </span>
+        <button
+          type="button"
+          onClick={() => setNoteOpen(true)}
+          aria-label={item.note ? `编辑采购备注：${item.note}` : "添加采购备注"}
+          title={item.note ? "编辑采购备注" : "添加采购备注"}
+          className="grid h-11 w-11 place-items-center rounded-full text-ink/55 transition-colors hover:bg-fog"
+        >
+          <CommentIcon className="h-4 w-4" />
+        </button>
+      </div>
+      {noteOpen ? (
+        <div className="col-span-3 flex min-h-11 items-center gap-2 rounded-xl bg-fog/55 px-2.5">
+          <CommentIcon className="h-4 w-4 shrink-0 text-ink/40" />
+          <input
+            autoFocus
+            value={noteDraft}
+            maxLength={NOTE_MAX_LENGTH}
+            onChange={(event) =>
+              setNoteDraft(event.target.value.slice(0, NOTE_MAX_LENGTH))
+            }
+            onBlur={() => void saveNote()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                event.currentTarget.blur();
+              }
+              if (event.key === "Escape") {
+                setNoteDraft(item.note ?? "");
+                setNoteOpen(false);
+              }
+            }}
+            aria-label="收藏商品采购备注"
+            placeholder={`最多 ${NOTE_MAX_LENGTH} 字`}
+            disabled={noteSaving}
+            className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink/35"
+          />
+          <span className="shrink-0 font-mono text-[9px] text-ink/35">
+            {noteDraft.length}/{NOTE_MAX_LENGTH}
+          </span>
+        </div>
+      ) : item.note ? (
+        <button
+          type="button"
+          onClick={() => setNoteOpen(true)}
+          className="col-span-3 flex min-h-9 min-w-0 items-center gap-2 rounded-lg bg-fog/55 px-2.5 text-left text-xs text-ink/65"
+          aria-label={`查看或编辑采购备注：${item.note}`}
+          title={item.note}
+        >
+          <CommentIcon className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{item.note}</span>
+        </button>
+      ) : null}
+    </article>
   );
 }
 
@@ -1580,60 +1723,142 @@ function FavoritesWorkspace({
   apiBaseUrl,
   language,
   exchangeRate,
+  serverOffset,
+  refreshToken,
   onOpenItem,
 }: {
   apiBaseUrl: string;
   language: "zh" | "original";
   exchangeRate?: number;
+  serverOffset: number;
+  refreshToken: number;
   onOpenItem: (item: Item) => void;
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
-  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
-  const load = useCallback(
-    async (nextOffset = 0, append = false) => {
-      if (append) setLoadingMore(true);
-      else setLoading(true);
-      setError("");
-      try {
+  const [listingMode, setListingMode] = useState<"direct" | "auction">(
+    "direct",
+  );
+  const [sortMode, setSortMode] = useState<
+    "price-asc" | "price-desc" | "ending-asc" | "ending-desc"
+  >("price-asc");
+  const [nowTick, setNowTick] = useState(0);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const firstResponse = await fetch(
+        `${apiBaseUrl}/items?favorite=true&limit=100&offset=0`,
+        { cache: "no-store" },
+      );
+      if (!firstResponse.ok) throw new Error(`API ${firstResponse.status}`);
+      const first = (await firstResponse.json()) as {
+        items?: Item[];
+        total?: number;
+      };
+      const expectedTotal = first.total ?? first.items?.length ?? 0;
+      const collected = [...(first.items ?? [])];
+      let nextOffset = collected.length;
+      while (nextOffset < expectedTotal) {
         const response = await fetch(
           `${apiBaseUrl}/items?favorite=true&limit=100&offset=${nextOffset}`,
           { cache: "no-store" },
         );
         if (!response.ok) throw new Error(`API ${response.status}`);
-        const payload = (await response.json()) as {
-          items?: Item[];
-          total?: number;
-        };
-        setItems((current) =>
-          append
-            ? [...current, ...(payload.items ?? [])]
-            : (payload.items ?? []),
-        );
-        setTotal(payload.total ?? 0);
-        setOffset(nextOffset + (payload.items?.length ?? 0));
-      } catch (reason) {
-        setError(reason instanceof Error ? reason.message : "收藏加载失败");
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        const page = (await response.json()) as { items?: Item[] };
+        const batch = page.items ?? [];
+        if (!batch.length) break;
+        collected.push(...batch);
+        nextOffset += batch.length;
       }
-    },
-    [apiBaseUrl],
-  );
+      setItems(collected);
+      setTotal(expectedTotal);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "收藏加载失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBaseUrl]);
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshToken]);
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setNowTick((current) => current + 1),
+      30_000,
+    );
+    return () => window.clearInterval(timer);
+  }, []);
+  const counts = useMemo(
+    () => ({
+      direct: items.filter((item) => item.listingType === "direct").length,
+      auction: items.filter((item) => item.listingType === "auction").length,
+    }),
+    [items],
+  );
+  const visibleItems = useMemo(() => {
+    const selected = items.filter((item) => item.listingType === listingMode);
+    return [...selected].sort((left, right) => {
+      if (sortMode === "price-asc" || sortMode === "price-desc") {
+        const difference = left.priceCurrent - right.priceCurrent;
+        return sortMode === "price-asc" ? difference : -difference;
+      }
+      if (!left.auctionEndAt && !right.auctionEndAt) return 0;
+      if (!left.auctionEndAt) return 1;
+      if (!right.auctionEndAt) return -1;
+      const leftEnd = new Date(left.auctionEndAt).getTime();
+      const rightEnd = new Date(right.auctionEndAt).getTime();
+      const difference = leftEnd - rightEnd;
+      return sortMode === "ending-asc" ? difference : -difference;
+    });
+  }, [items, listingMode, sortMode, nowTick]);
+  async function saveNote(item: Item, note: string | null) {
+    const previous = item.note ?? null;
+    setItems((current) =>
+      current.map((entry) =>
+        entry.id === item.id ? { ...entry, note } : entry,
+      ),
+    );
+    try {
+      const response = await fetch(`${apiBaseUrl}/items/${item.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          note,
+          actor: "favorites-workspace",
+          reason: "更新采购备注",
+        }),
+      });
+      if (!response.ok) throw new Error(`备注保存失败（${response.status}）`);
+      const payload = (await response.json()) as { item?: Item };
+      if (payload.item)
+        setItems((current) =>
+          current.map((entry) =>
+            entry.id === item.id ? { ...entry, ...payload.item } : entry,
+          ),
+        );
+    } catch (reason) {
+      setItems((current) =>
+        current.map((entry) =>
+          entry.id === item.id ? { ...entry, note: previous } : entry,
+        ),
+      );
+      setError(reason instanceof Error ? reason.message : "备注保存失败");
+      throw reason;
+    }
+  }
   return (
     <section
       className="favorites-workspace portal-page"
       aria-labelledby="favorites-title"
     >
       <div className="portal-heading">
-        <h2 id="favorites-title">收藏</h2>
+        <div>
+          <h2 id="favorites-title">收藏</h2>
+          <p className="mt-1 text-xs text-ink/45">共 {total} 件</p>
+        </div>
       </div>
       {error && (
         <p
@@ -1653,28 +1878,76 @@ function FavoritesWorkspace({
         </p>
       ) : (
         <>
-          <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map((item) => (
-              <FavoriteMiniCard
-                key={item.id}
-                item={item}
-                language={language}
-                translatedTitle={item.titleZh ?? undefined}
-                exchangeRate={exchangeRate}
-                onOpen={() => onOpenItem(item)}
-              />
-            ))}
-          </div>
-          {offset < total && (
-            <button
-              type="button"
-              onClick={() => void load(offset, true)}
-              disabled={loadingMore}
-              className="mt-4 min-h-11 w-full rounded-xl border border-black/10 bg-white text-sm font-semibold text-ink disabled:opacity-50"
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-2 shadow-sm">
+            <div
+              role="tablist"
+              aria-label="收藏商品类型"
+              className="grid min-w-[220px] flex-1 grid-cols-2 rounded-xl bg-fog/70 p-1 sm:flex-none"
             >
-              {loadingMore ? "正在加载…" : `加载更多 · ${total - offset} 件`}
-            </button>
-          )}
+              {(["direct", "auction"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={listingMode === mode}
+                  onClick={() => {
+                    setListingMode(mode);
+                    if (mode === "direct" && sortMode.startsWith("ending"))
+                      setSortMode("price-asc");
+                  }}
+                  className={`min-h-11 rounded-lg px-3 text-xs font-bold transition-[background-color,color,box-shadow] ${listingMode === mode ? "bg-white text-ink shadow-sm" : "text-ink/50"}`}
+                >
+                  {mode === "direct" ? "直购" : "拍卖"} · {counts[mode]}
+                </button>
+              ))}
+            </div>
+            <label className="flex min-h-11 items-center gap-2 text-xs font-semibold text-ink/50">
+              排序
+              <select
+                value={sortMode}
+                onChange={(event) =>
+                  setSortMode(
+                    event.target.value as
+                      | "price-asc"
+                      | "price-desc"
+                      | "ending-asc"
+                      | "ending-desc",
+                  )
+                }
+                className="min-h-11 rounded-xl border border-ink/10 bg-white px-3 text-xs font-bold text-ink"
+              >
+                <option value="price-asc">价格从低到高</option>
+                <option value="price-desc">价格从高到低</option>
+                {listingMode === "auction" && (
+                  <>
+                    <option value="ending-asc">即将结束</option>
+                    <option value="ending-desc">结束时间最晚</option>
+                  </>
+                )}
+              </select>
+            </label>
+          </div>
+          <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {visibleItems.length ? (
+              visibleItems.map((item) => (
+                <FavoriteMiniCard
+                  key={item.id}
+                  item={item}
+                  language={language}
+                  translatedTitle={item.titleZh ?? undefined}
+                  exchangeRate={exchangeRate}
+                  serverOffset={serverOffset}
+                  nowTick={nowTick}
+                  onOpen={() => onOpenItem(item)}
+                  onSaveNote={(note) => saveNote(item, note)}
+                />
+              ))
+            ) : (
+              <p className="rounded-2xl border border-dashed border-black/10 p-8 text-center text-sm text-ink/45 sm:col-span-2 lg:col-span-3 xl:col-span-4">
+                收藏中暂无{listingMode === "direct" ? "直购" : "拍卖"}商品
+              </p>
+            )}
+          </div>
         </>
       )}
     </section>
@@ -2797,12 +3070,18 @@ function DetailDrawer({
               <textarea
                 rows={4}
                 value={draft.note}
-                maxLength={10}
+                maxLength={NOTE_MAX_LENGTH}
                 onChange={(event) =>
-                  setDraft({ ...draft, note: event.target.value.slice(0, 10) })
+                  setDraft({
+                    ...draft,
+                    note: event.target.value.slice(0, NOTE_MAX_LENGTH),
+                  })
                 }
                 className="rounded-xl border border-ink/15 p-3 text-sm text-ink"
               />
+              <span className="text-right font-mono text-[10px] font-normal text-ink/40">
+                {draft.note.length}/{NOTE_MAX_LENGTH}
+              </span>
             </label>
             <button
               disabled={saving}
@@ -3048,6 +3327,10 @@ export default function Dashboard() {
     auction: 0,
     direct: 0,
   });
+  const [urgentAuctionPool, setUrgentAuctionPool] = useState<Item[]>([]);
+  const [urgentAuctionsLoading, setUrgentAuctionsLoading] = useState(true);
+  const [urgentAuctionsError, setUrgentAuctionsError] = useState("");
+  const [favoritesRevision, setFavoritesRevision] = useState(0);
   const [page, setPage] = useState(1);
   const [overview, setOverview] = useState<MonitoringOverview | null>(null);
   const [filters, setFilters] = useState<Filters>({});
@@ -3066,8 +3349,8 @@ export default function Dashboard() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const [language, setLanguage] = useState<"zh" | "original">("zh");
-  const [listingMode, setListingMode] = useState<"all" | "auction" | "direct">(
-    "all",
+  const [listingMode, setListingMode] = useState<"auction" | "direct">(
+    "direct",
   );
   const [workspace, setWorkspace] = useState<Workspace>("inventory");
   const [workspaceTrail, setWorkspaceTrail] = useState<Workspace[]>([]);
@@ -3112,8 +3395,8 @@ export default function Dashboard() {
     .join("|");
 
   useEffect(() => {
-    itemsRef.current = items;
-  }, [items]);
+    itemsRef.current = [...items, ...urgentAuctionPool];
+  }, [items, urgentAuctionPool]);
 
   useGSAP(
     () => {
@@ -3253,6 +3536,11 @@ export default function Dashboard() {
           entry.id === item.id ? { ...entry, ...translated } : entry,
         ),
       );
+      setUrgentAuctionPool((current) =>
+        current.map((entry) =>
+          entry.id === item.id ? { ...entry, ...translated } : entry,
+        ),
+      );
       setSelected((current) =>
         current?.id === item.id ? { ...current, ...translated } : current,
       );
@@ -3343,7 +3631,7 @@ export default function Dashboard() {
       );
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String((page - 1) * PAGE_SIZE));
-      if (listingMode !== "all") params.set("listingType", listingMode);
+      params.set("listingType", listingMode);
       const response = await fetch(`${API}/items?${params}`, {
         cache: "no-store",
       });
@@ -3370,6 +3658,58 @@ export default function Dashboard() {
       setLoading(false);
     }
   }, [filters, listingMode, page, requestTranslations]);
+
+  const loadUrgentAuctions = useCallback(async () => {
+    setUrgentAuctionsLoading(true);
+    setUrgentAuctionsError("");
+    try {
+      const params = new URLSearchParams(
+        Object.entries(filters).filter(([, value]) => value),
+      );
+      params.delete("auctionHours");
+      params.set("listingType", "auction");
+      params.set("auctionMinutes", "30");
+      params.set("sortBy", "auctionEndAt");
+      params.set("sortOrder", "asc");
+      params.set("limit", "100");
+      params.set("offset", "0");
+      const firstResponse = await fetch(`${API}/items?${params}`, {
+        cache: "no-store",
+      });
+      if (!firstResponse.ok)
+        throw new Error(`临期拍卖 API ${firstResponse.status}`);
+      const first = (await firstResponse.json()) as {
+        items?: Item[];
+        total?: number;
+        serverTime?: string;
+      };
+      const expectedTotal = first.total ?? first.items?.length ?? 0;
+      const collected = [...(first.items ?? [])];
+      let nextOffset = collected.length;
+      while (nextOffset < expectedTotal) {
+        params.set("offset", String(nextOffset));
+        const response = await fetch(`${API}/items?${params}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) throw new Error(`临期拍卖 API ${response.status}`);
+        const pagePayload = (await response.json()) as { items?: Item[] };
+        const batch = pagePayload.items ?? [];
+        if (!batch.length) break;
+        collected.push(...batch);
+        nextOffset += batch.length;
+      }
+      setUrgentAuctionPool(collected);
+      if (first.serverTime)
+        setServerOffset(new Date(first.serverTime).getTime() - Date.now());
+      void requestTranslations(collected);
+    } catch (reason) {
+      setUrgentAuctionsError(
+        reason instanceof Error ? reason.message : "临期拍卖加载失败",
+      );
+    } finally {
+      setUrgentAuctionsLoading(false);
+    }
+  }, [filters, requestTranslations]);
 
   const loadImports = useCallback(async () => {
     try {
@@ -3547,6 +3887,8 @@ export default function Dashboard() {
           .filter((item) => !item.ignored && !item.archivedAt);
       setItems(merge);
       setLinkItems(merge);
+      setUrgentAuctionPool(merge);
+      setFavoritesRevision((current) => current + 1);
       setDislikedItems((current) => {
         const next = current
           .map((item) => {
@@ -3582,6 +3924,14 @@ export default function Dashboard() {
     const timeout = setTimeout(() => void load(), 250);
     return () => clearTimeout(timeout);
   }, [load]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadUrgentAuctions(), 250);
+    const timer = window.setInterval(() => void loadUrgentAuctions(), 60_000);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(timer);
+    };
+  }, [loadUrgentAuctions]);
   useEffect(() => {
     void Promise.all([
       loadImports(),
@@ -3724,7 +4074,7 @@ export default function Dashboard() {
   }
   function changeListingMode(mode: "auction" | "direct") {
     setPage(1);
-    setListingMode((current) => (current === mode ? "all" : mode));
+    setListingMode(mode);
   }
   function navigateWorkspace(next: Workspace) {
     if (next === workspace) return;
@@ -3759,6 +4109,7 @@ export default function Dashboard() {
     const source =
       items.find((item) => item.id === itemId) ??
       linkItems.find((item) => item.id === itemId) ??
+      urgentAuctionPool.find((item) => item.id === itemId) ??
       cart.items.find((item) => item.id === itemId);
     if (present && source && !cart.items.some((item) => item.id === itemId))
       setCart({
@@ -3796,27 +4147,89 @@ export default function Dashboard() {
       });
       if (!response.ok)
         throw new Error(`读取原始链接失败（${response.status}）`);
-      const result = (await response.json()) as {
-        itemCount: number;
-        primaryUrl: string;
-        sourceUrls: string[];
-      };
-      const linksText =
-        result.sourceUrls.length === 1
-          ? result.sourceUrls[0]
-          : result.sourceUrls
-              .map((url, index) => `${index + 1}. ${url}`)
-              .join("\n");
+      const result = (await response.json()) as CartSharePayload;
+      const knownItems = [
+        ...items,
+        ...linkItems,
+        ...urgentAuctionPool,
+        ...cart.items,
+      ].filter(
+        (item, index, collection) =>
+          collection.findIndex((entry) => entry.id === item.id) === index,
+      );
+      const requestedItems = itemIds?.length
+        ? itemIds
+            .map((id) => knownItems.find((item) => item.id === id))
+            .filter((item): item is Item => Boolean(item))
+        : cart.items;
+      const responseItems = result.items ?? result.links ?? [];
+      const rawEntries = responseItems.length
+        ? responseItems.map((entry, index) => {
+            const local =
+              (entry.id
+                ? knownItems.find((item) => item.id === entry.id)
+                : undefined) ?? requestedItems[index];
+            return {
+              sourceUrl: entry.sourceUrl ?? entry.url ?? local?.sourceUrl ?? "",
+              title:
+                (local
+                  ? (translations[`${local.id}:title`] ??
+                    local.titleZh ??
+                    local.product?.titleZh ??
+                    translateText(local.titleRaw))
+                  : undefined) ??
+                entry.titleZh ??
+                entry.title ??
+                entry.titleRaw ??
+                local?.titleRaw ??
+                "商品",
+            };
+          })
+        : (result.sourceUrls ?? []).map((sourceUrl, index) => {
+            const local =
+              requestedItems.find((item) => item.sourceUrl === sourceUrl) ??
+              requestedItems[index];
+            return {
+              sourceUrl,
+              title:
+                (local
+                  ? (translations[`${local.id}:title`] ??
+                    local.titleZh ??
+                    local.product?.titleZh ??
+                    translateText(local.titleRaw) ??
+                    local.titleRaw)
+                  : undefined) ?? "商品",
+            };
+          });
+      const seenUrls = new Set<string>();
+      const shareEntries = rawEntries.filter((entry) => {
+        try {
+          const parsed = new URL(entry.sourceUrl);
+          if (!/^https?:$/.test(parsed.protocol)) return false;
+          if (
+            typeof window !== "undefined" &&
+            parsed.origin === window.location.origin
+          )
+            return false;
+          if (seenUrls.has(parsed.href)) return false;
+          seenUrls.add(parsed.href);
+          entry.sourceUrl = parsed.href;
+          return true;
+        } catch {
+          return false;
+        }
+      });
+      if (!shareEntries.length)
+        throw new Error("所选商品没有可分享的原始来源链接");
+      const linksText = shareEntries
+        .map((entry) => `${entry.title.trim() || "商品"}\n${entry.sourceUrl}`)
+        .join("\n\n");
       const shareData: ShareData = {
         title:
-          itemIds?.length === 1
-            ? "假面采购 · 商品分享"
-            : "假面采购 · 商品原链接",
-        text:
-          result.sourceUrls.length === 1
-            ? "商品原始来源"
-            : `${result.itemCount} 件商品原始来源：\n${linksText}`,
-        ...(result.sourceUrls.length === 1 ? { url: result.primaryUrl } : {}),
+          shareEntries.length === 1
+            ? shareEntries[0].title.trim() || "商品分享"
+            : `假面采购 · ${shareEntries.length} 件商品`,
+        text: linksText,
       };
       if (navigator.share) {
         try {
@@ -3850,7 +4263,12 @@ export default function Dashboard() {
     }
   }
   async function patchItem(id: string, patch: Partial<Item>) {
-    const previous = items.find((item) => item.id === id);
+    const previous =
+      items.find((item) => item.id === id) ??
+      linkItems.find((item) => item.id === id) ??
+      urgentAuctionPool.find((item) => item.id === id) ??
+      cart.items.find((item) => item.id === id) ??
+      (selected?.id === id ? selected : undefined);
     if (!previous) return;
     const optimistic = { ...previous, ...patch } as Item;
     const apply = (value: Item) => {
@@ -3864,6 +4282,17 @@ export default function Dashboard() {
           .map((item) => (item.id === id ? { ...item, ...value } : item))
           .filter((item) => !item.ignored && !item.archivedAt),
       );
+      setUrgentAuctionPool((current) =>
+        current
+          .map((item) => (item.id === id ? { ...item, ...value } : item))
+          .filter((item) => !item.ignored && !item.archivedAt),
+      );
+      setCart((current) => ({
+        ...current,
+        items: current.items.map((item) =>
+          item.id === id ? { ...item, ...value } : item,
+        ),
+      }));
       setDislikedItems((current) => {
         const next = current
           .map((item) => (item.id === id ? { ...item, ...value } : item))
@@ -3887,10 +4316,44 @@ export default function Dashboard() {
       const updated = (await response.json()).item as Partial<Item>;
       apply({ ...optimistic, ...updated } as Item);
       if (updated.updatedAt) changeCursorRef.current = updated.updatedAt;
+      if (patch.favorite !== undefined || patch.note !== undefined)
+        setFavoritesRevision((current) => current + 1);
     } catch (reason) {
       apply(previous);
       setError(reason instanceof Error ? reason.message : "保存失败");
     }
+  }
+
+  async function saveDiscoveryNote(id: string, note: string | null) {
+    const response = await fetch(`${API}/items/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        note,
+        actor: "discovery-workspace",
+        reason: "更新采购备注",
+      }),
+    });
+    if (!response.ok) throw new Error(`备注保存失败（${response.status}）`);
+    const payload = (await response.json()) as { item?: Item };
+    if (payload.item) {
+      const updated = payload.item;
+      setItems((current) =>
+        current.map((item) =>
+          item.id === id ? { ...item, ...updated } : item,
+        ),
+      );
+      setUrgentAuctionPool((current) =>
+        current.map((item) =>
+          item.id === id ? { ...item, ...updated } : item,
+        ),
+      );
+      setSelected((current) =>
+        current?.id === id ? { ...current, ...updated } : current,
+      );
+    }
+    setFavoritesRevision((current) => current + 1);
+    await syncChanges();
   }
 
   async function openAnalysisItem(itemId: string): Promise<boolean> {
@@ -3971,23 +4434,63 @@ export default function Dashboard() {
     }
   }
 
-  const urgentCount = items.filter(
-    (item) =>
-      item.auctionEndAt &&
-      new Date(item.auctionEndAt).getTime() - (Date.now() + serverOffset) <
-        30 * 60_000,
-  ).length;
+  const urgentAuctionSelection = useMemo(() => {
+    const now = Date.now() + serverOffset;
+    const active = urgentAuctionPool.filter((item) => {
+      if (item.listingType !== "auction" || !item.auctionEndAt) return false;
+      const remaining = new Date(item.auctionEndAt).getTime() - now;
+      return remaining > 0 && remaining <= 30 * 60_000;
+    });
+    const knownLandedPrices = active.map(
+      (item) => item.priceCurrent + (item.shippingFee ?? 0),
+    );
+    const effectiveUnitCost = (item: Item) =>
+      item.unitCostEst ??
+      (item.quantityEst && item.quantityEst > 0
+        ? (item.priceCurrent + (item.shippingFee ?? 0)) / item.quantityEst
+        : null);
+    const knownUnitCosts = active
+      .map(effectiveUnitCost)
+      .filter((value): value is number => value != null);
+    const priceMedian = median(knownLandedPrices);
+    const unitMedian = median(knownUnitCosts);
+    const lowerPriced = active.filter(
+      (item) =>
+        priceMedian == null ||
+        item.priceCurrent + (item.shippingFee ?? 0) <= priceMedian,
+    );
+    const factualValue = lowerPriced.filter((item) => {
+      const unitCost = effectiveUnitCost(item);
+      return (
+        (item.quantityEst ?? 0) >= 2 ||
+        (unitCost != null && unitMedian != null && unitCost <= unitMedian)
+      );
+    });
+    const candidates = factualValue.length ? factualValue : lowerPriced;
+    const ranked = [...candidates].sort((left, right) => {
+      const endingDifference =
+        new Date(left.auctionEndAt ?? 0).getTime() -
+        new Date(right.auctionEndAt ?? 0).getTime();
+      if (endingDifference) return endingDifference;
+      const leftUnit = effectiveUnitCost(left) ?? Number.POSITIVE_INFINITY;
+      const rightUnit = effectiveUnitCost(right) ?? Number.POSITIVE_INFINITY;
+      if (leftUnit !== rightUnit) return leftUnit - rightUnit;
+      return (
+        left.priceCurrent +
+        (left.shippingFee ?? 0) -
+        (right.priceCurrent + (right.shippingFee ?? 0))
+      );
+    });
+    return {
+      activeCount: active.length,
+      items: ranked.slice(0, 5),
+      priceMedian,
+      unitMedian,
+      usedUnitFacts: factualValue.length > 0,
+    };
+  }, [urgentAuctionPool, serverOffset, nowTick]);
+  const urgentCount = urgentAuctionSelection.activeCount;
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
-  const auctionItems = items.filter(
-    (item) =>
-      item.listingType === "auction" ||
-      (!item.listingType && Boolean(item.auctionEndAt)),
-  );
-  const directItems = items.filter(
-    (item) =>
-      item.listingType === "direct" ||
-      (!item.listingType && !item.auctionEndAt),
-  );
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageStart = total ? (page - 1) * PAGE_SIZE + 1 : 0;
   const pageEnd = Math.min(page * PAGE_SIZE, total);
@@ -4274,6 +4777,8 @@ export default function Dashboard() {
             apiBaseUrl={API}
             language={language}
             exchangeRate={exchangeRate?.rate}
+            serverOffset={serverOffset}
+            refreshToken={favoritesRevision}
             onOpenItem={(item) => setSelected(item)}
           />
         )}
@@ -4295,6 +4800,7 @@ export default function Dashboard() {
             exchangeRate={exchangeRate?.rate}
             onOpenDetail={openAnalysisItem}
             onFavoriteChange={() => void syncChanges()}
+            onNoteChange={saveDiscoveryNote}
             interactionDisabled={Boolean(
               selected ||
                 purchaseItem ||
@@ -5353,6 +5859,95 @@ export default function Dashboard() {
               </div>
             )}
 
+            <section
+              className="urgent-auction-zone workspace-surface js-shell-reveal mt-3 rounded-2xl border border-amber-200/70 bg-white p-3 shadow-panel"
+              aria-labelledby="urgent-auction-title"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2
+                      id="urgent-auction-title"
+                      className="font-heading text-lg font-black text-ink"
+                    >
+                      30 分钟临期拍卖
+                    </h2>
+                    <span className="rounded-full bg-amber-100 px-2 py-1 font-mono text-[10px] font-bold text-amber-800">
+                      {urgentCount} 件临期 ·{" "}
+                      {urgentAuctionSelection.items.length}
+                      件优先
+                    </span>
+                  </div>
+                  <p className="mt-1 max-w-4xl text-[11px] leading-5 text-ink/50">
+                    事实筛选：结束时间在 30
+                    分钟内，商品价加已知邮费不高于当前临期批次中位数
+                    {urgentAuctionSelection.priceMedian != null
+                      ? ` ${fmtYen(Math.round(urgentAuctionSelection.priceMedian))}`
+                      : ""}
+                    {urgentAuctionSelection.usedUnitFacts &&
+                    urgentAuctionSelection.unitMedian != null
+                      ? `；再优先多件装或单位价不高于中位数 ${fmtYen(Math.round(urgentAuctionSelection.unitMedian))}`
+                      : "；缺少可比较的数量或单位价时，仅保留低价半区"}
+                    。不使用 AI 评分。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void loadUrgentAuctions()}
+                  disabled={urgentAuctionsLoading}
+                  aria-label="刷新临期拍卖"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-fog text-ink transition-colors hover:bg-amber-50 disabled:opacity-40"
+                >
+                  <RefreshIcon
+                    className={`h-4 w-4 ${urgentAuctionsLoading ? "animate-spin" : ""}`}
+                  />
+                </button>
+              </div>
+              {urgentAuctionsError && !urgentAuctionPool.length ? (
+                <p
+                  role="alert"
+                  className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800"
+                >
+                  临期拍卖暂时无法读取：{urgentAuctionsError}
+                </p>
+              ) : urgentAuctionsLoading && !urgentAuctionPool.length ? (
+                <p className="mt-3 rounded-xl bg-fog/55 p-6 text-center text-xs text-ink/45">
+                  正在核对全库临期拍卖…
+                </p>
+              ) : urgentAuctionSelection.items.length ? (
+                <div className="procurement-grid mt-3 grid auto-rows-fr grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                  {urgentAuctionSelection.items.map((item) => (
+                    <ProductCard
+                      key={`urgent-${item.id}`}
+                      item={item}
+                      serverOffset={serverOffset}
+                      nowTick={nowTick}
+                      language={language}
+                      translatedTitle={translations[`${item.id}:title`]}
+                      onOpen={() => setSelected(item)}
+                      onPatch={(patch) => void patchItem(item.id, patch)}
+                      onIgnore={() => setIgnoreItem(item)}
+                      onPurchase={() => setPurchaseItem(item)}
+                      onSeller={(sellerId) => setSellerId(sellerId)}
+                      exchangeRate={exchangeRate?.rate}
+                      inCart={cart.items.some((entry) => entry.id === item.id)}
+                      onCart={() =>
+                        void updateCart(
+                          item.id,
+                          !cart.items.some((entry) => entry.id === item.id),
+                        )
+                      }
+                      onShare={() => void shareItems([item.id])}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 rounded-xl border border-dashed border-amber-200 bg-amber-50/35 p-6 text-center text-xs text-ink/50">
+                  当前全库筛选条件下，没有同时满足临期与价格事实条件的拍卖。
+                </p>
+              )}
+            </section>
+
             <section className="workspace-surface js-shell-reveal mt-3 rounded-2xl border border-blue-100 bg-white p-3 shadow-panel">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -5360,30 +5955,33 @@ export default function Dashboard() {
                     id="inventory"
                     className="font-heading text-lg font-black"
                   >
-                    在售商品 · {total} 条采购线索
+                    {listingMode === "auction" ? "拍卖专区" : "直购专区"} ·{" "}
+                    {total} 条采购线索
                   </h2>
                   <p className="text-xs text-slate-500">
-                    按发现时间排序 · 30 分钟内结束 {urgentCount} 件
+                    两类独立分页，不与另一类混排
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div
+                  className="flex flex-wrap gap-2"
+                  role="tablist"
+                  aria-label="在售商品类型"
+                >
                   <button
                     type="button"
-                    aria-pressed={
-                      listingMode === "all" || listingMode === "auction"
-                    }
+                    role="tab"
+                    aria-selected={listingMode === "auction"}
                     onClick={() => changeListingMode("auction")}
-                    className={`min-h-11 rounded-lg border px-3 text-xs font-black transition-colors ${listingMode === "all" || listingMode === "auction" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
+                    className={`min-h-11 rounded-lg border px-3 text-xs font-black transition-colors ${listingMode === "auction" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
                   >
                     拍卖 · {listingCounts.auction}
                   </button>
                   <button
                     type="button"
-                    aria-pressed={
-                      listingMode === "all" || listingMode === "direct"
-                    }
+                    role="tab"
+                    aria-selected={listingMode === "direct"}
                     onClick={() => changeListingMode("direct")}
-                    className={`min-h-11 rounded-lg border px-3 text-xs font-black transition-colors ${listingMode === "all" || listingMode === "direct" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
+                    className={`min-h-11 rounded-lg border px-3 text-xs font-black transition-colors ${listingMode === "direct" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
                   >
                     直购 · {listingCounts.direct}
                   </button>
@@ -5593,6 +6191,13 @@ export default function Dashboard() {
             setItems((current) =>
               current.map((item) => (item.id === updated.id ? updated : item)),
             );
+            setLinkItems((current) =>
+              current.map((item) => (item.id === updated.id ? updated : item)),
+            );
+            setUrgentAuctionPool((current) =>
+              current.map((item) => (item.id === updated.id ? updated : item)),
+            );
+            setFavoritesRevision((current) => current + 1);
           }}
         />
       )}

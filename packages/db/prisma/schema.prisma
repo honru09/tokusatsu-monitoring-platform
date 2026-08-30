@@ -135,23 +135,25 @@ model Source {
 }
 
 model Seller {
-  id           String     @id @default(uuid())
-  sourceId     String
-  name         String
-  sellerType   SellerType @default(unknown)
-  locationText String?
+  id             String     @id @default(uuid())
+  sourceId       String
+  sourceSellerId String?    @map("source_seller_id")
+  name           String
+  sellerType     SellerType @default(unknown)
+  locationText   String?
   /// Public seller/profile fields captured from marketplace responses.
   /// This is intentionally JSON because each marketplace exposes different
   /// fields; private account data is never stored here.
-  sourceData   Json?      @map("source_data")
-  profileUrl   String?    @map("profile_url")
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  source       Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  items        Item[]
-  aiRuns       AiRun[]
+  sourceData     Json?      @map("source_data")
+  profileUrl     String?    @map("profile_url")
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  source         Source     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  items          Item[]
+  aiRuns         AiRun[]
 
-  @@unique([sourceId, name])
+  @@unique([sourceId, sourceSellerId])
+  @@index([sourceId, name])
   @@index([name])
 }
 
@@ -236,6 +238,7 @@ model Item {
   @@index([archivedAt, status])
   @@index([importOrigin, createdAt])
   @@index([productId])
+  @@index([sellerId])
   @@index([needsReview, detectedAt])
 }
 

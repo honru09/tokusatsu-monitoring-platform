@@ -46,6 +46,12 @@ export class ListItemsQuery {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(10_080)
+  auctionMinutes?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   @Max(8760)
   listedWithinHours?: number;
   @IsOptional()
@@ -68,6 +74,10 @@ export class ListItemsQuery {
   @Transform(optionalBoolean)
   @IsBoolean()
   favorite?: boolean;
+  @IsOptional()
+  @IsIn(["price", "auctionEndAt"])
+  sortBy?: "price" | "auctionEndAt";
+  @IsOptional() @IsIn(["asc", "desc"]) sortOrder?: "asc" | "desc";
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 50;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) offset = 0;
 }
@@ -104,7 +114,7 @@ export class UpdateItemDto {
   confidence?: number;
   @IsOptional() @IsBoolean() favorite?: boolean;
   @IsOptional() @IsBoolean() ignored?: boolean;
-  @IsOptional() @IsString() @MaxLength(10) note?: string;
+  @IsOptional() @IsString() @MaxLength(25) note?: string;
   @IsOptional() @IsString() reason?: string;
   @IsOptional() @IsString() actor?: string;
 }

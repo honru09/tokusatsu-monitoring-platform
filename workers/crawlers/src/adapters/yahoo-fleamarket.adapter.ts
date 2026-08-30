@@ -50,6 +50,22 @@ function date(value: unknown): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
+export function isYahooFleamarketPlaceholderSellerName(value: unknown) {
+  const name = text(value);
+  if (!name) return false;
+  return (
+    name === "Yahoo!フリマ" ||
+    name === "Yahoo！フリマ" ||
+    /^Yahoo(?:!|！)フリマ(?:出品者|卖家)(?:\s+[a-z0-9_-]+)?$/i.test(name)
+  );
+}
+
+function publicSellerName(...values: unknown[]) {
+  return values
+    .map(text)
+    .find((value) => value && !isYahooFleamarketPlaceholderSellerName(value));
+}
+
 function nextState(html: string) {
   const $ = cheerio.load(html);
   const raw = $("#__NEXT_DATA__").text();
@@ -107,6 +123,13 @@ export function parseYahooFleamarketSearchHtml(
     const sourceUrl = `${ORIGIN}/item/${sourceItemId}`;
     const seller = record(row.seller);
     const sellerId = text(row.sellerId) ?? text(seller.id);
+    const sellerName = publicSellerName(
+      row.sellerNickname,
+      row.sellerName,
+      seller.nickname,
+      seller.name,
+      seller.displayName,
+    );
     const status: ItemStatus =
       String(row.itemStatus ?? "").toUpperCase() === "OPEN" ? "active" : "sold";
     const imageUrls = sanitizeProductImageUrls(
@@ -119,13 +142,12 @@ export function parseYahooFleamarketSearchHtml(
       sourceItemId,
       sourceUrl,
       titleRaw,
-      sellerName: sellerId
-        ? `Yahoo!フリマ出品者 ${sellerId}`
-        : "Yahoo!フリマ出品者",
-      sellerType: "individual",
+      sellerName,
+      sellerType: sellerName ? "individual" : undefined,
       sellerProfileUrl: sellerId ? `${ORIGIN}/user/${sellerId}` : undefined,
       sellerData: {
         sellerId,
+        nickname: sellerName,
         goodRatio: number(seller.goodRatio),
         numRating: number(seller.numRating),
       },
@@ -164,9 +186,11 @@ export function parseYahooFleamarketDetailHtml(
   const descriptionRaw = text(item.description);
   const seller = record(item.seller);
   const sellerId = text(seller.id);
-  const sellerName =
-    text(seller.nickname) ??
-    (sellerId ? `Yahoo!フリマ出品者 ${sellerId}` : "Yahoo!フリマ出品者");
+  const sellerName = publicSellerName(
+    seller.nickname,
+    seller.name,
+    seller.displayName,
+  );
   const images = [
     ...array(item.images).map((entry) => text(record(entry).url)),
     ...array(item.media).map((entry) =>
@@ -214,7 +238,7 @@ export function parseYahooFleamarketDetailHtml(
     titleRaw,
     descriptionRaw,
     sellerName,
-    sellerType: "individual",
+    sellerType: sellerName ? "individual" : undefined,
     sellerProfileUrl: sellerId ? `${ORIGIN}/user/${sellerId}` : undefined,
     sellerData: {
       sellerId,
@@ -222,6 +246,7 @@ export function parseYahooFleamarketDetailHtml(
       rating: record(seller.rating),
       tradingRecord: record(seller.tradingRecord),
       externalTradingRecord: record(seller.externalTradingRecord),
+      image: record(seller.image),
       isKycCompleted: seller.isKycCompleted === true,
       isTrusted: seller.isTrusted === true,
       isGold: seller.isGold === true,
@@ -240,9 +265,12 @@ export function parseYahooFleamarketDetailHtml(
         nickname: sellerName,
         rating: record(seller.rating),
         tradingRecord: record(seller.tradingRecord),
+        externalTradingRecord: record(seller.externalTradingRecord),
+        image: record(seller.image),
         isKycCompleted: seller.isKycCompleted === true,
         isTrusted: seller.isTrusted === true,
         isGold: seller.isGold === true,
+        shipBadgeLevel: text(seller.shipBadgeLevel),
       },
       shippingText: "Yahoo!フリマは全品送料無料・匿名配送",
       shippingStatus: shipping.status,

@@ -16,6 +16,7 @@ function serviceWith(overrides: Record<string, unknown> = {}) {
       findUnique: vi.fn(),
       count: vi.fn().mockResolvedValue(0),
       update: vi.fn(),
+      deleteMany: vi.fn(),
     },
     $transaction: vi.fn(async (input: unknown) => {
       if (Array.isArray(input)) return Promise.all(input);
@@ -82,6 +83,27 @@ describe("DiscoveryService", () => {
     );
   });
 
+  it("returns a type-specific total without mixing the discovery layers", async () => {
+    const { prisma, service } = serviceWith();
+    prisma.item.findMany.mockResolvedValue([
+      { id: "direct-1", listingType: "direct" },
+      { id: "direct-2", listingType: "direct" },
+      { id: "direct-3", listingType: "direct" },
+    ]);
+    prisma.item.count.mockResolvedValue(41);
+
+    const result = await service.feed(12, "direct");
+
+    expect(result.total).toBe(41);
+    expect(prisma.item.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ listingType: "direct" }),
+        take: 12,
+      }),
+    );
+    expect(prisma.item.findFirst).not.toHaveBeenCalled();
+  });
+
   it("persists favorite feedback and synchronizes the listing favorite flag", async () => {
     const { prisma, service } = serviceWith();
     prisma.item.findUnique.mockResolvedValue({
@@ -116,6 +138,39 @@ describe("DiscoveryService", () => {
       where: { id: "89a6ce89-a2d9-4ad8-8cb5-8f6d130c1c62" },
       data: { favorite: true },
     });
+  });
+
+  it("moves a disliked listing into the same ignored warehouse instead of deleting it", async () => {
+    const { prisma, service } = serviceWith();
+    prisma.item.findUnique.mockResolvedValue({
+      id: "89a6ce89-a2d9-4ad8-8cb5-8f6d130c1c62",
+      productId: null,
+      favorite: true,
+      ignored: false,
+      ignoredAt: null,
+      archivedAt: null,
+    });
+    prisma.discoveryFeedback.create.mockResolvedValue({
+      id: "feedback-dislike",
+      action: DiscoveryAction.dislike,
+    });
+    prisma.item.update.mockResolvedValue({});
+
+    await service.feedback({
+      listingId: "89a6ce89-a2d9-4ad8-8cb5-8f6d130c1c62",
+      action: "dislike",
+      position: 1,
+    });
+
+    expect(prisma.item.update).toHaveBeenCalledWith({
+      where: { id: "89a6ce89-a2d9-4ad8-8cb5-8f6d130c1c62" },
+      data: {
+        favorite: false,
+        ignored: true,
+        ignoredAt: expect.any(Date),
+      },
+    });
+    expect(prisma.item.deleteMany).not.toHaveBeenCalled();
   });
 
   it("writes an undo event and restores a favorited listing", async () => {
