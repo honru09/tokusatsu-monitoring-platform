@@ -550,6 +550,13 @@ export async function scheduleJobs() {
       })),
     );
   }
+  for (const repeat of await titleTranslationQueue.getRepeatableJobs()) {
+    if (
+      repeat.name === "translate-existing-product-titles" ||
+      repeat.id?.startsWith("repeat-title-translation")
+    )
+      await titleTranslationQueue.removeRepeatableByKey(repeat.key);
+  }
   await titleTranslationQueue.add(
     "translate-existing-product-titles",
     {},
@@ -563,7 +570,10 @@ export async function scheduleJobs() {
     },
   );
   for (const repeat of await detailTranslationQueue.getRepeatableJobs()) {
-    if (repeat.id?.startsWith("repeat-detail-translation"))
+    if (
+      repeat.name === "translate-existing-item-details" ||
+      repeat.id?.startsWith("repeat-detail-translation")
+    )
       await detailTranslationQueue.removeRepeatableByKey(repeat.key);
   }
   await detailTranslationQueue.add(
