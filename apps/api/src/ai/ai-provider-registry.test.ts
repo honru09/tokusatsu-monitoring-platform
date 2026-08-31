@@ -59,10 +59,10 @@ describe("AI provider registry", () => {
     process.env.BAI_API_KEY = "test-key";
     process.env.BAI_API_TIER = "promotion";
     process.env.AI_PRICING_VERIFICATION_MAX_AGE_MS = "86400000";
-    vi.setSystemTime(new Date("2026-08-30T12:00:00+09:00"));
+    vi.setSystemTime(new Date("2026-08-31T20:00:00+09:00"));
     const current = configuredProviderRuntimes(["bai"])[0];
     const currentTier = current?.costTierFor("glm-5.3-flash");
-    vi.setSystemTime(new Date("2026-09-01T12:00:00+09:00"));
+    vi.setSystemTime(new Date("2026-09-02T20:00:00+09:00"));
     const expired = configuredProviderRuntimes(["bai"])[0];
 
     expect(currentTier).toBe("promotion");

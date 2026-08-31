@@ -45,7 +45,7 @@ export const AI_MODELS: readonly AiModelDefinition[] = [
     "商品流水线主模型",
     "promotion",
     ["text", "image"],
-    "2026-08-30T00:00:00+09:00",
+    "2026-08-31T13:08:00+09:00",
   ),
   model(
     "bai",
@@ -53,7 +53,7 @@ export const AI_MODELS: readonly AiModelDefinition[] = [
     "中央智能大脑",
     "promotion",
     ["text", "image"],
-    "2026-08-30T00:00:00+09:00",
+    "2026-08-31T13:08:00+09:00",
   ),
   model(
     "bai",
@@ -61,7 +61,7 @@ export const AI_MODELS: readonly AiModelDefinition[] = [
     "商品视觉专家",
     "promotion",
     ["text", "image"],
-    "2026-08-30T00:00:00+09:00",
+    "2026-08-31T13:08:00+09:00",
   ),
   model(
     "bai",
@@ -69,7 +69,7 @@ export const AI_MODELS: readonly AiModelDefinition[] = [
     "中央智能大脑备用",
     "promotion",
     ["text", "image"],
-    "2026-08-30T00:00:00+09:00",
+    "2026-08-31T13:08:00+09:00",
   ),
   model(
     "bai",
@@ -77,7 +77,7 @@ export const AI_MODELS: readonly AiModelDefinition[] = [
     "文本任务备用",
     "promotion",
     ["text"],
-    "2026-08-30T00:00:00+09:00",
+    "2026-08-31T13:08:00+09:00",
   ),
   model(
     "bai",
@@ -85,7 +85,7 @@ export const AI_MODELS: readonly AiModelDefinition[] = [
     "系统诊断专家",
     "promotion",
     ["text"],
-    "2026-08-30T00:00:00+09:00",
+    "2026-08-31T13:08:00+09:00",
   ),
 
   model("openrouter", "deepseek/deepseek-v4-flash", "商品初筛员", "paid"),
