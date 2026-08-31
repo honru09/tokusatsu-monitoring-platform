@@ -7,7 +7,6 @@ export type Workspace =
   | "sellers"
   | "intel"
   | "disliked"
-  | "reviews"
   | "monitoring"
   | "ai"
   | "logistics"

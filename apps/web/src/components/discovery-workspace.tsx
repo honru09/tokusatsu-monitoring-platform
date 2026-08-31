@@ -9,10 +9,17 @@ import {
 } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ImageGallery } from "./image-gallery";
+import { NoteDialog } from "./note-dialog";
 import { motionTokens, springs } from "../lib/motion-tokens";
 
 type DiscoveryAction = "dislike" | "favorite" | "detail_view";
 type ExitDirection = "left" | "right" | "down";
+
+export function isCardInteractiveTarget(target: EventTarget | null) {
+  return (
+    target instanceof Element && Boolean(target.closest("[data-card-interactive]"))
+  );
+}
 
 type DiscoveryListing = {
   id: string;
@@ -298,13 +305,6 @@ function DiscoveryNote({
   onSave?: (note: string | null) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(note ?? "");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
-  useEffect(() => {
-    setDraft(note ?? "");
-    if (!note) setOpen(false);
-  }, [note]);
 
   if (!onSave) {
     if (!note) return null;
@@ -318,75 +318,32 @@ function DiscoveryNote({
       </div>
     );
   }
-  const saveNote = onSave;
-
-  async function save() {
-    const next = draft.trim().slice(0, 25);
-    if (next === (note ?? "")) {
-      setOpen(false);
-      return;
-    }
-    setSaving(true);
-    setSaveError("");
-    try {
-      await saveNote(next || null);
-      setOpen(false);
-    } catch (reason) {
-      setSaveError(reason instanceof Error ? reason.message : "备注保存失败");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   return (
-    <div
-      className={`discovery-note ${!open && !note ? "discovery-note-compact" : "mt-2"}`}
-      onPointerDown={(event) => event.stopPropagation()}
-      onClick={(event) => event.stopPropagation()}
-    >
-      {open ? (
-        <div className="flex min-h-11 items-center gap-2 rounded-xl border border-ink/10 bg-ink/[0.025] px-3">
-          <CommentIcon />
-          <input
-            autoFocus
-            value={draft}
-            maxLength={25}
-            disabled={saving}
-            onChange={(event) => setDraft(event.target.value.slice(0, 25))}
-            onBlur={() => void save()}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") event.currentTarget.blur();
-              if (event.key === "Escape") {
-                setDraft(note ?? "");
-                setOpen(false);
-              }
-            }}
-            aria-label="采购备注"
-            placeholder="采购备注，最多 25 字"
-            className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-ink/35"
-          />
-          <span className="font-mono text-[9px] text-ink/35">
-            {draft.length}/25
-          </span>
-          {saveError && (
-            <span className="sr-only" role="alert">
-              {saveError}
-            </span>
-          )}
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label={note ? `编辑采购备注：${note}` : "添加采购备注"}
-          title={note ?? "添加采购备注"}
-          className={`flex min-h-11 max-w-full items-center gap-2 rounded-full border border-ink/10 bg-white text-xs text-ink/60 transition-colors duration-150 hover:bg-ink/[0.035] motion-reduce:transition-none ${note ? "w-fit px-3" : "w-11 justify-center px-0"}`}
-        >
-          <CommentIcon />
-          {note && <span className="max-w-48 truncate">{note}</span>}
-        </button>
-      )}
-    </div>
+    <>
+      <button
+        type="button"
+        data-card-interactive="note"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
+        aria-label={note ? `编辑采购备注：${note}` : "添加采购备注"}
+        title={note ?? "添加采购备注"}
+        className={`discovery-note mt-2 flex h-11 max-w-full items-center gap-2 rounded-full border border-ink/10 bg-white text-xs text-ink/60 transition-colors duration-150 hover:bg-ink/[0.035] motion-reduce:transition-none ${note ? "w-fit px-3" : "w-11 justify-center px-0"}`}
+      >
+        <CommentIcon />
+        {note && <span className="max-w-48 truncate">{note}</span>}
+      </button>
+      <NoteDialog
+        open={open}
+        value={note}
+        title="发现商品备注"
+        onClose={() => setOpen(false)}
+        onSave={onSave}
+      />
+    </>
   );
 }
 
@@ -737,7 +694,11 @@ function SwipeCard({
         didDragRef.current = true;
       }}
       onDragEnd={handleDragEnd}
-      onTap={() => {
+      onTap={(event) => {
+        if (isCardInteractiveTarget(event.target)) {
+          didDragRef.current = false;
+          return;
+        }
         if (!didDragRef.current && !busy && !exitDirection) onDetail();
         didDragRef.current = false;
       }}

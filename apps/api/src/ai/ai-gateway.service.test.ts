@@ -106,8 +106,8 @@ const providerCases = [
     provider: "sensenova",
     key: "SENSENOVA_API_KEY",
     urlKey: "SENSENOVA_API_URL",
-    url: "https://sensenova.test/compatible-mode/v2",
-    model: "SenseNova-V6-5-Pro",
+    url: "https://sensenova.test/v1",
+    model: "sensenova-6.8-flash-lite",
     tierKey: "SENSENOVA_API_TIER",
   },
 ] as const;
@@ -350,14 +350,14 @@ describe("AiGatewayService multi-provider pool", () => {
         const authorization =
           new Headers(init?.headers).get("authorization") ?? "";
         if (url.endsWith("/models"))
-          return Response.json({ data: [{ id: "SenseNova-V6-5-Turbo" }] });
+          return Response.json({ data: [{ id: "sensenova-6.8-flash-lite" }] });
         chatCredentials.push(authorization);
         return authorization.endsWith("test-sensenova-translation-key")
           ? Response.json(
               { error: "credential requests per minute" },
               { status: 429, headers: { "retry-after": "60" } },
             )
-          : success("SenseNova-V6-5-Turbo", "main-key-ok");
+          : success("sensenova-6.8-flash-lite", "main-key-ok");
       }),
     );
     const { gateway } = service();

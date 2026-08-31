@@ -348,17 +348,17 @@ const cohereRoutes: Record<AiTask, string[]> = {
 };
 
 const senseNovaRoutes: Record<AiTask, string[]> = {
-  bulk_filter: ["SenseNova-V6-5-Turbo", "SenseChat-5"],
-  translation: ["SenseNova-V6-5-Turbo", "SenseNova-V6-5-Pro", "SenseChat-5"],
-  classification: ["SenseNova-V6-5-Turbo", "SenseChat-5"],
-  image_analysis: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
-  seller_analysis: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
-  complex_analysis: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
-  cross_validation: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
-  market_analysis: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
-  crawler_diagnosis: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
-  logistics_analysis: ["SenseNova-V6-5-Turbo", "SenseNova-V6-5-Pro"],
-  assistant_chat: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
+  bulk_filter: ["sensenova-6.8-flash-lite"],
+  translation: ["sensenova-6.8-flash-lite"],
+  classification: ["sensenova-6.8-flash-lite"],
+  image_analysis: [],
+  seller_analysis: ["sensenova-6.8-flash-lite"],
+  complex_analysis: ["sensenova-6.8-flash-lite"],
+  cross_validation: ["sensenova-6.8-flash-lite"],
+  market_analysis: ["sensenova-6.8-flash-lite"],
+  crawler_diagnosis: ["sensenova-6.8-flash-lite"],
+  logistics_analysis: ["sensenova-6.8-flash-lite"],
+  assistant_chat: ["sensenova-6.8-flash-lite"],
 };
 
 const defaultRoutes: Record<AiProvider, Record<AiTask, string[]>> = {

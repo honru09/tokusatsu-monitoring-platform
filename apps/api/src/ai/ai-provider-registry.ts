@@ -165,7 +165,7 @@ const PROVIDER_SPECS: Record<AiProvider, ProviderSpec> = {
     keyEnv: "SENSENOVA_API_KEY",
     translationKeyEnv: "SENSENOVA_TRANSLATION_API_KEY",
     urlEnv: "SENSENOVA_API_URL",
-    defaultUrl: "https://api.sensenova.cn/compatible-mode/v2",
+    defaultUrl: "https://token.sensenova.cn/v1",
     tierEnv: "SENSENOVA_API_TIER",
     defaultTier: "unknown",
     privateDataAuthorizationEnv: "SENSENOVA_PRIVATE_DATA_AUTHORIZED",

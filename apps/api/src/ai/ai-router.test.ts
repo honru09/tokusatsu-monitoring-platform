@@ -142,10 +142,9 @@ describe("assistant AI route", () => {
       "command-a-plus-05-2026",
     ]);
     expect(routeForProvider("translation", "sensenova")).toEqual([
-      "SenseNova-V6-5-Turbo",
-      "SenseNova-V6-5-Pro",
-      "SenseChat-5",
+      "sensenova-6.8-flash-lite",
     ]);
+    expect(routeForProvider("image_analysis", "sensenova")).toEqual([]);
   });
 
   it("keeps NVIDIA Riva out of the generic JSON translation route", () => {

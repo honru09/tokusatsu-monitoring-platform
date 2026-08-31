@@ -168,19 +168,11 @@ export const AI_MODELS: readonly AiModelDefinition[] = [
 
   model(
     "sensenova",
-    "SenseNova-V6-5-Turbo",
-    "中文翻译与轻量图文分析",
-    "paid",
-    ["text", "image"],
+    "sensenova-6.8-flash-lite",
+    "高速中文翻译与文本分析",
+    "unknown",
+    ["text"],
   ),
-  model(
-    "sensenova",
-    "SenseNova-V6-5-Pro",
-    "复杂中文图文分析",
-    "paid",
-    ["text", "image"],
-  ),
-  model("sensenova", "SenseChat-5", "中文文本分析", "paid"),
 ];
 
 export const MODEL_DEFINITIONS_BY_PROVIDER = Object.fromEntries(

@@ -78,6 +78,7 @@ export function ImageGallery({
           <button
             type="button"
             data-gallery-control="previous"
+            data-card-interactive="gallery"
             aria-label="查看上一张商品图片"
             title="上一张"
             onPointerDown={stopGalleryControlEvent}
@@ -87,7 +88,7 @@ export function ImageGallery({
               stopGalleryControlEvent(event);
               move(-1);
             }}
-            className="image-gallery-control absolute left-0.5 top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 touch-manipulation place-items-center text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70 sm:left-1"
+            className="image-gallery-control absolute left-0.5 top-[60%] z-20 grid h-12 w-12 -translate-y-1/2 touch-manipulation place-items-center text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70 sm:left-1"
           >
             <span className="image-gallery-control-surface grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-ink/70 shadow-lg backdrop-blur-sm transition-[background-color,transform] duration-150 hover:bg-ink/90 active:scale-95 motion-reduce:transition-none">
               <ChevronIcon direction="left" />
@@ -96,6 +97,7 @@ export function ImageGallery({
           <button
             type="button"
             data-gallery-control="next"
+            data-card-interactive="gallery"
             aria-label="查看下一张商品图片"
             title="下一张"
             onPointerDown={stopGalleryControlEvent}
@@ -105,7 +107,7 @@ export function ImageGallery({
               stopGalleryControlEvent(event);
               move(1);
             }}
-            className="image-gallery-control absolute right-0.5 top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 touch-manipulation place-items-center text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70 sm:right-1"
+            className="image-gallery-control absolute right-0.5 top-[60%] z-20 grid h-12 w-12 -translate-y-1/2 touch-manipulation place-items-center text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70 sm:right-1"
           >
             <span className="image-gallery-control-surface grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-ink/70 shadow-lg backdrop-blur-sm transition-[background-color,transform] duration-150 hover:bg-ink/90 active:scale-95 motion-reduce:transition-none">
               <ChevronIcon direction="right" />

@@ -108,7 +108,7 @@ services:
       - key: SENSENOVA_TRANSLATION_API_KEY
         sync: false
       - key: SENSENOVA_API_URL
-        value: https://api.sensenova.cn/compatible-mode/v2
+        value: https://token.sensenova.cn/v1
       - key: SENSENOVA_API_TIER
         value: unknown
       - key: SENSENOVA_PRIVATE_DATA_AUTHORIZED

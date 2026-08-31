@@ -12,6 +12,7 @@ import {
 } from "react";
 import { DiscoveryWorkspace } from "../components/discovery-workspace";
 import { ImageGallery } from "../components/image-gallery";
+import { NoteDialog } from "../components/note-dialog";
 import { MarketIntelWorkspace } from "../components/market-intel-workspace";
 import { AiSystemWorkspace } from "../components/ai-system-workspace";
 import { LogisticsWorkspace } from "../components/logistics-workspace";
@@ -106,17 +107,6 @@ type Product = {
     averageCost?: number | null;
   } | null;
   _count?: { listings: number };
-};
-
-type ReviewQueueEntry = {
-  id: string;
-  status: string;
-  reasons: string[];
-  fieldConfidences: Record<string, unknown>;
-  suggestedChanges?: Record<string, unknown> | null;
-  createdAt: string;
-  item: Item;
-  product?: Product | null;
 };
 
 type PurchaseRecord = {
@@ -1284,25 +1274,8 @@ function ProductCard({
 }) {
   const [showOriginal, setShowOriginal] = useState(language === "original");
   useEffect(() => setShowOriginal(language === "original"), [language]);
-  const [noteDraft, setNoteDraft] = useState(item.note ?? "");
-  const [noteSaving, setNoteSaving] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
-  useEffect(() => setNoteDraft(item.note ?? ""), [item.note]);
-  async function saveNote() {
-    const next = noteDraft.trim().slice(0, NOTE_MAX_LENGTH);
-    if (next === (item.note ?? "")) {
-      setNoteOpen(false);
-      return;
-    }
-    setNoteSaving(true);
-    try {
-      await onPatch({ note: next || null });
-      setNoteOpen(false);
-    } finally {
-      setNoteSaving(false);
-    }
-  }
   const auction = useMemo(
     () => auctionTimeline(item, serverOffset),
     [item, serverOffset, nowTick],
@@ -1346,27 +1319,25 @@ function ProductCard({
           className="h-full w-full"
           imageClassName="opacity-90 transition-transform duration-300 group-hover:scale-[1.025]"
         />
-        <div className="absolute inset-x-0 top-0 flex items-start justify-between p-2.5">
+        <div className="absolute inset-x-0 top-0 z-30 flex items-start justify-between p-2.5">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="product-card-ip-badge max-w-32 truncate rounded-md bg-ink/90 px-2 py-1 text-[10px] font-black tracking-wide text-white">
               {labels[item.categoryIp] ?? item.categoryIp}
             </span>
-            {!noteOpen && !item.note && (
-              <button
-                type="button"
-                onPointerDown={(event) => event.stopPropagation()}
-                onKeyDown={(event) => event.stopPropagation()}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setNoteOpen(true);
-                }}
-                aria-label="添加采购备注"
-                title="添加采购备注"
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/20 bg-ink/70 text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-ink/90"
-              >
-                <CommentIcon className="h-4 w-4" />
-              </button>
-            )}
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                setNoteOpen(true);
+              }}
+              aria-label={item.note ? `编辑采购备注：${item.note}` : "添加采购备注"}
+              title={item.note ? "编辑采购备注" : "添加采购备注"}
+              className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/20 bg-ink/70 text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-ink/90 ${item.note ? "after:absolute after:right-1 after:top-1 after:h-2 after:w-2 after:rounded-full after:bg-[#64d2ff] after:ring-2 after:ring-ink/60" : ""}`}
+            >
+              <CommentIcon className="h-4 w-4" />
+            </button>
           </div>
           <div className="flex items-center gap-1.5">
             <button
@@ -1428,11 +1399,6 @@ function ProductCard({
               {tag}
             </span>
           ))}
-          {item.needsReview && (
-            <span className="rounded bg-amber-100 px-1.5 py-1 text-[10px] font-bold text-amber-800">
-              待确认
-            </span>
-          )}
         </div>
         <button
           onClick={onOpen}
@@ -1501,58 +1467,23 @@ function ProductCard({
           </button>
           <span className="shrink-0">发现 {relativeTime(item.detectedAt)}</span>
         </div>
-        {(noteOpen || item.note) && (
-          <div className="product-card-note mt-2">
-            {noteOpen ? (
-              <div className="flex min-h-11 items-center gap-2 rounded-xl border border-ink/10 bg-fog/35 px-2.5 transition-[opacity,transform] duration-200 motion-reduce:transition-none">
-                <CommentIcon className="h-4 w-4 shrink-0 text-ink/40" />
-                <input
-                  autoFocus
-                  value={noteDraft}
-                  maxLength={NOTE_MAX_LENGTH}
-                  onChange={(event) =>
-                    setNoteDraft(event.target.value.slice(0, NOTE_MAX_LENGTH))
-                  }
-                  onBlur={() => void saveNote()}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      event.currentTarget.blur();
-                    }
-                    if (event.key === "Escape") {
-                      setNoteDraft(item.note ?? "");
-                      setNoteOpen(false);
-                    }
-                  }}
-                  aria-label="采购备注"
-                  placeholder={`最多 ${NOTE_MAX_LENGTH} 字`}
-                  disabled={noteSaving}
-                  className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink/35"
-                />
-                <span className="shrink-0 font-mono text-[9px] text-ink/35">
-                  {noteDraft.length}/{NOTE_MAX_LENGTH}
-                </span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setNoteOpen(true)}
-                aria-label={`编辑采购备注：${item.note}`}
-                title="编辑采购备注"
-                className="flex h-11 max-w-full items-center gap-1.5 rounded-full border border-ink/10 bg-white px-3 text-xs text-ink/60 transition-colors duration-150 hover:bg-fog motion-reduce:transition-none"
-              >
-                <CommentIcon className="h-4 w-4 shrink-0" />
-                <span
-                  className="min-w-0 truncate"
-                  title={item.note ?? undefined}
-                >
-                  {item.note}
-                </span>
-              </button>
-            )}
-          </div>
-        )}
-        <div className="product-card-actions grid grid-cols-3 gap-1.5 pt-2 sm:grid-cols-4">
+        <div className="product-card-note mt-1 min-h-7">
+          {item.note ? (
+            <button
+              type="button"
+              onClick={() => setNoteOpen(true)}
+              aria-label={`查看或编辑采购备注：${item.note}`}
+              title={item.note}
+              className="flex h-7 w-full min-w-0 items-center gap-1.5 rounded-lg bg-fog/55 px-2 text-left text-[11px] text-ink/65"
+            >
+              <CommentIcon className="h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">{item.note}</span>
+            </button>
+          ) : (
+            <span aria-hidden="true" className="block h-7" />
+          )}
+        </div>
+        <div className="product-card-actions mt-auto grid grid-cols-3 gap-1.5 pt-1 sm:grid-cols-4">
           <button
             onClick={() => onPatch({ favorite: !item.favorite })}
             aria-label={item.favorite ? "取消收藏" : "收藏商品"}
@@ -1589,7 +1520,7 @@ function ProductCard({
           </button>
         </div>
         {moreActionsOpen && (
-          <div className="product-card-more-actions grid grid-cols-3 gap-1.5 pt-1.5">
+          <div className="product-card-more-actions absolute bottom-[68px] right-3 z-30 grid w-[156px] grid-cols-3 gap-1.5 rounded-2xl border border-ink/10 bg-white/95 p-2 shadow-modal backdrop-blur-xl">
             <button
               onClick={() => {
                 setMoreActionsOpen(false);
@@ -1626,6 +1557,14 @@ function ProductCard({
           </div>
         )}
       </div>
+      <NoteDialog
+        open={noteOpen}
+        value={item.note}
+        onClose={() => setNoteOpen(false)}
+        onSave={async (note) => {
+          if (note !== (item.note ?? null)) await onPatch({ note });
+        }}
+      />
     </article>
   );
 }
@@ -1720,7 +1659,7 @@ function CartDialog({
             <h2 id="cart-title" className="text-lg font-bold">
               即时购物车
             </h2>
-            <p className="text-xs text-ink/50">{cart.count} 件待确认</p>
+            <p className="text-xs text-ink/50">购物车内 {cart.count} 件</p>
           </div>
           <button
             type="button"
@@ -1845,25 +1784,6 @@ function FavoriteMiniCard({
   onSaveNote: (note: string | null) => Promise<void>;
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(item.note ?? "");
-  const [noteSaving, setNoteSaving] = useState(false);
-  useEffect(() => setNoteDraft(item.note ?? ""), [item.note]);
-  async function saveNote() {
-    const next = noteDraft.trim().slice(0, NOTE_MAX_LENGTH);
-    if (next === (item.note ?? "")) {
-      setNoteOpen(false);
-      return;
-    }
-    setNoteSaving(true);
-    try {
-      await onSaveNote(next || null);
-      setNoteOpen(false);
-    } catch {
-      // Keep the editor open; the workspace already displays the API error.
-    } finally {
-      setNoteSaving(false);
-    }
-  }
   const title =
     language === "zh"
       ? (translatedTitle ??
@@ -1880,7 +1800,7 @@ function FavoriteMiniCard({
     [item.auctionEndAt, item.listingType, nowTick, serverOffset],
   );
   return (
-    <article className="favorite-mini-card grid min-h-[84px] w-full grid-cols-[64px_minmax(0,1fr)_44px] items-center gap-3 rounded-xl bg-white p-2 text-left shadow-sm">
+    <article className="favorite-mini-card grid h-24 w-full grid-cols-[64px_minmax(0,1fr)_44px] items-center gap-3 overflow-hidden rounded-xl bg-white p-2 text-left shadow-sm">
       <button
         type="button"
         onClick={onOpen}
@@ -1918,6 +1838,13 @@ function FavoriteMiniCard({
             <b className="text-amber-700">剩 {auctionRemaining}</b>
           )}
         </span>
+        <span
+          className={`mt-0.5 flex h-4 min-w-0 items-center gap-1 text-[10px] text-ink/50 ${item.note ? "" : "invisible"}`}
+          title={item.note ?? undefined}
+        >
+          <CommentIcon className="h-3 w-3 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{item.note ?? "无备注"}</span>
+        </span>
       </button>
       <div className="grid justify-items-center gap-0.5">
         <span
@@ -1937,48 +1864,13 @@ function FavoriteMiniCard({
           <CommentIcon className="h-4 w-4" />
         </button>
       </div>
-      {noteOpen ? (
-        <div className="col-span-3 flex min-h-11 items-center gap-2 rounded-xl bg-fog/55 px-2.5">
-          <CommentIcon className="h-4 w-4 shrink-0 text-ink/40" />
-          <input
-            autoFocus
-            value={noteDraft}
-            maxLength={NOTE_MAX_LENGTH}
-            onChange={(event) =>
-              setNoteDraft(event.target.value.slice(0, NOTE_MAX_LENGTH))
-            }
-            onBlur={() => void saveNote()}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                event.currentTarget.blur();
-              }
-              if (event.key === "Escape") {
-                setNoteDraft(item.note ?? "");
-                setNoteOpen(false);
-              }
-            }}
-            aria-label="收藏商品采购备注"
-            placeholder={`最多 ${NOTE_MAX_LENGTH} 字`}
-            disabled={noteSaving}
-            className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink/35"
-          />
-          <span className="shrink-0 font-mono text-[9px] text-ink/35">
-            {noteDraft.length}/{NOTE_MAX_LENGTH}
-          </span>
-        </div>
-      ) : item.note ? (
-        <button
-          type="button"
-          onClick={() => setNoteOpen(true)}
-          className="col-span-3 flex min-h-9 min-w-0 items-center gap-2 rounded-lg bg-fog/55 px-2.5 text-left text-xs text-ink/65"
-          aria-label={`查看或编辑采购备注：${item.note}`}
-          title={item.note}
-        >
-          <CommentIcon className="h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{item.note}</span>
-        </button>
-      ) : null}
+      <NoteDialog
+        open={noteOpen}
+        value={item.note}
+        title="收藏商品备注"
+        onClose={() => setNoteOpen(false)}
+        onSave={onSaveNote}
+      />
     </article>
   );
 }
@@ -2009,9 +1901,11 @@ function FavoritesWorkspace({
     "price-asc" | "price-desc" | "ending-asc" | "ending-desc"
   >("price-asc");
   const [nowTick, setNowTick] = useState(0);
+  const hasLoadedRef = useRef(false);
+  const requestSequenceRef = useRef(0);
   const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+    const sequence = ++requestSequenceRef.current;
+    if (!hasLoadedRef.current) setLoading(true);
     try {
       const firstResponse = await fetch(
         `${apiBaseUrl}/items?favorite=true&limit=100&offset=0`,
@@ -2037,12 +1931,16 @@ function FavoritesWorkspace({
         collected.push(...batch);
         nextOffset += batch.length;
       }
+      if (sequence !== requestSequenceRef.current) return;
       setItems(collected);
       setTotal(expectedTotal);
+      setError("");
+      hasLoadedRef.current = true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "收藏加载失败");
+      if (sequence === requestSequenceRef.current)
+        setError(reason instanceof Error ? reason.message : "收藏加载失败");
     } finally {
-      setLoading(false);
+      if (sequence === requestSequenceRef.current) setLoading(false);
     }
   }, [apiBaseUrl]);
   useEffect(() => {
@@ -4114,9 +4012,6 @@ export default function Dashboard() {
   const [purchaseHistoryBundle, setPurchaseHistoryBundle] =
     useState<PurchaseBundle | null>(null);
   const [analysis, setAnalysis] = useState<MarketAnalysis | null>(null);
-  const [reviews, setReviews] = useState<ReviewQueueEntry[]>([]);
-  const [reviewTotal, setReviewTotal] = useState(0);
-  const [reviewActionId, setReviewActionId] = useState<string | null>(null);
   const [purchaseItem, setPurchaseItem] = useState<Item | null>(null);
   const [ignoreItem, setIgnoreItem] = useState<Item | null>(null);
   const [dislikedItems, setDislikedItems] = useState<Item[]>([]);
@@ -4781,21 +4676,6 @@ export default function Dashboard() {
       setAnalysisLoading(false);
     }
   }, [requestTranslations]);
-  const loadReviews = useCallback(async () => {
-    try {
-      const response = await fetch(`${API}/items/reviews/pending`, {
-        cache: "no-store",
-      });
-      if (!response.ok) return;
-      const data = await response.json();
-      setReviews(data.reviews ?? []);
-      setReviewTotal(data.total ?? 0);
-      void requestTranslations(
-        (data.reviews ?? []).map((review: ReviewQueueEntry) => review.item),
-      );
-    } catch {}
-  }, [requestTranslations]);
-
   const syncChanges = useCallback(async () => {
     if (changeSyncInFlightRef.current || document.visibilityState === "hidden")
       return;
@@ -4883,7 +4763,6 @@ export default function Dashboard() {
       loadDisliked(),
       loadPurchases(),
       loadPurchaseBundles(),
-      loadReviews(),
     ]);
     const timer = setInterval(
       () =>
@@ -4893,7 +4772,6 @@ export default function Dashboard() {
           loadDisliked(),
           loadPurchases(),
           loadPurchaseBundles(),
-          loadReviews(),
         ]),
       30_000,
     );
@@ -4904,7 +4782,6 @@ export default function Dashboard() {
     loadDisliked,
     loadPurchases,
     loadPurchaseBundles,
-    loadReviews,
   ]);
   useEffect(() => {
     void Promise.all([loadExchangeRate(), loadCart()]);
@@ -5477,24 +5354,6 @@ export default function Dashboard() {
     } catch {}
   }
 
-  async function confirmReview(review: ReviewQueueEntry) {
-    setReviewActionId(review.id);
-    try {
-      const response = await fetch(`${API}/items/${review.item.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          needsReview: false,
-          actor: "review-workspace",
-          reason: "人工确认当前标准商品识别",
-        }),
-      });
-      if (response.ok) await Promise.all([loadReviews(), load()]);
-    } finally {
-      setReviewActionId(null);
-    }
-  }
-
   const urgentAuctionSelection = useMemo(() => {
     const now = Date.now() + serverOffset;
     const active = urgentAuctionPool.filter((item) => {
@@ -5597,7 +5456,7 @@ export default function Dashboard() {
               "workbench",
             ].includes(workspace)
           ? "workbench"
-          : ["disliked", "reviews", "monitoring", "ai", "menu"].includes(
+          : ["disliked", "monitoring", "ai", "menu"].includes(
                 workspace,
               )
             ? "menu"
@@ -5715,7 +5574,6 @@ export default function Dashboard() {
             {(
               [
                 ["disliked", "不感兴趣", dislikedItems.length, ArchiveIcon],
-                ["reviews", "待确认", reviewTotal, InfoIcon],
                 [
                   "monitoring",
                   "监控",
@@ -5799,10 +5657,7 @@ export default function Dashboard() {
             <div className="menu-groups">
               <div className="menu-group">
                 {(
-                  [
-                    ["disliked", "不感兴趣", ArchiveIcon],
-                    ["reviews", "待确认", InfoIcon],
-                  ] as const
+                  [["disliked", "不感兴趣", ArchiveIcon]] as const
                 ).map(([key, label, Icon]) => (
                   <button
                     key={key}
@@ -6676,128 +6531,6 @@ export default function Dashboard() {
             )}
           </section>
         )}
-        {workspace === "reviews" && (
-          <section
-            aria-labelledby="reviews-heading"
-            className="ios-surface js-shell-reveal rounded-2xl border border-blue-100 p-4 shadow-panel"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-blue-100 pb-3">
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-[.18em] text-amber-700">
-                  识别质量控制
-                </div>
-                <h2
-                  id="reviews-heading"
-                  className="font-heading text-lg font-black"
-                >
-                  人工审核 · {reviewTotal}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => void loadReviews()}
-                className="min-h-11 rounded-lg border border-blue-200 bg-white px-3 text-xs font-black text-moss hover:bg-blue-50"
-              >
-                刷新审核队列
-              </button>
-            </div>
-            <div className="mt-3 divide-y divide-blue-100">
-              {reviews.length === 0 ? (
-                <p className="py-12 text-center text-sm font-bold text-slate-500">
-                  当前没有待审核识别结果
-                </p>
-              ) : (
-                reviews.map((review) => (
-                  <article
-                    key={review.id}
-                    className="grid gap-3 py-4 md:grid-cols-[84px_minmax(0,1fr)_minmax(260px,.8fr)_auto] md:items-start"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => void openAnalysisItem(review.item.id)}
-                      className="h-20 w-20 overflow-hidden rounded-lg bg-fog text-left"
-                      aria-label="打开待审核商品"
-                    >
-                      {review.item.images[0] ? (
-                        <img
-                          src={review.item.images[0].url}
-                          alt=""
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="grid h-full place-items-center font-heading text-2xl font-black text-moss">
-                          特
-                        </span>
-                      )}
-                    </button>
-                    <div className="min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => void openAnalysisItem(review.item.id)}
-                        className="line-clamp-2 text-left text-sm font-black leading-5 hover:text-moss"
-                      >
-                        {language === "zh"
-                          ? (translations[`${review.item.id}:title`] ??
-                            review.item.product?.titleZh ??
-                            translateText(review.item.titleRaw) ??
-                            review.item.titleRaw)
-                          : review.item.titleRaw}
-                      </button>
-                      <div className="mt-1 text-[10px] text-slate-500">
-                        {sourceName(
-                          review.item.source.key,
-                          review.item.source.displayName,
-                        )}{" "}
-                        · 入队 {relativeTime(review.createdAt)}
-                      </div>
-                      <div className="mt-2 rounded-lg bg-blue-50 px-2.5 py-2 text-xs">
-                        <b className="block text-ink">
-                          {translations[`${review.item.id}:title`] ??
-                            review.product?.titleZh ??
-                            "尚未匹配标准商品"}
-                        </b>
-                        <span className="mt-0.5 block text-[10px] text-slate-600">
-                          {[
-                            review.product?.franchise?.nameZh,
-                            review.product?.series?.nameZh,
-                            review.product?.manufacturerEntity?.nameZh,
-                            review.product?.toyTypeEntity?.nameZh,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ") || "标准实体字段待确认"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="mt-2 text-[10px] leading-4 text-slate-500">
-                        {review.reasons.join("；") ||
-                          "请核对商品标题、图片和分类"}
-                      </p>
-                    </div>
-                    <div className="flex gap-2 md:flex-col">
-                      <button
-                        type="button"
-                        onClick={() => void openAnalysisItem(review.item.id)}
-                        className="min-h-11 rounded-lg border border-blue-200 px-3 text-xs font-bold text-moss hover:bg-blue-50"
-                      >
-                        查看详情
-                      </button>
-                      <button
-                        type="button"
-                        disabled={reviewActionId === review.id}
-                        onClick={() => void confirmReview(review)}
-                        className="min-h-11 rounded-lg bg-moss px-3 text-xs font-black text-white hover:bg-blue-800 disabled:opacity-50"
-                      >
-                        {reviewActionId === review.id ? "确认中…" : "确认识别"}
-                      </button>
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-          </section>
-        )}
         {workspace === "disliked" && (
           <section className="ios-surface js-shell-reveal rounded-2xl border border-blue-100 p-4 shadow-panel">
             <div className="flex items-center justify-between gap-3 border-b border-blue-100 pb-3">
@@ -6948,7 +6681,7 @@ export default function Dashboard() {
                     [
                       "标准商品",
                       overview?.productTotal ?? 0,
-                      `${overview?.pendingReviewTotal ?? reviewTotal} 条待审核`,
+                      "按来源持续归并",
                     ],
                     [
                       "活跃商品",
@@ -7215,15 +6948,6 @@ export default function Dashboard() {
                         className="h-11 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink"
                       />
                     </label>
-                    <FilterSelect
-                      label="人工复核"
-                      name="needsReview"
-                      value={filters.needsReview ?? ""}
-                      onChange={changeFilter}
-                    >
-                      <option value="true">仅待确认</option>
-                      <option value="false">已确认</option>
-                    </FilterSelect>
                     <FilterSelect
                       label="收藏"
                       name="favorite"

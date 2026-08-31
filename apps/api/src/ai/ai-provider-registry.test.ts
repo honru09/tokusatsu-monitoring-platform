@@ -217,11 +217,11 @@ describe("AI provider registry", () => {
   it("keeps SenseNova out of free-only routing unless its tier is explicitly verified", () => {
     process.env.SENSENOVA_API_KEY = "test-main-secret";
     let runtime = configuredProviderRuntimes(["sensenova"])[0];
-    expect(runtime?.costTierFor("SenseNova-V6-5-Turbo")).toBe("unknown");
+    expect(runtime?.costTierFor("sensenova-6.8-flash-lite")).toBe("unknown");
 
     process.env.SENSENOVA_API_TIER = "promotion";
     runtime = configuredProviderRuntimes(["sensenova"])[0];
-    expect(runtime?.costTierFor("SenseNova-V6-5-Turbo")).toBe("promotion");
+    expect(runtime?.costTierFor("sensenova-6.8-flash-lite")).toBe("promotion");
   });
 
   it("reports credential configuration without exposing credential values", () => {

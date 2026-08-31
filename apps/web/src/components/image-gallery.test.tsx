@@ -47,6 +47,7 @@ describe("ImageGallery", () => {
     expect(next).not.toBeNull();
     expect(next?.className).toContain("h-12");
     expect(next?.className).toContain("w-12");
+    expect(next?.dataset.cardInteractive).toBe("gallery");
 
     act(() => {
       next?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
