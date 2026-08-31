@@ -2,7 +2,14 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { DiscoveryWorkspace } from "../components/discovery-workspace";
 import { ImageGallery } from "../components/image-gallery";
 import { MarketIntelWorkspace } from "../components/market-intel-workspace";
@@ -115,7 +122,9 @@ type ReviewQueueEntry = {
 type PurchaseRecord = {
   id: string;
   itemId: string;
+  bundleId?: string;
   purchaseAmount: number;
+  amountAllocated?: boolean;
   purchasedAt: string;
   note?: string | null;
   verifiedAt?: string | null;
@@ -127,6 +136,50 @@ type PurchaseRecord = {
     createdAt: string;
   }[];
   item: Item;
+  bundle?: {
+    id: string;
+    pricingMode: "per_item" | "bundle_total";
+    totalPurchaseAmount: number;
+    version: number;
+    archivedAt?: string | null;
+  };
+};
+
+type PurchaseBundleAudit = {
+  id: string;
+  eventType:
+    | "created"
+    | "price_changed"
+    | "members_changed"
+    | "updated"
+    | "archived";
+  actor: string;
+  reason: string;
+  beforeData?: Record<string, unknown> | null;
+  afterData: Record<string, unknown>;
+  createdAt: string;
+};
+
+type PurchaseBundle = {
+  id: string;
+  pricingMode: "per_item" | "bundle_total";
+  totalPurchaseAmount: number;
+  currency: string;
+  purchasedAt: string;
+  note?: string | null;
+  archivedAt?: string | null;
+  version: number;
+  purchases: PurchaseRecord[];
+  audits?: PurchaseBundleAudit[];
+};
+
+type PurchaseLinkJob = {
+  jobId: string;
+  url: string;
+  state: "queued" | "waiting" | "active" | "delayed" | "completed" | "failed";
+  progress: number;
+  item?: Item | null;
+  failedReason?: string | null;
 };
 
 type ExchangeRate = {
@@ -441,6 +494,42 @@ function CommentIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
+function EditIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m4 16.5-.8 4.3 4.3-.8L19 8.5a2.8 2.8 0 0 0-4-4L4 16.5Z" />
+      <path d="m13.5 6.5 4 4" />
+    </svg>
+  );
+}
+
+function HistoryIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5M12 7v5l3 2" />
+    </svg>
+  );
+}
+
 function CartIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg
@@ -531,6 +620,95 @@ function InfoIcon({ className = "h-4 w-4" }: IconProps) {
       <circle cx="12" cy="12" r="9" />
       <path d="M12 10.5v5M12 7.5h.01" />
     </svg>
+  );
+}
+
+function ChevronDownIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function ContextInfo({
+  label,
+  title,
+  children,
+}: {
+  label: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const titleId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeInfo = useCallback(() => {
+    setOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeInfo();
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [closeInfo, open]);
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={label}
+        aria-haspopup="dialog"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink/50 transition-colors hover:text-moss"
+      >
+        <span className="grid h-6 w-6 place-items-center rounded-full border border-ink/12 bg-white/75 shadow-sm">
+          <InfoIcon className="h-4 w-4" />
+        </span>
+      </button>
+      {open && (
+        <div
+          className="modal-backdrop fixed inset-0 z-[85] grid place-items-center bg-ink/45 p-4"
+          onMouseDown={closeInfo}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            className="modal-panel w-full max-w-sm rounded-3xl bg-paper p-4 shadow-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 id={titleId} className="pt-2 text-base font-bold text-ink">
+                {title}
+              </h2>
+              <button
+                type="button"
+                autoFocus
+                onClick={closeInfo}
+                aria-label={`关闭${title}`}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-ink shadow-sm"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            <div className="mt-2 text-sm leading-6 text-ink/65">{children}</div>
+          </section>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -785,6 +963,36 @@ const sourceName = (key: string, fallback?: string) =>
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 const PAGE_SIZE = 40;
 const NOTE_MAX_LENGTH = 25;
+const URL_IMPORT_LIMIT = 20;
+
+function publicUrlsFromInput(value: string) {
+  const matches = value.match(/https?:\/\/[^\s<>"'，。；;]+/gi) ?? [];
+  const urls: string[] = [];
+  for (const raw of matches) {
+    const candidate = raw.replace(/[)\]}>、，。；;]+$/g, "");
+    try {
+      const parsed = new URL(candidate);
+      if (!/^https?:$/.test(parsed.protocol) || urls.includes(parsed.href))
+        continue;
+      urls.push(parsed.href);
+      if (urls.length >= URL_IMPORT_LIMIT) break;
+    } catch {}
+  }
+  return urls;
+}
+
+function friendlyImportError(value?: string | null) {
+  if (!value) return "分析未完成，可稍后重试";
+  if (
+    /42P10|no unique or exclusion constraint|PrismaClient|ConnectorError/i.test(
+      value,
+    )
+  )
+    return "卖家资料写入失败；系统已更新，请重新提交该链接";
+  if (/failed to fetch|network|timeout|timed out/i.test(value))
+    return "网络暂时不可用，请稍后重试";
+  return value.replace(/\s+/g, " ").trim().slice(0, 120);
+}
 const labels: Record<string, string> = {
   kamen_rider: "假面骑士",
   ultraman: "奥特曼",
@@ -3247,6 +3455,472 @@ function PurchaseDialog({
   );
 }
 
+function PurchaseBundleEditorDialog({
+  items,
+  candidateItems,
+  bundle,
+  initialTotal,
+  initialAmounts,
+  onClose,
+  onSaved,
+}: {
+  items: Item[];
+  candidateItems?: Item[];
+  bundle?: PurchaseBundle | null;
+  initialTotal?: number;
+  initialAmounts?: Record<string, number>;
+  onClose: () => void;
+  onSaved: (bundle: PurchaseBundle) => void;
+}) {
+  const editing = Boolean(bundle);
+  const availableItems = useMemo(() => {
+    const seen = new Set<string>();
+    return (candidateItems?.length ? candidateItems : items).filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }, [candidateItems, items]);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() =>
+    items.map((item) => item.id),
+  );
+  const selectedItems = availableItems.filter((item) =>
+    selectedItemIds.includes(item.id),
+  );
+  const candidateCount = availableItems.length;
+  const selectedCount = selectedItems.length;
+  const [pricingMode, setPricingMode] = useState<"per_item" | "bundle_total">(
+    bundle?.pricingMode ?? (items.length > 1 ? "bundle_total" : "per_item"),
+  );
+  const [amounts, setAmounts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      availableItems.map((item) => {
+        const purchase = bundle?.purchases.find(
+          (entry) => entry.itemId === item.id,
+        );
+        const value =
+          purchase?.amountAllocated === false
+            ? (initialAmounts?.[item.id] ?? item.priceTotalEst)
+            : (purchase?.purchaseAmount ??
+              initialAmounts?.[item.id] ??
+              item.priceTotalEst);
+        return [item.id, String(value)];
+      }),
+    ),
+  );
+  const [total, setTotal] = useState(
+    String(
+      bundle?.totalPurchaseAmount ??
+        initialTotal ??
+        items.reduce((sum, item) => sum + item.priceTotalEst, 0),
+    ),
+  );
+  const [purchasedAt, setPurchasedAt] = useState(
+    (bundle?.purchasedAt ?? new Date().toISOString()).slice(0, 10),
+  );
+  const [note, setNote] = useState(bundle?.note ?? "");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !saving) onClose();
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [onClose, saving]);
+
+  async function submit() {
+    if (!selectedItems.length) {
+      setMessage("至少选择一个商品");
+      return;
+    }
+    const members = selectedItems.map((item) => ({
+      itemId: item.id,
+      ...(pricingMode === "per_item"
+        ? { amountYen: Number(amounts[item.id]) }
+        : {}),
+    }));
+    if (
+      pricingMode === "per_item" &&
+      members.some(
+        (member) =>
+          !Number.isFinite(member.amountYen) || (member.amountYen ?? 0) < 0,
+      )
+    ) {
+      setMessage("请填写每件商品的购买金额");
+      return;
+    }
+    const totalValue =
+      pricingMode === "bundle_total"
+        ? Number(total)
+        : members.reduce((sum, member) => sum + (member.amountYen ?? 0), 0);
+    if (!Number.isFinite(totalValue) || totalValue < 0) {
+      setMessage(
+        selectedItems.length > 1 ? "请填写打包价格" : "请填写购买金额",
+      );
+      return;
+    }
+    if (editing && !reason.trim()) {
+      setMessage("修改价格或成员时需要填写变更原因");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await fetch(
+        `${API}/items/purchases/bundles${bundle ? `/${bundle.id}` : ""}`,
+        {
+          method: bundle ? "PATCH" : "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ...(bundle ? { expectedVersion: bundle.version } : {}),
+            pricingMode,
+            members,
+            totalPurchaseAmountYen: totalValue,
+            purchasedAt: new Date(
+              `${purchasedAt}T12:00:00+09:00`,
+            ).toISOString(),
+            note: note.trim() || null,
+            actor: "shared-user",
+            reason:
+              reason.trim() ||
+              (selectedItems.length > 1
+                ? "将多个商品登记为同一购买包"
+                : "通过购买链接登记商品"),
+          }),
+        },
+      );
+      const result = await response
+        .json()
+        .catch(() => ({ message: `API ${response.status}` }));
+      if (!response.ok)
+        throw new Error(
+          Array.isArray(result.message)
+            ? result.message.join("；")
+            : (result.message ?? "保存购买记录失败"),
+        );
+      onSaved(result.bundle as PurchaseBundle);
+      onClose();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "保存购买记录失败");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="modal-backdrop fixed inset-0 z-[88] grid place-items-center overflow-y-auto bg-ink/50 p-3 sm:p-6"
+      onMouseDown={saving ? undefined : onClose}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="purchase-bundle-editor-title"
+        className="modal-panel max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-3xl bg-paper p-4 shadow-modal"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2
+              id="purchase-bundle-editor-title"
+              className="font-heading text-xl font-bold text-ink"
+            >
+              {editing
+                ? "编辑购买包"
+                : items.length > 1
+                  ? `登记打包购买 · ${selectedItems.length} 件`
+                  : "登记购买"}
+            </h2>
+            <p className="mt-1 text-xs text-ink/50">
+              {editing ? `版本 ${bundle?.version}` : "保存后进入购买记录"}
+            </p>
+            <p className="mt-2 text-xs font-semibold text-ink/55">
+              {editing
+                ? `已选 ${selectedCount} / 候选 ${candidateCount}，可勾选增删成员`
+                : `已选 ${selectedCount} 件，可勾选要登记的商品`}
+            </p>
+          </div>
+          <button
+            type="button"
+            autoFocus
+            disabled={saving}
+            onClick={onClose}
+            aria-label="关闭购买包编辑"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-ink shadow-sm disabled:opacity-45"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+
+        {availableItems.length > 1 && (
+          <div
+            className="ios-segment mt-4 grid grid-cols-2 rounded-xl p-1"
+            aria-label="购买计价方式"
+          >
+            <button
+              type="button"
+              aria-pressed={pricingMode === "bundle_total"}
+              onClick={() => setPricingMode("bundle_total")}
+              className="min-h-11 rounded-lg px-3 text-xs font-semibold"
+            >
+              打包总价
+            </button>
+            <button
+              type="button"
+              aria-pressed={pricingMode === "per_item"}
+              onClick={() => setPricingMode("per_item")}
+              className="min-h-11 rounded-lg px-3 text-xs font-semibold"
+            >
+              分别计价
+            </button>
+          </div>
+        )}
+
+        <div className="mt-3 grid gap-2">
+          {availableItems.map((item) => {
+            const selected = selectedItemIds.includes(item.id);
+            return (
+              <div
+                key={item.id}
+                className={`grid grid-cols-[44px_48px_minmax(0,1fr)] items-center gap-2 rounded-2xl p-2 shadow-sm ${selected ? "bg-white" : "bg-fog/40 opacity-60"}`}
+              >
+                <label className="grid h-11 w-11 place-items-center">
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() =>
+                      setSelectedItemIds((current) =>
+                        selected
+                          ? current.filter((id) => id !== item.id)
+                          : [...current, item.id],
+                      )
+                    }
+                    aria-label={`选择商品 ${item.titleZh ?? item.titleRaw}`}
+                    className="h-5 w-5 accent-[#0071e3]"
+                  />
+                </label>
+                <div className="h-12 w-12 overflow-hidden rounded-xl bg-fog">
+                  {item.images[0]?.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.images[0].url}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="line-clamp-2 text-xs font-semibold leading-5 text-ink">
+                      {item.titleZh ?? item.product?.titleZh ?? item.titleRaw}
+                    </p>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${selected ? "bg-moss/10 text-moss" : "bg-fog text-ink/45"}`}
+                    >
+                      {selected ? "已选" : editing ? "候选" : "待选"}
+                    </span>
+                  </div>
+                  {selected && pricingMode === "per_item" && (
+                    <label className="mt-1 flex items-center gap-2 text-[11px] text-ink/50">
+                      金额
+                      <input
+                        type="number"
+                        min="0"
+                        value={amounts[item.id] ?? ""}
+                        onChange={(event) =>
+                          setAmounts((current) => ({
+                            ...current,
+                            [item.id]: event.target.value,
+                          }))
+                        }
+                        className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/10 bg-fog/50 px-3 font-mono text-sm text-ink"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {editing && candidateCount > selectedCount && (
+          <p className="mt-2 text-xs text-ink/45">
+            未选中的候选成员会保留在列表里，方便后续补录。
+          </p>
+        )}
+
+        {pricingMode === "bundle_total" && (
+          <label className="mt-3 grid gap-1 text-xs font-semibold text-ink/55">
+            打包价格
+            <input
+              type="number"
+              min="0"
+              value={total}
+              onChange={(event) => setTotal(event.target.value)}
+              className="min-h-12 rounded-xl border border-ink/10 bg-white px-3 font-mono text-base font-bold text-ink"
+            />
+          </label>
+        )}
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-xs font-semibold text-ink/55">
+            购买日期
+            <input
+              type="date"
+              value={purchasedAt}
+              onChange={(event) => setPurchasedAt(event.target.value)}
+              className="min-h-11 rounded-xl border border-ink/10 bg-white px-3 text-sm text-ink"
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-semibold text-ink/55">
+            备注
+            <input
+              value={note}
+              maxLength={1000}
+              onChange={(event) => setNote(event.target.value)}
+              className="min-h-11 rounded-xl border border-ink/10 bg-white px-3 text-sm text-ink"
+            />
+          </label>
+        </div>
+        {editing && (
+          <label className="mt-3 grid gap-1 text-xs font-semibold text-ink/55">
+            变更原因
+            <input
+              value={reason}
+              maxLength={1000}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="例如：补录实际付款金额"
+              className="min-h-11 rounded-xl border border-ink/10 bg-white px-3 text-sm text-ink"
+            />
+          </label>
+        )}
+        {message && (
+          <p role="alert" className="mt-3 text-xs font-semibold text-rust">
+            {message}
+          </p>
+        )}
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void submit()}
+          className="mt-4 min-h-12 w-full rounded-xl bg-moss px-4 text-sm font-bold text-white disabled:opacity-45"
+        >
+          {saving ? "保存中…" : editing ? "保存并记录历史" : "确认登记"}
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function PurchaseBundleHistoryDialog({
+  bundle,
+  onClose,
+}: {
+  bundle: PurchaseBundle;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [onClose]);
+  const eventLabels: Record<PurchaseBundleAudit["eventType"], string> = {
+    created: "创建记录",
+    price_changed: "修改价格",
+    members_changed: "调整商品",
+    updated: "更新信息",
+    archived: "合并归档",
+  };
+  const snapshotAmount = (value?: Record<string, unknown> | null) => {
+    const amount = value?.totalPurchaseAmountYen;
+    return typeof amount === "number" ? amount : null;
+  };
+  const snapshotMembers = (value?: Record<string, unknown> | null) =>
+    Array.isArray(value?.members) ? value.members.length : null;
+  return (
+    <div
+      className="modal-backdrop fixed inset-0 z-[89] grid place-items-center overflow-y-auto bg-ink/50 p-3 sm:p-6"
+      onMouseDown={onClose}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="purchase-history-title"
+        className="modal-panel max-h-[84dvh] w-full max-w-lg overflow-y-auto rounded-3xl bg-paper p-4 shadow-modal"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2
+              id="purchase-history-title"
+              className="font-heading text-xl font-bold text-ink"
+            >
+              变更历史
+            </h2>
+            <p className="mt-1 font-mono text-xs text-ink/45">
+              当前版本 {bundle.version}
+            </p>
+          </div>
+          <button
+            type="button"
+            autoFocus
+            onClick={onClose}
+            aria-label="关闭变更历史"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white shadow-sm"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+        <div className="mt-4 grid gap-2">
+          {(bundle.audits ?? []).length ? (
+            bundle.audits?.map((audit) => {
+              const beforeAmount = snapshotAmount(audit.beforeData);
+              const afterAmount = snapshotAmount(audit.afterData);
+              const beforeMembers = snapshotMembers(audit.beforeData);
+              const afterMembers = snapshotMembers(audit.afterData);
+              return (
+                <article
+                  key={audit.id}
+                  className="rounded-2xl bg-white p-3 shadow-sm"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <strong className="text-sm text-ink">
+                      {eventLabels[audit.eventType]}
+                    </strong>
+                    <time className="font-mono text-[10px] text-ink/45">
+                      {fmtDate(audit.createdAt)}
+                    </time>
+                  </div>
+                  {beforeAmount != null && afterAmount != null && (
+                    <p className="mt-2 font-mono text-xs font-semibold text-rust">
+                      {fmtYen(beforeAmount)} → {fmtYen(afterAmount)}
+                    </p>
+                  )}
+                  {beforeMembers != null && afterMembers != null && (
+                    <p className="mt-1 text-xs text-ink/55">
+                      商品 {beforeMembers} 件 → {afterMembers} 件
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs leading-5 text-ink/60">
+                    {audit.reason}
+                  </p>
+                </article>
+              );
+            })
+          ) : (
+            <p className="rounded-2xl bg-white p-6 text-center text-sm text-ink/45">
+              暂无变更历史
+            </p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function IgnoreConfirmationDialog({
   item,
   translatedTitle,
@@ -3356,11 +4030,33 @@ export default function Dashboard() {
   const [workspaceTrail, setWorkspaceTrail] = useState<Workspace[]>([]);
   const workspaceScrollRef = useRef(new Map<Workspace, number>());
   const [imports, setImports] = useState<UrlImport[]>([]);
+  const [importsExpanded, setImportsExpanded] = useState(false);
+  const [importActionId, setImportActionId] = useState<string | null>(null);
   const [linkItems, setLinkItems] = useState<Item[]>([]);
   const [linkTotal, setLinkTotal] = useState(0);
   const [linkPage, setLinkPage] = useState(1);
   const [linkPageCount, setLinkPageCount] = useState(1);
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
+  const [purchaseBundles, setPurchaseBundles] = useState<PurchaseBundle[]>([]);
+  const [purchaseBundlesTotal, setPurchaseBundlesTotal] = useState(0);
+  const [purchaseGrandTotal, setPurchaseGrandTotal] = useState(0);
+  const [purchaseLinkInput, setPurchaseLinkInput] = useState("");
+  const [purchaseLinkMessage, setPurchaseLinkMessage] = useState("");
+  const [purchaseLinkSubmitting, setPurchaseLinkSubmitting] = useState(false);
+  const [purchaseLinkJobs, setPurchaseLinkJobs] = useState<PurchaseLinkJob[]>(
+    [],
+  );
+  const [selectedPurchaseJobIds, setSelectedPurchaseJobIds] = useState<
+    string[]
+  >([]);
+  const [purchaseBundleEditor, setPurchaseBundleEditor] = useState<{
+    items: Item[];
+    bundle?: PurchaseBundle | null;
+    initialTotal?: number;
+    initialAmounts?: Record<string, number>;
+  } | null>(null);
+  const [purchaseHistoryBundle, setPurchaseHistoryBundle] =
+    useState<PurchaseBundle | null>(null);
   const [analysis, setAnalysis] = useState<MarketAnalysis | null>(null);
   const [reviews, setReviews] = useState<ReviewQueueEntry[]>([]);
   const [reviewTotal, setReviewTotal] = useState(0);
@@ -3810,6 +4506,196 @@ export default function Dashboard() {
       }
     } catch {}
   }, [requestTranslations]);
+  const loadPurchaseBundles = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `${API}/items/purchases/bundles?page=1&limit=100`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) return;
+      const payload = (await response.json()) as {
+        bundles?: PurchaseBundle[];
+        total?: number;
+        grandTotalPurchaseAmountYen?: number;
+      };
+      setPurchaseBundles(payload.bundles ?? []);
+      setPurchaseBundlesTotal(payload.total ?? payload.bundles?.length ?? 0);
+      setPurchaseGrandTotal(payload.grandTotalPurchaseAmountYen ?? 0);
+      void requestTranslations(
+        (payload.bundles ?? []).flatMap((bundle) =>
+          bundle.purchases.map((purchase) => purchase.item),
+        ),
+      );
+    } catch {}
+  }, [requestTranslations]);
+
+  const completedPurchaseJobs = useMemo(
+    () =>
+      purchaseLinkJobs.filter((job) => job.state === "completed" && job.item),
+    [purchaseLinkJobs],
+  );
+
+  const updatePurchaseLinkJob = useCallback(
+    (jobId: string, patch: Partial<PurchaseLinkJob>) => {
+      setPurchaseLinkJobs((current) =>
+        current.map((job) =>
+          job.jobId === jobId ? { ...job, ...patch } : job,
+        ),
+      );
+    },
+    [],
+  );
+
+  const pollPurchaseLinkJob = useCallback(
+    async (jobId: string) => {
+      try {
+        const response = await fetch(
+          `${API}/items/purchases/analyze-links/${encodeURIComponent(jobId)}`,
+          { cache: "no-store" },
+        );
+        const payload = (await response.json().catch(() => ({}))) as {
+          state?: PurchaseLinkJob["state"];
+          progress?: number;
+          item?: Item | null;
+          failedReason?: string | null;
+        };
+        if (!response.ok) {
+          updatePurchaseLinkJob(jobId, {
+            state: "failed",
+            progress: 100,
+            item: null,
+            failedReason: "购买链接分析任务已过期，请重新提交",
+          });
+          return;
+        }
+        updatePurchaseLinkJob(jobId, {
+          state: payload.state ?? "waiting",
+          progress: Number(payload.progress ?? 0),
+          item: payload.item ?? null,
+          failedReason: payload.failedReason ?? null,
+        });
+        if (payload.item) void requestTranslations([payload.item]);
+      } catch {
+        updatePurchaseLinkJob(jobId, {
+          failedReason: "网络暂时不可用，稍后会自动重试",
+        });
+      }
+    },
+    [requestTranslations, updatePurchaseLinkJob],
+  );
+
+  const submitPurchaseLinks = useCallback(async () => {
+    const urls = publicUrlsFromInput(purchaseLinkInput);
+    if (!urls.length) {
+      setPurchaseLinkMessage("请至少输入一个有效的公开商品链接");
+      return;
+    }
+    setPurchaseLinkSubmitting(true);
+    setPurchaseLinkMessage("");
+    try {
+      const response = await fetch(`${API}/items/purchases/analyze-links`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ urls }),
+      });
+      const payload = (await response
+        .json()
+        .catch(() => ({ error: `API ${response.status}` }))) as {
+        results?: {
+          url: string;
+          accepted: boolean;
+          jobId?: string | number;
+          error?: string;
+        }[];
+        acceptedCount?: number;
+        rejectedCount?: number;
+        message?: string;
+        error?: string;
+      };
+      if (!response.ok)
+        throw new Error(
+          payload.message ?? payload.error ?? `API ${response.status}`,
+        );
+      const results = payload.results ?? [];
+      const acceptedJobs = results
+        .filter((entry) => entry.accepted && entry.jobId != null)
+        .map((entry) => ({
+          jobId: String(entry.jobId),
+          url: entry.url,
+          state: "waiting" as const,
+          progress: 0,
+          item: null,
+          failedReason: null,
+        }));
+      if (!acceptedJobs.length)
+        throw new Error(
+          results.find((entry) => !entry.accepted)?.error ??
+            "链接未加入分析队列",
+        );
+      setPurchaseLinkJobs((current) => {
+        const existing = new Set(current.map((job) => job.jobId));
+        return [
+          ...acceptedJobs.filter((job) => !existing.has(job.jobId)),
+          ...current,
+        ].slice(0, 40);
+      });
+      setSelectedPurchaseJobIds([]);
+      setPurchaseLinkInput(
+        results
+          .filter((entry) => !entry.accepted)
+          .map((entry) => entry.url)
+          .join("\n"),
+      );
+      setPurchaseLinkMessage(
+        `已提交 ${payload.acceptedCount ?? acceptedJobs.length} 个链接${payload.rejectedCount ? `，${payload.rejectedCount} 个未接受` : ""}`,
+      );
+      await Promise.all(
+        acceptedJobs.map((job) => pollPurchaseLinkJob(job.jobId)),
+      );
+    } catch (reason) {
+      setPurchaseLinkMessage(
+        friendlyImportError(
+          reason instanceof Error ? reason.message : "购买链接分析失败",
+        ),
+      );
+    } finally {
+      setPurchaseLinkSubmitting(false);
+    }
+  }, [pollPurchaseLinkJob, purchaseLinkInput]);
+
+  const openPurchaseBundleEditor = useCallback((jobs: PurchaseLinkJob[]) => {
+    const nextItems = jobs
+      .map((job) => job.item)
+      .filter((item): item is Item => Boolean(item));
+    if (!nextItems.length) return;
+    setPurchaseBundleEditor({ items: nextItems });
+  }, []);
+
+  const openExistingPurchaseBundleEditor = useCallback(
+    (bundle: PurchaseBundle) => {
+      setPurchaseBundleEditor({
+        items: bundle.purchases.map((purchase) => purchase.item),
+        bundle,
+      });
+    },
+    [],
+  );
+
+  const openPurchaseHistory = useCallback(async (bundle: PurchaseBundle) => {
+    try {
+      const response = await fetch(
+        `${API}/items/purchases/bundles/${encodeURIComponent(bundle.id)}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) throw new Error("无法读取购买变更历史");
+      const payload = (await response.json()) as { bundle?: PurchaseBundle };
+      setPurchaseHistoryBundle(payload.bundle ?? bundle);
+    } catch (reason) {
+      setPurchaseLinkMessage(
+        reason instanceof Error ? reason.message : "无法读取购买变更历史",
+      );
+    }
+  }, []);
   const loadAnalysis = useCallback(async () => {
     setAnalysisLoading(true);
     setAnalysisError("");
@@ -3938,6 +4824,7 @@ export default function Dashboard() {
       loadLinkItems(),
       loadDisliked(),
       loadPurchases(),
+      loadPurchaseBundles(),
       loadReviews(),
     ]);
     const timer = setInterval(
@@ -3947,12 +4834,20 @@ export default function Dashboard() {
           loadLinkItems(),
           loadDisliked(),
           loadPurchases(),
+          loadPurchaseBundles(),
           loadReviews(),
         ]),
       30_000,
     );
     return () => clearInterval(timer);
-  }, [loadImports, loadLinkItems, loadDisliked, loadPurchases, loadReviews]);
+  }, [
+    loadImports,
+    loadLinkItems,
+    loadDisliked,
+    loadPurchases,
+    loadPurchaseBundles,
+    loadReviews,
+  ]);
   useEffect(() => {
     void Promise.all([loadExchangeRate(), loadCart()]);
     const rateTimer = window.setInterval(
@@ -3965,6 +4860,25 @@ export default function Dashboard() {
       window.clearInterval(cartTimer);
     };
   }, [loadCart, loadExchangeRate]);
+  useEffect(() => {
+    const activeJobs = purchaseLinkJobs.filter(
+      (job) =>
+        job.state === "waiting" ||
+        job.state === "queued" ||
+        job.state === "active" ||
+        job.state === "delayed",
+    );
+    if (!activeJobs.length) return;
+    void Promise.all(activeJobs.map((job) => pollPurchaseLinkJob(job.jobId)));
+    const timer = window.setInterval(
+      () =>
+        void Promise.all(
+          activeJobs.map((job) => pollPurchaseLinkJob(job.jobId)),
+        ),
+      3_000,
+    );
+    return () => window.clearInterval(timer);
+  }, [pollPurchaseLinkJob, purchaseLinkJobs]);
   useEffect(() => {
     // Keep a short polling window so a collaborator's favorite/note appears
     // quickly even when the public tunnel is shared by separate browsers.
@@ -4023,7 +4937,9 @@ export default function Dashboard() {
       !analysisOpen &&
       !sellerId &&
       !cartOpen &&
-      !purchaseGallery
+      !purchaseGallery &&
+      !purchaseBundleEditor &&
+      !purchaseHistoryBundle
     )
       return;
     const previousOverflow = document.body.style.overflow;
@@ -4037,6 +4953,8 @@ export default function Dashboard() {
       else if (settingsOpen) setSettingsOpen(false);
       else if (cartOpen) setCartOpen(false);
       else if (purchaseGallery) setPurchaseGallery(null);
+      else if (purchaseBundleEditor) setPurchaseBundleEditor(null);
+      else if (purchaseHistoryBundle) setPurchaseHistoryBundle(null);
       else setSellerId(null);
     };
     document.body.style.overflow = "hidden";
@@ -4055,6 +4973,8 @@ export default function Dashboard() {
     settingsOpen,
     cartOpen,
     purchaseGallery,
+    purchaseBundleEditor,
+    purchaseHistoryBundle,
   ]);
   useEffect(
     () => () => {
@@ -4370,27 +5290,60 @@ export default function Dashboard() {
   }
 
   async function analyzeUrl() {
-    if (!urlInput.trim()) return;
+    const urls = publicUrlsFromInput(urlInput);
+    if (!urls.length) {
+      setUrlMessage("请至少输入一个有效的公开 http(s) 商品链接");
+      return;
+    }
     setUrlSubmitting(true);
     setUrlMessage("");
     try {
       const response = await fetch(`${API}/items/analyze-url`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: urlInput.trim() }),
+        body: JSON.stringify(urls.length === 1 ? { url: urls[0] } : { urls }),
       });
-      const result = await response.json();
-      if (!result.accepted) throw new Error(result.error ?? "链接未接受");
-      setUrlMessage(
-        `已识别为${sourceName(result.adapter)}，任务已排队（${result.importId ?? result.jobId}）。请在“链接专区”查看实时进度。`,
+      const result = await response
+        .json()
+        .catch(() => ({ accepted: false, error: `API ${response.status}` }));
+      if (!response.ok)
+        throw new Error(result.error ?? `API ${response.status}`);
+      const results = Array.isArray(result.results) ? result.results : [];
+      const acceptedCount =
+        result.acceptedCount ??
+        (results.length
+          ? results.filter((entry: { accepted?: boolean }) => entry.accepted)
+              .length
+          : result.accepted
+            ? 1
+            : 0);
+      const rejected = results.filter(
+        (entry: { accepted?: boolean; url?: string }) => !entry.accepted,
       );
-      setUrlInput("");
+      if (!acceptedCount)
+        throw new Error(result.error ?? rejected[0]?.error ?? "链接未接受");
+      setImportsExpanded(true);
+      if (urls.length === 1) {
+        setUrlMessage(
+          `已识别为${sourceName(result.adapter ?? results[0]?.adapter ?? "public_page")}，正在后台分析。`,
+        );
+      } else {
+        setUrlMessage(
+          `已提交 ${acceptedCount} 个链接${rejected.length ? `，${rejected.length} 个未接受` : ""}。`,
+        );
+      }
+      setUrlInput(
+        rejected
+          .map((entry: { url?: string }) => entry.url)
+          .filter(Boolean)
+          .join("\n"),
+      );
       if (analyzedUrlTimerRef.current != null)
         window.clearTimeout(analyzedUrlTimerRef.current);
       let refreshAttempt = 0;
       const refreshAnalyzedItem = () => {
         analyzedUrlTimerRef.current = window.setTimeout(async () => {
-          await Promise.all([loadImports(), load()]);
+          await Promise.all([loadImports(), loadLinkItems(), load()]);
           refreshAttempt += 1;
           if (refreshAttempt < 4) refreshAnalyzedItem();
         }, 5_000);
@@ -4400,6 +5353,56 @@ export default function Dashboard() {
       setUrlMessage(reason instanceof Error ? reason.message : "链接分析失败");
     } finally {
       setUrlSubmitting(false);
+    }
+  }
+
+  async function retryImport(importId: string) {
+    setImportActionId(importId);
+    setUrlMessage("");
+    try {
+      const response = await fetch(`${API}/imports/${importId}/retry`, {
+        method: "POST",
+      });
+      const result = await response
+        .json()
+        .catch(() => ({ accepted: false, error: `API ${response.status}` }));
+      if (!response.ok || !result.accepted)
+        throw new Error(result.error ?? "任务暂时无法重试");
+      setImportsExpanded(true);
+      setUrlMessage("失败任务已重新排队");
+      await loadImports();
+    } catch (reason) {
+      setUrlMessage(
+        friendlyImportError(
+          reason instanceof Error ? reason.message : "任务重试失败",
+        ),
+      );
+    } finally {
+      setImportActionId(null);
+    }
+  }
+
+  async function removeImport(importId: string) {
+    setImportActionId(importId);
+    setUrlMessage("");
+    try {
+      const response = await fetch(`${API}/imports/${importId}`, {
+        method: "DELETE",
+      });
+      const result = await response
+        .json()
+        .catch(() => ({ error: `API ${response.status}` }));
+      if (!response.ok)
+        throw new Error(result.message ?? result.error ?? "任务暂时无法清除");
+      setImports((current) => current.filter((entry) => entry.id !== importId));
+    } catch (reason) {
+      setUrlMessage(
+        friendlyImportError(
+          reason instanceof Error ? reason.message : "任务清除失败",
+        ),
+      );
+    } finally {
+      setImportActionId(null);
     }
   }
 
@@ -4490,6 +5493,17 @@ export default function Dashboard() {
     };
   }, [urgentAuctionPool, serverOffset, nowTick]);
   const urgentCount = urgentAuctionSelection.activeCount;
+  const urlInputCount = publicUrlsFromInput(urlInput).length;
+  const importSummary = useMemo(
+    () => ({
+      active: imports.filter(
+        (entry) => entry.status === "queued" || entry.status === "running",
+      ).length,
+      failed: imports.filter((entry) => entry.status === "failed").length,
+      succeeded: imports.filter((entry) => entry.status === "succeeded").length,
+    }),
+    [imports],
+  );
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageStart = total ? (page - 1) * PAGE_SIZE + 1 : 0;
@@ -4807,7 +5821,9 @@ export default function Dashboard() {
                 filtersOpen ||
                 analysisOpen ||
                 settingsOpen ||
-                sellerId,
+                sellerId ||
+                purchaseBundleEditor ||
+                purchaseHistoryBundle,
             )}
           />
         )}
@@ -4834,127 +5850,201 @@ export default function Dashboard() {
           <section className="ios-surface workspace-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel">
             {workspace === "links" ? (
               <>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-1">
                     <h2 className="font-heading text-xl font-black">
                       链接专区
                     </h2>
-                    <p className="mt-1 text-xs text-ink/60">
-                      所有通过链接导入的商品与后台分析任务都集中在这里，不占用收藏夹。
-                    </p>
+                    <ContextInfo label="查看链接专区说明" title="链接导入说明">
+                      <p>
+                        每行可粘贴一个公开商品链接，一次最多导入
+                        {URL_IMPORT_LIMIT} 个。系统会自动识别来源并在后台分析。
+                      </p>
+                      <p className="mt-2">
+                        分析完成后会生成标准商品卡，不会自动加入收藏夹。
+                      </p>
+                    </ContextInfo>
                   </div>
                   <button
+                    type="button"
                     onClick={() =>
                       void Promise.all([loadImports(), loadLinkItems()])
                     }
-                    className="min-h-11 rounded-lg border border-ink/15 px-3 text-xs font-black"
+                    aria-label="刷新链接专区"
+                    title="刷新"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-moss shadow-sm transition-colors hover:bg-blue-50"
                   >
-                    刷新任务
+                    <RefreshIcon />
                   </button>
                 </div>
-                <div className="mt-4 rounded-xl bg-ink p-3 text-white">
-                  <div className="text-[10px] font-black uppercase tracking-[.2em] text-blue-300">
-                    链接智能分析
+                <div className="mt-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-ink/5">
+                  <div className="flex items-center justify-between gap-3">
+                    <label
+                      htmlFor="product-url-links"
+                      className="text-sm font-bold text-ink"
+                    >
+                      商品链接
+                    </label>
+                    <span className="font-mono text-[11px] tabular-nums text-ink/45">
+                      {urlInputCount}/{URL_IMPORT_LIMIT}
+                    </span>
                   </div>
-                  <label
-                    htmlFor="product-url-links"
-                    className="mt-1 block text-sm font-black"
-                  >
-                    输入公开商品链接
-                  </label>
-                  <p className="mt-1 text-xs leading-5 text-slate-300">
-                    自动识别来源，后台分析完成后会生成标准商品卡片，不会自动加入收藏。
-                  </p>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <input
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <textarea
                       id="product-url-links"
-                      type="url"
                       inputMode="url"
+                      rows={3}
                       value={urlInput}
                       onChange={(event) => setUrlInput(event.target.value)}
                       onKeyDown={(event) => {
-                        if (event.key === "Enter") void analyzeUrl();
+                        if (
+                          event.key === "Enter" &&
+                          (event.ctrlKey || event.metaKey)
+                        ) {
+                          event.preventDefault();
+                          void analyzeUrl();
+                        }
                       }}
                       aria-describedby="url-help-links"
-                      placeholder="粘贴任意公开商品链接…"
-                      className="h-11 min-h-11 min-w-0 flex-1 rounded-lg border border-white/15 bg-white/10 px-3 text-sm text-white placeholder:text-slate-500"
+                      placeholder={
+                        "每行粘贴一个公开商品链接\n支持一次提交多个链接"
+                      }
+                      className="min-h-[92px] min-w-0 resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
                     />
                     <button
                       type="button"
-                      disabled={urlSubmitting || !urlInput.trim()}
+                      disabled={urlSubmitting || urlInputCount === 0}
                       onClick={() => void analyzeUrl()}
-                      className="min-h-11 shrink-0 rounded-lg bg-lime px-4 text-sm font-black text-ink transition-colors hover:bg-amber-400 disabled:opacity-45"
+                      className="min-h-11 shrink-0 rounded-xl bg-moss px-4 text-sm font-bold text-white transition-[background-color,transform] hover:bg-blue-800 disabled:opacity-45"
                     >
-                      {urlSubmitting ? "提交中…" : "分析并导入"}
+                      {urlSubmitting ? "提交中…" : "开始导入"}
                     </button>
                   </div>
                   <div
                     id="url-help-links"
-                    className={`mt-2 min-h-5 text-xs ${urlMessage ? "font-bold text-amber-300" : "text-slate-400"}`}
+                    className={`mt-2 min-h-5 text-xs ${urlMessage ? "font-semibold text-moss" : "text-ink/45"}`}
                     aria-live="polite"
                   >
-                    {urlMessage || "分析任务和导入商品会显示在下方。"}
+                    {urlMessage || "Ctrl/⌘ + Enter 提交"}
                   </div>
                 </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {imports.length === 0 ? (
-                    <p className="rounded-xl border border-dashed p-8 text-center text-sm text-ink/50 md:col-span-2">
-                      暂无链接导入任务
-                    </p>
-                  ) : (
-                    imports.map((entry) => (
-                      <article
-                        key={entry.id}
-                        className="rounded-xl border border-ink/10 bg-fog/30 p-3"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="rounded-md bg-ink px-2 py-1 text-[10px] font-black text-lime">
-                            {entry.status === "queued"
-                              ? "排队中"
-                              : entry.status === "running"
-                                ? "分析中"
-                                : entry.status === "succeeded"
-                                  ? "已完成"
-                                  : "失败"}
-                          </span>
-                          <span className="font-mono text-xs text-moss">
-                            {entry.progress}%
-                          </span>
-                        </div>
-                        <div
-                          className="mt-2 truncate text-xs font-bold text-ink"
-                          title={entry.sourceUrl}
-                        >
-                          {entry.sourceUrl}
-                        </div>
-                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink/10">
-                          <div
-                            className={`h-full rounded-full transition-[width] duration-300 ${entry.status === "failed" ? "bg-rust" : "bg-moss"}`}
-                            style={{
-                              width: `${Math.min(100, Math.max(0, entry.progress))}%`,
-                            }}
-                          />
-                        </div>
-                        <div className="mt-2 flex justify-between gap-2 text-[10px] text-ink/55">
-                          <span>{entry.currentStep ?? "等待任务状态"}</span>
-                          <span>{entry.item ? "已进入链接商品库" : ""}</span>
-                        </div>
-                        {entry.errorText && (
-                          <div className="mt-2 text-[10px] font-bold text-rust">
-                            {entry.errorText}
-                          </div>
-                        )}
-                      </article>
-                    ))
+                <div className="mt-3 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-ink/5">
+                  <button
+                    type="button"
+                    aria-expanded={importsExpanded}
+                    aria-controls="link-import-tasks"
+                    onClick={() => setImportsExpanded((value) => !value)}
+                    className="flex min-h-12 w-full items-center justify-between gap-3 px-3 text-left transition-colors hover:bg-fog/45"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-ink">
+                        导入任务 · {imports.length}
+                      </span>
+                      <span className="block truncate text-[11px] text-ink/45">
+                        {importSummary.active
+                          ? `${importSummary.active} 个进行中`
+                          : `${importSummary.succeeded} 个完成`}
+                        {importSummary.failed
+                          ? ` · ${importSummary.failed} 个待重试`
+                          : ""}
+                      </span>
+                    </span>
+                    <ChevronDownIcon
+                      className={`h-4 w-4 shrink-0 text-ink/45 transition-transform duration-200 ${importsExpanded ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                  {importsExpanded && (
+                    <div
+                      id="link-import-tasks"
+                      className="grid gap-px border-t border-ink/8 bg-ink/8"
+                    >
+                      {imports.length === 0 ? (
+                        <p className="bg-white px-3 py-6 text-center text-sm text-ink/45">
+                          暂无导入任务
+                        </p>
+                      ) : (
+                        imports.map((entry) => {
+                          const active =
+                            entry.status === "queued" ||
+                            entry.status === "running";
+                          const failed = entry.status === "failed";
+                          return (
+                            <article
+                              key={entry.id}
+                              className="grid min-w-0 gap-2 bg-white px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    aria-hidden="true"
+                                    className={`h-2 w-2 shrink-0 rounded-full ${failed ? "bg-rust" : active ? "bg-amber-500" : "bg-emerald-400"}`}
+                                  />
+                                  <span className="text-[11px] font-semibold text-ink/60">
+                                    {entry.status === "queued"
+                                      ? "排队中"
+                                      : entry.status === "running"
+                                        ? "分析中"
+                                        : entry.status === "succeeded"
+                                          ? "已完成"
+                                          : "失败"}
+                                  </span>
+                                  <span className="font-mono text-[11px] tabular-nums text-ink/40">
+                                    {entry.progress}%
+                                  </span>
+                                </div>
+                                <p
+                                  className="mt-1 truncate text-xs font-semibold text-ink"
+                                  title={entry.sourceUrl}
+                                >
+                                  {entry.sourceUrl}
+                                </p>
+                                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-fog">
+                                  <div
+                                    className={`h-full rounded-full transition-[width] duration-300 ${failed ? "bg-rust" : "bg-moss"}`}
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, entry.progress))}%`,
+                                    }}
+                                  />
+                                </div>
+                                <p className="mt-1 truncate text-[10px] text-ink/45">
+                                  {entry.errorText
+                                    ? friendlyImportError(entry.errorText)
+                                    : (entry.currentStep ?? "等待任务状态")}
+                                </p>
+                              </div>
+                              <div className="flex min-h-11 items-center justify-end gap-2">
+                                {failed && (
+                                  <button
+                                    type="button"
+                                    disabled={importActionId === entry.id}
+                                    onClick={() => void retryImport(entry.id)}
+                                    className="min-h-11 rounded-xl bg-moss px-3 text-xs font-semibold text-white disabled:opacity-45"
+                                  >
+                                    重试
+                                  </button>
+                                )}
+                                {!active && (
+                                  <button
+                                    type="button"
+                                    disabled={importActionId === entry.id}
+                                    onClick={() => void removeImport(entry.id)}
+                                    className="min-h-11 rounded-xl bg-fog px-3 text-xs font-semibold text-ink/60 disabled:opacity-45"
+                                  >
+                                    清除
+                                  </button>
+                                )}
+                              </div>
+                            </article>
+                          );
+                        })
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="mt-5 flex items-center justify-between gap-3">
                   <h3 className="font-heading text-base font-black">
                     已导入商品 · {linkTotal}
                   </h3>
-                  <span className="text-[10px] text-ink/50">
-                    链接来源不会进入收藏夹
-                  </span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {linkItems.length === 0 ? (
@@ -5029,41 +6119,286 @@ export default function Dashboard() {
               </>
             ) : (
               <>
+                <div className="mb-4 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-ink/5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-1">
+                      <h2 className="text-sm font-bold text-ink">
+                        链接登记购买
+                      </h2>
+                      <ContextInfo
+                        label="查看购买链接说明"
+                        title="通过链接登记购买"
+                      >
+                        <p>
+                          粘贴公开商品链接后，后台只分析商品，不创建链接专区任务记录。
+                        </p>
+                        <p className="mt-2">
+                          多个链接完成后可登记为同一购买包，并填写打包价格。
+                        </p>
+                      </ContextInfo>
+                    </div>
+                    {completedPurchaseJobs.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openPurchaseBundleEditor(
+                            completedPurchaseJobs.filter((job) =>
+                              selectedPurchaseJobIds.length
+                                ? selectedPurchaseJobIds.includes(job.jobId)
+                                : true,
+                            ),
+                          )
+                        }
+                        className="min-h-11 rounded-xl bg-moss px-3 text-xs font-bold text-white"
+                      >
+                        {selectedPurchaseJobIds.length > 1
+                          ? `打包登记 · ${selectedPurchaseJobIds.length}`
+                          : "登记已完成"}
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <textarea
+                      value={purchaseLinkInput}
+                      onChange={(event) =>
+                        setPurchaseLinkInput(event.target.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Enter" &&
+                          (event.ctrlKey || event.metaKey)
+                        ) {
+                          event.preventDefault();
+                          void submitPurchaseLinks();
+                        }
+                      }}
+                      rows={2}
+                      placeholder={"每行一个商品链接\n一次最多 20 个"}
+                      aria-label="购买商品链接"
+                      className="min-h-[72px] resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
+                    />
+                    <button
+                      type="button"
+                      disabled={
+                        purchaseLinkSubmitting ||
+                        publicUrlsFromInput(purchaseLinkInput).length === 0
+                      }
+                      onClick={() => void submitPurchaseLinks()}
+                      className="min-h-11 rounded-xl bg-ink px-4 text-xs font-bold text-white disabled:opacity-40"
+                    >
+                      {purchaseLinkSubmitting ? "分析中…" : "分析链接"}
+                    </button>
+                  </div>
+                  {purchaseLinkMessage && (
+                    <p
+                      role="status"
+                      className="mt-2 text-xs font-semibold text-moss"
+                    >
+                      {purchaseLinkMessage}
+                    </p>
+                  )}
+                  {purchaseLinkJobs.length > 0 && (
+                    <div className="mt-3 grid gap-1.5">
+                      {purchaseLinkJobs.slice(0, 12).map((job) => {
+                        const done = job.state === "completed" && job.item;
+                        const failed = job.state === "failed";
+                        const checked = selectedPurchaseJobIds.includes(
+                          job.jobId,
+                        );
+                        return (
+                          <div
+                            key={job.jobId}
+                            className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl bg-fog/45 px-2 py-1.5"
+                          >
+                            {done ? (
+                              <label className="grid h-11 w-11 place-items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() =>
+                                    setSelectedPurchaseJobIds((current) =>
+                                      checked
+                                        ? current.filter(
+                                            (id) => id !== job.jobId,
+                                          )
+                                        : [...current, job.jobId],
+                                    )
+                                  }
+                                  aria-label="选择加入购买包"
+                                  className="h-5 w-5 accent-[#0071e3]"
+                                />
+                              </label>
+                            ) : (
+                              <span
+                                aria-hidden="true"
+                                className={`mx-auto h-2.5 w-2.5 rounded-full ${failed ? "bg-rust" : "bg-amber-500"}`}
+                              />
+                            )}
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold text-ink">
+                                {job.item
+                                  ? (job.item.titleZh ??
+                                    job.item.product?.titleZh ??
+                                    job.item.titleRaw)
+                                  : job.url}
+                              </p>
+                              <p className="truncate text-[10px] text-ink/45">
+                                {failed
+                                  ? friendlyImportError(job.failedReason)
+                                  : done
+                                    ? "分析完成，可登记"
+                                    : `${job.state === "active" ? "读取商品" : "等待分析"} · ${job.progress}%`}
+                              </p>
+                            </div>
+                            {done ? (
+                              <button
+                                type="button"
+                                onClick={() => openPurchaseBundleEditor([job])}
+                                className="min-h-11 rounded-xl bg-white px-3 text-xs font-semibold text-moss shadow-sm"
+                              >
+                                登记
+                              </button>
+                            ) : (
+                              <span className="font-mono text-[10px] tabular-nums text-ink/40">
+                                {job.progress}%
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="font-heading text-xl font-black">
-                      购买记录 · {purchases.length} 件
+                      购买记录 · {purchaseBundlesTotal || purchases.length} 批
                     </h2>
                     <p className="mt-1 font-mono text-sm font-bold text-rust">
                       总价{" "}
                       {fmtYen(
-                        purchases.reduce(
-                          (sum, purchase) => sum + purchase.purchaseAmount,
-                          0,
-                        ),
-                      )}
-                      <span className="ml-2 text-[10px] font-semibold text-ink/45">
-                        {fmtCny(
+                        purchaseGrandTotal ||
                           purchases.reduce(
                             (sum, purchase) => sum + purchase.purchaseAmount,
                             0,
                           ),
+                      )}
+                      <span className="ml-2 text-[10px] font-semibold text-ink/45">
+                        {fmtCny(
+                          purchaseGrandTotal ||
+                            purchases.reduce(
+                              (sum, purchase) => sum + purchase.purchaseAmount,
+                              0,
+                            ),
                           exchangeRate?.rate,
                         )}
                       </span>
                     </p>
-                    <p className="mt-1 text-xs text-ink/60">
-                      已购买商品独立保存，金额与凭证不会被两小时清理任务删除。
-                    </p>
                   </div>
                   <button
-                    onClick={() => void loadPurchases()}
-                    className="min-h-11 rounded-lg border border-ink/15 px-3 text-xs font-black"
+                    type="button"
+                    onClick={() =>
+                      void Promise.all([loadPurchases(), loadPurchaseBundles()])
+                    }
+                    aria-label="刷新购买记录"
+                    title="刷新"
+                    className="grid h-11 w-11 place-items-center rounded-full bg-white text-moss shadow-sm"
                   >
-                    刷新记录
+                    <RefreshIcon />
                   </button>
                 </div>
-                <div className="mt-4 grid gap-2 md:hidden">
+                {purchaseBundles.length > 0 && (
+                  <section
+                    className="mt-3 grid min-w-0 gap-2"
+                    aria-label="购买包"
+                  >
+                    {purchaseBundles.map((bundle) => (
+                      <article
+                        key={bundle.id}
+                        className="min-w-0 overflow-hidden rounded-2xl bg-white p-3 shadow-sm ring-1 ring-ink/5"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="text-sm font-bold text-ink">
+                              {bundle.pricingMode === "bundle_total"
+                                ? "打包购买"
+                                : "单价购买"}{" "}
+                              · {bundle.purchases.length} 件
+                            </h3>
+                            <p className="mt-0.5 font-mono text-xs font-semibold text-rust">
+                              {fmtYen(bundle.totalPurchaseAmount)}
+                              <span className="ml-1 text-[10px] font-normal text-ink/45">
+                                {fmtCny(
+                                  bundle.totalPurchaseAmount,
+                                  exchangeRate?.rate,
+                                )}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openExistingPurchaseBundleEditor(bundle)
+                              }
+                              aria-label="编辑购买包"
+                              title="编辑"
+                              className="grid h-11 w-11 place-items-center rounded-full bg-fog text-moss"
+                            >
+                              <EditIcon />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void openPurchaseHistory(bundle)}
+                              aria-label="查看购买包变更历史"
+                              title="历史"
+                              className="grid h-11 w-11 place-items-center rounded-full bg-fog text-ink/60"
+                            >
+                              <HistoryIcon />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-2 grid gap-1 border-t border-ink/8 pt-2">
+                          {bundle.purchases.map((purchase) => (
+                            <div
+                              key={purchase.id}
+                              className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPurchaseGallery(purchase.item)
+                                }
+                                className="min-w-0 truncate text-left text-xs font-semibold text-ink hover:text-moss"
+                              >
+                                {language === "zh"
+                                  ? (translations[
+                                      `${purchase.item.id}:title`
+                                    ] ??
+                                    purchase.item.product?.titleZh ??
+                                    translateText(purchase.item.titleRaw) ??
+                                    purchase.item.titleRaw)
+                                  : purchase.item.titleRaw}
+                              </button>
+                              <span className="font-mono text-[11px] text-ink/55">
+                                {purchase.amountAllocated === false
+                                  ? "未分摊"
+                                  : fmtYen(purchase.purchaseAmount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </section>
+                )}
+                <div className="mt-4 flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-ink/65">商品明细</h3>
+                  <ContextInfo label="查看购买明细说明" title="购买记录">
+                    购买包显示实际付款总价，商品明细保留原始链接、图片入口、备注和凭证。
+                  </ContextInfo>
+                </div>
+                <div className="mt-4 grid min-w-0 gap-2 md:hidden">
                   {purchases.length === 0 ? (
                     <p className="rounded-2xl bg-white p-8 text-center text-sm text-ink/50">
                       暂无购买记录
@@ -5072,7 +6407,7 @@ export default function Dashboard() {
                     purchases.map((purchase) => (
                       <article
                         key={`mobile-${purchase.id}`}
-                        className="rounded-2xl bg-white p-3 shadow-sm"
+                        className="min-w-0 overflow-hidden rounded-2xl bg-white p-3 shadow-sm"
                       >
                         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                           <div className="min-w-0">
@@ -5872,24 +7207,32 @@ export default function Dashboard() {
                     >
                       30 分钟临期拍卖
                     </h2>
+                    <ContextInfo
+                      label="查看临期拍卖筛选说明"
+                      title="临期拍卖筛选"
+                    >
+                      <p>
+                        结束时间在 30
+                        分钟内，商品价加已知邮费不高于当前批次中位数
+                        {urgentAuctionSelection.priceMedian != null
+                          ? ` ${fmtYen(Math.round(urgentAuctionSelection.priceMedian))}`
+                          : ""}
+                        。
+                      </p>
+                      <p className="mt-2">
+                        {urgentAuctionSelection.usedUnitFacts &&
+                        urgentAuctionSelection.unitMedian != null
+                          ? `优先多件装或单位价不高于中位数 ${fmtYen(Math.round(urgentAuctionSelection.unitMedian))}。`
+                          : "缺少可比较的数量或单位价时，仅保留低价半区。"}
+                        本区不使用 AI 评分。
+                      </p>
+                    </ContextInfo>
                     <span className="rounded-full bg-amber-100 px-2 py-1 font-mono text-[10px] font-bold text-amber-800">
                       {urgentCount} 件临期 ·{" "}
                       {urgentAuctionSelection.items.length}
                       件优先
                     </span>
                   </div>
-                  <p className="mt-1 max-w-4xl text-[11px] leading-5 text-ink/50">
-                    事实筛选：结束时间在 30
-                    分钟内，商品价加已知邮费不高于当前临期批次中位数
-                    {urgentAuctionSelection.priceMedian != null
-                      ? ` ${fmtYen(Math.round(urgentAuctionSelection.priceMedian))}`
-                      : ""}
-                    {urgentAuctionSelection.usedUnitFacts &&
-                    urgentAuctionSelection.unitMedian != null
-                      ? `；再优先多件装或单位价不高于中位数 ${fmtYen(Math.round(urgentAuctionSelection.unitMedian))}`
-                      : "；缺少可比较的数量或单位价时，仅保留低价半区"}
-                    。不使用 AI 评分。
-                  </p>
                 </div>
                 <button
                   type="button"
@@ -5950,7 +7293,7 @@ export default function Dashboard() {
 
             <section className="workspace-surface js-shell-reveal mt-3 rounded-2xl border border-blue-100 bg-white p-3 shadow-panel">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-1">
                   <h2
                     id="inventory"
                     className="font-heading text-lg font-black"
@@ -5958,9 +7301,9 @@ export default function Dashboard() {
                     {listingMode === "auction" ? "拍卖专区" : "直购专区"} ·{" "}
                     {total} 条采购线索
                   </h2>
-                  <p className="text-xs text-slate-500">
-                    两类独立分页，不与另一类混排
-                  </p>
+                  <ContextInfo label="查看商品分区说明" title="拍卖与直购">
+                    拍卖和直购分别统计并独立分页，切换时不会混入另一类商品。
+                  </ContextInfo>
                 </div>
                 <div
                   className="flex flex-wrap gap-2"
@@ -6219,8 +7562,57 @@ export default function Dashboard() {
           onClose={() => setPurchaseItem(null)}
           onSaved={() => {
             setPurchaseItem(null);
-            void Promise.all([loadPurchases(), load(), loadLinkItems()]);
+            void Promise.all([
+              loadPurchases(),
+              loadPurchaseBundles(),
+              load(),
+              loadLinkItems(),
+            ]);
           }}
+        />
+      )}
+      {purchaseBundleEditor && (
+        <PurchaseBundleEditorDialog
+          items={purchaseBundleEditor.items}
+          candidateItems={
+            purchaseBundleEditor.bundle
+              ? [
+                  ...purchaseBundleEditor.items,
+                  ...purchases.map((purchase) => purchase.item),
+                  ...completedPurchaseJobs
+                    .map((job) => job.item)
+                    .filter((item): item is Item => Boolean(item)),
+                ]
+              : purchaseBundleEditor.items
+          }
+          bundle={purchaseBundleEditor.bundle}
+          initialTotal={purchaseBundleEditor.initialTotal}
+          initialAmounts={purchaseBundleEditor.initialAmounts}
+          onClose={() => setPurchaseBundleEditor(null)}
+          onSaved={(savedBundle) => {
+            setPurchaseBundleEditor(null);
+            setSelectedPurchaseJobIds([]);
+            const savedItemIds = new Set(
+              savedBundle.purchases.map((purchase) => purchase.item.id),
+            );
+            setPurchaseLinkJobs((current) =>
+              current.filter(
+                (job) => !job.item || !savedItemIds.has(job.item.id),
+              ),
+            );
+            void Promise.all([
+              loadPurchases(),
+              loadPurchaseBundles(),
+              load(),
+              loadLinkItems(),
+            ]);
+          }}
+        />
+      )}
+      {purchaseHistoryBundle && (
+        <PurchaseBundleHistoryDialog
+          bundle={purchaseHistoryBundle}
+          onClose={() => setPurchaseHistoryBundle(null)}
         />
       )}
       {ignoreItem && (

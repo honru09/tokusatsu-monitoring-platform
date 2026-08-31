@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -16,8 +17,13 @@ import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { PrismaService } from "../prisma.service.js";
 import type {
+  CreatePurchaseBundleDto,
   ListItemsQuery,
+  ListPurchaseBundlesQuery,
   PurchaseDto,
+  PurchaseBundleMemberDto,
+  PurchasePricingMode,
+  UpdatePurchaseBundleDto,
   UpdateItemDto,
 } from "./items.dto.js";
 import {
@@ -80,6 +86,124 @@ const syncSelect = {
   updatedAt: true,
 } satisfies Prisma.ItemSelect;
 
+const purchaseReceiptSelect = {
+  id: true,
+  fileName: true,
+  mimeType: true,
+  sizeBytes: true,
+  createdAt: true,
+} satisfies Prisma.PurchaseReceiptSelect;
+
+const purchaseBundleSnapshotInclude = {
+  purchases: {
+    orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }],
+    select: {
+      id: true,
+      itemId: true,
+      purchaseAmount: true,
+      amountAllocated: true,
+      purchasedAt: true,
+      note: true,
+      verifiedAt: true,
+      createdAt: true,
+    },
+  },
+} satisfies Prisma.PurchaseBundleInclude;
+
+const purchaseBundleApiInclude = {
+  purchases: {
+    orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }],
+    include: {
+      receipts: { select: purchaseReceiptSelect },
+      item: { include },
+    },
+  },
+} satisfies Prisma.PurchaseBundleInclude;
+
+type PurchaseBundleSnapshotRow = Prisma.PurchaseBundleGetPayload<{
+  include: typeof purchaseBundleSnapshotInclude;
+}>;
+
+function purchaseBundleSnapshot(bundle: PurchaseBundleSnapshotRow) {
+  return {
+    id: bundle.id,
+    version: bundle.version,
+    pricingMode: bundle.pricingMode,
+    totalPurchaseAmountYen: bundle.totalPurchaseAmount,
+    currency: bundle.currency,
+    purchasedAt: bundle.purchasedAt.toISOString(),
+    note: bundle.note,
+    archivedAt: bundle.archivedAt?.toISOString() ?? null,
+    members: bundle.purchases.map((purchase) => ({
+      purchaseId: purchase.id,
+      itemId: purchase.itemId,
+      amountYen: purchase.amountAllocated ? purchase.purchaseAmount : null,
+      amountAllocated: purchase.amountAllocated,
+      purchasedAt: purchase.purchasedAt.toISOString(),
+      note: purchase.note,
+      verifiedAt: purchase.verifiedAt?.toISOString() ?? null,
+    })),
+  };
+}
+
+function auditJson(value: unknown) {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+function parsedPurchaseDate(value?: string) {
+  const parsed = value ? new Date(value) : new Date();
+  if (Number.isNaN(parsed.getTime()))
+    throw new BadRequestException("购买时间格式无效");
+  return parsed;
+}
+
+export function normalizePurchaseMembers(
+  members: PurchaseBundleMemberDto[],
+  pricingMode: PurchasePricingMode,
+  requestedTotal?: number,
+) {
+  const itemIds = members.map(({ itemId }) => itemId.trim());
+  if (itemIds.some((itemId) => !itemId))
+    throw new BadRequestException("购买批次成员商品 ID 不能为空");
+  if (new Set(itemIds).size !== itemIds.length)
+    throw new BadRequestException("购买批次不能重复包含同一商品");
+
+  if (pricingMode === "per_item") {
+    if (members.some(({ amountYen }) => amountYen == null))
+      throw new BadRequestException("按单价记录时，每个商品都必须填写金额");
+    const totalPurchaseAmountYen = members.reduce(
+      (sum, member) => sum + member.amountYen!,
+      0,
+    );
+    if (
+      requestedTotal != null &&
+      requestedTotal !== totalPurchaseAmountYen
+    )
+      throw new BadRequestException("批次总价必须等于全部商品单价之和");
+    return {
+      itemIds,
+      amountByItemId: new Map(
+        members.map((member) => [member.itemId.trim(), member.amountYen!]),
+      ),
+      totalPurchaseAmountYen,
+      amountAllocated: true,
+    };
+  }
+
+  if (requestedTotal == null)
+    throw new BadRequestException("打包购买时必须填写打包总价");
+  if (members.some(({ amountYen }) => amountYen != null))
+    throw new BadRequestException(
+      "打包总价模式不分摊单品金额；如需记录单价请切换为按单价模式",
+    );
+  return {
+    itemIds,
+    amountByItemId: new Map<string, number>(),
+    totalPurchaseAmountYen: requestedTotal,
+    amountAllocated: false,
+  };
+}
+
 const sourceLabels: Record<string, string> = {
   mandarake: "Mandarake",
   mercari: "Mercari",
@@ -94,6 +218,31 @@ const sourceLabels: Record<string, string> = {
   public_page: "网页来源",
   mock: "本地测试来源",
 };
+
+const MAX_URLS_PER_IMPORT = 20;
+
+type PreparedUrlImport = {
+  url: string;
+  adapterKey: string;
+};
+
+type UrlImportResult = {
+  url: string;
+  accepted: boolean;
+  adapter?: string;
+  importId?: string;
+  jobId?: string | number;
+  message?: string;
+  error?: string;
+};
+
+export function splitAnalyzeUrlInputs(input: string | readonly string[]) {
+  const values = (typeof input === "string" ? [input] : input)
+    .flatMap((value) => value.split(/\s+/u))
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [...new Set(values)];
+}
 
 function sourceDisplayName(
   key: string,
@@ -195,15 +344,23 @@ export function resolveAdapterKey(
 export class ItemsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async analyzeUrl(rawUrl: string) {
+  private prepareUrlImport(rawUrl: string): PreparedUrlImport | UrlImportResult {
     let url: URL;
     try {
       url = new URL(rawUrl.trim());
     } catch {
-      return { accepted: false, error: "请输入完整商品 URL（包含 https://）" };
+      return {
+        url: rawUrl,
+        accepted: false,
+        error: "请输入完整商品 URL（包含 https://）",
+      };
     }
     if (!["http:", "https:"].includes(url.protocol)) {
-      return { accepted: false, error: "仅支持 http/https 商品链接" };
+      return {
+        url: rawUrl,
+        accepted: false,
+        error: "仅支持 http/https 商品链接",
+      };
     }
     const hostname = url.hostname.toLowerCase();
     if (
@@ -214,7 +371,11 @@ export class ItemsService {
       /^192\.168\./.test(hostname) ||
       /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
     ) {
-      return { accepted: false, error: "出于安全原因不支持本地或内网地址" };
+      return {
+        url: url.toString(),
+        accepted: false,
+        error: "出于安全原因不支持本地或内网地址",
+      };
     }
     const firecrawlHosts = new Set(
       (process.env.FIRECRAWL_INCLUDE_DOMAINS ?? "")
@@ -229,47 +390,369 @@ export class ItemsService {
     );
     if (!adapterKey) {
       return {
+        url: url.toString(),
         accepted: false,
         error:
           "无法识别此链接。请使用公开商品页，或在服务端配置通用网页分析来源。",
       };
     }
+    return { url: url.toString(), adapterKey };
+  }
+
+  private async enqueueUrlImports(candidates: PreparedUrlImport[]) {
     const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
       maxRetriesPerRequest: null,
     });
     const queue = new Queue("url-analysis", { connection: redis });
-    const importRecord = await this.prisma.urlImport.create({
-      data: {
-        sourceUrl: url.toString(),
-        adapterKey,
-        status: "queued",
-        progress: 0,
-        currentStep: "已排队",
-      },
-    });
-    const job = await queue.add(
-      "analyze-url",
-      { adapterKey, sourceUrl: url.toString(), importId: importRecord.id },
-      {
-        attempts: 3,
-        backoff: { type: "exponential", delay: 10_000 },
-        removeOnComplete: 100,
-        removeOnFail: 100,
-      },
+    const results: UrlImportResult[] = [];
+    try {
+      for (const candidate of candidates) {
+        let importRecord: { id: string } | undefined;
+        try {
+          importRecord = await this.prisma.urlImport.create({
+            data: {
+              sourceUrl: candidate.url,
+              adapterKey: candidate.adapterKey,
+              status: "queued",
+              progress: 0,
+              currentStep: "已排队",
+            },
+            select: { id: true },
+          });
+          const job = await queue.add(
+            "analyze-url",
+            {
+              adapterKey: candidate.adapterKey,
+              sourceUrl: candidate.url,
+              importId: importRecord.id,
+            },
+            {
+              attempts: 3,
+              backoff: { type: "exponential", delay: 10_000 },
+              removeOnComplete: 100,
+              removeOnFail: 100,
+            },
+          );
+          await this.prisma.urlImport.update({
+            where: { id: importRecord.id },
+            data: { queueJobId: String(job.id) },
+          });
+          results.push({
+            url: candidate.url,
+            accepted: true,
+            jobId: job.id,
+            importId: importRecord.id,
+            adapter: candidate.adapterKey,
+            message: "链接已加入分析队列，完成后会进入链接专区。",
+          });
+        } catch {
+          if (importRecord) {
+            await this.prisma.urlImport
+              .update({
+                where: { id: importRecord.id },
+                data: {
+                  status: "failed",
+                  progress: 100,
+                  currentStep: "排队失败",
+                  errorText: "任务队列暂时不可用，请稍后重试。",
+                  finishedAt: new Date(),
+                },
+              })
+              .catch(() => undefined);
+          }
+          results.push({
+            url: candidate.url,
+            accepted: false,
+            adapter: candidate.adapterKey,
+            importId: importRecord?.id,
+            error: "任务队列暂时不可用，请稍后重试。",
+          });
+        }
+      }
+    } finally {
+      await queue.close().catch(() => undefined);
+      await redis.quit().catch(() => undefined);
+    }
+    return results;
+  }
+
+  async analyzeUrl(input: string | readonly string[]) {
+    const batchRequested = Array.isArray(input);
+    const rawUrls = splitAnalyzeUrlInputs(input);
+    if (rawUrls.length === 0) {
+      const emptyResult = {
+        url: "",
+        accepted: false,
+        error: "请输入至少一个完整商品 URL（包含 https://）",
+      } satisfies UrlImportResult;
+      return batchRequested
+        ? {
+            accepted: false,
+            results: [emptyResult],
+            acceptedCount: 0,
+            rejectedCount: 1,
+          }
+        : emptyResult;
+    }
+    if (rawUrls.length > MAX_URLS_PER_IMPORT) {
+      throw new BadRequestException(
+        `一次最多导入 ${MAX_URLS_PER_IMPORT} 个商品链接`,
+      );
+    }
+
+    const prepared = rawUrls.map((rawUrl) => this.prepareUrlImport(rawUrl));
+    const candidates = prepared.filter(
+      (entry): entry is PreparedUrlImport => "adapterKey" in entry,
     );
-    await this.prisma.urlImport.update({
-      where: { id: importRecord.id },
-      data: { queueJobId: String(job.id) },
-    });
-    await queue.close();
-    await redis.quit();
+    const queued = candidates.length
+      ? await this.enqueueUrlImports(candidates)
+      : [];
+    const queuedByUrl = new Map(queued.map((entry) => [entry.url, entry]));
+    const results = prepared.map((entry) =>
+      "adapterKey" in entry ? queuedByUrl.get(entry.url)! : entry,
+    );
+
+    if (!batchRequested && results.length === 1) return results[0];
+    const acceptedCount = results.filter((entry) => entry.accepted).length;
     return {
-      accepted: true,
-      jobId: job.id,
-      importId: importRecord.id,
-      adapter: adapterKey,
-      message: "链接已加入分析队列，完成后会进入链接专区。",
+      accepted: acceptedCount > 0,
+      results,
+      acceptedCount,
+      rejectedCount: results.length - acceptedCount,
     };
+  }
+
+  async retryUrlImport(id: string) {
+    const record = await this.prisma.urlImport.findUnique({ where: { id } });
+    if (!record) throw new NotFoundException("链接分析任务不存在");
+    if (record.status !== "failed")
+      throw new BadRequestException("只有失败的链接分析任务可以重试");
+    const prepared = this.prepareUrlImport(record.sourceUrl);
+    if (!("adapterKey" in prepared))
+      throw new BadRequestException(prepared.error);
+
+    const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+      maxRetriesPerRequest: null,
+    });
+    const queue = new Queue("url-analysis", { connection: redis });
+    try {
+      if (record.queueJobId) {
+        const existingJob = await queue.getJob(record.queueJobId);
+        const existingState = await existingJob?.getState();
+        if (
+          existingJob &&
+          existingState &&
+          ["active", "waiting", "delayed", "prioritized", "waiting-children"].includes(
+            existingState,
+          )
+        ) {
+          await this.prisma.urlImport.update({
+            where: { id },
+            data: {
+              status: existingState === "active" ? "running" : "queued",
+              progress: existingState === "active" ? 10 : 0,
+              currentStep:
+                existingState === "active" ? "正在重新分析" : "等待自动重试",
+              errorText: null,
+              finishedAt: null,
+            },
+          });
+          return {
+            url: prepared.url,
+            accepted: true,
+            jobId: existingJob.id,
+            importId: id,
+            adapter: prepared.adapterKey,
+            reused: true,
+            message: "原任务仍在自动重试，无需重复排队。",
+          };
+        }
+      }
+      await this.prisma.urlImport.update({
+        where: { id },
+        data: {
+          adapterKey: prepared.adapterKey,
+          queueJobId: null,
+          itemId: null,
+          status: "queued",
+          progress: 0,
+          currentStep: "已重新排队",
+          errorText: null,
+          startedAt: null,
+          finishedAt: null,
+        },
+      });
+      const job = await queue.add(
+        "analyze-url",
+        {
+          adapterKey: prepared.adapterKey,
+          sourceUrl: prepared.url,
+          importId: id,
+        },
+        {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 10_000 },
+          removeOnComplete: 100,
+          removeOnFail: 100,
+        },
+      );
+      await this.prisma.urlImport.update({
+        where: { id },
+        data: { queueJobId: String(job.id) },
+      });
+      return {
+        url: prepared.url,
+        accepted: true,
+        jobId: job.id,
+        importId: id,
+        adapter: prepared.adapterKey,
+        message: "失败任务已重新加入分析队列。",
+      };
+    } catch {
+      await this.prisma.urlImport
+        .update({
+          where: { id },
+          data: {
+            status: "failed",
+            progress: 100,
+            currentStep: "重试排队失败",
+            errorText: "任务队列暂时不可用，请稍后重试。",
+            finishedAt: new Date(),
+          },
+        })
+        .catch(() => undefined);
+      return {
+        url: prepared.url,
+        accepted: false,
+        importId: id,
+        adapter: prepared.adapterKey,
+        error: "任务队列暂时不可用，请稍后重试。",
+      };
+    } finally {
+      await queue.close().catch(() => undefined);
+      await redis.quit().catch(() => undefined);
+    }
+  }
+
+  async analyzePurchaseLinks(input: readonly string[]) {
+    const rawUrls = splitAnalyzeUrlInputs(input);
+    if (rawUrls.length === 0)
+      throw new BadRequestException("请输入至少一个完整商品 URL");
+    if (rawUrls.length > MAX_URLS_PER_IMPORT)
+      throw new BadRequestException(
+        `一次最多分析 ${MAX_URLS_PER_IMPORT} 个购买链接`,
+      );
+
+    const prepared = rawUrls.map((rawUrl) => this.prepareUrlImport(rawUrl));
+    const candidates = prepared.filter(
+      (entry): entry is PreparedUrlImport => "adapterKey" in entry,
+    );
+    const queuedByUrl = new Map<string, UrlImportResult>();
+    const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+      maxRetriesPerRequest: null,
+    });
+    const queue = new Queue("url-analysis", { connection: redis });
+    try {
+      for (const candidate of candidates) {
+        try {
+          const job = await queue.add(
+            "analyze-purchase-url",
+            {
+              adapterKey: candidate.adapterKey,
+              sourceUrl: candidate.url,
+              importOrigin: "purchase",
+            },
+            {
+              attempts: 3,
+              backoff: { type: "exponential", delay: 10_000 },
+              removeOnComplete: 100,
+              removeOnFail: 100,
+            },
+          );
+          queuedByUrl.set(candidate.url, {
+            url: candidate.url,
+            accepted: true,
+            jobId: job.id,
+            adapter: candidate.adapterKey,
+            message: "正在分析商品，完成后可填写单价或打包总价。",
+          });
+        } catch {
+          queuedByUrl.set(candidate.url, {
+            url: candidate.url,
+            accepted: false,
+            adapter: candidate.adapterKey,
+            error: "任务队列暂时不可用，请稍后重试。",
+          });
+        }
+      }
+    } finally {
+      await queue.close().catch(() => undefined);
+      await redis.quit().catch(() => undefined);
+    }
+
+    const results = prepared.map((entry) =>
+      "adapterKey" in entry ? queuedByUrl.get(entry.url)! : entry,
+    );
+    const acceptedCount = results.filter((entry) => entry.accepted).length;
+    return {
+      accepted: acceptedCount > 0,
+      results,
+      acceptedCount,
+      rejectedCount: results.length - acceptedCount,
+      createsOrdinaryLinkTasks: false,
+    };
+  }
+
+  async getPurchaseLinkAnalysis(jobId: string) {
+    const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+      maxRetriesPerRequest: null,
+    });
+    const queue = new Queue("url-analysis", { connection: redis });
+    try {
+      const job = await queue.getJob(jobId);
+      if (!job || job.data?.importOrigin !== "purchase")
+        throw new NotFoundException("购买链接分析任务不存在或已过期");
+      const state = await job.getState();
+      const result = job.returnvalue as
+        | { itemId?: string; title?: string }
+        | undefined;
+      const item = result?.itemId
+        ? await this.prisma.item.findUnique({
+            where: { id: result.itemId },
+            include,
+          })
+        : null;
+      return {
+        jobId: String(job.id),
+        state,
+        progress: job.progress,
+        failedReason: state === "failed" ? job.failedReason : null,
+        item: item
+          ? {
+              ...item,
+              source: {
+                ...item.source,
+                displayName: sourceDisplayName(
+                  item.source.key,
+                  item.source.displayName,
+                  item.sourceData,
+                ),
+              },
+            }
+          : null,
+        readyForPricing: state === "completed" && Boolean(item),
+        pricingOptions: item
+          ? {
+              perItem: { itemId: item.id, suggestedAmountYen: item.priceCurrent },
+              bundleTotal: true,
+            }
+          : null,
+        serverTime: new Date().toISOString(),
+      };
+    } finally {
+      await queue.close().catch(() => undefined);
+      await redis.quit().catch(() => undefined);
+    }
   }
 
   async list(query: ListItemsQuery) {
@@ -471,50 +954,623 @@ export class ItemsService {
     };
   }
 
+  private async readPurchaseBundleSnapshot(
+    tx: Prisma.TransactionClient,
+    id: string,
+  ) {
+    const bundle = await tx.purchaseBundle.findUnique({
+      where: { id },
+      include: purchaseBundleSnapshotInclude,
+    });
+    if (!bundle) throw new NotFoundException("购买批次不存在");
+    return { row: bundle, snapshot: purchaseBundleSnapshot(bundle) };
+  }
+
+  private async appendPurchaseBundleAudit(
+    tx: Prisma.TransactionClient,
+    input: {
+      bundleId: string;
+      eventType:
+        | "created"
+        | "price_changed"
+        | "members_changed"
+        | "updated"
+        | "archived";
+      actor: string;
+      reason: string;
+      before?: unknown;
+      after: unknown;
+    },
+  ) {
+    return tx.purchaseBundleAudit.create({
+      data: {
+        bundleId: input.bundleId,
+        eventType: input.eventType,
+        actor: input.actor.trim(),
+        reason: input.reason.trim(),
+        ...(input.before === undefined
+          ? {}
+          : { beforeData: auditJson(input.before) }),
+        afterData: auditJson(input.after),
+      },
+    });
+  }
+
+  private async addNewPurchaseToInventory(
+    tx: Prisma.TransactionClient,
+    item: { productId: string | null; quantityEst: number | null },
+    allocatedAmountYen: number | null,
+  ) {
+    if (!item.productId) return;
+    const quantity = Math.max(1, item.quantityEst ?? 1);
+    const inventory = await tx.inventory.findUnique({
+      where: { productId: item.productId },
+    });
+    if (allocatedAmountYen == null) {
+      await tx.inventory.upsert({
+        where: { productId: item.productId },
+        update: { quantity: { increment: quantity } },
+        create: { productId: item.productId, quantity, averageCost: null },
+      });
+      return;
+    }
+    const existingQuantity = inventory?.quantity ?? 0;
+    const existingAverage = inventory?.averageCost
+      ? Number(inventory.averageCost)
+      : 0;
+    const averageCost =
+      (existingAverage * existingQuantity + allocatedAmountYen) /
+      (existingQuantity + quantity);
+    await tx.inventory.upsert({
+      where: { productId: item.productId },
+      update: { quantity: { increment: quantity }, averageCost },
+      create: {
+        productId: item.productId,
+        quantity,
+        averageCost: allocatedAmountYen / quantity,
+      },
+    });
+  }
+
+  private async archiveMergedSingletonBundle(
+    tx: Prisma.TransactionClient,
+    sourceBundleId: string,
+    actor: string,
+    reason: string,
+  ) {
+    const before = await this.readPurchaseBundleSnapshot(tx, sourceBundleId);
+    if (before.row.purchases.length !== 1)
+      throw new ConflictException(
+        "商品已属于多商品购买批次，请先在原批次中调整成员",
+      );
+    const archivedAt = new Date();
+    const updated = await tx.purchaseBundle.updateMany({
+      where: {
+        id: sourceBundleId,
+        version: before.row.version,
+        archivedAt: null,
+      },
+      data: { archivedAt, version: { increment: 1 } },
+    });
+    if (updated.count !== 1)
+      throw new ConflictException("购买批次已被其他用户修改，请刷新后重试");
+    return { before: before.snapshot, archivedAt };
+  }
+
+  async createPurchaseBundle(body: CreatePurchaseBundleDto) {
+    const normalized = normalizePurchaseMembers(
+      body.members,
+      body.pricingMode,
+      body.totalPurchaseAmountYen,
+    );
+    const purchasedAt = parsedPurchaseDate(body.purchasedAt);
+    const actor = body.actor.trim();
+    const reason = body.reason.trim();
+
+    try {
+      const bundle = await this.prisma.$transaction(async (tx) => {
+        const items = await tx.item.findMany({
+          where: { id: { in: normalized.itemIds } },
+          select: {
+            id: true,
+            productId: true,
+            quantityEst: true,
+            purchaseRecord: {
+              include: {
+                bundle: {
+                  include: { purchases: { select: { id: true } } },
+                },
+              },
+            },
+          },
+        });
+        if (items.length !== normalized.itemIds.length)
+          throw new NotFoundException("部分购买商品不存在，请重新分析链接");
+        for (const item of items) {
+          if (
+            item.purchaseRecord &&
+            item.purchaseRecord.bundle.purchases.length !== 1
+          )
+            throw new ConflictException(
+              "已有商品属于多商品购买批次，不能直接拆出合并",
+            );
+        }
+
+        const created = await tx.purchaseBundle.create({
+          data: {
+            pricingMode: body.pricingMode,
+            totalPurchaseAmount: normalized.totalPurchaseAmountYen,
+            purchasedAt,
+            note: body.note,
+          },
+        });
+
+        for (const item of items) {
+          const amountYen = normalized.amountByItemId.get(item.id) ?? 0;
+          if (item.purchaseRecord) {
+            const sourceBundleId = item.purchaseRecord.bundleId;
+            const source = await this.archiveMergedSingletonBundle(
+              tx,
+              sourceBundleId,
+              actor,
+              reason,
+            );
+            await tx.purchaseRecord.update({
+              where: { id: item.purchaseRecord.id },
+              data: {
+                bundleId: created.id,
+                purchaseAmount: amountYen,
+                amountAllocated: normalized.amountAllocated,
+                purchasedAt,
+              },
+            });
+            const sourceAfter = await this.readPurchaseBundleSnapshot(
+              tx,
+              sourceBundleId,
+            );
+            await this.appendPurchaseBundleAudit(tx, {
+              bundleId: sourceBundleId,
+              eventType: "archived",
+              actor,
+              reason,
+              before: source.before,
+              after: sourceAfter.snapshot,
+            });
+          } else {
+            await tx.purchaseRecord.create({
+              data: {
+                itemId: item.id,
+                bundleId: created.id,
+                purchaseAmount: amountYen,
+                amountAllocated: normalized.amountAllocated,
+                purchasedAt,
+                note: body.note,
+              },
+            });
+            await this.addNewPurchaseToInventory(
+              tx,
+              item,
+              normalized.amountAllocated ? amountYen : null,
+            );
+          }
+          await tx.item.update({
+            where: { id: item.id },
+            data: { favorite: false, ignored: false, archivedAt: new Date() },
+          });
+        }
+
+        const after = await this.readPurchaseBundleSnapshot(tx, created.id);
+        await this.appendPurchaseBundleAudit(tx, {
+          bundleId: created.id,
+          eventType: "created",
+          actor,
+          reason,
+          after: after.snapshot,
+        });
+        return tx.purchaseBundle.findUniqueOrThrow({
+          where: { id: created.id },
+          include: {
+            ...purchaseBundleApiInclude,
+            audits: { orderBy: { createdAt: "desc" }, take: 20 },
+          },
+        });
+      });
+      return { bundle, serverTime: new Date().toISOString() };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      )
+        throw new ConflictException("部分商品已被其他用户登记购买");
+      throw error;
+    }
+  }
+
+  async updatePurchaseBundle(id: string, body: UpdatePurchaseBundleDto) {
+    const actor = body.actor.trim();
+    const reason = body.reason.trim();
+    const result = await this.prisma.$transaction(async (tx) => {
+      const before = await this.readPurchaseBundleSnapshot(tx, id);
+      if (before.row.archivedAt)
+        throw new ConflictException("已归档的购买批次不能修改");
+      if (before.row.version !== body.expectedVersion)
+        throw new ConflictException("购买批次已被其他用户修改，请刷新后重试");
+
+      const pricingMode = (body.pricingMode ??
+        before.row.pricingMode) as PurchasePricingMode;
+      let totalPurchaseAmount = before.row.totalPurchaseAmount;
+      let membersChanged = false;
+      let memberAmountsChanged = false;
+      const purchasedAt = body.purchasedAt
+        ? parsedPurchaseDate(body.purchasedAt)
+        : before.row.purchasedAt;
+
+      if (body.members) {
+        const requestedTotal =
+          pricingMode === "bundle_total"
+            ? (body.totalPurchaseAmountYen ?? before.row.totalPurchaseAmount)
+            : body.totalPurchaseAmountYen;
+        const normalized = normalizePurchaseMembers(
+          body.members,
+          pricingMode,
+          requestedTotal,
+        );
+        totalPurchaseAmount = normalized.totalPurchaseAmountYen;
+        const currentByItem = new Map(
+          before.row.purchases.map((purchase) => [purchase.itemId, purchase]),
+        );
+        const desired = new Set(normalized.itemIds);
+        const removed = before.row.purchases.filter(
+          (purchase) => !desired.has(purchase.itemId),
+        );
+        const addedIds = normalized.itemIds.filter(
+          (itemId) => !currentByItem.has(itemId),
+        );
+        membersChanged = removed.length > 0 || addedIds.length > 0;
+
+        if (removed.some((purchase) => !purchase.amountAllocated))
+          throw new BadRequestException(
+            "打包总价尚未分摊，移除成员前请先切换为按单价模式并填写全部单价",
+          );
+
+        const desiredItems = await tx.item.findMany({
+          where: { id: { in: normalized.itemIds } },
+          select: {
+            id: true,
+            productId: true,
+            quantityEst: true,
+            purchaseRecord: {
+              include: {
+                bundle: {
+                  include: { purchases: { select: { id: true } } },
+                },
+              },
+            },
+          },
+        });
+        if (desiredItems.length !== normalized.itemIds.length)
+          throw new NotFoundException("部分购买商品不存在，请重新分析链接");
+
+        for (const purchase of removed) {
+          const detached = await tx.purchaseBundle.create({
+            data: {
+              pricingMode: "per_item",
+              totalPurchaseAmount: purchase.purchaseAmount,
+              purchasedAt: purchase.purchasedAt,
+              note: purchase.note,
+            },
+          });
+          await tx.purchaseRecord.update({
+            where: { id: purchase.id },
+            data: { bundleId: detached.id },
+          });
+          const detachedAfter = await this.readPurchaseBundleSnapshot(
+            tx,
+            detached.id,
+          );
+          await this.appendPurchaseBundleAudit(tx, {
+            bundleId: detached.id,
+            eventType: "created",
+            actor,
+            reason,
+            after: detachedAfter.snapshot,
+          });
+        }
+
+        for (const item of desiredItems) {
+          const amountYen = normalized.amountByItemId.get(item.id) ?? 0;
+          const current = currentByItem.get(item.id);
+          if (current) {
+            if (
+              current.purchaseAmount !== amountYen ||
+              current.amountAllocated !== normalized.amountAllocated
+            )
+              memberAmountsChanged = true;
+            await tx.purchaseRecord.update({
+              where: { id: current.id },
+              data: {
+                purchaseAmount: amountYen,
+                amountAllocated: normalized.amountAllocated,
+                purchasedAt,
+              },
+            });
+            continue;
+          }
+
+          if (item.purchaseRecord) {
+            if (item.purchaseRecord.bundle.purchases.length !== 1)
+              throw new ConflictException(
+                "新增商品已属于多商品购买批次，不能直接拆出合并",
+              );
+            const sourceBundleId = item.purchaseRecord.bundleId;
+            const source = await this.archiveMergedSingletonBundle(
+              tx,
+              sourceBundleId,
+              actor,
+              reason,
+            );
+            await tx.purchaseRecord.update({
+              where: { id: item.purchaseRecord.id },
+              data: {
+                bundleId: id,
+                purchaseAmount: amountYen,
+                amountAllocated: normalized.amountAllocated,
+                purchasedAt,
+              },
+            });
+            const sourceAfter = await this.readPurchaseBundleSnapshot(
+              tx,
+              sourceBundleId,
+            );
+            await this.appendPurchaseBundleAudit(tx, {
+              bundleId: sourceBundleId,
+              eventType: "archived",
+              actor,
+              reason,
+              before: source.before,
+              after: sourceAfter.snapshot,
+            });
+          } else {
+            await tx.purchaseRecord.create({
+              data: {
+                itemId: item.id,
+                bundleId: id,
+                purchaseAmount: amountYen,
+                amountAllocated: normalized.amountAllocated,
+                purchasedAt,
+                note: body.note ?? before.row.note,
+              },
+            });
+            await this.addNewPurchaseToInventory(
+              tx,
+              item,
+              normalized.amountAllocated ? amountYen : null,
+            );
+          }
+          await tx.item.update({
+            where: { id: item.id },
+            data: { favorite: false, ignored: false, archivedAt: new Date() },
+          });
+        }
+      } else {
+        if (pricingMode !== before.row.pricingMode)
+          throw new BadRequestException(
+            "切换计价模式时必须同时提交完整成员及其金额",
+          );
+        if (
+          pricingMode === "per_item" &&
+          body.totalPurchaseAmountYen != null &&
+          body.totalPurchaseAmountYen !== before.row.totalPurchaseAmount
+        )
+          throw new BadRequestException(
+            "按单价模式请通过 members 修改商品金额，批次总价会自动计算",
+          );
+        if (body.totalPurchaseAmountYen != null)
+          totalPurchaseAmount = body.totalPurchaseAmountYen;
+        if (body.purchasedAt)
+          await tx.purchaseRecord.updateMany({
+            where: { bundleId: id },
+            data: { purchasedAt },
+          });
+      }
+
+      const priceChanged =
+        totalPurchaseAmount !== before.row.totalPurchaseAmount ||
+        pricingMode !== before.row.pricingMode ||
+        memberAmountsChanged;
+      const updated = await tx.purchaseBundle.updateMany({
+        where: { id, version: body.expectedVersion, archivedAt: null },
+        data: {
+          pricingMode,
+          totalPurchaseAmount,
+          purchasedAt,
+          ...(body.note === undefined ? {} : { note: body.note }),
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count !== 1)
+        throw new ConflictException("购买批次已被其他用户修改，请刷新后重试");
+
+      const after = await this.readPurchaseBundleSnapshot(tx, id);
+      await this.appendPurchaseBundleAudit(tx, {
+        bundleId: id,
+        eventType: membersChanged
+          ? "members_changed"
+          : priceChanged
+            ? "price_changed"
+            : "updated",
+        actor,
+        reason,
+        before: before.snapshot,
+        after: after.snapshot,
+      });
+      return tx.purchaseBundle.findUniqueOrThrow({
+        where: { id },
+        include: {
+          ...purchaseBundleApiInclude,
+          audits: { orderBy: { createdAt: "desc" }, take: 100 },
+        },
+      });
+    });
+    return { bundle: result, serverTime: new Date().toISOString() };
+  }
+
+  async listPurchaseBundles(query: ListPurchaseBundlesQuery) {
+    const page = Math.max(1, query.page);
+    const limit = Math.max(1, Math.min(100, query.limit));
+    const where = { archivedAt: null } satisfies Prisma.PurchaseBundleWhereInput;
+    const [bundles, total, aggregate] = await this.prisma.$transaction([
+      this.prisma.purchaseBundle.findMany({
+        where,
+        include: purchaseBundleApiInclude,
+        orderBy: [{ purchasedAt: "desc" }, { createdAt: "desc" }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.purchaseBundle.count({ where }),
+      this.prisma.purchaseBundle.aggregate({
+        where,
+        _sum: { totalPurchaseAmount: true },
+      }),
+    ]);
+    return {
+      bundles,
+      total,
+      page,
+      limit,
+      pageCount: Math.max(1, Math.ceil(total / limit)),
+      grandTotalPurchaseAmountYen:
+        aggregate._sum.totalPurchaseAmount ?? 0,
+      serverTime: new Date().toISOString(),
+    };
+  }
+
+  async getPurchaseBundle(id: string) {
+    const bundle = await this.prisma.purchaseBundle.findUnique({
+      where: { id },
+      include: {
+        ...purchaseBundleApiInclude,
+        audits: { orderBy: { createdAt: "desc" }, take: 500 },
+      },
+    });
+    if (!bundle) throw new NotFoundException("购买批次不存在");
+    return { bundle, serverTime: new Date().toISOString() };
+  }
+
   async purchase(id: string, body: PurchaseDto) {
-    const current = await this.ensureExists(id);
-    const purchasedAt = body.purchasedAt
-      ? new Date(body.purchasedAt)
-      : new Date();
-    if (Number.isNaN(purchasedAt.getTime()))
-      throw new Error("购买时间格式无效");
+    const purchasedAt = parsedPurchaseDate(body.purchasedAt);
     const receiptSize = body.receiptDataBase64
       ? Buffer.byteLength(body.receiptDataBase64, "base64")
       : 0;
-    if (receiptSize > 3 * 1024 * 1024) {
+    if (receiptSize > 3 * 1024 * 1024)
       throw new BadRequestException("购买凭证图片不能超过 3MB");
-    }
-    if (body.receiptDataBase64 && !body.receiptMimeType?.startsWith("image/")) {
+    if (body.receiptDataBase64 && !body.receiptMimeType?.startsWith("image/"))
       throw new BadRequestException("购买凭证必须是图片文件");
-    }
+    const actor = body.actor?.trim() || "shared-user";
+    const reason =
+      body.reason?.trim() || "通过单商品购买接口记录或更新购买信息";
     const verified = receiptSize > 0;
+
     const record = await this.prisma.$transaction(async (tx) => {
-      const purchase = await tx.purchaseRecord.upsert({
-        where: { itemId: id },
-        update: {
-          purchaseAmount: body.purchaseAmount,
-          purchasedAt,
-          note: body.note,
-          verifiedAt: verified ? new Date() : null,
-        },
-        create: {
-          itemId: id,
-          purchaseAmount: body.purchaseAmount,
-          purchasedAt,
-          note: body.note,
-          verifiedAt: verified ? new Date() : null,
+      const current = await tx.item.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          productId: true,
+          quantityEst: true,
+          purchaseRecord: {
+            include: {
+              bundle: { include: purchaseBundleSnapshotInclude },
+            },
+          },
         },
       });
+      if (!current) throw new NotFoundException("Item not found");
+
+      let purchase = current.purchaseRecord;
+      let bundleId: string;
+      let beforeSnapshot: ReturnType<typeof purchaseBundleSnapshot> | undefined;
+      if (!purchase) {
+        const bundle = await tx.purchaseBundle.create({
+          data: {
+            pricingMode: "per_item",
+            totalPurchaseAmount: body.purchaseAmount,
+            purchasedAt,
+            note: body.note,
+          },
+        });
+        bundleId = bundle.id;
+        purchase = await tx.purchaseRecord.create({
+          data: {
+            itemId: id,
+            bundleId,
+            purchaseAmount: body.purchaseAmount,
+            amountAllocated: true,
+            purchasedAt,
+            note: body.note,
+            verifiedAt: verified ? new Date() : null,
+          },
+          include: {
+            bundle: { include: purchaseBundleSnapshotInclude },
+          },
+        });
+        await this.addNewPurchaseToInventory(
+          tx,
+          current,
+          body.purchaseAmount,
+        );
+      } else {
+        bundleId = purchase.bundleId;
+        beforeSnapshot = purchaseBundleSnapshot(purchase.bundle);
+        if (
+          purchase.bundle.pricingMode === "bundle_total" &&
+          purchase.bundle.purchases.length > 1
+        )
+          throw new BadRequestException(
+            "该商品属于打包总价批次，请在购买批次中修改价格",
+          );
+        const previousAllocatedAmount = purchase.amountAllocated
+          ? purchase.purchaseAmount
+          : purchase.bundle.totalPurchaseAmount;
+        const nextBundleTotal =
+          purchase.bundle.purchases.length === 1
+            ? body.purchaseAmount
+            : purchase.bundle.totalPurchaseAmount -
+              previousAllocatedAmount +
+              body.purchaseAmount;
+        await tx.purchaseBundle.update({
+          where: { id: bundleId },
+          data: {
+            pricingMode: "per_item",
+            totalPurchaseAmount: nextBundleTotal,
+            ...(purchase.bundle.purchases.length === 1
+              ? { purchasedAt, note: body.note }
+              : {}),
+            version: { increment: 1 },
+          },
+        });
+        purchase = await tx.purchaseRecord.update({
+          where: { id: purchase.id },
+          data: {
+            purchaseAmount: body.purchaseAmount,
+            amountAllocated: true,
+            purchasedAt,
+            note: body.note,
+            verifiedAt: verified ? new Date() : purchase.verifiedAt,
+          },
+          include: {
+            bundle: { include: purchaseBundleSnapshotInclude },
+          },
+        });
+      }
+
       if (body.receiptDataBase64) {
-        const mimeType = body.receiptMimeType?.startsWith("image/")
-          ? body.receiptMimeType
-          : "image/png";
         await tx.purchaseReceipt.create({
           data: {
             purchaseId: purchase.id,
             fileName:
               body.receiptFileName?.slice(0, 200) ?? "purchase-receipt.png",
-            mimeType,
+            mimeType: body.receiptMimeType!,
             sizeBytes: receiptSize,
             dataBase64: body.receiptDataBase64,
           },
@@ -522,75 +1578,52 @@ export class ItemsService {
       }
       await tx.item.update({
         where: { id },
-        data: { favorite: false, archivedAt: new Date() },
+        data: { favorite: false, ignored: false, archivedAt: new Date() },
       });
-      if (current.productId) {
-        const quantity = Math.max(1, current.quantityEst ?? 1);
-        const inventory = await tx.inventory.findUnique({
-          where: { productId: current.productId },
-        });
-        const existingQuantity = inventory?.quantity ?? 0;
-        const existingAverage = inventory?.averageCost
-          ? Number(inventory.averageCost)
-          : 0;
-        const averageCost =
-          (existingAverage * existingQuantity + body.purchaseAmount) /
-          (existingQuantity + quantity);
-        await tx.inventory.upsert({
-          where: { productId: current.productId },
-          update: {
-            quantity: { increment: quantity },
-            averageCost,
-          },
-          create: {
-            productId: current.productId,
-            quantity,
-            averageCost: body.purchaseAmount / quantity,
-          },
-        });
-      }
-      return tx.purchaseRecord.findUnique({
+      const after = await this.readPurchaseBundleSnapshot(tx, bundleId);
+      await this.appendPurchaseBundleAudit(tx, {
+        bundleId,
+        eventType: beforeSnapshot ? "price_changed" : "created",
+        actor,
+        reason,
+        ...(beforeSnapshot ? { before: beforeSnapshot } : {}),
+        after: after.snapshot,
+      });
+      return tx.purchaseRecord.findUniqueOrThrow({
         where: { id: purchase.id },
         include: {
-          receipts: {
-            select: {
-              id: true,
-              fileName: true,
-              mimeType: true,
-              sizeBytes: true,
-              createdAt: true,
-            },
-          },
+          receipts: { select: purchaseReceiptSelect },
+          bundle: true,
           item: { include },
         },
       });
     });
     return {
       purchase: record,
-      verified: Boolean(record?.verifiedAt),
+      verified: Boolean(record.verifiedAt),
       serverTime: new Date().toISOString(),
     };
   }
 
   async listPurchases() {
-    const purchases = await this.prisma.purchaseRecord.findMany({
-      include: {
-        receipts: {
-          select: {
-            id: true,
-            fileName: true,
-            mimeType: true,
-            sizeBytes: true,
-            createdAt: true,
-          },
+    const [purchases, totals] = await this.prisma.$transaction([
+      this.prisma.purchaseRecord.findMany({
+        include: {
+          receipts: { select: purchaseReceiptSelect },
+          bundle: true,
+          item: { include },
         },
-        item: { include },
-      },
-      orderBy: { purchasedAt: "desc" },
-    });
+        orderBy: { purchasedAt: "desc" },
+      }),
+      this.prisma.purchaseBundle.aggregate({
+        where: { archivedAt: null },
+        _sum: { totalPurchaseAmount: true },
+      }),
+    ]);
     return {
       purchases,
       total: purchases.length,
+      totalPurchaseAmountYen: totals._sum.totalPurchaseAmount ?? 0,
       serverTime: new Date().toISOString(),
     };
   }

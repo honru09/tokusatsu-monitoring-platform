@@ -524,7 +524,15 @@ export function sellerMetadata(item: NormalizedItem) {
               : "",
           )
           .find(Boolean)
-      : undefined;
+      : item.sourcePlatform === "yahoo_auctions"
+        ? [value.aucUserId, nestedSeller?.aucUserId, value.sellerId]
+            .map((candidate) =>
+              typeof candidate === "string" || typeof candidate === "number"
+                ? String(candidate).trim()
+                : "",
+            )
+            .find(Boolean)
+        : undefined;
   return {
     sourceData: sourceData as Prisma.InputJsonValue,
     profileUrl,
@@ -682,7 +690,12 @@ async function persistLogisticsHints(itemId: string, sourceData: unknown) {
 }
 
 export async function processUrlAnalysis(
-  job: Job<{ adapterKey: string; sourceUrl: string; importId?: string }>,
+  job: Job<{
+    adapterKey: string;
+    sourceUrl: string;
+    importId?: string;
+    importOrigin?: "url" | "purchase";
+  }>,
 ) {
   let adapter = adapters[job.data.adapterKey];
   if (!adapter) throw new Error(`Unknown adapter: ${job.data.adapterKey}`);
@@ -728,6 +741,8 @@ export async function processUrlAnalysis(
         status: "running",
         progress: 10,
         currentStep: "正在读取公开商品页",
+        errorText: null,
+        finishedAt: null,
         startedAt: new Date(),
       },
     });
@@ -767,7 +782,21 @@ export async function processUrlAnalysis(
         where: { id: job.data.importId },
         data: { progress: 75, currentStep: "商品已解析，正在写入链接专区" },
       });
-    const saved = await persistNormalized(source.id, normalized, false, "url");
+    const saved = await persistNormalized(
+      source.id,
+      normalized,
+      false,
+      job.data.importOrigin ?? "url",
+    );
+    if (job.data.importOrigin === "purchase") {
+      // Purchase-link analysis is a staging flow.  Keep the parsed listing
+      // addressable from the BullMQ result, but do not leak it into the live
+      // catalogue before the operator confirms the purchase and price.
+      await prisma.item.update({
+        where: { id: saved.id },
+        data: { archivedAt: new Date() },
+      });
+    }
     await prisma.crawlJob.update({
       where: { id: crawlJob.id },
       data: { status: "succeeded", finishedAt: new Date() },
@@ -779,6 +808,7 @@ export async function processUrlAnalysis(
           status: "succeeded",
           progress: 100,
           currentStep: "已完成",
+          errorText: null,
           finishedAt: new Date(),
           itemId: saved.id,
         },
@@ -864,7 +894,7 @@ async function persistNormalized(
   sourceId: string,
   item: NormalizedItem,
   favorite = false,
-  importOrigin: "search" | "url" = "search",
+  importOrigin: "search" | "url" | "purchase" = "search",
 ) {
   const imageUrls = sanitizeProductImageUrls(item.imageUrls);
   const seller = await upsertPublicSeller(sourceId, item);

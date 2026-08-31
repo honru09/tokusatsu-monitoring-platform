@@ -4,6 +4,15 @@
 
 :root {
   color-scheme: light;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-heading:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono:
+    "SFMono-Regular", "SF Mono", ui-monospace, Consolas, "Liberation Mono",
+    monospace;
   --color-primary: #0071e3;
   --color-secondary: #2997ff;
   --color-accent: #64d2ff;
@@ -44,9 +53,7 @@ body {
   color: var(--color-foreground);
   overflow-x: clip;
   background: var(--app-sky);
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans SC",
-    "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -782,7 +789,7 @@ textarea:focus-visible {
 }
 .seller-segment-chip b {
   color: rgba(7, 8, 10, 0.46);
-  font-family: "SFMono-Regular", "SF Mono", Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
 }

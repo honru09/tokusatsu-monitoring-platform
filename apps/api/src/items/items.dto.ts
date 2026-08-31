@@ -1,5 +1,8 @@
 import { Transform, Type } from "class-transformer";
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -10,6 +13,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from "class-validator";
 import {
   categoryIps,
@@ -120,8 +124,14 @@ export class UpdateItemDto {
 }
 
 export class AnalyzeUrlDto {
-  @IsString()
-  url!: string;
+  @IsOptional() @IsString() @MaxLength(20_000) url?: string;
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(4_096, { each: true })
+  urls?: string[];
 }
 
 export class PurchaseDto {
@@ -139,4 +149,88 @@ export class PurchaseDto {
   @IsString()
   @Length(1, 4_194_304)
   receiptDataBase64?: string;
+
+  @IsOptional() @IsString() @Length(1, 120) actor?: string;
+  @IsOptional() @IsString() @Length(1, 1000) reason?: string;
+}
+
+export const purchasePricingModes = ["per_item", "bundle_total"] as const;
+export type PurchasePricingMode = (typeof purchasePricingModes)[number];
+
+export class AnalyzePurchaseLinksDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(4_096, { each: true })
+  urls!: string[];
+}
+
+export class PurchaseBundleMemberDto {
+  @IsString() @Length(1, 200) itemId!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100_000_000)
+  amountYen?: number;
+}
+
+export class CreatePurchaseBundleDto {
+  @IsIn(purchasePricingModes)
+  pricingMode!: PurchasePricingMode;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => PurchaseBundleMemberDto)
+  members!: PurchaseBundleMemberDto[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100_000_000)
+  totalPurchaseAmountYen?: number;
+
+  @IsOptional() @IsString() purchasedAt?: string;
+  @IsOptional() @IsString() @MaxLength(1000) note?: string;
+  @IsString() @Length(1, 120) actor!: string;
+  @IsString() @Length(1, 1000) reason!: string;
+}
+
+export class UpdatePurchaseBundleDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  expectedVersion!: number;
+
+  @IsOptional() @IsIn(purchasePricingModes) pricingMode?: PurchasePricingMode;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => PurchaseBundleMemberDto)
+  members?: PurchaseBundleMemberDto[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100_000_000)
+  totalPurchaseAmountYen?: number;
+
+  @IsOptional() @IsString() purchasedAt?: string;
+  @IsOptional() @IsString() @MaxLength(1000) note?: string | null;
+  @IsString() @Length(1, 120) actor!: string;
+  @IsString() @Length(1, 1000) reason!: string;
+}
+
+export class ListPurchaseBundlesQuery {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 30;
 }

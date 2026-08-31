@@ -43,7 +43,7 @@ type Plan = {
 type Props = { apiBaseUrl: string; exchangeRate?: number | null };
 
 const yen = (value: number | null | undefined) =>
-  value == null ? "—" : `¥${Math.round(value).toLocaleString("ja-JP")}`;
+  value == null ? "暂无" : `¥${Math.round(value).toLocaleString("ja-JP")}`;
 
 const cny = (value: number | null | undefined, rate?: number | null) =>
   value == null || !rate ? "" : `约人民币 ¥${(value * rate).toFixed(2)}`;

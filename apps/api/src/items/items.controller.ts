@@ -9,11 +9,15 @@ import {
 } from "@nestjs/common";
 import { ItemsService } from "./items.service.js";
 import {
+  AnalyzePurchaseLinksDto,
   AnalyzeUrlDto,
+  CreatePurchaseBundleDto,
   ItemChangesQuery,
   ListItemsQuery,
+  ListPurchaseBundlesQuery,
   ListSellersQuery,
   PurchaseDto,
+  UpdatePurchaseBundleDto,
   UpdateItemDto,
 } from "./items.dto.js";
 
@@ -28,7 +32,45 @@ export class ItemsController {
 
   @Post("analyze-url")
   analyzeUrl(@Body() body: AnalyzeUrlDto) {
-    return this.items.analyzeUrl(body.url);
+    if (body.urls) {
+      return this.items.analyzeUrl(
+        body.url ? [body.url, ...body.urls] : body.urls,
+      );
+    }
+    return this.items.analyzeUrl(body.url ?? "");
+  }
+
+  @Post("purchases/analyze-links")
+  analyzePurchaseLinks(@Body() body: AnalyzePurchaseLinksDto) {
+    return this.items.analyzePurchaseLinks(body.urls);
+  }
+
+  @Get("purchases/analyze-links/:jobId")
+  purchaseLinkAnalysis(@Param("jobId") jobId: string) {
+    return this.items.getPurchaseLinkAnalysis(jobId);
+  }
+
+  @Post("purchases/bundles")
+  createPurchaseBundle(@Body() body: CreatePurchaseBundleDto) {
+    return this.items.createPurchaseBundle(body);
+  }
+
+  @Get("purchases/bundles")
+  purchaseBundles(@Query() query: ListPurchaseBundlesQuery) {
+    return this.items.listPurchaseBundles(query);
+  }
+
+  @Get("purchases/bundles/:id")
+  purchaseBundle(@Param("id") id: string) {
+    return this.items.getPurchaseBundle(id);
+  }
+
+  @Patch("purchases/bundles/:id")
+  updatePurchaseBundle(
+    @Param("id") id: string,
+    @Body() body: UpdatePurchaseBundleDto,
+  ) {
+    return this.items.updatePurchaseBundle(id, body);
   }
 
   @Get("purchases")

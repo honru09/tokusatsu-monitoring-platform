@@ -178,6 +178,20 @@ describe("seller association writes", () => {
     expect(sellerMetadata(item("p200")).sourceSellerId).toBe("p200");
   });
 
+  it("uses the Yahoo Auctions public user ID instead of the display name", () => {
+    const item = {
+      sourcePlatform: "yahoo_auctions",
+      sellerName: "pha********",
+      sellerProfileUrl: "https://auctions.yahoo.co.jp/seller/public-id",
+      sellerData: {
+        aucUserId: "public-id",
+        displayName: "pha********",
+      },
+    } as unknown as NormalizedItem;
+
+    expect(sellerMetadata(item).sourceSellerId).toBe("public-id");
+  });
+
   it("does not change seller grouping semantics for platforms without an identity migration", () => {
     expect(
       sellerMetadata({

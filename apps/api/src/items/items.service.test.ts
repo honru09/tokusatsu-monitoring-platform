@@ -1,8 +1,16 @@
 import "reflect-metadata";
 import { describe, expect, it, vi } from "vitest";
 import { validate } from "class-validator";
-import { ListItemsQuery, UpdateItemDto } from "./items.dto.js";
-import { ItemsService, resolveAdapterKey } from "./items.service.js";
+import {
+  CreatePurchaseBundleDto,
+  ListItemsQuery,
+  UpdateItemDto,
+} from "./items.dto.js";
+import {
+  ItemsService,
+  normalizePurchaseMembers,
+  resolveAdapterKey,
+} from "./items.service.js";
 
 describe("resolveAdapterKey", () => {
   const firecrawlHosts = new Set(["item.fril.jp"]);
@@ -386,6 +394,60 @@ describe("ItemsService seller pagination", () => {
   });
 });
 
+describe("purchase bundle pricing contract", () => {
+  it("computes per-item totals and rejects a mismatching explicit total", () => {
+    expect(
+      normalizePurchaseMembers(
+        [
+          { itemId: "item-a", amountYen: 400 },
+          { itemId: "item-b", amountYen: 600 },
+        ],
+        "per_item",
+      ),
+    ).toMatchObject({ totalPurchaseAmountYen: 1_000, amountAllocated: true });
+    expect(() =>
+      normalizePurchaseMembers(
+        [
+          { itemId: "item-a", amountYen: 400 },
+          { itemId: "item-b", amountYen: 600 },
+        ],
+        "per_item",
+        999,
+      ),
+    ).toThrow("批次总价必须等于全部商品单价之和");
+  });
+
+  it("keeps package totals authoritative and unallocated", () => {
+    expect(
+      normalizePurchaseMembers(
+        [{ itemId: "item-a" }, { itemId: "item-b" }],
+        "bundle_total",
+        1_800,
+      ),
+    ).toMatchObject({ totalPurchaseAmountYen: 1_800, amountAllocated: false });
+    expect(() =>
+      normalizePurchaseMembers(
+        [{ itemId: "item-a", amountYen: 900 }],
+        "bundle_total",
+        1_800,
+      ),
+    ).toThrow("打包总价模式不分摊单品金额");
+  });
+
+  it("validates nested member prices in the create DTO", async () => {
+    const dto = Object.assign(new CreatePurchaseBundleDto(), {
+      pricingMode: "per_item",
+      members: [{ itemId: "item-a", amountYen: -1 }],
+      actor: "wangxr",
+      reason: "登记购买",
+    });
+    const errors = await validate(dto);
+    expect(errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ property: "members" })]),
+    );
+  });
+});
+
 describe("ItemsService.purchase receipt limits", () => {
   const item = {
     id: "receipt-test-item",
@@ -395,22 +457,55 @@ describe("ItemsService.purchase receipt limits", () => {
 
   it("accepts an image whose decoded payload is exactly 3MB", async () => {
     const receiptDataBase64 = Buffer.alloc(3 * 1024 * 1024).toString("base64");
+    const now = new Date("2026-08-31T00:00:00Z");
+    const purchase = {
+      id: "purchase-1",
+      itemId: item.id,
+      bundleId: "bundle-1",
+      purchaseAmount: 1_000,
+      amountAllocated: true,
+      purchasedAt: now,
+      note: null,
+      verifiedAt: now,
+      createdAt: now,
+    };
     const tx = {
-      purchaseRecord: {
-        upsert: vi.fn().mockResolvedValue({ id: "purchase-1" }),
+      purchaseBundle: {
+        create: vi.fn().mockResolvedValue({ id: "bundle-1" }),
         findUnique: vi.fn().mockResolvedValue({
-          id: "purchase-1",
-          verifiedAt: new Date(),
+          id: "bundle-1",
+          version: 1,
+          pricingMode: "per_item",
+          totalPurchaseAmount: 1_000,
+          currency: "JPY",
+          purchasedAt: now,
+          note: null,
+          archivedAt: null,
+          purchases: [purchase],
+        }),
+      },
+      purchaseRecord: {
+        create: vi.fn().mockResolvedValue(purchase),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          ...purchase,
           receipts: [],
         }),
+      },
+      purchaseBundleAudit: {
+        create: vi.fn().mockResolvedValue({ id: "audit-1" }),
       },
       purchaseReceipt: {
         create: vi.fn().mockResolvedValue({ id: "receipt-1" }),
       },
-      item: { update: vi.fn().mockResolvedValue(item) },
+      item: {
+        findUnique: vi.fn().mockResolvedValue({
+          ...item,
+          purchaseRecord: null,
+        }),
+        update: vi.fn().mockResolvedValue(item),
+      },
     };
     const prisma = {
-      item: { findUnique: vi.fn().mockResolvedValue(item) },
       $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) =>
         callback(tx),
       ),

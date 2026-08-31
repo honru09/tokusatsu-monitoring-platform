@@ -78,6 +78,7 @@ enum JobStatus {
 enum ImportOrigin {
   search
   url
+  purchase
 }
 
 enum ListingType {
@@ -618,19 +619,64 @@ model UrlImport {
 }
 
 model PurchaseRecord {
-  id             String            @id @default(uuid())
-  itemId         String            @unique
-  purchaseAmount Int
-  purchasedAt    DateTime          @default(now())
-  note           String?
-  verifiedAt     DateTime?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  item           Item              @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  receipts       PurchaseReceipt[]
+  id              String            @id @default(uuid())
+  itemId          String            @unique
+  bundleId        String            @map("bundle_id")
+  /// Compatibility amount used by the original single-item purchase API.
+  /// It is zero when a package price has deliberately not been allocated.
+  purchaseAmount  Int
+  amountAllocated Boolean           @default(true) @map("amount_allocated")
+  purchasedAt     DateTime          @default(now())
+  note            String?
+  verifiedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  item            Item              @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  bundle          PurchaseBundle    @relation(fields: [bundleId], references: [id], onDelete: Restrict)
+  receipts        PurchaseReceipt[]
 
   @@index([purchasedAt])
   @@index([verifiedAt])
+  @@index([bundleId])
+}
+
+/// One checkout/payment transaction. A bundle may contain one or many
+/// purchased listings; totalPurchaseAmount is the authoritative paid total.
+model PurchaseBundle {
+  id                  String                @id @default(uuid())
+  pricingMode         String                @default("per_item") @map("pricing_mode")
+  totalPurchaseAmount Int                   @map("total_purchase_amount")
+  currency            String                @default("JPY")
+  purchasedAt         DateTime              @default(now()) @map("purchased_at") @db.Timestamptz
+  note                String?
+  archivedAt          DateTime?             @map("archived_at") @db.Timestamptz
+  version             Int                   @default(1)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+  purchases           PurchaseRecord[]
+  audits              PurchaseBundleAudit[]
+
+  @@index([archivedAt, purchasedAt])
+  @@index([purchasedAt])
+  @@map("purchase_bundles")
+}
+
+/// Append-only before/after snapshots for every bundle price or membership
+/// mutation. A database trigger rejects UPDATE and DELETE operations.
+model PurchaseBundleAudit {
+  id         String         @id @default(uuid())
+  bundleId   String         @map("bundle_id")
+  eventType  String         @map("event_type")
+  actor      String
+  reason     String
+  beforeData Json?          @map("before_data")
+  afterData  Json           @map("after_data")
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  bundle     PurchaseBundle @relation(fields: [bundleId], references: [id], onDelete: Restrict)
+
+  @@index([bundleId, createdAt])
+  @@index([createdAt])
+  @@map("purchase_bundle_audits")
 }
 
 model PurchaseReceipt {

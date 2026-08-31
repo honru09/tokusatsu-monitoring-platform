@@ -37,22 +37,9 @@ export default {
         },
       },
       fontFamily: {
-        heading: [
-          "-apple-system",
-          "BlinkMacSystemFont",
-          '"SF Pro Display"',
-          '"Noto Sans SC"',
-          "sans-serif",
-        ],
-        sans: [
-          "-apple-system",
-          "BlinkMacSystemFont",
-          '"SF Pro Text"',
-          '"Noto Sans SC"',
-          '"Hiragino Sans"',
-          "sans-serif",
-        ],
-        mono: ['"SFMono-Regular"', '"SF Mono"', "Consolas", "monospace"],
+        heading: ["var(--font-heading)"],
+        sans: ["var(--font-sans)"],
+        mono: ["var(--font-mono)"],
       },
       boxShadow: {
         panel: "0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .05)",
