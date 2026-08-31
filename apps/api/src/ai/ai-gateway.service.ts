@@ -1,4 +1,9 @@
-import { Injectable, ServiceUnavailableException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  type OnApplicationBootstrap,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { Prisma } from "@tokusatsu/db";
 import { createHash } from "node:crypto";
 import { PrismaService } from "../prisma.service.js";
@@ -226,7 +231,8 @@ function utcDayKey(now = new Date()) {
 }
 
 @Injectable()
-export class AiGatewayService {
+export class AiGatewayService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(AiGatewayService.name);
   private readonly catalogues = new Map<AiProvider, CatalogueCache>();
   private readonly catalogueRequests = new Map<
     AiProvider,
@@ -237,6 +243,28 @@ export class AiGatewayService {
   private cloudflareReservedNeurons = 0;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  async onApplicationBootstrap() {
+    const recovered = await this.reconcileInterruptedRuns();
+    if (recovered.count > 0)
+      this.logger.warn(`Recovered ${recovered.count} interrupted AI runs`);
+  }
+
+  async reconcileInterruptedRuns(now = new Date()) {
+    const graceMs = Math.max(5 * 60_000, this.gatewayDeadlineMs() + 60_000);
+    return this.prisma.aiRun.updateMany({
+      where: {
+        status: "running",
+        startedAt: { lt: new Date(now.getTime() - graceMs) },
+      },
+      data: {
+        status: "failed",
+        errorCode: "PROCESS_INTERRUPTED",
+        errorMessage: "API 进程中断，已在启动时自动回收",
+        completedAt: now,
+      },
+    });
+  }
 
   configured() {
     return this.providers().length > 0;

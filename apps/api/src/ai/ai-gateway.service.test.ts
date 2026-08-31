@@ -15,6 +15,7 @@ function prismaMock() {
         id: `run-${++runNumber}`,
       })),
       update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       aggregate: vi.fn().mockResolvedValue({ _sum: { providerUsage: 0 } }),
     },
     aiModelState: {
@@ -204,6 +205,29 @@ describe("AiGatewayService multi-provider pool", () => {
       if (!(key in originalEnvironment)) delete process.env[key];
     }
     Object.assign(process.env, originalEnvironment);
+  });
+
+  it("recovers AI runs orphaned by an API restart after the gateway deadline", async () => {
+    const prisma = prismaMock();
+    prisma.aiRun.updateMany.mockResolvedValue({ count: 64 });
+    const gateway = new AiGatewayService(prisma as unknown as PrismaService);
+    const now = new Date("2026-08-31T05:00:00.000Z");
+
+    await expect(gateway.reconcileInterruptedRuns(now)).resolves.toEqual({
+      count: 64,
+    });
+    expect(prisma.aiRun.updateMany).toHaveBeenCalledWith({
+      where: {
+        status: "running",
+        startedAt: { lt: new Date("2026-08-31T04:55:00.000Z") },
+      },
+      data: {
+        status: "failed",
+        errorCode: "PROCESS_INTERRUPTED",
+        errorMessage: "API 进程中断，已在启动时自动回收",
+        completedAt: now,
+      },
+    });
   });
 
   it.each(providerCases)(
