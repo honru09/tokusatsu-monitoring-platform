@@ -377,9 +377,9 @@ services:
       - key: DETAIL_TRANSLATION_INTERVAL_MS
         value: "60000"
       - key: TITLE_TRANSLATION_BATCH_SIZE
-        value: "2"
+        value: "4"
       - key: DETAIL_TRANSLATION_BATCH_SIZE
-        value: "1"
+        value: "2"
       - key: IMAGE_CLASSIFICATION_RPM
         value: "2"
       - key: TITLE_TRANSLATION_RPM
