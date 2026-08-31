@@ -20,6 +20,7 @@ import {
   providerConfigurationStatuses,
   type ProviderRuntime,
 } from "./ai-provider-registry.js";
+import { verifiedBaiPromotionModels } from "./bai-promotions.js";
 
 export type AiMessage = {
   role: "system" | "user" | "assistant";
@@ -253,7 +254,8 @@ export class AiGatewayService {
     if (!privacyEligible.length)
       throw new ServiceUnavailableException({
         code: "AI_GATEWAY_DATA_POLICY_BLOCKED",
-        message: "现有模型凭据不允许处理这类数据，请调整数据授权或改用公开商品信息",
+        message:
+          "现有模型凭据不允许处理这类数据，请调整数据授权或改用公开商品信息",
         retryable: false,
         dataClass,
         costPolicy,
@@ -762,9 +764,7 @@ export class AiGatewayService {
             text,
             response.headers,
           );
-          if (
-            this.shouldFailoverCredential(error, allCredentialIds.length)
-          ) {
+          if (this.shouldFailoverCredential(error, allCredentialIds.length)) {
             this.cooldownCredential(provider.id, credentialId, error);
             lastCredentialError = error;
             continue;
@@ -789,6 +789,35 @@ export class AiGatewayService {
         if (normalized.providerWide)
           await this.updateProviderFailure(provider.id, normalized);
         break;
+      }
+    }
+    if (
+      catalogueSucceeded &&
+      provider.id === "bai" &&
+      provider.apiTier === "promotion" &&
+      process.env.NODE_ENV?.trim().toLowerCase() === "production"
+    ) {
+      try {
+        const promotionUrl =
+          process.env.BAI_PROMOTIONS_URL?.trim() ||
+          "https://docs.b.ai/llmservice/promotions-and-pricing-notices/";
+        const promotionResponse = await fetch(promotionUrl, {
+          headers: { accept: "text/html" },
+          signal: AbortSignal.timeout(Math.min(catalogueTimeout, remainingMs)),
+        });
+        if (!promotionResponse.ok)
+          throw new Error(`B.AI promotion page ${promotionResponse.status}`);
+        const verified = verifiedBaiPromotionModels(
+          await promotionResponse.text(),
+          models,
+        );
+        if (verified.size === 0)
+          throw new Error("B.AI promotion page proves no free API models");
+        models.clear();
+        for (const modelId of verified) models.add(modelId);
+      } catch {
+        catalogueSucceeded = false;
+        models.clear();
       }
     }
     if (catalogueSucceeded) {
@@ -858,8 +887,7 @@ export class AiGatewayService {
     const credentialIds = allCredentialIds.filter((credentialId) =>
       this.credentialReady(provider.id, credentialId),
     );
-    if (!credentialIds.length)
-      throw this.allCredentialsCooling(provider);
+    if (!credentialIds.length) throw this.allCredentialsCooling(provider);
     let lastError: ModelCallError | undefined;
     for (const credentialId of credentialIds) {
       let moveToNextCredential = false;
@@ -898,10 +926,7 @@ export class AiGatewayService {
               response.headers,
             );
             if (
-              this.shouldFailoverCredential(
-                normalized,
-                allCredentialIds.length,
-              )
+              this.shouldFailoverCredential(normalized, allCredentialIds.length)
             ) {
               this.cooldownCredential(provider.id, credentialId, normalized);
               lastError = normalized;
@@ -923,7 +948,11 @@ export class AiGatewayService {
             continue;
           }
           if (!responseText.trim())
-            throw new ModelCallError("模型返回空响应体", "EMPTY_RESPONSE", true);
+            throw new ModelCallError(
+              "模型返回空响应体",
+              "EMPTY_RESPONSE",
+              true,
+            );
           try {
             const payload = JSON.parse(responseText) as ChatPayload;
             this.clearCredentialCooldown(provider.id, credentialId);
@@ -945,10 +974,7 @@ export class AiGatewayService {
               ? this.deadlineError()
               : this.normalizeError(error);
           if (
-            this.shouldFailoverCredential(
-              normalized,
-              allCredentialIds.length,
-            )
+            this.shouldFailoverCredential(normalized, allCredentialIds.length)
           ) {
             this.cooldownCredential(provider.id, credentialId, normalized);
             lastError = normalized;
@@ -1012,10 +1038,7 @@ export class AiGatewayService {
     );
   }
 
-  private clearCredentialCooldown(
-    provider: AiProvider,
-    credentialId: string,
-  ) {
+  private clearCredentialCooldown(provider: AiProvider, credentialId: string) {
     this.credentialCooldowns.delete(
       this.credentialStateKey(provider, credentialId),
     );
@@ -1033,7 +1056,9 @@ export class AiGatewayService {
   private credentialRecoveryAt(provider: AiProvider) {
     const prefix = `${provider}:`;
     const recoveries = [...this.credentialCooldowns.entries()]
-      .filter(([key, state]) => key.startsWith(prefix) && state.until > Date.now())
+      .filter(
+        ([key, state]) => key.startsWith(prefix) && state.until > Date.now(),
+      )
       .map(([, state]) => state.until);
     return recoveries.length ? Math.min(...recoveries) : undefined;
   }

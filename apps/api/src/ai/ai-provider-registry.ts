@@ -268,18 +268,7 @@ function effectiveCostTier(
     return apiTier === "paid" ? "paid" : "unknown";
   }
   if (provider === "bai") {
-    if (apiTier !== "promotion") return apiTier;
-    const verifiedAt = Date.parse(definition?.pricingVerifiedAt ?? "");
-    const configuredAge = Number(
-      process.env.AI_PRICING_VERIFICATION_MAX_AGE_MS ?? 24 * 60 * 60_000,
-    );
-    const maximumAge = Math.max(
-      60_000,
-      Number.isFinite(configuredAge) ? configuredAge : 24 * 60 * 60_000,
-    );
-    return Number.isFinite(verifiedAt) && Date.now() - verifiedAt <= maximumAge
-      ? "promotion"
-      : "unknown";
+    return apiTier;
   }
   if (provider === "gemini" || provider === "groq")
     return apiTier === "free" ? "free" : apiTier;
@@ -340,7 +329,12 @@ function runtimeFor(spec: ProviderSpec): ProviderRuntime | undefined {
   if (!apiUrl) return undefined;
   const credentials = [
     ...(primaryApiKey
-      ? [{ id: spec.translationKeyEnv ? "main" : "default", key: primaryApiKey }]
+      ? [
+          {
+            id: spec.translationKeyEnv ? "main" : "default",
+            key: primaryApiKey,
+          },
+        ]
       : []),
     ...(translationApiKey
       ? [{ id: "translation", key: translationApiKey }]
