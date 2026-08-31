@@ -4,6 +4,7 @@ import {
   negotiationFallback,
   publicDetailFieldChunks,
   publicDetailFields,
+  translationOutputTokenBudget,
 } from "./analysis.service.js";
 
 afterEach(() => vi.restoreAllMocks());
@@ -104,8 +105,9 @@ describe("publicDetailFields", () => {
     const fragments = chunks.flat();
 
     expect(chunks.length).toBeGreaterThan(1);
-    expect(fragments.map((fragment) => fragment.value).join(""))
-      .toBe(`${longValue}中古・傷あり`);
+    expect(fragments.map((fragment) => fragment.value).join("")).toBe(
+      `${longValue}中古・傷あり`,
+    );
     expect(
       Math.max(
         ...chunks.map((chunk) =>
@@ -119,7 +121,14 @@ describe("publicDetailFields", () => {
           ),
         ),
       ),
-    ).toBeLessThanOrEqual(8_000);
+    ).toBeLessThanOrEqual(4_000);
+  });
+});
+
+describe("translationOutputTokenBudget", () => {
+  it("keeps short batches small and caps genuinely long output", () => {
+    expect(translationOutputTokenBudget(["仮面ライダー DXベルト"])).toBe(800);
+    expect(translationOutputTokenBudget(["長文".repeat(2_000)])).toBe(3_000);
   });
 });
 

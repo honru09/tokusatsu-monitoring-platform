@@ -52,6 +52,22 @@ export type AiGatewayResult<T> = {
   confidence: number | null;
 };
 
+export function modelTimeoutForTask(task: AiTask) {
+  const background = task === "translation" || task === "classification";
+  const legacyTimeout = Number(process.env.AI_TIMEOUT_MS ?? 30_000);
+  const configured = Number(
+    background
+      ? (process.env.AI_BACKGROUND_MODEL_TIMEOUT_MS ?? 45_000)
+      : (process.env.AI_MODEL_TIMEOUT_MS ?? legacyTimeout),
+  );
+  const fallback = background ? 45_000 : 30_000;
+  const ceiling = background ? 60_000 : 30_000;
+  return Math.max(
+    5_000,
+    Math.min(Number.isFinite(configured) ? configured : fallback, ceiling),
+  );
+}
+
 type ChatPayload = {
   model?: string;
   provider?: string;
@@ -423,6 +439,7 @@ export class AiGatewayService {
       const candidateDeadlineAt = this.fairCandidateDeadline(
         deadlineAt,
         untriedProviderCount,
+        request.task,
       );
       const attemptStartedAt = new Date();
       const run = await this.prisma.aiRun.create({
@@ -900,7 +917,7 @@ export class AiGatewayService {
             : new ModelCallError("模型请求超时", "TIMEOUT", true);
         const timeoutMs = Math.max(
           1,
-          Math.min(this.modelTimeoutMs(), remainingMs),
+          Math.min(modelTimeoutForTask(request.task), remainingMs),
         );
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -1255,23 +1272,18 @@ export class AiGatewayService {
     return new ModelCallError(message, "NETWORK", true);
   }
 
-  private fairCandidateDeadline(deadlineAt: number, untriedProviders: number) {
+  private fairCandidateDeadline(
+    deadlineAt: number,
+    untriedProviders: number,
+    task: AiTask,
+  ) {
     const now = Date.now();
     const remaining = Math.max(1, deadlineAt - now);
     const fairShare = Math.max(
       1,
       Math.floor(remaining / (untriedProviders + 1)),
     );
-    return now + Math.min(this.modelTimeoutMs(), fairShare);
-  }
-
-  private modelTimeoutMs() {
-    const legacyTimeout = Number(process.env.AI_TIMEOUT_MS ?? 30_000);
-    const configured = Number(process.env.AI_MODEL_TIMEOUT_MS ?? legacyTimeout);
-    return Math.max(
-      5_000,
-      Math.min(Number.isFinite(configured) ? configured : 30_000, 30_000),
-    );
+    return now + Math.min(modelTimeoutForTask(task), fairShare);
   }
 
   private gatewayDeadlineMs() {

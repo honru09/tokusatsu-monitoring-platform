@@ -99,11 +99,14 @@ function splitDetailValue(value: string, maximum = 5_000) {
  */
 export function publicDetailFieldChunks(
   fields: Array<{ path: string; value: string }>,
-  maximumCharacters = 8_000,
+  maximumCharacters = 4_000,
   maximumRows = 24,
 ) {
   const fragments = fields.flatMap((field, fieldIndex) => {
-    const parts = splitDetailValue(field.value);
+    const parts = splitDetailValue(
+      field.value,
+      Math.max(500, maximumCharacters - field.path.length - 32),
+    );
     return parts.map(
       (value, part): DetailFieldFragment => ({
         fragmentKey: `${fieldIndex}:${part}`,
@@ -119,7 +122,9 @@ export function publicDetailFieldChunks(
   let currentCharacters = 0;
   for (const fragment of fragments) {
     const size =
-      fragment.fragmentKey.length + fragment.path.length + fragment.value.length;
+      fragment.fragmentKey.length +
+      fragment.path.length +
+      fragment.value.length;
     if (
       current.length > 0 &&
       (current.length >= maximumRows ||
@@ -134,6 +139,11 @@ export function publicDetailFieldChunks(
   }
   if (current.length) chunks.push(current);
   return chunks;
+}
+
+export function translationOutputTokenBudget(texts: readonly string[]) {
+  const characters = texts.reduce((total, text) => total + text.length, 0);
+  return Math.max(800, Math.min(3_000, characters * 2));
 }
 
 function sourceShippingEvidence(value: unknown) {
@@ -412,7 +422,7 @@ export class AnalysisService {
       task: "translation",
       dataClass: "public_market",
       costPolicy: "free_first",
-      maxTokens: 9_000,
+      maxTokens: translationOutputTokenBudget(texts),
       messages: [
         {
           role: "system",
@@ -511,7 +521,7 @@ export class AnalysisService {
         dataClass: "public_market",
         costPolicy: "free_first",
         itemId: id,
-        maxTokens: 4_000,
+        maxTokens: 3_000,
         messages: [
           {
             role: "system",
@@ -674,7 +684,9 @@ export class AnalysisService {
       const translated = parts.map((_, part) => {
         const row = translatedFragments.get(`${fieldIndex}:${part}`);
         if (!row)
-          throw new Error(`Detail translation missing ${field.path} part ${part}`);
+          throw new Error(
+            `Detail translation missing ${field.path} part ${part}`,
+          );
         return row;
       });
       return {

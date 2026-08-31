@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PrismaService } from "../prisma.service.js";
-import { AiGatewayService } from "./ai-gateway.service.js";
+import { AiGatewayService, modelTimeoutForTask } from "./ai-gateway.service.js";
 import { modelStateKey } from "./ai-router.js";
 
 function prismaMock() {
@@ -277,14 +277,16 @@ describe("AiGatewayService multi-provider pool", () => {
   it("falls back from the SenseNova main credential to the translation credential", async () => {
     const senseNova = providerCases[9];
     configure(senseNova, "paid");
-    process.env.SENSENOVA_TRANSLATION_API_KEY = "test-sensenova-translation-key";
+    process.env.SENSENOVA_TRANSLATION_API_KEY =
+      "test-sensenova-translation-key";
     process.env.AI_PROVIDER_ORDER = "sensenova";
     const chatCredentials: string[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url = String(input);
-        const authorization = new Headers(init?.headers).get("authorization") ?? "";
+        const authorization =
+          new Headers(init?.headers).get("authorization") ?? "";
         if (url.endsWith("/models"))
           return Response.json({ data: [{ id: senseNova.model }] });
         chatCredentials.push(authorization);
@@ -300,7 +302,9 @@ describe("AiGatewayService multi-provider pool", () => {
 
     expect(first.data.answerZh).toBe("translation-key-ok");
     expect(second.data.answerZh).toBe("translation-key-ok");
-    expect(chatCredentials.filter((value) => value.endsWith("test-sensenova-key"))).toHaveLength(1);
+    expect(
+      chatCredentials.filter((value) => value.endsWith("test-sensenova-key")),
+    ).toHaveLength(1);
     expect(prisma.aiProviderState.upsert).not.toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({ lastErrorCode: "AUTH" }),
@@ -311,14 +315,16 @@ describe("AiGatewayService multi-provider pool", () => {
   it("falls back from the SenseNova translation credential after a credential-scoped 429", async () => {
     const senseNova = providerCases[9];
     configure(senseNova, "paid");
-    process.env.SENSENOVA_TRANSLATION_API_KEY = "test-sensenova-translation-key";
+    process.env.SENSENOVA_TRANSLATION_API_KEY =
+      "test-sensenova-translation-key";
     process.env.AI_PROVIDER_ORDER = "sensenova";
     const chatCredentials: string[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url = String(input);
-        const authorization = new Headers(init?.headers).get("authorization") ?? "";
+        const authorization =
+          new Headers(init?.headers).get("authorization") ?? "";
         if (url.endsWith("/models"))
           return Response.json({ data: [{ id: "SenseNova-V6-5-Turbo" }] });
         chatCredentials.push(authorization);
@@ -345,13 +351,15 @@ describe("AiGatewayService multi-provider pool", () => {
   it("merges SenseNova catalogues when one credential cannot access the catalogue", async () => {
     const senseNova = providerCases[9];
     configure(senseNova, "paid");
-    process.env.SENSENOVA_TRANSLATION_API_KEY = "test-sensenova-translation-key";
+    process.env.SENSENOVA_TRANSLATION_API_KEY =
+      "test-sensenova-translation-key";
     process.env.AI_PROVIDER_ORDER = "sensenova";
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url = String(input);
-        const authorization = new Headers(init?.headers).get("authorization") ?? "";
+        const authorization =
+          new Headers(init?.headers).get("authorization") ?? "";
         if (url.endsWith("/models"))
           return authorization.endsWith("test-sensenova-key")
             ? Response.json({ error: "forbidden" }, { status: 403 })
@@ -369,7 +377,8 @@ describe("AiGatewayService multi-provider pool", () => {
   it("marks SenseNova unavailable only after every credential fails without leaking credentials", async () => {
     const senseNova = providerCases[9];
     configure(senseNova, "paid");
-    process.env.SENSENOVA_TRANSLATION_API_KEY = "test-sensenova-translation-key";
+    process.env.SENSENOVA_TRANSLATION_API_KEY =
+      "test-sensenova-translation-key";
     process.env.AI_PROVIDER_ORDER = "sensenova";
     vi.stubGlobal(
       "fetch",
@@ -1438,5 +1447,16 @@ describe("AiGatewayService multi-provider pool", () => {
 
     expect(blocked).not.toContain("nvidia");
     expect(authorized).toContain("nvidia");
+  });
+});
+
+describe("AI task timeout budgets", () => {
+  it("gives complete background translation more time without slowing public chat fallback", () => {
+    delete process.env.AI_BACKGROUND_MODEL_TIMEOUT_MS;
+    process.env.AI_MODEL_TIMEOUT_MS = "30000";
+
+    expect(modelTimeoutForTask("translation")).toBe(45_000);
+    expect(modelTimeoutForTask("classification")).toBe(45_000);
+    expect(modelTimeoutForTask("assistant_chat")).toBe(30_000);
   });
 });
