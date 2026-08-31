@@ -5,17 +5,22 @@ import {
   type AiModelCostTier,
   type AiProvider,
 } from "./ai-model-catalog.js";
+import type { AiTask } from "./ai-router.js";
 
 export type ProviderApiTier = "free" | "promotion" | "paid" | "unknown";
 
 export type ProviderRuntime = {
   id: AiProvider;
   label: string;
-  apiKey: string;
   apiUrl: string;
   catalogueUrl: string;
   apiTier: ProviderApiTier;
-  headers(json: boolean): Record<string, string>;
+  credentialIds(task?: AiTask): string[];
+  headers(
+    json: boolean,
+    task?: AiTask,
+    credentialId?: string,
+  ): Record<string, string>;
   extractCatalogueModelIds(payload: unknown): string[];
   normalizeCatalogueModelId(modelId: string): string;
   normalizeRequestBody(body: Record<string, unknown>): Record<string, unknown>;
@@ -35,6 +40,26 @@ type ProviderSpec = {
   evaluationAuthorizationEnv?: string;
   privateDataAuthorizationEnv: string;
   accountIdEnv?: string;
+  translationKeyEnv?: string;
+};
+
+export type ProviderConfigurationStatus = {
+  provider: AiProvider;
+  label: string;
+  credentialEnvironmentNames: string[];
+  credentialConfigured: boolean;
+  configuredCredentialCount: number;
+  active: boolean;
+  activationReason:
+    | "ready"
+    | "missing_credentials"
+    | "invalid_or_missing_account_id"
+    | "production_authorization_required"
+    | "evaluation_authorization_required";
+  apiTier: ProviderApiTier;
+  publicMarketAllowed: boolean;
+  privateDataAllowed: boolean;
+  sensitiveImagesAllowed: boolean;
 };
 
 const PROVIDER_SPECS: Record<AiProvider, ProviderSpec> = {
@@ -133,6 +158,17 @@ const PROVIDER_SPECS: Record<AiProvider, ProviderSpec> = {
     productionAuthorizationEnv: "NVIDIA_PRODUCTION_AUTHORIZED",
     evaluationAuthorizationEnv: "NVIDIA_INTERNAL_EVALUATION",
     privateDataAuthorizationEnv: "NVIDIA_PRIVATE_DATA_AUTHORIZED",
+  },
+  sensenova: {
+    id: "sensenova",
+    label: "SenseNova 日日新",
+    keyEnv: "SENSENOVA_API_KEY",
+    translationKeyEnv: "SENSENOVA_TRANSLATION_API_KEY",
+    urlEnv: "SENSENOVA_API_URL",
+    defaultUrl: "https://api.sensenova.cn/compatible-mode/v2",
+    tierEnv: "SENSENOVA_API_TIER",
+    defaultTier: "unknown",
+    privateDataAuthorizationEnv: "SENSENOVA_PRIVATE_DATA_AUTHORIZED",
   },
 };
 
@@ -247,7 +283,11 @@ function effectiveCostTier(
   }
   if (provider === "gemini" || provider === "groq")
     return apiTier === "free" ? "free" : apiTier;
-  if (provider === "cerebras" || provider === "cohere")
+  if (
+    provider === "cerebras" ||
+    provider === "cohere" ||
+    provider === "sensenova"
+  )
     return apiTier === "free" || apiTier === "promotion" || apiTier === "paid"
       ? apiTier
       : "unknown";
@@ -276,7 +316,11 @@ function effectiveCostTier(
 }
 
 function runtimeFor(spec: ProviderSpec): ProviderRuntime | undefined {
-  const apiKey = process.env[spec.keyEnv]?.trim();
+  const primaryApiKey = process.env[spec.keyEnv]?.trim();
+  const translationApiKey = spec.translationKeyEnv
+    ? process.env[spec.translationKeyEnv]?.trim()
+    : undefined;
+  const apiKey = primaryApiKey || translationApiKey;
   if (!apiKey) return undefined;
   const productionAuthorized = spec.productionAuthorizationEnv
     ? booleanEnvironment(spec.productionAuthorizationEnv)
@@ -294,14 +338,39 @@ function runtimeFor(spec: ProviderSpec): ProviderRuntime | undefined {
   const apiTier = readApiTier(process.env[spec.tierEnv], spec.defaultTier);
   const apiUrl = resolveApiUrl(spec);
   if (!apiUrl) return undefined;
+  const credentials = [
+    ...(primaryApiKey
+      ? [{ id: spec.translationKeyEnv ? "main" : "default", key: primaryApiKey }]
+      : []),
+    ...(translationApiKey
+      ? [{ id: "translation", key: translationApiKey }]
+      : []),
+  ];
   return {
     id: spec.id,
     label: spec.label,
-    apiKey,
     apiUrl,
     catalogueUrl: catalogueUrlFor(spec.id, apiUrl),
     apiTier,
-    headers: (json) => headersFor(spec.id, apiKey, json),
+    credentialIds: (task) => {
+      const ids = credentials.map((credential) => credential.id);
+      return task === "translation" && ids.includes("translation")
+        ? ["translation", ...ids.filter((id) => id !== "translation")]
+        : ids;
+    },
+    headers: (json, task, credentialId) => {
+      const preferredIds =
+        task === "translation" &&
+        credentials.some(({ id }) => id === "translation")
+          ? ["translation", "main", "default"]
+          : ["main", "default", "translation"];
+      const selected = credentialId
+        ? credentials.find(({ id }) => id === credentialId)
+        : preferredIds.flatMap((id) =>
+            credentials.filter((credential) => credential.id === id),
+          )[0];
+      return headersFor(spec.id, selected?.key ?? apiKey, json);
+    },
     extractCatalogueModelIds: (payload) =>
       catalogueModelIds(spec.id, payload).map((modelId) =>
         spec.id === "gemini" ? modelId.replace(/^models\//, "") : modelId,
@@ -312,6 +381,14 @@ function runtimeFor(spec: ProviderSpec): ProviderRuntime | undefined {
       if (spec.id === "groq") return { ...body, temperature: 0 };
       if (spec.id === "cerebras" || spec.id === "cohere")
         return { ...body, response_format: { type: "json_object" } };
+      if (spec.id === "sensenova") {
+        const { max_tokens, ...rest } = body;
+        return {
+          ...rest,
+          max_completion_tokens: max_tokens,
+          response_format: { type: "json_object" },
+        };
+      }
       return body;
     },
     allowsDataClass: (dataClass) => {
@@ -332,6 +409,60 @@ export function configuredProviderRuntimes(
   return order.flatMap((provider) => {
     const runtime = runtimeFor(PROVIDER_SPECS[provider]);
     return runtime ? [runtime] : [];
+  });
+}
+
+function activationReason(spec: ProviderSpec) {
+  const credentialConfigured = Boolean(
+    process.env[spec.keyEnv]?.trim() ||
+      (spec.translationKeyEnv && process.env[spec.translationKeyEnv]?.trim()),
+  );
+  if (!credentialConfigured) return "missing_credentials" as const;
+  if (spec.accountIdEnv && !resolveApiUrl(spec))
+    return "invalid_or_missing_account_id" as const;
+  if (!spec.productionAuthorizationEnv) return "ready" as const;
+  const productionRuntime =
+    process.env.NODE_ENV?.trim().toLowerCase() === "production";
+  if (productionRuntime && !booleanEnvironment(spec.productionAuthorizationEnv))
+    return "production_authorization_required" as const;
+  if (
+    !productionRuntime &&
+    !booleanEnvironment(spec.productionAuthorizationEnv) &&
+    !booleanEnvironment(spec.evaluationAuthorizationEnv)
+  )
+    return "evaluation_authorization_required" as const;
+  return "ready" as const;
+}
+
+/** Safe operational metadata. Credential values and prefixes never leave here. */
+export function providerConfigurationStatuses(): ProviderConfigurationStatus[] {
+  return AI_PROVIDER_IDS.map((provider) => {
+    const spec = PROVIDER_SPECS[provider];
+    const runtime = runtimeFor(spec);
+    const reason = activationReason(spec);
+    const configuredCredentialCount = [
+      process.env[spec.keyEnv]?.trim(),
+      spec.translationKeyEnv
+        ? process.env[spec.translationKeyEnv]?.trim()
+        : undefined,
+    ].filter(Boolean).length;
+    return {
+      provider,
+      label: spec.label,
+      credentialEnvironmentNames: [
+        spec.keyEnv,
+        ...(spec.translationKeyEnv ? [spec.translationKeyEnv] : []),
+      ],
+      credentialConfigured: reason !== "missing_credentials",
+      configuredCredentialCount,
+      active: Boolean(runtime),
+      activationReason: runtime ? "ready" : reason,
+      apiTier: readApiTier(process.env[spec.tierEnv], spec.defaultTier),
+      publicMarketAllowed: runtime?.allowsDataClass("public_market") ?? false,
+      privateDataAllowed: runtime?.allowsDataClass("user_private") ?? false,
+      sensitiveImagesAllowed:
+        runtime?.allowsDataClass("sensitive_image") ?? false,
+    };
   });
 }
 

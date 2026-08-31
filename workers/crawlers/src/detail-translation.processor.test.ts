@@ -85,4 +85,33 @@ describe("historical item detail translation", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(waits).toEqual([]);
   });
+
+  it("pauses immediately when the free provider pool is cooling down", async () => {
+    const fetcher = vi.fn(
+      async (_url: string) =>
+        new Response(
+          JSON.stringify({
+            message: "免费额度或请求频率正在恢复",
+            code: "AI_GATEWAY_CAPACITY_COOLDOWN",
+          }),
+          { status: 503, headers: { "content-type": "application/json" } },
+        ),
+    );
+    const waits: number[] = [];
+
+    await expect(
+      fetchTranslationWithRetry(
+        "http://api:3001/analysis/item/item-1",
+        fetcher,
+        async (milliseconds) => {
+          waits.push(milliseconds);
+        },
+      ),
+    ).rejects.toMatchObject({
+      name: "DetailTranslationUnavailableError",
+      code: "AI_GATEWAY_UNAVAILABLE",
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(waits).toEqual([]);
+  });
 });

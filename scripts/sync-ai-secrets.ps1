@@ -2,7 +2,9 @@ param(
   [string]$KeysPath = 'D:\tokusatsu-monitoring-platform\Keys.txt',
   [string]$EnvPath = 'D:\tokusatsu-monitoring-platform\.env',
   [switch]$RequireBai,
+  [switch]$EnableVerifiedGeminiFreeTier,
   [switch]$EnableVerifiedGroqFreeTier,
+  [switch]$EnableVerifiedCerebrasFreeTier,
   [switch]$EnableCloudflareFreeAllocation
 )
 
@@ -111,6 +113,37 @@ function Read-CloudflareAccountId {
   return $values[0]
 }
 
+function Read-SenseNovaSecrets {
+  $result = @{ Main = $null; Translate = $null }
+  if (-not (Test-Path -LiteralPath $KeysPath)) { return $result }
+  $lines = @(Get-Content -LiteralPath $KeysPath)
+  $anchorIndexes = @()
+  for ($index = 0; $index -lt $lines.Count; $index++) {
+    if ($lines[$index] -match '(?i)https://platform\.sensenova\.cn(?:[/#?]|$)') {
+      $anchorIndexes += $index
+    }
+  }
+  if ($anchorIndexes.Count -gt 1) {
+    throw 'Keys.txt 中找到多个 SenseNova 控制台区块，无法安全判断应使用哪一组凭据。'
+  }
+  if ($anchorIndexes.Count -eq 0) { return $result }
+  $anchor = $anchorIndexes[0]
+  $end = [Math]::Min($lines.Count - 2, $anchor + 8)
+  foreach ($index in (($anchor + 1)..$end)) {
+    $label = $lines[$index].Trim().TrimEnd(':', '=', '：')
+    if ($label -notin @('Main', 'Translate')) { continue }
+    $candidate = $lines[$index + 1].Trim().Trim([char]34, [char]39)
+    if ($candidate -notmatch '^sk-[A-Za-z0-9_-]{10,}$') {
+      throw "Keys.txt 的 SenseNova $label 标签下一行不是有效的单值 key。"
+    }
+    if ($result[$label] -and $result[$label] -ne $candidate) {
+      throw "Keys.txt 中找到多个不同的 SenseNova $label key。"
+    }
+    $result[$label] = $candidate
+  }
+  return $result
+}
+
 function Set-EnvValue([string]$Content, [string]$Name, [string]$Value) {
   $pattern = "(?m)^$([regex]::Escape($Name))=.*(?:\r?\n|$)"
   $line = "$Name=$Value`r`n"
@@ -135,6 +168,9 @@ $cloudflareAccountId = Read-CloudflareAccountId
 $cohereKey = Read-SecretAfterConsoleUrl `
   'Cohere' `
   '(?i)(?<![A-Za-z0-9.-])https://dashboard\.cohere\.com/api-keys(?:[/#?][^\s\])>"'']*)?(?=$|[\s\])>"''])'
+$senseNovaSecrets = Read-SenseNovaSecrets
+$senseNovaMainKey = $senseNovaSecrets.Main
+$senseNovaTranslationKey = $senseNovaSecrets.Translate
 $availableKeys = @(
   $baiKey,
   $geminiKey,
@@ -144,6 +180,8 @@ $availableKeys = @(
   $cloudflareKey,
   $cohereKey,
   $nvidiaKey,
+  $senseNovaMainKey,
+  $senseNovaTranslationKey,
   $openRouterKey
 ) |
   Where-Object { $_ }
@@ -190,9 +228,17 @@ if ($cloudflareAccountId) {
 if ($cohereKey) {
   $content = Set-EnvValue $content 'COHERE_API_KEY' $cohereKey
 }
+if ($senseNovaMainKey) {
+  $content = Set-EnvValue $content 'SENSENOVA_API_KEY' $senseNovaMainKey
+}
+if ($senseNovaTranslationKey) {
+  $content = Set-EnvValue $content 'SENSENOVA_TRANSLATION_API_KEY' $senseNovaTranslationKey
+}
 $content = Set-EnvValue $content 'BAI_API_URL' 'https://api.b.ai/v1'
 $content = Set-EnvValue $content 'GEMINI_API_URL' 'https://generativelanguage.googleapis.com/v1beta/openai'
-$content = Set-EnvValue $content 'GEMINI_API_TIER' 'unknown'
+$content = Set-EnvValue $content 'GEMINI_API_TIER' $(
+  if ($EnableVerifiedGeminiFreeTier) { 'free' } else { 'unknown' }
+)
 $content = Set-EnvValue $content 'GROQ_API_URL' 'https://api.groq.com/openai/v1'
 $content = Set-EnvValue $content 'GROQ_API_TIER' $(
   if ($EnableVerifiedGroqFreeTier) { 'free' } else { 'unknown' }
@@ -206,7 +252,9 @@ $content = Set-EnvValue $content 'NVIDIA_PRODUCTION_AUTHORIZED' 'false'
 $content = Set-EnvValue $content 'NVIDIA_INTERNAL_EVALUATION' 'false'
 $content = Set-EnvValue $content 'NVIDIA_PRIVATE_DATA_AUTHORIZED' 'false'
 $content = Set-EnvValue $content 'CEREBRAS_API_URL' 'https://api.cerebras.ai/v1'
-$content = Set-EnvValue $content 'CEREBRAS_API_TIER' 'unknown'
+$content = Set-EnvValue $content 'CEREBRAS_API_TIER' $(
+  if ($EnableVerifiedCerebrasFreeTier) { 'free' } else { 'unknown' }
+)
 $content = Set-EnvValue $content 'CEREBRAS_PRIVATE_DATA_AUTHORIZED' 'false'
 $content = Set-EnvValue $content 'CLOUDFLARE_AI_API_URL' 'https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1'
 $content = Set-EnvValue $content 'CLOUDFLARE_AI_API_TIER' $(
@@ -220,9 +268,12 @@ $content = Set-EnvValue $content 'COHERE_API_TIER' 'unknown'
 $content = Set-EnvValue $content 'COHERE_INTERNAL_EVALUATION' 'false'
 $content = Set-EnvValue $content 'COHERE_PRODUCTION_AUTHORIZED' 'false'
 $content = Set-EnvValue $content 'COHERE_PRIVATE_DATA_AUTHORIZED' 'false'
+$content = Set-EnvValue $content 'SENSENOVA_API_URL' 'https://api.sensenova.cn/compatible-mode/v2'
+$content = Set-EnvValue $content 'SENSENOVA_API_TIER' 'unknown'
+$content = Set-EnvValue $content 'SENSENOVA_PRIVATE_DATA_AUTHORIZED' 'false'
 $content = Set-EnvValue $content 'OPENROUTER_API_URL' 'https://openrouter.ai/api/v1'
 $content = Set-EnvValue $content 'OPENROUTER_APP_NAME' 'Kamen Procurement'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER' 'bai|gemini|groq|siliconflow|cerebras|cloudflare|cohere|nvidia|openrouter'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER' 'bai|gemini|groq|siliconflow|cerebras|cloudflare|cohere|nvidia|sensenova|openrouter'
 $content = Set-EnvValue $content 'AI_COST_POLICY' 'free_only'
 $content = Set-EnvValue $content 'AI_ALLOW_PAID_MODELS' 'false'
 $content = Set-EnvValue $content 'AI_CATALOG_REFRESH_INTERVAL_MS' '21600000'
@@ -230,6 +281,7 @@ $content = Set-EnvValue $content 'AI_CATALOG_NEGATIVE_CACHE_MS' '60000'
 $content = Set-EnvValue $content 'AI_CATALOG_TIMEOUT_MS' '5000'
 $content = Set-EnvValue $content 'AI_PRICING_VERIFICATION_MAX_AGE_MS' '86400000'
 $content = Set-EnvValue $content 'AI_PROVIDER_CIRCUIT_COOLDOWN_MS' '60000'
+$content = Set-EnvValue $content 'AI_PROVIDER_5XX_COOLDOWN_MS' '900000'
 $content = Set-EnvValue $content 'AI_TIMEOUT_MS' '30000'
 $content = Set-EnvValue $content 'AI_MODEL_TIMEOUT_MS' '30000'
 $content = Set-EnvValue $content 'AI_GATEWAY_DEADLINE_MS' '240000'
@@ -237,17 +289,17 @@ $content = Set-EnvValue $content 'AI_GATEWAY_CLIENT_TIMEOUT_MS' '270000'
 $content = Set-EnvValue $content 'AI_PROXY_TIMEOUT_MS' '270000'
 $content = Set-EnvValue $content 'AI_HTTP_RETRIES' '1'
 $content = Set-EnvValue $content 'AI_CHAT_PLANNER_ENABLED' 'false'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_BULK_FILTER' 'groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|openrouter'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_TRANSLATION' 'gemini|cloudflare|siliconflow|cerebras|nvidia|bai|groq|cohere|openrouter'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_CLASSIFICATION' 'groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|openrouter'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_IMAGE_ANALYSIS' 'gemini|bai|cloudflare|cohere|cerebras|siliconflow|groq|openrouter'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_SELLER_ANALYSIS' 'gemini|groq|cloudflare|cerebras|nvidia|bai|siliconflow|cohere|openrouter'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_COMPLEX_ANALYSIS' 'gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|openrouter|siliconflow'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_CROSS_VALIDATION' 'gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|siliconflow|openrouter'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_MARKET_ANALYSIS' 'groq|gemini|cloudflare|cerebras|nvidia|bai|cohere|openrouter|siliconflow'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_CRAWLER_DIAGNOSIS' 'gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|openrouter|siliconflow'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_LOGISTICS_ANALYSIS' 'gemini|cloudflare|cerebras|nvidia|bai|groq|siliconflow|cohere|openrouter'
-$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_ASSISTANT_CHAT' 'groq|cloudflare|cerebras|gemini|nvidia|bai|cohere|siliconflow|openrouter'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_BULK_FILTER' 'groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|sensenova|openrouter'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_TRANSLATION' 'gemini|cloudflare|siliconflow|cerebras|nvidia|bai|groq|cohere|sensenova|openrouter'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_CLASSIFICATION' 'groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|sensenova|openrouter'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_IMAGE_ANALYSIS' 'gemini|bai|cloudflare|cohere|cerebras|siliconflow|groq|sensenova|openrouter'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_SELLER_ANALYSIS' 'gemini|groq|cloudflare|cerebras|nvidia|bai|siliconflow|cohere|sensenova|openrouter'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_COMPLEX_ANALYSIS' 'gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|sensenova|openrouter|siliconflow'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_CROSS_VALIDATION' 'gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|sensenova|siliconflow|openrouter'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_MARKET_ANALYSIS' 'groq|gemini|cloudflare|cerebras|nvidia|bai|cohere|sensenova|openrouter|siliconflow'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_CRAWLER_DIAGNOSIS' 'gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|sensenova|openrouter|siliconflow'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_LOGISTICS_ANALYSIS' 'gemini|cloudflare|cerebras|nvidia|bai|groq|siliconflow|cohere|sensenova|openrouter'
+$content = Set-EnvValue $content 'AI_PROVIDER_ORDER_ASSISTANT_CHAT' 'groq|cloudflare|cerebras|gemini|nvidia|bai|cohere|sensenova|siliconflow|openrouter'
 $content = Set-EnvValue $content 'AI_ROUTE_BULK_FILTER' 'mimo-v2.5|deepseek-v4-flash|glm-5.3-flash'
 $content = Set-EnvValue $content 'AI_ROUTE_TRANSLATION' 'mimo-v2.5|deepseek-v4-flash|glm-5.3-flash'
 $content = Set-EnvValue $content 'AI_ROUTE_CLASSIFICATION' 'mimo-v2.5|deepseek-v4-flash|glm-5.3-flash'
@@ -336,6 +388,17 @@ $content = Set-EnvValue $content 'AI_ROUTE_NVIDIA_MARKET_ANALYSIS' 'nvidia/nemot
 $content = Set-EnvValue $content 'AI_ROUTE_NVIDIA_CRAWLER_DIAGNOSIS' 'nvidia/nemotron-3-super-120b-a12b|nvidia/nemotron-3-nano-30b-a3b'
 $content = Set-EnvValue $content 'AI_ROUTE_NVIDIA_LOGISTICS_ANALYSIS' 'nvidia/nemotron-3-nano-30b-a3b|nvidia/nemotron-3-super-120b-a12b'
 $content = Set-EnvValue $content 'AI_ROUTE_NVIDIA_ASSISTANT_CHAT' 'nvidia/nemotron-3-nano-30b-a3b|nvidia/nemotron-3-super-120b-a12b'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_BULK_FILTER' 'SenseNova-V6-5-Turbo|SenseChat-5'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_TRANSLATION' 'SenseNova-V6-5-Turbo|SenseNova-V6-5-Pro|SenseChat-5'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_CLASSIFICATION' 'SenseNova-V6-5-Turbo|SenseChat-5'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_IMAGE_ANALYSIS' 'SenseNova-V6-5-Pro|SenseNova-V6-5-Turbo'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_SELLER_ANALYSIS' 'SenseNova-V6-5-Pro|SenseNova-V6-5-Turbo'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_COMPLEX_ANALYSIS' 'SenseNova-V6-5-Pro|SenseNova-V6-5-Turbo'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_CROSS_VALIDATION' 'SenseNova-V6-5-Pro|SenseNova-V6-5-Turbo'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_MARKET_ANALYSIS' 'SenseNova-V6-5-Pro|SenseNova-V6-5-Turbo'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_CRAWLER_DIAGNOSIS' 'SenseNova-V6-5-Pro|SenseNova-V6-5-Turbo'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_LOGISTICS_ANALYSIS' 'SenseNova-V6-5-Turbo|SenseNova-V6-5-Pro'
+$content = Set-EnvValue $content 'AI_ROUTE_SENSENOVA_ASSISTANT_CHAT' 'SenseNova-V6-5-Pro|SenseNova-V6-5-Turbo'
 $content = Set-EnvValue $content 'AI_ROUTE_OPENROUTER_BULK_FILTER' 'deepseek/deepseek-v4-flash|z-ai/glm-5.2:free|minimax/minimax-m3:free'
 $content = Set-EnvValue $content 'AI_ROUTE_OPENROUTER_TRANSLATION' 'deepseek/deepseek-v4-flash|z-ai/glm-5.2:free|minimax/minimax-m3:free'
 $content = Set-EnvValue $content 'AI_ROUTE_OPENROUTER_CLASSIFICATION' 'deepseek/deepseek-v4-flash|z-ai/glm-5.2:free|minimax/minimax-m3:free'
@@ -357,4 +420,16 @@ if ($content -notmatch '(?m)^AI_INTERNAL_TOKEN=\S+') {
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($EnvPath, $content, $utf8NoBom)
-Write-Host ("AI Provider 配置已安全同步；credentials_complete={0}；未输出任何密钥。" -f ($availableKeys.Count -eq 9))
+$configuredProviderCount = @(
+  if ($baiKey) { 'configured' }
+  if ($geminiKey) { 'configured' }
+  if ($groqKey) { 'configured' }
+  if ($siliconFlowKey) { 'configured' }
+  if ($cerebrasKey) { 'configured' }
+  if ($cloudflareKey) { 'configured' }
+  if ($cohereKey) { 'configured' }
+  if ($nvidiaKey) { 'configured' }
+  if ($senseNovaMainKey -or $senseNovaTranslationKey) { 'configured' }
+  if ($openRouterKey) { 'configured' }
+).Count
+Write-Host ("AI Provider 配置已安全同步；provider_count={0}；credentials_complete={1}；未输出任何密钥。" -f $configuredProviderCount, ($configuredProviderCount -eq 10))

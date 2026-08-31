@@ -103,6 +103,16 @@ services:
         value: "false"
       - key: NVIDIA_PRIVATE_DATA_AUTHORIZED
         value: "false"
+      - key: SENSENOVA_API_KEY
+        sync: false
+      - key: SENSENOVA_TRANSLATION_API_KEY
+        sync: false
+      - key: SENSENOVA_API_URL
+        value: https://api.sensenova.cn/compatible-mode/v2
+      - key: SENSENOVA_API_TIER
+        value: unknown
+      - key: SENSENOVA_PRIVATE_DATA_AUTHORIZED
+        value: "false"
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENROUTER_API_URL
@@ -112,7 +122,7 @@ services:
       - key: OPENROUTER_APP_NAME
         value: Kamen Procurement
       - key: AI_PROVIDER_ORDER
-        value: bai|gemini|groq|siliconflow|cerebras|cloudflare|cohere|nvidia|openrouter
+        value: bai|gemini|groq|siliconflow|cerebras|cloudflare|cohere|nvidia|sensenova|openrouter
       - key: AI_COST_POLICY
         value: free_only
       - key: AI_ALLOW_PAID_MODELS
@@ -145,28 +155,30 @@ services:
         value: "86400000"
       - key: AI_PROVIDER_CIRCUIT_COOLDOWN_MS
         value: "60000"
+      - key: AI_PROVIDER_5XX_COOLDOWN_MS
+        value: "900000"
       - key: AI_PROVIDER_ORDER_BULK_FILTER
-        value: groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|openrouter
+        value: groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|sensenova|openrouter
       - key: AI_PROVIDER_ORDER_TRANSLATION
-        value: gemini|cloudflare|siliconflow|cerebras|nvidia|bai|groq|cohere|openrouter
+        value: gemini|cloudflare|siliconflow|cerebras|nvidia|bai|groq|cohere|sensenova|openrouter
       - key: AI_PROVIDER_ORDER_CLASSIFICATION
-        value: groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|openrouter
+        value: groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|sensenova|openrouter
       - key: AI_PROVIDER_ORDER_IMAGE_ANALYSIS
-        value: gemini|bai|cloudflare|cohere|cerebras|siliconflow|groq|openrouter
+        value: gemini|bai|cloudflare|cohere|cerebras|siliconflow|groq|sensenova|openrouter
       - key: AI_PROVIDER_ORDER_SELLER_ANALYSIS
-        value: gemini|groq|cloudflare|cerebras|nvidia|bai|siliconflow|cohere|openrouter
+        value: gemini|groq|cloudflare|cerebras|nvidia|bai|siliconflow|cohere|sensenova|openrouter
       - key: AI_PROVIDER_ORDER_COMPLEX_ANALYSIS
-        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|openrouter|siliconflow
+        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|sensenova|openrouter|siliconflow
       - key: AI_PROVIDER_ORDER_CROSS_VALIDATION
-        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|siliconflow|openrouter
+        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|sensenova|siliconflow|openrouter
       - key: AI_PROVIDER_ORDER_MARKET_ANALYSIS
-        value: groq|gemini|cloudflare|cerebras|nvidia|bai|cohere|openrouter|siliconflow
+        value: groq|gemini|cloudflare|cerebras|nvidia|bai|cohere|sensenova|openrouter|siliconflow
       - key: AI_PROVIDER_ORDER_CRAWLER_DIAGNOSIS
-        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|openrouter|siliconflow
+        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|sensenova|openrouter|siliconflow
       - key: AI_PROVIDER_ORDER_LOGISTICS_ANALYSIS
-        value: gemini|cloudflare|cerebras|nvidia|bai|groq|siliconflow|cohere|openrouter
+        value: gemini|cloudflare|cerebras|nvidia|bai|groq|siliconflow|cohere|sensenova|openrouter
       - key: AI_PROVIDER_ORDER_ASSISTANT_CHAT
-        value: groq|cloudflare|cerebras|gemini|nvidia|bai|cohere|siliconflow|openrouter
+        value: groq|cloudflare|cerebras|gemini|nvidia|bai|cohere|sensenova|siliconflow|openrouter
       - key: AI_ROUTE_CEREBRAS_BULK_FILTER
         value: gemma-4-31b|gpt-oss-120b
       - key: AI_ROUTE_CEREBRAS_TRANSLATION
@@ -348,6 +360,10 @@ services:
         value: ""
       - key: NVIDIA_API_KEY
         value: ""
+      - key: SENSENOVA_API_KEY
+        value: ""
+      - key: SENSENOVA_TRANSLATION_API_KEY
+        value: ""
       - key: OPENROUTER_API_KEY
         value: ""
       - key: AI_INTERNAL_TOKEN
@@ -356,10 +372,20 @@ services:
         value: "30000"
       - key: AI_GATEWAY_CLIENT_TIMEOUT_MS
         value: "270000"
+      - key: TITLE_TRANSLATION_INTERVAL_MS
+        value: "30000"
+      - key: DETAIL_TRANSLATION_INTERVAL_MS
+        value: "60000"
       - key: TITLE_TRANSLATION_BATCH_SIZE
         value: "2"
       - key: DETAIL_TRANSLATION_BATCH_SIZE
+        value: "1"
+      - key: IMAGE_CLASSIFICATION_RPM
         value: "2"
+      - key: TITLE_TRANSLATION_RPM
+        value: "2"
+      - key: DETAIL_TRANSLATION_RPM
+        value: "1"
       - key: MARKET_INTEL_INTERVAL_MS
         value: "3600000"
       - key: MARKET_INTEL_MAX_AGE_DAYS

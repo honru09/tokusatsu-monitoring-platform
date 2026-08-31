@@ -17,6 +17,7 @@ import {
 } from "./ai-router.js";
 import {
   configuredProviderRuntimes,
+  providerConfigurationStatuses,
   type ProviderRuntime,
 } from "./ai-provider-registry.js";
 
@@ -71,6 +72,11 @@ type AttemptError = {
 type CatalogueCache = {
   expiresAt: number;
   models?: Set<string>;
+};
+
+type CredentialCooldown = {
+  code: string;
+  until: number;
 };
 
 type RateMetadata = {
@@ -209,6 +215,7 @@ export class AiGatewayService {
     AiProvider,
     Promise<Set<string> | undefined>
   >();
+  private readonly credentialCooldowns = new Map<string, CredentialCooldown>();
   private cloudflareReservationDay = "";
   private cloudflareReservedNeurons = 0;
 
@@ -220,6 +227,10 @@ export class AiGatewayService {
 
   configuredProviderIds() {
     return this.providers().map((provider) => provider.id);
+  }
+
+  providerConfigurations() {
+    return providerConfigurationStatuses();
   }
 
   async executeJson<T extends Record<string, unknown>>(
@@ -239,6 +250,14 @@ export class AiGatewayService {
     const privacyEligible = configuredProviders.filter((provider) =>
       provider.allowsDataClass(dataClass),
     );
+    if (!privacyEligible.length)
+      throw new ServiceUnavailableException({
+        code: "AI_GATEWAY_DATA_POLICY_BLOCKED",
+        message: "现有模型凭据不允许处理这类数据，请调整数据授权或改用公开商品信息",
+        retryable: false,
+        dataClass,
+        costPolicy,
+      });
     const providerReadiness = await Promise.all(
       privacyEligible.map(async (provider) => ({
         provider,
@@ -248,6 +267,14 @@ export class AiGatewayService {
     const providers = providerReadiness.flatMap(({ provider, ready }) =>
       ready ? [provider] : [],
     );
+    if (!providers.length)
+      throw new ServiceUnavailableException({
+        code: "AI_GATEWAY_ALL_PROVIDERS_COOLDOWN",
+        message: "AI 服务商正在额度或故障冷却中，系统会在恢复后自动继续",
+        retryable: true,
+        dataClass,
+        costPolicy,
+      });
 
     const input = {
       messages: request.messages,
@@ -303,8 +330,14 @@ export class AiGatewayService {
     );
     if (!candidates.length) {
       throw new ServiceUnavailableException({
-        code: "AI_GATEWAY_NO_ELIGIBLE_MODEL",
-        message: "当前隐私、费用或视觉策略下没有可用模型",
+        code:
+          costPolicy === "free_only"
+            ? "AI_GATEWAY_NO_FREE_MODEL"
+            : "AI_GATEWAY_NO_ELIGIBLE_MODEL",
+        message:
+          costPolicy === "free_only"
+            ? "已配置的免费或促销模型目前不满足本次任务要求"
+            : "当前任务或视觉能力要求下没有可用模型",
         retryable: false,
         dataClass,
         costPolicy,
@@ -559,13 +592,38 @@ export class AiGatewayService {
     const deadlineExceeded =
       Date.now() >= deadlineAt ||
       errors.some((error) => error.code === "GATEWAY_DEADLINE");
+    const errorCodes = new Set(errors.map((error) => error.code));
+    const catalogueUnavailable =
+      errors.length > 0 &&
+      [...errorCodes].every((code) => code === "CATALOGUE_UNAVAILABLE");
+    const quotaOrCooldown =
+      errors.length > 0 &&
+      [...errorCodes].every((code) =>
+        [
+          "RATE_LIMIT",
+          "FREE_QUOTA_BUDGET",
+          "MODEL_COOLDOWN",
+          "CREDENTIAL_COOLDOWN",
+          "CREDITS",
+        ].includes(code),
+      );
+    const terminalCode = deadlineExceeded
+      ? "AI_GATEWAY_DEADLINE_EXCEEDED"
+      : catalogueUnavailable
+        ? "AI_GATEWAY_CATALOGUE_UNAVAILABLE"
+        : quotaOrCooldown
+          ? "AI_GATEWAY_CAPACITY_COOLDOWN"
+          : "AI_GATEWAY_UNAVAILABLE";
+    const terminalMessage = deadlineExceeded
+      ? "AI 模型池已达到本轮时间上限，请重试"
+      : catalogueUnavailable
+        ? "模型目录暂时无法验证，系统已停止向未知模型发送请求"
+        : quotaOrCooldown
+          ? "免费额度或请求频率正在恢复，系统会在冷却结束后自动继续"
+          : "当前 AI 模型池均不可用，请稍后重试";
     throw new ServiceUnavailableException({
-      code: deadlineExceeded
-        ? "AI_GATEWAY_DEADLINE_EXCEEDED"
-        : "AI_GATEWAY_UNAVAILABLE",
-      message: deadlineExceeded
-        ? "AI 模型池已达到本轮时间上限，请重试"
-        : "当前 AI 模型池均不可用，请稍后重试",
+      code: terminalCode,
+      message: terminalMessage,
       retryable: true,
       deadlineMs: gatewayDeadlineMs,
       dataClass,
@@ -683,20 +741,57 @@ export class AiGatewayService {
     const remainingMs = deadlineAt
       ? Math.max(1, deadlineAt - Date.now())
       : catalogueTimeout;
-    try {
-      const response = await fetch(provider.catalogueUrl, {
-        headers: provider.headers(false),
-        signal: AbortSignal.timeout(Math.min(catalogueTimeout, remainingMs)),
-      });
-      if (!response.ok) throw new Error(`catalogue HTTP ${response.status}`);
-      const text = await response.text();
-      if (!text.trim()) throw new Error("empty catalogue");
-      const payload = JSON.parse(text) as unknown;
-      const models = new Set(
-        provider
-          .extractCatalogueModelIds(payload)
-          .map((modelId) => provider.normalizeCatalogueModelId(modelId)),
-      );
+    const allCredentialIds = provider.credentialIds();
+    const credentialIds = allCredentialIds.filter((credentialId) =>
+      this.credentialReady(provider.id, credentialId),
+    );
+    const models = new Set<string>();
+    let catalogueSucceeded = false;
+    let lastCredentialError: ModelCallError | undefined;
+    for (const credentialId of credentialIds) {
+      try {
+        const response = await fetch(provider.catalogueUrl, {
+          headers: provider.headers(false, undefined, credentialId),
+          signal: AbortSignal.timeout(Math.min(catalogueTimeout, remainingMs)),
+        });
+        const text = await response.text().catch(() => "");
+        if (!response.ok) {
+          const error = this.responseError(
+            provider,
+            response.status,
+            text,
+            response.headers,
+          );
+          if (
+            this.shouldFailoverCredential(error, allCredentialIds.length)
+          ) {
+            this.cooldownCredential(provider.id, credentialId, error);
+            lastCredentialError = error;
+            continue;
+          }
+          throw error;
+        }
+        if (!text.trim()) throw new Error("empty catalogue");
+        const payload = JSON.parse(text) as unknown;
+        for (const modelId of provider.extractCatalogueModelIds(payload))
+          models.add(provider.normalizeCatalogueModelId(modelId));
+        catalogueSucceeded = true;
+        this.clearCredentialCooldown(provider.id, credentialId);
+      } catch (error) {
+        const normalized = this.normalizeError(error);
+        if (
+          this.shouldFailoverCredential(normalized, allCredentialIds.length)
+        ) {
+          this.cooldownCredential(provider.id, credentialId, normalized);
+          lastCredentialError = normalized;
+          continue;
+        }
+        if (normalized.providerWide)
+          await this.updateProviderFailure(provider.id, normalized);
+        break;
+      }
+    }
+    if (catalogueSucceeded) {
       const configuredTtl = Number(
         process.env.AI_CATALOG_REFRESH_INTERVAL_MS ?? 6 * 60 * 60_000,
       );
@@ -709,20 +804,24 @@ export class AiGatewayService {
         models,
       });
       return models;
-    } catch {
-      const configuredTtl = Number(
-        process.env.AI_CATALOG_NEGATIVE_CACHE_MS ?? 60_000,
-      );
-      const ttl = Math.max(
-        1_000,
-        Number.isFinite(configuredTtl) ? configuredTtl : 60_000,
-      );
-      this.catalogues.set(provider.id, {
-        expiresAt: Date.now() + ttl,
-        models: undefined,
-      });
-      return undefined;
     }
+    if (lastCredentialError && allCredentialIds.length > 1)
+      await this.updateProviderFailure(
+        provider.id,
+        this.allCredentialsUnavailable(provider, lastCredentialError),
+      );
+    const configuredTtl = Number(
+      process.env.AI_CATALOG_NEGATIVE_CACHE_MS ?? 60_000,
+    );
+    const ttl = Math.max(
+      1_000,
+      Number.isFinite(configuredTtl) ? configuredTtl : 60_000,
+    );
+    this.catalogues.set(provider.id, {
+      expiresAt: Date.now() + ttl,
+      models: undefined,
+    });
+    return undefined;
   }
 
   private async callModel(
@@ -755,43 +854,109 @@ export class AiGatewayService {
       1,
       Math.min(Number(process.env.AI_HTTP_RETRIES ?? 1), 2),
     );
+    const allCredentialIds = provider.credentialIds(request.task);
+    const credentialIds = allCredentialIds.filter((credentialId) =>
+      this.credentialReady(provider.id, credentialId),
+    );
+    if (!credentialIds.length)
+      throw this.allCredentialsCooling(provider);
     let lastError: ModelCallError | undefined;
-    for (let httpAttempt = 1; httpAttempt <= maxAttempts; httpAttempt += 1) {
-      const deadlineAt = Math.min(candidateDeadlineAt, gatewayDeadlineAt);
-      const remainingMs = deadlineAt - Date.now();
-      if (remainingMs <= 0)
-        throw gatewayDeadlineAt <= Date.now()
-          ? this.deadlineError()
-          : new ModelCallError("模型请求超时", "TIMEOUT", true);
-      const timeoutMs = Math.max(
-        1,
-        Math.min(this.modelTimeoutMs(), remainingMs),
-      );
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const body = provider.normalizeRequestBody({
-          model,
-          messages,
-          max_tokens: request.maxTokens,
-          temperature: request.temperature ?? 0.1,
-        });
-        const response = await fetch(`${provider.apiUrl}/chat/completions`, {
-          method: "POST",
-          headers: provider.headers(true),
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        });
-        const responseText = await response.text().catch(() => "");
-        if (!response.ok) {
-          const normalized = this.responseError(
-            provider,
-            response.status,
-            responseText,
-            response.headers,
-          );
-          // Account/quota failures and every 429 switch candidates immediately.
+    for (const credentialId of credentialIds) {
+      let moveToNextCredential = false;
+      for (let httpAttempt = 1; httpAttempt <= maxAttempts; httpAttempt += 1) {
+        const deadlineAt = Math.min(candidateDeadlineAt, gatewayDeadlineAt);
+        const remainingMs = deadlineAt - Date.now();
+        if (remainingMs <= 0)
+          throw gatewayDeadlineAt <= Date.now()
+            ? this.deadlineError()
+            : new ModelCallError("模型请求超时", "TIMEOUT", true);
+        const timeoutMs = Math.max(
+          1,
+          Math.min(this.modelTimeoutMs(), remainingMs),
+        );
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const body = provider.normalizeRequestBody({
+            model,
+            messages,
+            max_tokens: request.maxTokens,
+            temperature: request.temperature ?? 0.1,
+          });
+          const response = await fetch(`${provider.apiUrl}/chat/completions`, {
+            method: "POST",
+            headers: provider.headers(true, request.task, credentialId),
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+          const responseText = await response.text().catch(() => "");
+          if (!response.ok) {
+            const normalized = this.responseError(
+              provider,
+              response.status,
+              responseText,
+              response.headers,
+            );
+            if (
+              this.shouldFailoverCredential(
+                normalized,
+                allCredentialIds.length,
+              )
+            ) {
+              this.cooldownCredential(provider.id, credentialId, normalized);
+              lastError = normalized;
+              moveToNextCredential = true;
+              break;
+            }
+            if (
+              normalized.providerWide ||
+              !normalized.retryable ||
+              normalized.code === "RATE_LIMIT" ||
+              httpAttempt === maxAttempts
+            )
+              throw normalized;
+            lastError = normalized;
+            const delayMs = 500 * httpAttempt;
+            if (Date.now() + delayMs >= deadlineAt)
+              throw new ModelCallError("模型请求超时", "TIMEOUT", true);
+            await sleep(delayMs);
+            continue;
+          }
+          if (!responseText.trim())
+            throw new ModelCallError("模型返回空响应体", "EMPTY_RESPONSE", true);
+          try {
+            const payload = JSON.parse(responseText) as ChatPayload;
+            this.clearCredentialCooldown(provider.id, credentialId);
+            return payload;
+          } catch {
+            throw new ModelCallError(
+              "模型返回了无法解析的响应体",
+              "INVALID_PROVIDER_JSON",
+              true,
+            );
+          }
+        } catch (error) {
+          const abortedAtGatewayBoundary =
+            error instanceof Error &&
+            (error.name === "AbortError" || error.name === "TimeoutError") &&
+            candidateDeadlineAt >= gatewayDeadlineAt;
+          const normalized =
+            Date.now() >= gatewayDeadlineAt || abortedAtGatewayBoundary
+              ? this.deadlineError()
+              : this.normalizeError(error);
           if (
+            this.shouldFailoverCredential(
+              normalized,
+              allCredentialIds.length,
+            )
+          ) {
+            this.cooldownCredential(provider.id, credentialId, normalized);
+            lastError = normalized;
+            moveToNextCredential = true;
+            break;
+          }
+          if (
+            normalized.providerWide ||
             !normalized.retryable ||
             normalized.code === "RATE_LIMIT" ||
             httpAttempt === maxAttempts
@@ -799,47 +964,110 @@ export class AiGatewayService {
             throw normalized;
           lastError = normalized;
           const delayMs = 500 * httpAttempt;
-          if (Date.now() + delayMs >= deadlineAt)
+          if (Date.now() + delayMs >= candidateDeadlineAt)
             throw new ModelCallError("模型请求超时", "TIMEOUT", true);
           await sleep(delayMs);
-          continue;
+        } finally {
+          clearTimeout(timeout);
         }
-        if (!responseText.trim())
-          throw new ModelCallError("模型返回空响应体", "EMPTY_RESPONSE", true);
-        try {
-          return JSON.parse(responseText) as ChatPayload;
-        } catch {
-          throw new ModelCallError(
-            "模型返回了无法解析的响应体",
-            "INVALID_PROVIDER_JSON",
-            true,
-          );
-        }
-      } catch (error) {
-        const abortedAtGatewayBoundary =
-          error instanceof Error &&
-          (error.name === "AbortError" || error.name === "TimeoutError") &&
-          candidateDeadlineAt >= gatewayDeadlineAt;
-        const normalized =
-          Date.now() >= gatewayDeadlineAt || abortedAtGatewayBoundary
-            ? this.deadlineError()
-            : this.normalizeError(error);
-        if (
-          !normalized.retryable ||
-          normalized.code === "RATE_LIMIT" ||
-          httpAttempt === maxAttempts
-        )
-          throw normalized;
-        lastError = normalized;
-        const delayMs = 500 * httpAttempt;
-        if (Date.now() + delayMs >= candidateDeadlineAt)
-          throw new ModelCallError("模型请求超时", "TIMEOUT", true);
-        await sleep(delayMs);
-      } finally {
-        clearTimeout(timeout);
       }
+      if (moveToNextCredential) continue;
     }
+    if (lastError && allCredentialIds.length > 1)
+      throw this.allCredentialsUnavailable(provider, lastError);
     throw lastError ?? new ModelCallError("未知模型错误", "UNKNOWN", false);
+  }
+
+  private credentialStateKey(provider: AiProvider, credentialId: string) {
+    if (!/^[a-z0-9_-]+$/i.test(credentialId))
+      throw new Error("Invalid credential alias");
+    return `${provider}:${credentialId}`;
+  }
+
+  private credentialReady(provider: AiProvider, credentialId: string) {
+    const key = this.credentialStateKey(provider, credentialId);
+    const state = this.credentialCooldowns.get(key);
+    if (!state) return true;
+    if (state.until > Date.now()) return false;
+    this.credentialCooldowns.delete(key);
+    return true;
+  }
+
+  private cooldownCredential(
+    provider: AiProvider,
+    credentialId: string,
+    error: ModelCallError,
+  ) {
+    const fallback =
+      error.code === "AUTH" || error.code === "CREDITS"
+        ? 30 * 60_000
+        : 5 * 60_000;
+    const until = Math.max(
+      Date.now() + fallback,
+      error.rate.cooldownUntil?.getTime() ?? 0,
+    );
+    this.credentialCooldowns.set(
+      this.credentialStateKey(provider, credentialId),
+      { code: error.code, until },
+    );
+  }
+
+  private clearCredentialCooldown(
+    provider: AiProvider,
+    credentialId: string,
+  ) {
+    this.credentialCooldowns.delete(
+      this.credentialStateKey(provider, credentialId),
+    );
+  }
+
+  private shouldFailoverCredential(
+    error: ModelCallError,
+    credentialCount: number,
+  ) {
+    if (credentialCount < 2) return false;
+    if (error.code === "AUTH" || error.code === "CREDITS") return true;
+    return error.code === "RATE_LIMIT" && !error.providerWide;
+  }
+
+  private credentialRecoveryAt(provider: AiProvider) {
+    const prefix = `${provider}:`;
+    const recoveries = [...this.credentialCooldowns.entries()]
+      .filter(([key, state]) => key.startsWith(prefix) && state.until > Date.now())
+      .map(([, state]) => state.until);
+    return recoveries.length ? Math.min(...recoveries) : undefined;
+  }
+
+  private allCredentialsCooling(provider: ProviderRuntime) {
+    const recoveryAt = this.credentialRecoveryAt(provider.id);
+    return new ModelCallError(
+      `${provider.label} 的可用凭据正在冷却中`,
+      "CREDENTIAL_COOLDOWN",
+      false,
+      true,
+      {
+        cooldownUntil: recoveryAt ? new Date(recoveryAt) : undefined,
+      },
+    );
+  }
+
+  private allCredentialsUnavailable(
+    provider: ProviderRuntime,
+    cause: ModelCallError,
+  ) {
+    const recoveryAt = this.credentialRecoveryAt(provider.id);
+    return new ModelCallError(
+      `${provider.label} 的全部可用凭据暂时不可用`,
+      cause.code,
+      cause.retryable,
+      true,
+      {
+        ...cause.rate,
+        cooldownUntil: recoveryAt
+          ? new Date(recoveryAt)
+          : cause.rate.cooldownUntil,
+      },
+    );
   }
 
   private responseError(
@@ -848,7 +1076,6 @@ export class AiGatewayService {
     responseText: string,
     headers: Headers,
   ) {
-    const suffix = responseText ? `: ${responseText.slice(0, 200)}` : "";
     if (
       provider.id === "cloudflare" &&
       status === 403 &&
@@ -857,20 +1084,20 @@ export class AiGatewayService {
       )
     )
       return new ModelCallError(
-        `${provider.label} MODEL_NOT_AVAILABLE${suffix}`,
+        `${provider.label} 当前账号无法访问该模型`,
         "MODEL_NOT_AVAILABLE",
         false,
       );
     if (status === 401 || status === 403)
       return new ModelCallError(
-        `${provider.label} AUTH${suffix}`,
+        `${provider.label} 凭据未通过验证或无权访问`,
         "AUTH",
         false,
         true,
       );
     if (status === 402)
       return new ModelCallError(
-        `${provider.label} CREDITS${suffix}`,
+        `${provider.label} 账户额度不足`,
         "CREDITS",
         false,
         true,
@@ -881,7 +1108,7 @@ export class AiGatewayService {
         /(?:invalid|unknown|not found).{0,30}model/i.test(responseText))
     )
       return new ModelCallError(
-        `${provider.label} MODEL_NOT_AVAILABLE${suffix}`,
+        `${provider.label} 当前目录中没有该模型`,
         "MODEL_NOT_AVAILABLE",
         false,
       );
@@ -890,7 +1117,7 @@ export class AiGatewayService {
       /(?:unsupported|does not support|capabilit)/i.test(responseText)
     )
       return new ModelCallError(
-        `${provider.label} MODEL_CAPABILITY${suffix}`,
+        `${provider.label} 当前模型不支持所需能力`,
         "MODEL_CAPABILITY",
         false,
       );
@@ -931,13 +1158,17 @@ export class AiGatewayService {
             responseText,
           )) ||
         (provider.id === "nvidia" &&
-          /(?:account|key|credit|daily)/i.test(responseText));
+          /(?:account|key|credit|daily)/i.test(responseText)) ||
+        (provider.id === "sensenova" &&
+          /(?:account|organization|project|daily|monthly|credit balance|quota exhausted)/i.test(
+            responseText,
+          ));
       const fallbackCooldown = providerWide ? 60_000 : 5 * 60_000;
       const cooldownUntil = new Date(
         Date.now() + Math.max(resetMs, fallbackCooldown),
       );
       return new ModelCallError(
-        `${provider.label} RATE_LIMIT${suffix}`,
+        `${provider.label} 请求频率或免费额度已达限制`,
         "RATE_LIMIT",
         false,
         providerWide,
@@ -962,8 +1193,27 @@ export class AiGatewayService {
       );
     }
     const code = status >= 500 ? "PROVIDER_ERROR" : `HTTP_${status}`;
+    if (status >= 500) {
+      const configured = Number(
+        process.env.AI_PROVIDER_5XX_COOLDOWN_MS ?? 15 * 60_000,
+      );
+      const cooldownMs = Math.max(
+        60_000,
+        Math.min(
+          Number.isFinite(configured) ? configured : 15 * 60_000,
+          24 * 60 * 60_000,
+        ),
+      );
+      return new ModelCallError(
+        `${provider.label} 服务端暂时不可用`,
+        code,
+        true,
+        status === 502 || status === 503 || status === 504,
+        { cooldownUntil: new Date(Date.now() + cooldownMs) },
+      );
+    }
     return new ModelCallError(
-      `${provider.label} ${code}${suffix}`,
+      `${provider.label} 请求失败（${code}）`,
       code,
       status >= 500,
     );

@@ -8,6 +8,7 @@ coverage/
 .env.local
 Keys.txt
 *.log
+.cloudflared/
 packages/db/generated/
 .impeccable/review/
 playwright-artifacts/
@@ -15,3 +16,5 @@ playwright-tests/
 test-results/
 .impeccable/review-public-final/
 .local-backups/
+.requirements-doc-render/
+**/.visual-qa-*.png

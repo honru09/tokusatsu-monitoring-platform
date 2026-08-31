@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { configuredProviderRuntimes } from "./ai-provider-registry.js";
+import {
+  configuredProviderRuntimes,
+  providerConfigurationStatuses,
+} from "./ai-provider-registry.js";
 
 const originalEnvironment = { ...process.env };
 
@@ -34,6 +37,10 @@ describe("AI provider registry", () => {
       "NVIDIA_INTERNAL_EVALUATION",
       "NVIDIA_PRIVATE_DATA_AUTHORIZED",
       "NVIDIA_PRICING_VERIFIED_AT",
+      "SENSENOVA_API_KEY",
+      "SENSENOVA_TRANSLATION_API_KEY",
+      "SENSENOVA_API_TIER",
+      "SENSENOVA_PRIVATE_DATA_AUTHORIZED",
     ])
       delete process.env[key];
     process.env.NODE_ENV = "test";
@@ -191,5 +198,67 @@ describe("AI provider registry", () => {
     process.env.BAI_PRIVATE_DATA_AUTHORIZED = "true";
     runtime = configuredProviderRuntimes(["bai"])[0];
     expect(runtime?.allowsDataClass("user_private")).toBe(true);
+  });
+
+  it("uses safe SenseNova credential aliases and prefers the translation credential by task", () => {
+    process.env.SENSENOVA_API_KEY = "test-main-secret";
+    process.env.SENSENOVA_TRANSLATION_API_KEY = "test-translation-secret";
+    const runtime = configuredProviderRuntimes(["sensenova"])[0];
+
+    expect(runtime?.credentialIds("assistant_chat")).toEqual([
+      "main",
+      "translation",
+    ]);
+    expect(runtime?.credentialIds("translation")).toEqual([
+      "translation",
+      "main",
+    ]);
+    expect(runtime?.headers(true, "assistant_chat").authorization).toBe(
+      "Bearer test-main-secret",
+    );
+    expect(runtime?.headers(true, "translation").authorization).toBe(
+      "Bearer test-translation-secret",
+    );
+  });
+
+  it("keeps SenseNova out of free-only routing unless its tier is explicitly verified", () => {
+    process.env.SENSENOVA_API_KEY = "test-main-secret";
+    let runtime = configuredProviderRuntimes(["sensenova"])[0];
+    expect(runtime?.costTierFor("SenseNova-V6-5-Turbo")).toBe("unknown");
+
+    process.env.SENSENOVA_API_TIER = "promotion";
+    runtime = configuredProviderRuntimes(["sensenova"])[0];
+    expect(runtime?.costTierFor("SenseNova-V6-5-Turbo")).toBe("promotion");
+  });
+
+  it("reports credential configuration without exposing credential values", () => {
+    process.env.SENSENOVA_API_KEY = "test-main-secret";
+    process.env.SENSENOVA_TRANSLATION_API_KEY = "test-translation-secret";
+    process.env.COHERE_API_KEY = "test-cohere-secret";
+    const statuses = providerConfigurationStatuses();
+    const senseNova = statuses.find((entry) => entry.provider === "sensenova");
+    const cohere = statuses.find((entry) => entry.provider === "cohere");
+    const serialized = JSON.stringify(statuses);
+
+    expect(senseNova).toEqual(
+      expect.objectContaining({
+        credentialConfigured: true,
+        configuredCredentialCount: 2,
+        active: true,
+        activationReason: "ready",
+        apiTier: "unknown",
+      }),
+    );
+    expect(cohere).toEqual(
+      expect.objectContaining({
+        credentialConfigured: true,
+        configuredCredentialCount: 1,
+        active: false,
+        activationReason: "evaluation_authorization_required",
+      }),
+    );
+    expect(serialized).not.toContain("test-main-secret");
+    expect(serialized).not.toContain("test-translation-secret");
+    expect(serialized).not.toContain("test-cohere-secret");
   });
 });

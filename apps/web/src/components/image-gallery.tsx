@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type GalleryImage = { url: string; position: number };
 
@@ -19,6 +19,10 @@ function ChevronIcon({ direction }: { direction: "left" | "right" }) {
       <path d={direction === "left" ? "m15 18-6-6 6-6" : "m9 18 6-6-6-6"} />
     </svg>
   );
+}
+
+function stopGalleryControlEvent(event: { stopPropagation: () => void }) {
+  event.stopPropagation();
 }
 
 export function ImageGallery({
@@ -76,15 +80,16 @@ export function ImageGallery({
             data-gallery-control="previous"
             aria-label="查看上一张商品图片"
             title="上一张"
-            onPointerDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
+            onPointerDown={stopGalleryControlEvent}
+            onPointerUp={stopGalleryControlEvent}
+            onKeyDown={stopGalleryControlEvent}
             onClick={(event) => {
-              event.stopPropagation();
+              stopGalleryControlEvent(event);
               move(-1);
             }}
-            className="absolute left-0 top-1/2 z-20 grid h-16 w-16 -translate-y-1/2 touch-manipulation place-items-center p-1 text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70 sm:h-20 sm:w-20"
+            className="image-gallery-control absolute left-0.5 top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 touch-manipulation place-items-center text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70 sm:left-1"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-ink/78 shadow-lg backdrop-blur transition-colors hover:bg-ink">
+            <span className="image-gallery-control-surface grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-ink/70 shadow-lg backdrop-blur-sm transition-[background-color,transform] duration-150 hover:bg-ink/90 active:scale-95 motion-reduce:transition-none">
               <ChevronIcon direction="left" />
             </span>
           </button>
@@ -93,15 +98,16 @@ export function ImageGallery({
             data-gallery-control="next"
             aria-label="查看下一张商品图片"
             title="下一张"
-            onPointerDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
+            onPointerDown={stopGalleryControlEvent}
+            onPointerUp={stopGalleryControlEvent}
+            onKeyDown={stopGalleryControlEvent}
             onClick={(event) => {
-              event.stopPropagation();
+              stopGalleryControlEvent(event);
               move(1);
             }}
-            className="absolute right-0 top-1/2 z-20 grid h-16 w-16 -translate-y-1/2 touch-manipulation place-items-center p-1 text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70 sm:h-20 sm:w-20"
+            className="image-gallery-control absolute right-0.5 top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 touch-manipulation place-items-center text-white outline-none focus-visible:ring-4 focus-visible:ring-white/70 sm:right-1"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-ink/78 shadow-lg backdrop-blur transition-colors hover:bg-ink">
+            <span className="image-gallery-control-surface grid h-11 w-11 place-items-center rounded-full border border-white/25 bg-ink/70 shadow-lg backdrop-blur-sm transition-[background-color,transform] duration-150 hover:bg-ink/90 active:scale-95 motion-reduce:transition-none">
               <ChevronIcon direction="right" />
             </span>
           </button>

@@ -191,12 +191,16 @@ export function parseYahooFleamarketDetailHtml(
     seller.name,
     seller.displayName,
   );
-  const images = [
+  const imageCandidates = [
     ...array(item.images).map((entry) => text(record(entry).url)),
     ...array(item.media).map((entry) =>
       text(record(record(entry).content).url),
     ),
   ].filter((value): value is string => Boolean(value));
+  // Yahoo!フリマ exposes the same gallery through both `images` and `media`.
+  // Count the public, canonical gallery after deduplication so the persisted
+  // source payload cannot claim twice as many images as ItemImage stores.
+  const images = sanitizeProductImageUrls(imageCandidates);
   const shipping = shippingEvidence(
     {
       shippingDetails: {
@@ -257,7 +261,7 @@ export function parseYahooFleamarketDetailHtml(
     shippingFee: shipping.fee,
     listedAt: date(item.createDate) ?? date(item.openDate),
     conditionRaw: text(condition.text) ?? conditionText(condition.key),
-    imageUrls: sanitizeProductImageUrls(images),
+    imageUrls: images,
     sourceData: {
       item: relevantItemData,
       seller: {

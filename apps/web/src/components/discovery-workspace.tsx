@@ -301,7 +301,10 @@ function DiscoveryNote({
   const [draft, setDraft] = useState(note ?? "");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
-  useEffect(() => setDraft(note ?? ""), [note]);
+  useEffect(() => {
+    setDraft(note ?? "");
+    if (!note) setOpen(false);
+  }, [note]);
 
   if (!onSave) {
     if (!note) return null;
@@ -337,7 +340,7 @@ function DiscoveryNote({
 
   return (
     <div
-      className="discovery-note mt-2 min-h-11"
+      className={`discovery-note ${!open && !note ? "discovery-note-compact" : "mt-2"}`}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
@@ -377,7 +380,7 @@ function DiscoveryNote({
           onClick={() => setOpen(true)}
           aria-label={note ? `编辑采购备注：${note}` : "添加采购备注"}
           title={note ?? "添加采购备注"}
-          className={`flex min-h-11 max-w-full items-center gap-2 rounded-full border border-ink/10 bg-white text-xs text-ink/60 transition-[width,background-color] hover:bg-ink/[0.035] ${note ? "w-fit px-3" : "w-11 justify-center"}`}
+          className={`flex min-h-11 max-w-full items-center gap-2 rounded-full border border-ink/10 bg-white text-xs text-ink/60 transition-colors duration-150 hover:bg-ink/[0.035] motion-reduce:transition-none ${note ? "w-fit px-3" : "w-11 justify-center px-0"}`}
         >
           <CommentIcon />
           {note && <span className="max-w-48 truncate">{note}</span>}

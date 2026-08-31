@@ -84,6 +84,20 @@ describe("Yahoo! Fleamarket parsing", () => {
           url: "https://auctions.c.yimg.jp/images.auctions.yahoo.co.jp/image/dr000/auc1/users/u/i-img1200x900-2.jpg",
         },
       ],
+      media: [
+        {
+          type: "image",
+          content: {
+            url: "https://auctions.c.yimg.jp/images.auctions.yahoo.co.jp/image/dr000/auc1/users/u/i-img1200x900-1.jpg",
+          },
+        },
+        {
+          type: "image",
+          content: {
+            url: "https://auctions.c.yimg.jp/images.auctions.yahoo.co.jp/image/dr000/auc1/users/u/i-img1200x900-2.jpg",
+          },
+        },
+      ],
       seller: {
         id: "p1",
         nickname: "ジョー",
@@ -119,6 +133,10 @@ describe("Yahoo! Fleamarket parsing", () => {
       status: "active",
     });
     expect(detail.imageUrls).toHaveLength(2);
+    expect(
+      (detail.sourceData as { item?: { imageCount?: number } }).item
+        ?.imageCount,
+    ).toBe(2);
     expect(detail.sellerData).toMatchObject({
       sellerId: "p1",
       nickname: "ジョー",

@@ -838,6 +838,8 @@ textarea:focus-visible {
 .product-card {
   border: 0 !important;
   border-radius: 18px !important;
+  align-self: start;
+  height: auto !important;
   transition:
     transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
     box-shadow 180ms ease-out;
@@ -850,8 +852,30 @@ textarea:focus-visible {
     0 18px 38px rgba(25, 45, 63, 0.075);
 }
 .product-card-media {
-  aspect-ratio: 4 / 3 !important;
+  aspect-ratio: 16 / 11 !important;
   background: #1d1d1f;
+}
+.image-gallery-control {
+  min-width: 48px;
+  min-height: 48px;
+  isolation: isolate;
+}
+.image-gallery-control::before {
+  position: absolute;
+  z-index: -1;
+  width: 60px;
+  height: 84px;
+  content: "";
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.26) 0,
+    rgba(0, 0, 0, 0) 72%
+  );
+}
+.image-gallery-control-surface {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 8px 22px rgba(0, 0, 0, 0.2);
 }
 .product-card-market {
   padding: 9px 10px !important;
@@ -861,6 +885,21 @@ textarea:focus-visible {
 }
 .product-card-actions > button {
   border-radius: 12px;
+}
+
+@media (min-width: 768px) {
+  .urgent-auction-zone-single {
+    width: min(100%, 370px);
+  }
+  .urgent-auction-zone-compact {
+    width: min(100%, 730px);
+  }
+  .urgent-auction-zone-single .urgent-auction-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .urgent-auction-zone-compact .urgent-auction-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
 }
 
 .discovery-card-shell {
@@ -943,16 +982,19 @@ textarea:focus-visible {
     border-radius: 18px;
   }
   .js-product-card > div:first-child {
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 6 / 5;
   }
   .js-product-card > div:last-child {
-    padding: 8px;
+    padding: 7px 8px 8px;
   }
   .product-card {
     transform: none !important;
   }
   .product-card-media {
-    aspect-ratio: 1 / 1 !important;
+    aspect-ratio: 6 / 5 !important;
+  }
+  .product-card-ip-badge {
+    display: none;
   }
   .product-card-title {
     min-height: 40px !important;
@@ -965,8 +1007,8 @@ textarea:focus-visible {
     display: none;
   }
   .product-card-market {
-    margin-top: 6px;
-    padding: 7px 8px !important;
+    margin-top: 5px;
+    padding: 6px 7px !important;
     gap: 6px;
   }
   .product-card-market .text-lg {
@@ -974,20 +1016,32 @@ textarea:focus-visible {
     line-height: 1.25rem;
   }
   .product-card-note {
-    margin-top: 7px;
-    min-height: 36px;
+    margin-top: 6px;
     padding: 0;
     border: 0;
     background: transparent;
   }
   .product-card-actions {
-    margin-top: 7px;
     gap: 5px;
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .product-card-actions > button {
     min-width: 0;
     min-height: 44px;
+  }
+  .product-card-more-actions > button {
+    min-width: 0;
+    min-height: 44px;
+  }
+  .image-gallery-control {
+    width: 48px;
+    height: 64px;
+  }
+  .image-gallery-control-surface {
+    width: 36px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(29, 29, 31, 0.72);
   }
   .workspace-discovery .procurement-content {
     height: calc(100dvh - 70px);
@@ -1015,9 +1069,9 @@ textarea:focus-visible {
   }
   .discovery-card-shell {
     width: calc(100% - 14px);
-    height: auto;
-    min-height: 0;
-    max-height: none;
+    height: 100%;
+    min-height: 360px;
+    max-height: 460px;
     margin-inline: 7px;
   }
   .discovery-swipe-card {
@@ -1036,6 +1090,13 @@ textarea:focus-visible {
   }
   .discovery-note {
     margin-top: 5px;
+  }
+  .discovery-note-compact {
+    position: absolute;
+    z-index: 24;
+    top: 56px;
+    right: 12px;
+    margin-top: 0;
   }
   .discovery-note button,
   .discovery-note input {
@@ -1194,7 +1255,28 @@ textarea:focus-visible {
     display: none;
   }
   .product-card-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .product-card-market {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .product-card-market > div:last-child {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-top: 4px;
+    border-top: 1px solid rgba(29, 29, 31, 0.07);
+    text-align: left;
+  }
+  .product-card-market > div:last-child > div {
+    min-width: 0;
+    white-space: nowrap;
+  }
+  .product-card-market > div:last-child > div:last-child {
+    text-align: right;
+  }
+  .product-card-market > div:last-child .ml-1 {
+    display: none;
   }
   .portal-card {
     min-height: 132px;
@@ -1205,6 +1287,10 @@ textarea:focus-visible {
   .discovery-toolbar {
     margin-bottom: 7px;
     padding-bottom: 7px;
+  }
+  .discovery-card-shell {
+    height: 100%;
+    min-height: 330px;
   }
   .discovery-toolbar > div:last-child span:last-child {
     display: none;

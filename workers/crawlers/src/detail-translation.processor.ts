@@ -36,9 +36,16 @@ async function unavailableCode(response: Response) {
     const payload = JSON.parse(body) as { code?: unknown; message?: unknown };
     if (payload.code === "AI_GATEWAY_NOT_CONFIGURED")
       return "AI_GATEWAY_NOT_CONFIGURED";
-    if (payload.code === "AI_GATEWAY_UNAVAILABLE")
-      return "AI_GATEWAY_UNAVAILABLE";
-    if (payload.code === "AI_GATEWAY_DEADLINE_EXCEEDED")
+    if (
+      typeof payload.code === "string" &&
+      [
+        "AI_GATEWAY_UNAVAILABLE",
+        "AI_GATEWAY_DEADLINE_EXCEEDED",
+        "AI_GATEWAY_CAPACITY_COOLDOWN",
+        "AI_GATEWAY_CATALOGUE_UNAVAILABLE",
+        "AI_GATEWAY_NO_FREE_MODEL",
+      ].includes(payload.code)
+    )
       return "AI_GATEWAY_UNAVAILABLE";
   } catch {}
   if (/AI Gateway|B\.AI|模型路由均不可用/i.test(body))

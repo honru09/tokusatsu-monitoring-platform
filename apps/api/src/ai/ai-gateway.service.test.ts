@@ -101,6 +101,14 @@ const providerCases = [
     model: "command-a-plus-05-2026",
     tierKey: "COHERE_API_TIER",
   },
+  {
+    provider: "sensenova",
+    key: "SENSENOVA_API_KEY",
+    urlKey: "SENSENOVA_API_URL",
+    url: "https://sensenova.test/compatible-mode/v2",
+    model: "SenseNova-V6-5-Pro",
+    tierKey: "SENSENOVA_API_TIER",
+  },
 ] as const;
 
 const originalEnvironment = { ...process.env };
@@ -117,6 +125,8 @@ function clearProviderEnvironment() {
     "CLOUDFLARE_ACCOUNT_ID",
     "COHERE_API_KEY",
     "NVIDIA_API_KEY",
+    "SENSENOVA_API_KEY",
+    "SENSENOVA_TRANSLATION_API_KEY",
     "NVIDIA_INTERNAL_EVALUATION",
     "COHERE_INTERNAL_EVALUATION",
     "COHERE_PRODUCTION_AUTHORIZED",
@@ -264,6 +274,131 @@ describe("AiGatewayService multi-provider pool", () => {
     expect(selected).toEqual(new Set(["gemini", "groq"]));
   });
 
+  it("falls back from the SenseNova main credential to the translation credential", async () => {
+    const senseNova = providerCases[9];
+    configure(senseNova, "paid");
+    process.env.SENSENOVA_TRANSLATION_API_KEY = "test-sensenova-translation-key";
+    process.env.AI_PROVIDER_ORDER = "sensenova";
+    const chatCredentials: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        const authorization = new Headers(init?.headers).get("authorization") ?? "";
+        if (url.endsWith("/models"))
+          return Response.json({ data: [{ id: senseNova.model }] });
+        chatCredentials.push(authorization);
+        return authorization.endsWith("test-sensenova-key")
+          ? Response.json({ error: "credential rejected" }, { status: 401 })
+          : success(senseNova.model, "translation-key-ok");
+      }),
+    );
+    const { gateway, prisma } = service();
+
+    const first = await gateway.executeJson(request("main-key-fallback"));
+    const second = await gateway.executeJson(request("main-key-still-cooling"));
+
+    expect(first.data.answerZh).toBe("translation-key-ok");
+    expect(second.data.answerZh).toBe("translation-key-ok");
+    expect(chatCredentials.filter((value) => value.endsWith("test-sensenova-key"))).toHaveLength(1);
+    expect(prisma.aiProviderState.upsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ lastErrorCode: "AUTH" }),
+      }),
+    );
+  });
+
+  it("falls back from the SenseNova translation credential after a credential-scoped 429", async () => {
+    const senseNova = providerCases[9];
+    configure(senseNova, "paid");
+    process.env.SENSENOVA_TRANSLATION_API_KEY = "test-sensenova-translation-key";
+    process.env.AI_PROVIDER_ORDER = "sensenova";
+    const chatCredentials: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        const authorization = new Headers(init?.headers).get("authorization") ?? "";
+        if (url.endsWith("/models"))
+          return Response.json({ data: [{ id: "SenseNova-V6-5-Turbo" }] });
+        chatCredentials.push(authorization);
+        return authorization.endsWith("test-sensenova-translation-key")
+          ? Response.json(
+              { error: "credential requests per minute" },
+              { status: 429, headers: { "retry-after": "60" } },
+            )
+          : success("SenseNova-V6-5-Turbo", "main-key-ok");
+      }),
+    );
+    const { gateway } = service();
+
+    const result = await gateway.executeJson(
+      request("translation-key-fallback", { task: "translation" }),
+    );
+
+    expect(result.data.answerZh).toBe("main-key-ok");
+    expect(chatCredentials).toHaveLength(2);
+    expect(chatCredentials[0]).toMatch(/translation-key$/);
+    expect(chatCredentials[1]).toMatch(/sensenova-key$/);
+  });
+
+  it("merges SenseNova catalogues when one credential cannot access the catalogue", async () => {
+    const senseNova = providerCases[9];
+    configure(senseNova, "paid");
+    process.env.SENSENOVA_TRANSLATION_API_KEY = "test-sensenova-translation-key";
+    process.env.AI_PROVIDER_ORDER = "sensenova";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        const authorization = new Headers(init?.headers).get("authorization") ?? "";
+        if (url.endsWith("/models"))
+          return authorization.endsWith("test-sensenova-key")
+            ? Response.json({ error: "forbidden" }, { status: 403 })
+            : Response.json({ data: [{ id: senseNova.model }] });
+        return success(senseNova.model, "catalogue-fallback-ok");
+      }),
+    );
+    const { gateway } = service();
+
+    const result = await gateway.executeJson(request("catalogue-key-fallback"));
+
+    expect(result.data.answerZh).toBe("catalogue-fallback-ok");
+  });
+
+  it("marks SenseNova unavailable only after every credential fails without leaking credentials", async () => {
+    const senseNova = providerCases[9];
+    configure(senseNova, "paid");
+    process.env.SENSENOVA_TRANSLATION_API_KEY = "test-sensenova-translation-key";
+    process.env.AI_PROVIDER_ORDER = "sensenova";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) =>
+        String(input).endsWith("/models")
+          ? Response.json({ data: [{ id: senseNova.model }] })
+          : Response.json({ error: "forbidden" }, { status: 403 }),
+      ),
+    );
+    const { gateway, prisma } = service();
+
+    const error = await gateway
+      .executeJson(request("all-credentials-fail"))
+      .catch((value: unknown) => value);
+    const response = (
+      error as { getResponse(): Record<string, unknown> }
+    ).getResponse();
+    const serialized = JSON.stringify(response);
+
+    expect(response.code).toBe("AI_GATEWAY_UNAVAILABLE");
+    expect(serialized).not.toContain("test-sensenova-key");
+    expect(serialized).not.toContain("test-sensenova-translation-key");
+    expect(prisma.aiProviderState.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ lastErrorCode: "AUTH" }),
+      }),
+    );
+  });
+
   it.each([
     [401, "AUTH", "unauthorized"],
     [402, "CREDITS", "credits exhausted"],
@@ -316,6 +451,33 @@ describe("AiGatewayService multi-provider pool", () => {
       );
     },
   );
+
+  it("puts a 503 provider outage into a long circuit cooldown", async () => {
+    const bai = providerCases[0];
+    configure(bai);
+    process.env.AI_PROVIDER_ORDER = "bai";
+    process.env.AI_PROVIDER_5XX_COOLDOWN_MS = "900000";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) =>
+        String(input).endsWith("/models")
+          ? Response.json({ data: [{ id: bai.model }] })
+          : Response.json({ error: "service unavailable" }, { status: 503 }),
+      ),
+    );
+    const { gateway, prisma } = service();
+    const startedAt = Date.now();
+
+    await gateway.executeJson(request("provider-503")).catch(() => undefined);
+
+    const failure = prisma.aiProviderState.upsert.mock.calls.find(
+      ([input]) => input.update?.lastErrorCode === "PROVIDER_ERROR",
+    )?.[0];
+    expect(failure?.update.cooldownUntil).toBeInstanceOf(Date);
+    expect(failure?.update.cooldownUntil.getTime()).toBeGreaterThanOrEqual(
+      startedAt + 899_000,
+    );
+  });
 
   it("keeps Groq 429 scoped to the model and tries another Groq model", async () => {
     const groq = providerCases[3];
@@ -583,7 +745,7 @@ describe("AiGatewayService multi-provider pool", () => {
 
       expect(
         (error as { getResponse(): { code: string } }).getResponse().code,
-      ).toBe("AI_GATEWAY_NO_ELIGIBLE_MODEL");
+      ).toBe("AI_GATEWAY_DATA_POLICY_BLOCKED");
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );
@@ -606,7 +768,7 @@ describe("AiGatewayService multi-provider pool", () => {
 
     expect(
       (error as { getResponse(): { code: string } }).getResponse().code,
-    ).toBe("AI_GATEWAY_NO_ELIGIBLE_MODEL");
+    ).toBe("AI_GATEWAY_DATA_POLICY_BLOCKED");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -625,7 +787,7 @@ describe("AiGatewayService multi-provider pool", () => {
 
       expect(
         (error as { getResponse(): { code: string } }).getResponse().code,
-      ).toBe("AI_GATEWAY_NO_ELIGIBLE_MODEL");
+      ).toBe("AI_GATEWAY_DATA_POLICY_BLOCKED");
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );

@@ -44,7 +44,7 @@ export {
   providerForModel,
 };
 
-export const AI_ROUTE_REVISION = "multi-provider-20260830-v4";
+export const AI_ROUTE_REVISION = "multi-provider-20260831-v5";
 export const AI_MODEL_ALLOWLIST = PROVIDER_MODEL_ALLOWLIST.bai;
 export const OPENROUTER_MODEL_ALLOWLIST = PROVIDER_MODEL_ALLOWLIST.openrouter;
 export const OPENROUTER_PAID_MODELS = new Set(
@@ -347,6 +347,20 @@ const cohereRoutes: Record<AiTask, string[]> = {
   assistant_chat: ["command-a-plus-05-2026", "command-a-reasoning-08-2025"],
 };
 
+const senseNovaRoutes: Record<AiTask, string[]> = {
+  bulk_filter: ["SenseNova-V6-5-Turbo", "SenseChat-5"],
+  translation: ["SenseNova-V6-5-Turbo", "SenseNova-V6-5-Pro", "SenseChat-5"],
+  classification: ["SenseNova-V6-5-Turbo", "SenseChat-5"],
+  image_analysis: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
+  seller_analysis: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
+  complex_analysis: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
+  cross_validation: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
+  market_analysis: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
+  crawler_diagnosis: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
+  logistics_analysis: ["SenseNova-V6-5-Turbo", "SenseNova-V6-5-Pro"],
+  assistant_chat: ["SenseNova-V6-5-Pro", "SenseNova-V6-5-Turbo"],
+};
+
 const defaultRoutes: Record<AiProvider, Record<AiTask, string[]>> = {
   bai: baiRoutes,
   openrouter: openRouterRoutes,
@@ -357,6 +371,7 @@ const defaultRoutes: Record<AiProvider, Record<AiTask, string[]>> = {
   cloudflare: cloudflareRoutes,
   cohere: cohereRoutes,
   nvidia: nvidiaRoutes,
+  sensenova: senseNovaRoutes,
 };
 
 export const modelRoleLabels = Object.fromEntries(

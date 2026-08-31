@@ -67,6 +67,75 @@ export function publicDetailFields(value: unknown) {
   return rows;
 }
 
+type DetailFieldFragment = {
+  fragmentKey: string;
+  path: string;
+  part: number;
+  parts: number;
+  value: string;
+};
+
+function splitDetailValue(value: string, maximum = 5_000) {
+  const parts: string[] = [];
+  let remaining = value;
+  while (remaining.length > maximum) {
+    const window = remaining.slice(0, maximum);
+    const candidates = ["\n", "。", "！", "？", "；", ". ", "! ", "? "];
+    const boundary = Math.max(
+      ...candidates.map((separator) => window.lastIndexOf(separator)),
+    );
+    const cut = boundary >= Math.floor(maximum * 0.55) ? boundary + 1 : maximum;
+    parts.push(remaining.slice(0, cut));
+    remaining = remaining.slice(cut);
+  }
+  if (remaining) parts.push(remaining);
+  return parts.length ? parts : [""];
+}
+
+/**
+ * Keep every public field while staying below provider request limits. A
+ * single marketplace payload may repeat a long body field, so oversized
+ * values are split and later reassembled under their original path.
+ */
+export function publicDetailFieldChunks(
+  fields: Array<{ path: string; value: string }>,
+  maximumCharacters = 8_000,
+  maximumRows = 24,
+) {
+  const fragments = fields.flatMap((field, fieldIndex) => {
+    const parts = splitDetailValue(field.value);
+    return parts.map(
+      (value, part): DetailFieldFragment => ({
+        fragmentKey: `${fieldIndex}:${part}`,
+        path: field.path,
+        part,
+        parts: parts.length,
+        value,
+      }),
+    );
+  });
+  const chunks: DetailFieldFragment[][] = [];
+  let current: DetailFieldFragment[] = [];
+  let currentCharacters = 0;
+  for (const fragment of fragments) {
+    const size =
+      fragment.fragmentKey.length + fragment.path.length + fragment.value.length;
+    if (
+      current.length > 0 &&
+      (current.length >= maximumRows ||
+        currentCharacters + size > maximumCharacters)
+    ) {
+      chunks.push(current);
+      current = [];
+      currentCharacters = 0;
+    }
+    current.push(fragment);
+    currentCharacters += size;
+  }
+  if (current.length) chunks.push(current);
+  return chunks;
+}
+
 function sourceShippingEvidence(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const source = value as Record<string, unknown>;
@@ -432,7 +501,6 @@ export class AnalysisService {
         descriptionZh?: unknown;
         conditionZh?: unknown;
         shippingZh?: unknown;
-        detailTranslations?: unknown;
         purchaseSummaryZh?: unknown;
         includedItemsZh?: unknown;
         missingOrRiskZh?: unknown;
@@ -443,12 +511,12 @@ export class AnalysisService {
         dataClass: "public_market",
         costPolicy: "free_first",
         itemId: id,
-        maxTokens: 12_000,
+        maxTokens: 4_000,
         messages: [
           {
             role: "system",
             content:
-              '你是日本特摄中古商品的专业全量翻译员和采购信息整理员。必须把输入中的商品标题、卖家正文、品相、运费、交易条件和所有公开字段逐项完整翻译成自然、准确、中文母语者可独立理解的简体中文。不得摘要，不得只翻译角色名，不得省略括号、数量、缺件、瑕疵、版本、型号、时间、配送和竞拍条件；品牌、型号或无法确定的专名可保留原文并给出中文说明。detailTranslations 必须与 detailFields 等长、按相同顺序返回 path、便于普通用户理解的中文字段名 labelZh，以及完整 valueZh。另外基于公开信息生成四项采购解读：purchaseSummaryZh 说明商品到底是什么、销售方式和已知价值点；includedItemsZh 完整列出明确包含的本体、配件、包装与数量；missingOrRiskZh 只列出明确缺失、瑕疵、未知或需要核验的风险，不能把推断写成事实；checksBeforePurchaseZh 给出购买前需要确认的具体事项。绝对不能因为输入里没有图片字段就声称卖家未提供实物照片、没有图片或缺图，只有公开文字明确写明无图时才可这样判断。只输出 JSON：{"titleZh":"...","descriptionZh":"...","conditionZh":"...","shippingZh":"...","detailTranslations":[{"path":"...","labelZh":"中文字段名","valueZh":"完整字段翻译"}],"purchaseSummaryZh":"...","includedItemsZh":"...","missingOrRiskZh":"...","checksBeforePurchaseZh":"..."}。',
+              '你是日本特摄中古商品的专业全量翻译员和采购信息整理员。必须把输入中的商品标题、卖家正文、品相和运费完整翻译成自然、准确、中文母语者可独立理解的简体中文。不得摘要，不得只翻译角色名，不得省略括号、数量、缺件、瑕疵、版本、型号、时间、配送和竞拍条件；品牌、型号或无法确定的专名可保留原文并给出中文说明。另外基于这些公开信息生成四项采购解读：purchaseSummaryZh 说明商品到底是什么、销售方式和已知价值点；includedItemsZh 完整列出明确包含的本体、配件、包装与数量；missingOrRiskZh 只列出明确缺失、瑕疵、未知或需要核验的风险，不能把推断写成事实；checksBeforePurchaseZh 给出购买前需要确认的具体事项。绝对不能因为输入里没有图片字段就声称卖家未提供实物照片、没有图片或缺图，只有公开文字明确写明无图时才可这样判断。只输出 JSON：{"titleZh":"...","descriptionZh":"...","conditionZh":"...","shippingZh":"...","purchaseSummaryZh":"...","includedItemsZh":"...","missingOrRiskZh":"...","checksBeforePurchaseZh":"..."}。',
           },
           {
             role: "user",
@@ -457,31 +525,15 @@ export class AnalysisService {
               descriptionRaw: item.descriptionRaw ?? "平台没有公开卖家正文",
               conditionRaw: item.conditionRaw ?? "平台没有公开品相说明",
               shippingRaw,
-              detailFields,
             }),
           },
         ],
       });
       const result = execution.data;
-      const detailTranslations = Array.isArray(result.detailTranslations)
-        ? result.detailTranslations.flatMap((entry) => {
-            if (!entry || typeof entry !== "object") return [];
-            const value = entry as Record<string, unknown>;
-            return typeof value.path === "string" &&
-              typeof value.valueZh === "string"
-              ? [
-                  {
-                    path: value.path,
-                    labelZh:
-                      typeof value.labelZh === "string" && value.labelZh.trim()
-                        ? value.labelZh.trim()
-                        : value.path,
-                    valueZh: value.valueZh,
-                  },
-                ]
-              : [];
-          })
-        : [];
+      const detailTranslations = await this.translateDetailFields(
+        id,
+        detailFields,
+      );
       const analysisRows = [
         ["ai.model", "AI 模型", execution.model],
         ["ai.purchaseSummary", "AI 采购解读", result.purchaseSummaryZh],
@@ -554,6 +606,83 @@ export class AnalysisService {
       });
       throw error;
     }
+  }
+
+  private async translateDetailFields(
+    itemId: string,
+    fields: Array<{ path: string; value: string }>,
+  ) {
+    if (!fields.length) return [];
+    const translatedFragments = new Map<
+      string,
+      { labelZh: string; valueZh: string }
+    >();
+    for (const chunk of publicDetailFieldChunks(fields)) {
+      const execution = await this.gateway.executeJson<{
+        translations?: unknown;
+      }>({
+        task: "translation",
+        dataClass: "public_market",
+        costPolicy: "free_first",
+        itemId,
+        maxTokens: 4_000,
+        messages: [
+          {
+            role: "system",
+            content:
+              '你是日本中古商品公开字段的完整翻译员。逐项完整翻译 value，不得摘要、删减数字、条件、配件、瑕疵、运费、时间或专有名词。fragmentKey 和 path 必须原样返回，顺序和数量必须与输入完全一致；labelZh 是普通中文用户能理解的简短字段名。只输出 JSON：{"translations":[{"fragmentKey":"...","path":"...","labelZh":"...","valueZh":"完整中文翻译"}]}。',
+          },
+          {
+            role: "user",
+            content: JSON.stringify({ fields: chunk }),
+          },
+        ],
+      });
+      const rows = Array.isArray(execution.data.translations)
+        ? execution.data.translations
+        : [];
+      for (const row of rows) {
+        if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+        const value = row as Record<string, unknown>;
+        if (
+          typeof value.fragmentKey !== "string" ||
+          typeof value.valueZh !== "string" ||
+          !value.valueZh.trim()
+        )
+          continue;
+        translatedFragments.set(value.fragmentKey, {
+          labelZh:
+            typeof value.labelZh === "string" && value.labelZh.trim()
+              ? value.labelZh.trim()
+              : typeof value.path === "string" && value.path.trim()
+                ? value.path.trim()
+                : value.fragmentKey,
+          valueZh: value.valueZh,
+        });
+      }
+      const missing = chunk.filter(
+        (fragment) => !translatedFragments.has(fragment.fragmentKey),
+      );
+      if (missing.length)
+        throw new Error(
+          `Detail translation omitted ${missing.length} public field fragments`,
+        );
+    }
+
+    return fields.map((field, fieldIndex) => {
+      const parts = splitDetailValue(field.value);
+      const translated = parts.map((_, part) => {
+        const row = translatedFragments.get(`${fieldIndex}:${part}`);
+        if (!row)
+          throw new Error(`Detail translation missing ${field.path} part ${part}`);
+        return row;
+      });
+      return {
+        path: field.path,
+        labelZh: translated[0]?.labelZh ?? field.path,
+        valueZh: translated.map((part) => part.valueZh).join(""),
+      };
+    });
   }
 
   async seller(id: string, targetPrice?: number, page = 1, limit = 48) {

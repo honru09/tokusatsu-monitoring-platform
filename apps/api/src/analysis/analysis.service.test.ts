@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AnalysisService,
   negotiationFallback,
+  publicDetailFieldChunks,
   publicDetailFields,
 } from "./analysis.service.js";
 
@@ -92,6 +93,33 @@ describe("publicDetailFields", () => {
         value: "仮面ライダー DX 2点セット",
       },
     ]);
+  });
+
+  it("keeps every field while splitting provider-safe translation requests", () => {
+    const longValue = `説明。${"付属品と状態".repeat(1_400)}`;
+    const chunks = publicDetailFieldChunks([
+      { path: "item.description", value: longValue },
+      { path: "item.condition", value: "中古・傷あり" },
+    ]);
+    const fragments = chunks.flat();
+
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(fragments.map((fragment) => fragment.value).join(""))
+      .toBe(`${longValue}中古・傷あり`);
+    expect(
+      Math.max(
+        ...chunks.map((chunk) =>
+          chunk.reduce(
+            (total, fragment) =>
+              total +
+              fragment.fragmentKey.length +
+              fragment.path.length +
+              fragment.value.length,
+            0,
+          ),
+        ),
+      ),
+    ).toBeLessThanOrEqual(8_000);
   });
 });
 

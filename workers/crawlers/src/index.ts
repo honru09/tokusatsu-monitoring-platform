@@ -24,6 +24,27 @@ await processCleanup();
 await backfillUnmatchedListings();
 await scheduleJobs();
 
+function positiveIntegerEnvironment(name: string, fallback: number) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= 1 ? Math.floor(value) : fallback;
+}
+
+// Background enrichment must leave request headroom for interactive translation
+// and assistant chat. Each queue remains continuous, but its default RPM is kept
+// below the combined free-tier limits used by the shared provider pool.
+const imageClassificationRpm = positiveIntegerEnvironment(
+  "IMAGE_CLASSIFICATION_RPM",
+  2,
+);
+const titleTranslationRpm = positiveIntegerEnvironment(
+  "TITLE_TRANSLATION_RPM",
+  2,
+);
+const detailTranslationRpm = positiveIntegerEnvironment(
+  "DETAIL_TRANSLATION_RPM",
+  1,
+);
+
 const workers = [
   new Worker("source-search", processSearch, {
     connection,
@@ -33,7 +54,7 @@ const workers = [
   new Worker("image-classification", processClassification, {
     connection,
     concurrency: 1,
-    limiter: { max: 4, duration: 60_000 },
+    limiter: { max: imageClassificationRpm, duration: 60_000 },
   }),
   new Worker("item-status-refresh", processStatus, {
     connection,
@@ -69,12 +90,12 @@ const workers = [
   new Worker("title-translation", processTitleTranslation, {
     connection,
     concurrency: 1,
-    limiter: { max: 4, duration: 60_000 },
+    limiter: { max: titleTranslationRpm, duration: 60_000 },
   }),
   new Worker("item-detail-translation", processDetailTranslation, {
     connection,
     concurrency: 1,
-    limiter: { max: 4, duration: 60_000 },
+    limiter: { max: detailTranslationRpm, duration: 60_000 },
   }),
   new Worker("ai-operations", processAiOperations, {
     connection,

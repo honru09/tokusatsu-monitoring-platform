@@ -106,7 +106,7 @@ describe("assistant AI route", () => {
     ]);
   });
 
-  it("registers all nine providers and their isolated model allowlists", () => {
+  it("registers all ten providers and their isolated model allowlists", () => {
     expect(AI_PROVIDER_IDS).toEqual([
       "bai",
       "gemini",
@@ -116,6 +116,7 @@ describe("assistant AI route", () => {
       "cloudflare",
       "cohere",
       "nvidia",
+      "sensenova",
       "openrouter",
     ]);
     expect(PROVIDER_MODEL_ALLOWLIST.nvidia).toEqual(
@@ -139,6 +140,11 @@ describe("assistant AI route", () => {
     expect(routeForProvider("translation", "cohere")).toEqual([
       "command-a-translate-08-2025",
       "command-a-plus-05-2026",
+    ]);
+    expect(routeForProvider("translation", "sensenova")).toEqual([
+      "SenseNova-V6-5-Turbo",
+      "SenseNova-V6-5-Pro",
+      "SenseChat-5",
     ]);
   });
 

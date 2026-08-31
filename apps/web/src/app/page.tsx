@@ -569,6 +569,21 @@ function ShareIcon({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
+function MoreIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="currentColor"
+    >
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
+    </svg>
+  );
+}
+
 function PhotoIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg
@@ -1272,9 +1287,10 @@ function ProductCard({
   const [noteDraft, setNoteDraft] = useState(item.note ?? "");
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   useEffect(() => setNoteDraft(item.note ?? ""), [item.note]);
   async function saveNote() {
-    const next = noteDraft.slice(0, NOTE_MAX_LENGTH);
+    const next = noteDraft.trim().slice(0, NOTE_MAX_LENGTH);
     if (next === (item.note ?? "")) {
       setNoteOpen(false);
       return;
@@ -1309,7 +1325,7 @@ function ProductCard({
   return (
     <article
       data-item-id={item.id}
-      className="ios-card product-card js-product-card motion-layer group flex h-full min-w-0 flex-col overflow-hidden rounded-[18px] shadow-panel"
+      className="ios-card product-card js-product-card motion-layer group flex min-w-0 flex-col overflow-hidden rounded-[18px] shadow-panel"
     >
       <div
         role="button"
@@ -1331,12 +1347,32 @@ function ProductCard({
           imageClassName="opacity-90 transition-transform duration-300 group-hover:scale-[1.025]"
         />
         <div className="absolute inset-x-0 top-0 flex items-start justify-between p-2.5">
-          <span className="rounded-md bg-ink/90 px-2 py-1 text-[10px] font-black tracking-wide text-white">
-            {labels[item.categoryIp] ?? item.categoryIp}
-          </span>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="product-card-ip-badge max-w-32 truncate rounded-md bg-ink/90 px-2 py-1 text-[10px] font-black tracking-wide text-white">
+              {labels[item.categoryIp] ?? item.categoryIp}
+            </span>
+            {!noteOpen && !item.note && (
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setNoteOpen(true);
+                }}
+                aria-label="添加采购备注"
+                title="添加采购备注"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/20 bg-ink/70 text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-ink/90"
+              >
+                <CommentIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
                 setShowOriginal((current) => !current);
@@ -1349,14 +1385,37 @@ function ProductCard({
             </button>
           </div>
         </div>
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-ink/90 to-transparent p-2.5 pt-10 text-white">
-          <span className="text-[11px] font-semibold">
+        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-ink/90 to-transparent p-2.5 pb-3 pt-10 text-white">
+          <span className="min-w-0 truncate text-[11px] font-semibold">
             {sourceName(item.source.key, item.source.displayName)}
           </span>
-          <span className="font-mono text-[10px]">
-            IMG {item.images.length}
-          </span>
+          {auction?.remaining ? (
+            <span
+              className={`shrink-0 rounded-md bg-white/92 px-2 py-1 font-mono text-[10px] font-black tabular-nums ${auction.remainingMs < 10 * 60_000 ? "text-rust" : auction.remainingMs < 60 * 60_000 ? "text-amber-700" : "text-ink"}`}
+            >
+              剩 {auction.remaining}
+            </span>
+          ) : (
+            <span className="shrink-0 font-mono text-[10px]">
+              {item.images.length} 图
+            </span>
+          )}
         </div>
+        {auction?.remaining && (
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-1 bg-white/25"
+            aria-label={`拍卖进度 ${Math.round(auction.progress * 100)}%`}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(auction.progress * 100)}
+          >
+            <span
+              className={`block h-full origin-left transition-transform duration-1000 ease-linear motion-reduce:transition-none ${auction.remainingMs < 10 * 60_000 ? "bg-rust" : auction.remainingMs < 60 * 60_000 ? "bg-amber-400" : "bg-white"}`}
+              style={{ transform: `scaleX(${auction.progress})` }}
+            />
+          </div>
+        )}
       </div>
 
       <div className="product-card-body flex flex-1 flex-col p-3">
@@ -1426,33 +1485,6 @@ function ProductCard({
             </div>
           </div>
         </div>
-        {auction?.remaining && (
-          <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50/70 px-2.5 py-2 text-ink">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold text-ink/60">
-                拍卖 · {item.bidCount ?? 0} 竞拍
-              </span>
-              <b
-                className={`font-mono text-xs tabular-nums ${auction.remainingMs < 10 * 60_000 ? "text-rust" : auction.remainingMs < 60 * 60_000 ? "text-amber-700" : "text-moss"}`}
-              >
-                剩 {auction.remaining}
-              </b>
-            </div>
-            <div
-              className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink/10"
-              aria-label={`拍卖进度 ${Math.round(auction.progress * 100)}%`}
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(auction.progress * 100)}
-            >
-              <span
-                className={`block h-full origin-left rounded-full transition-transform duration-1000 ease-linear motion-reduce:transition-none ${auction.remainingMs < 10 * 60_000 ? "bg-rust" : auction.remainingMs < 60 * 60_000 ? "bg-amber-500" : "bg-moss"}`}
-                style={{ transform: `scaleX(${auction.progress})` }}
-              />
-            </div>
-          </div>
-        )}
         <div className="product-card-seller mt-2 flex items-center justify-between gap-2 text-[10px] text-ink/50">
           <button
             type="button"
@@ -1469,57 +1501,58 @@ function ProductCard({
           </button>
           <span className="shrink-0">发现 {relativeTime(item.detectedAt)}</span>
         </div>
-        <div className="product-card-note mt-2 min-h-11">
-          {noteOpen ? (
-            <div className="flex min-h-11 items-center gap-2 rounded-xl border border-ink/10 bg-fog/35 px-2.5 transition-[opacity,transform] duration-200 motion-reduce:transition-none">
-              <CommentIcon className="h-4 w-4 shrink-0 text-ink/40" />
-              <input
-                autoFocus
-                value={noteDraft}
-                maxLength={NOTE_MAX_LENGTH}
-                onChange={(event) =>
-                  setNoteDraft(event.target.value.slice(0, NOTE_MAX_LENGTH))
-                }
-                onBlur={() => void saveNote()}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    event.currentTarget.blur();
+        {(noteOpen || item.note) && (
+          <div className="product-card-note mt-2">
+            {noteOpen ? (
+              <div className="flex min-h-11 items-center gap-2 rounded-xl border border-ink/10 bg-fog/35 px-2.5 transition-[opacity,transform] duration-200 motion-reduce:transition-none">
+                <CommentIcon className="h-4 w-4 shrink-0 text-ink/40" />
+                <input
+                  autoFocus
+                  value={noteDraft}
+                  maxLength={NOTE_MAX_LENGTH}
+                  onChange={(event) =>
+                    setNoteDraft(event.target.value.slice(0, NOTE_MAX_LENGTH))
                   }
-                  if (event.key === "Escape") {
-                    setNoteDraft(item.note ?? "");
-                    setNoteOpen(false);
-                  }
-                }}
-                aria-label="采购备注"
-                placeholder={`最多 ${NOTE_MAX_LENGTH} 字`}
-                disabled={noteSaving}
-                className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink/35"
-              />
-              <span className="shrink-0 font-mono text-[9px] text-ink/35">
-                {noteDraft.length}/{NOTE_MAX_LENGTH}
-              </span>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setNoteOpen(true)}
-              aria-label={
-                item.note ? `编辑采购备注：${item.note}` : "添加采购备注"
-              }
-              title={item.note ? "编辑采购备注" : "添加采购备注"}
-              className={`flex h-11 max-w-full items-center gap-1.5 rounded-full border border-ink/10 bg-white px-3 text-xs text-ink/60 transition-[width,background-color] duration-200 hover:bg-fog motion-reduce:transition-none ${item.note ? "w-fit" : "w-11 justify-center px-0"}`}
-            >
-              <CommentIcon className="h-4 w-4 shrink-0" />
-              {item.note && (
-                <span className="min-w-0 truncate" title={item.note}>
+                  onBlur={() => void saveNote()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      event.currentTarget.blur();
+                    }
+                    if (event.key === "Escape") {
+                      setNoteDraft(item.note ?? "");
+                      setNoteOpen(false);
+                    }
+                  }}
+                  aria-label="采购备注"
+                  placeholder={`最多 ${NOTE_MAX_LENGTH} 字`}
+                  disabled={noteSaving}
+                  className="min-w-0 flex-1 bg-transparent text-xs text-ink outline-none placeholder:text-ink/35"
+                />
+                <span className="shrink-0 font-mono text-[9px] text-ink/35">
+                  {noteDraft.length}/{NOTE_MAX_LENGTH}
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setNoteOpen(true)}
+                aria-label={`编辑采购备注：${item.note}`}
+                title="编辑采购备注"
+                className="flex h-11 max-w-full items-center gap-1.5 rounded-full border border-ink/10 bg-white px-3 text-xs text-ink/60 transition-colors duration-150 hover:bg-fog motion-reduce:transition-none"
+              >
+                <CommentIcon className="h-4 w-4 shrink-0" />
+                <span
+                  className="min-w-0 truncate"
+                  title={item.note ?? undefined}
+                >
                   {item.note}
                 </span>
-              )}
-            </button>
-          )}
-        </div>
-        <div className="product-card-actions mt-auto grid grid-cols-6 gap-1.5 pt-2">
+              </button>
+            )}
+          </div>
+        )}
+        <div className="product-card-actions grid grid-cols-3 gap-1.5 pt-2 sm:grid-cols-4">
           <button
             onClick={() => onPatch({ favorite: !item.favorite })}
             aria-label={item.favorite ? "取消收藏" : "收藏商品"}
@@ -1532,25 +1565,9 @@ function ProductCard({
             onClick={onOpen}
             aria-label="查看详情"
             title="详情"
-            className="grid min-h-11 place-items-center rounded-lg bg-moss text-white transition-colors hover:bg-moss/90"
+            className="hidden min-h-11 place-items-center rounded-lg bg-moss text-white transition-colors hover:bg-moss/90 sm:grid"
           >
             <InfoIcon />
-          </button>
-          <button
-            onClick={onIgnore}
-            aria-label="标记为不感兴趣"
-            title="不感兴趣"
-            className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-rust/40 hover:text-rust"
-          >
-            <ArchiveIcon />
-          </button>
-          <button
-            onClick={onPurchase}
-            aria-label="记录购买"
-            title="记录购买"
-            className="grid min-h-11 place-items-center rounded-lg border border-rust/25 bg-rust/5 text-rust transition-colors hover:bg-rust/10"
-          >
-            <MoneyIcon />
           </button>
           <button
             onClick={onCart}
@@ -1561,14 +1578,53 @@ function ProductCard({
             <CartIcon />
           </button>
           <button
-            onClick={onShare}
-            aria-label="分享商品"
-            title="分享"
-            className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-moss/35"
+            type="button"
+            onClick={() => setMoreActionsOpen((current) => !current)}
+            aria-label={moreActionsOpen ? "收起更多操作" : "更多商品操作"}
+            aria-expanded={moreActionsOpen}
+            title="更多"
+            className={`grid min-h-11 place-items-center rounded-lg border transition-colors ${moreActionsOpen ? "border-ink bg-ink text-white" : "border-ink/10 bg-white text-ink hover:border-moss/35"}`}
           >
-            <ShareIcon />
+            <MoreIcon />
           </button>
         </div>
+        {moreActionsOpen && (
+          <div className="product-card-more-actions grid grid-cols-3 gap-1.5 pt-1.5">
+            <button
+              onClick={() => {
+                setMoreActionsOpen(false);
+                onIgnore();
+              }}
+              aria-label="标记为不感兴趣"
+              title="不感兴趣"
+              className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-rust/40 hover:text-rust"
+            >
+              <ArchiveIcon />
+            </button>
+            <button
+              onClick={() => {
+                setMoreActionsOpen(false);
+                onPurchase();
+              }}
+              aria-label="记录购买"
+              title="记录购买"
+              className="grid min-h-11 place-items-center rounded-lg border border-rust/25 bg-rust/5 text-rust transition-colors hover:bg-rust/10"
+            >
+              <MoneyIcon />
+            </button>
+            <button
+              onClick={() => {
+                setMoreActionsOpen(false);
+                onShare();
+              }}
+              aria-label="分享商品"
+              title="分享"
+              className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-moss/35"
+            >
+              <ShareIcon />
+            </button>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -4282,13 +4338,15 @@ export default function Dashboard() {
 
   useGSAP(
     () => {
-      const nodes = gsap.utils
-        .toArray<HTMLElement>(".js-product-card")
-        .filter(
-          (node) =>
-            node.dataset.itemId &&
-            !animatedItemIdsRef.current.has(node.dataset.itemId),
-        );
+      const nodes = gsap.utils.toArray<HTMLElement>(".js-product-card").filter(
+        (node) =>
+          node.dataset.itemId &&
+          !animatedItemIdsRef.current.has(node.dataset.itemId) &&
+          (() => {
+            const bounds = node.getBoundingClientRect();
+            return bounds.top < window.innerHeight && bounds.bottom > 0;
+          })(),
+      );
       const entranceNodes = nodes.slice(0, 8);
       entranceNodes.forEach((node) =>
         animatedItemIdsRef.current.add(node.dataset.itemId ?? ""),
@@ -6046,7 +6104,7 @@ export default function Dashboard() {
                     已导入商品 · {linkTotal}
                   </h3>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="mt-2 grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {linkItems.length === 0 ? (
                     <p className="rounded-xl border border-dashed p-6 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
                       分析完成后商品会显示在这里
@@ -7195,7 +7253,7 @@ export default function Dashboard() {
             )}
 
             <section
-              className="urgent-auction-zone workspace-surface js-shell-reveal mt-3 rounded-2xl border border-amber-200/70 bg-white p-3 shadow-panel"
+              className={`urgent-auction-zone workspace-surface js-shell-reveal mt-3 rounded-2xl border border-amber-200/70 bg-white p-3 shadow-panel ${urgentAuctionSelection.items.length === 1 ? "urgent-auction-zone-single" : urgentAuctionSelection.items.length === 2 ? "urgent-auction-zone-compact" : ""}`}
               aria-labelledby="urgent-auction-title"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -7258,7 +7316,7 @@ export default function Dashboard() {
                   正在核对全库临期拍卖…
                 </p>
               ) : urgentAuctionSelection.items.length ? (
-                <div className="procurement-grid mt-3 grid auto-rows-fr grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                <div className="urgent-auction-grid procurement-grid mt-3 grid auto-rows-max grid-cols-2 items-start gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {urgentAuctionSelection.items.map((item) => (
                     <ProductCard
                       key={`urgent-${item.id}`}
@@ -7372,7 +7430,7 @@ export default function Dashboard() {
             ) : (
               <div className="mt-3">
                 {items.length ? (
-                  <div className="procurement-grid grid auto-rows-fr grid-cols-2 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                  <div className="procurement-grid grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                     {items.map((item) => (
                       <ProductCard
                         key={item.id}

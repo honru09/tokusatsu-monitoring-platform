@@ -7,6 +7,7 @@ export const AI_PROVIDER_IDS = [
   "cloudflare",
   "cohere",
   "nvidia",
+  "sensenova",
   "openrouter",
 ] as const;
 
@@ -164,6 +165,22 @@ export const AI_MODELS: readonly AiModelDefinition[] = [
   model("nvidia", "nvidia/nemotron-3-nano-30b-a3b", "高速通用分析"),
   model("nvidia", "nvidia/nemotron-3-super-120b-a12b", "高级推理分析"),
   model("nvidia", "nvidia/riva-translate-4b-instruct-v2", "专业翻译备用"),
+
+  model(
+    "sensenova",
+    "SenseNova-V6-5-Turbo",
+    "中文翻译与轻量图文分析",
+    "paid",
+    ["text", "image"],
+  ),
+  model(
+    "sensenova",
+    "SenseNova-V6-5-Pro",
+    "复杂中文图文分析",
+    "paid",
+    ["text", "image"],
+  ),
+  model("sensenova", "SenseChat-5", "中文文本分析", "paid"),
 ];
 
 export const MODEL_DEFINITIONS_BY_PROVIDER = Object.fromEntries(

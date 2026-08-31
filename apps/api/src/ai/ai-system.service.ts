@@ -214,6 +214,13 @@ export class AiSystemService {
       string,
       Record<string, string[]>
     >;
+    const providerConfigurations = this.gateway.providerConfigurations();
+    const providerConfigurationById = new Map(
+      providerConfigurations.map((configuration) => [
+        configuration.provider,
+        configuration,
+      ]),
+    );
     const [
       catalogue,
       states,
@@ -365,6 +372,9 @@ export class AiSystemService {
     const providers = providerIds.map((provider) => {
       const state = providerStateById.get(provider);
       const providerConfigured = configuredProviderSet.has(provider);
+      const configuration = providerConfigurationById.get(
+        provider as AiProvider,
+      );
       const cooldownActive = Boolean(
         state?.cooldownUntil && state.cooldownUntil.getTime() > now,
       );
@@ -373,6 +383,20 @@ export class AiSystemService {
         provider,
         label: displayProvider(provider),
         configured: providerConfigured,
+        credentialConfigured:
+          configuration?.credentialConfigured ?? providerConfigured,
+        configuredCredentialCount:
+          configuration?.configuredCredentialCount ??
+          (providerConfigured ? 1 : 0),
+        activationReason:
+          configuration?.activationReason ??
+          (providerConfigured ? "ready" : "missing_credentials"),
+        apiTier: configuration?.apiTier ?? "unknown",
+        allowedDataClasses: {
+          publicMarket: configuration?.publicMarketAllowed ?? providerConfigured,
+          privateData: configuration?.privateDataAllowed ?? false,
+          sensitiveImages: configuration?.sensitiveImagesAllowed ?? false,
+        },
         status: !providerConfigured
           ? "not_configured"
           : cooldownActive
