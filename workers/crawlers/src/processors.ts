@@ -132,11 +132,15 @@ export async function processSearch(
         : 0,
     },
   });
-  if (
-    source.circuitOpenAt &&
-    Date.now() - source.circuitOpenAt.getTime() < 15 * 60 * 1000
-  ) {
-    throw new Error(`Circuit open for ${adapter.key}`);
+  const circuitRetryAt = openCircuitRetryAt(source.circuitOpenAt);
+  if (circuitRetryAt) {
+    const skipped = {
+      skipped: "circuit_open" as const,
+      adapter: adapter.key,
+      retryAt: circuitRetryAt.toISOString(),
+    };
+    console.log(JSON.stringify({ event: "search_skipped", ...skipped }));
+    return skipped;
   }
 
   const effectiveQuery = await resolveSearchQuery(
@@ -357,6 +361,15 @@ export async function processSearch(
     );
     throw error;
   }
+}
+
+export function openCircuitRetryAt(
+  circuitOpenAt: Date | null | undefined,
+  now = Date.now(),
+) {
+  if (!circuitOpenAt) return null;
+  const retryAt = circuitOpenAt.getTime() + 15 * 60 * 1000;
+  return retryAt > now ? new Date(retryAt) : null;
 }
 
 async function appendItemImages(itemId: string, imageUrls: string[]) {

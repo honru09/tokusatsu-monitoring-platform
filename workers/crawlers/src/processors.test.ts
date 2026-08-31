@@ -2,12 +2,25 @@ import { describe, expect, it } from "vitest";
 import type { NormalizedItem, SearchResult } from "@tokusatsu/shared";
 import {
   needsCompleteEnrichment,
+  openCircuitRetryAt,
   pickExactMercariBackfillResult,
   resetItemTranslation,
   sellerMetadata,
   sellerIdForWrite,
   statusJobId,
 } from "./processors.js";
+
+describe("source circuit breaker", () => {
+  it("treats an open circuit as a scheduled skip until its retry time", () => {
+    const openedAt = new Date("2026-08-31T04:00:00.000Z");
+    expect(
+      openCircuitRetryAt(openedAt, Date.parse("2026-08-31T04:10:00.000Z")),
+    )?.toEqual(new Date("2026-08-31T04:15:00.000Z"));
+    expect(
+      openCircuitRetryAt(openedAt, Date.parse("2026-08-31T04:15:00.000Z")),
+    ).toBeNull();
+  });
+});
 
 describe("historical seller enrichment", () => {
   it("re-crawls Yahoo listings assigned to a provisional seller", () => {
