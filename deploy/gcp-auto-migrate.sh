@@ -36,6 +36,7 @@ if gcloud compute instances describe "$INSTANCE_NAME" --zone="$ZONE" >/dev/null 
   echo "ℹ️ 实例 $INSTANCE_NAME 已存在，直接复用该机器。"
 else
   gcloud compute instances create "$INSTANCE_NAME" \
+    --quiet \
     --project="$PROJECT_ID" \
     --zone="$ZONE" \
     --machine-type="e2-standard-4" \
@@ -243,8 +244,11 @@ DATABASE_URL="postgresql://tokusatsu:change-me-in-production@127.0.0.1:55432/tok
 
 # 安装并启动 Cloudflared 服务 (自启动保活)
 echo "🌐 启动 Cloudflare 隧道服务..."
+sudo mkdir -p /etc/cloudflared
+sudo cp -r ~/.cloudflared/* /etc/cloudflared/
 sudo cloudflared service install || true
-sudo systemctl restart cloudflared || cloudflared run 17a1109b-4265-4f09-860c-c7a21a0770d5 &
+sudo systemctl daemon-reload || true
+sudo systemctl restart cloudflared || sudo systemctl enable --now cloudflared || cloudflared run 17a1109b-4265-4f09-860c-c7a21a0770d5 &
 
 echo "========================================================"
 echo "🎉 恭喜！特摄监控平台已成功在 Google Cloud 部署上线！"
@@ -255,7 +259,7 @@ REMOTESCRIPT
 
 # 5. 上传并执行到云服务器
 echo "🚚 正在将部署流水线传输到云服务器..."
-gcloud compute scp /tmp/remote-install.sh "$INSTANCE_NAME":~/remote-install.sh --zone="$ZONE"
-gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --command="bash ~/remote-install.sh"
+gcloud compute scp --quiet /tmp/remote-install.sh "$INSTANCE_NAME":~/remote-install.sh --zone="$ZONE"
+gcloud compute ssh --quiet "$INSTANCE_NAME" --zone="$ZONE" --command="bash ~/remote-install.sh"
 
 echo "✅ 全部迁移流程已完成！"
