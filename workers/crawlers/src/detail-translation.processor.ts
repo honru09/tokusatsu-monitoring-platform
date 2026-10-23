@@ -1,4 +1,10 @@
 import { ItemStatus, prisma, Prisma, ToyType } from "@tokusatsu/db";
+import { normalizeHttpBaseUrl } from "@tokusatsu/shared";
+import {
+  automaticBackgroundAiEnabled,
+  isAutomaticAiUnavailable,
+  runAutomaticAiTask,
+} from "./background-ai-guard.js";
 
 type TranslationFetch = (
   input: string,
@@ -14,9 +20,6 @@ type BatchDependencies = {
   wait?: (milliseconds: number) => Promise<void>;
 };
 
-let translationPausedUntil = 0;
-const TRANSLATION_PAUSE_MS = 30 * 60_000;
-
 export class DetailTranslationUnavailableError extends Error {
   constructor(
     message: string,
@@ -28,6 +31,11 @@ export class DetailTranslationUnavailableError extends Error {
 }
 
 async function unavailableCode(response: Response) {
+  if (
+    [401, 402, 403, 408, 429].includes(response.status) ||
+    response.status >= 500
+  )
+    return "AI_GATEWAY_UNAVAILABLE";
   const body = await response
     .clone()
     .text()
@@ -111,6 +119,8 @@ export async function fetchTranslationWithRetry(
 export async function processDetailTranslationBatch(
   dependencies: BatchDependencies,
 ) {
+  if (!automaticBackgroundAiEnabled())
+    return { skipped: "background_automation_not_authorized" } as const;
   const batchSize = Math.max(
     1,
     Math.min(4, Math.floor(dependencies.batchSize ?? 2)),
@@ -118,16 +128,19 @@ export async function processDetailTranslationBatch(
   const items = await dependencies.findPending(batchSize);
   if (items.length === 0) return { translated: 0, failed: 0, remaining: 0 };
 
-  const baseUrl = (dependencies.apiBaseUrl ?? "http://localhost:3001").replace(
-    /\/$/,
-    "",
-  );
+  const baseUrl = normalizeHttpBaseUrl(dependencies.apiBaseUrl);
   const results = await Promise.allSettled(
     items.map(async (item) => {
-      const response = await fetchTranslationWithRetry(
-        `${baseUrl}/analysis/item/${encodeURIComponent(item.id)}`,
-        dependencies.fetcher ?? fetch,
-        dependencies.wait ?? sleep,
+      const response = await runAutomaticAiTask(
+        `detail:${item.id}`,
+        () =>
+          fetchTranslationWithRetry(
+            `${baseUrl}/analysis/item/${encodeURIComponent(item.id)}?costPolicy=free_only`,
+            dependencies.fetcher ?? fetch,
+            dependencies.wait ?? sleep,
+          ),
+        undefined,
+        { authorization: "free" },
       );
       const payload = (await response.json()) as { translation?: unknown };
       if (!payload.translation)
@@ -141,10 +154,8 @@ export async function processDetailTranslationBatch(
   const failed = results.length - translated;
   const unavailable = results.find(
     (result) =>
-      result.status === "rejected" &&
-      result.reason instanceof DetailTranslationUnavailableError,
+      result.status === "rejected" && isAutomaticAiUnavailable(result.reason),
   );
-  if (unavailable) translationPausedUntil = Date.now() + TRANSLATION_PAUSE_MS;
   const remaining = await dependencies.countPending();
   if (failed > 0)
     console.warn(
@@ -156,7 +167,12 @@ export async function processDetailTranslationBatch(
         remaining,
       }),
     );
-  return { translated, failed, remaining };
+  return {
+    translated,
+    failed,
+    remaining,
+    ...(unavailable ? { deferred: true } : {}),
+  };
 }
 
 async function findPendingHistoricalItems(limit: number) {
@@ -222,16 +238,11 @@ async function countPendingHistoricalItems() {
 }
 
 export async function processDetailTranslation() {
-  if (Date.now() < translationPausedUntil)
-    return {
-      skipped: "ai_gateway_temporarily_unavailable",
-      retryAfter: new Date(translationPausedUntil).toISOString(),
-    };
   return processDetailTranslationBatch({
     findPending: findPendingHistoricalItems,
     countPending: countPendingHistoricalItems,
     fetcher: fetch,
-    apiBaseUrl: process.env.API_INTERNAL_URL ?? "http://localhost:3001",
+    apiBaseUrl: normalizeHttpBaseUrl(process.env.API_INTERNAL_URL),
     batchSize: Number(process.env.DETAIL_TRANSLATION_BATCH_SIZE ?? 2),
   });
 }

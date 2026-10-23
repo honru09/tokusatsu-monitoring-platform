@@ -1,0 +1,54 @@
+{
+  "base": "http://localhost:3000",
+  "runs": [
+    {
+      "width": 1440,
+      "reducedMotion": "no-preference",
+      "passed": [
+        "SSR-no-console-or-hydration-errors",
+        "real-search-request-feedback",
+        "photo-cover-result-feedback",
+        "preview-direction-and-keyboard-instant-return",
+        "failed-save-keeps-input",
+        "saved-state-clears-unsaved-photo-message"
+      ],
+      "pageErrors": [],
+      "hydrationErrors": [],
+      "expectedFixture409": 1
+    },
+    {
+      "width": 390,
+      "reducedMotion": "no-preference",
+      "passed": [
+        "SSR-no-console-or-hydration-errors",
+        "real-search-request-feedback",
+        "photo-cover-result-feedback",
+        "preview-direction-and-keyboard-instant-return",
+        "failed-save-keeps-input",
+        "saved-state-clears-unsaved-photo-message",
+        "sheet-drag-reversal-and-close-focus"
+      ],
+      "pageErrors": [],
+      "hydrationErrors": [],
+      "expectedFixture409": 1
+    },
+    {
+      "width": 320,
+      "reducedMotion": "reduce",
+      "passed": [
+        "SSR-no-console-or-hydration-errors",
+        "real-search-request-feedback",
+        "photo-cover-result-feedback",
+        "preview-direction-and-keyboard-instant-return",
+        "failed-save-keeps-input",
+        "saved-state-clears-unsaved-photo-message",
+        "sheet-drag-reversal-and-close-focus"
+      ],
+      "pageErrors": [],
+      "hydrationErrors": [],
+      "expectedFixture409": 1
+    }
+  ],
+  "realBusinessWrites": 0,
+  "realModels": 0
+}

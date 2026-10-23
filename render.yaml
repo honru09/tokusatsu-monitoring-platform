@@ -33,22 +33,74 @@ services:
         value: jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp,paypayfleamarket.yahoo.co.jp,item.rakuten.co.jp,www.amazon.co.jp,www.ebay.com,netmall.hardoff.co.jp,store.shopping.yahoo.co.jp
       - key: FIRECRAWL_ALLOW_ANY_DOMAIN
         value: "false"
+      - key: PROCUREMENT_MIN_QUANTITY
+        value: "5"
+      - key: PROCUREMENT_TARGET_QUANTITY
+        value: "10"
+      - key: PROCUREMENT_MAX_UNIT_COST_JPY
+        value: "1000"
+      - key: PROCUREMENT_MAX_VOLUME_CM3
+        value: "10000"
+      - key: PROCUREMENT_MAX_UNIT_VOLUME_CM3
+        value: "1000"
       - key: BAI_API_KEY
         sync: false
       - key: BAI_API_URL
-        value: https://api.b.ai/v1
+        value: https://ovo1.cn/v1
+      - key: BAI_API_TIER
+        value: unknown
+      - key: BAI_PROMOTION_MODELS
+        value: ""
+      - key: BAI_PRICING_VERIFIED_AT
+        value: ""
+      - key: OVO_API_KEY
+        sync: false
+      - key: OVO_API_URL
+        value: https://ovo1.cn/v1
+      - key: OVO_API_TIER
+        value: paid
+      - key: OVO_INTERNAL_EVALUATION
+        value: "true"
+      - key: OVO_PRODUCTION_AUTHORIZED
+        value: "true"
+      - key: OVO_PRIVATE_DATA_AUTHORIZED
+        value: "false"
+      - key: AI_PROVIDER_MAX_CONCURRENCY_OVO
+        value: "1"
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_API_URL
         value: https://generativelanguage.googleapis.com/v1beta/openai
+      - key: GEMINI_MODEL
+        value: gemini-3.1-flash-lite
       - key: GEMINI_API_TIER
-        value: unknown
+        value: free
+      - key: GEMINI_FREE_MODELS
+        value: ""
+      - key: GEMINI_PROMOTION_MODELS
+        value: ""
+      - key: GEMINI_PAID_MODELS
+        value: ""
+      - key: GEMINI_PRICING_VERIFIED_AT
+        value: ""
+      - key: AI_PROVIDER_MAX_CONCURRENCY_GEMINI
+        value: "3"
+      - key: AI_PROVIDER_RPM_GEMINI
+        value: "12"
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_API_URL
         value: https://api.groq.com/openai/v1
       - key: GROQ_API_TIER
         value: unknown
+      - key: GROQ_FREE_MODELS
+        value: ""
+      - key: GROQ_PROMOTION_MODELS
+        value: ""
+      - key: GROQ_PAID_MODELS
+        value: ""
+      - key: GROQ_PRICING_VERIFIED_AT
+        value: ""
       - key: SILICONFLOW_API_KEY
         sync: false
       - key: SILICONFLOW_API_URL
@@ -56,13 +108,27 @@ services:
       - key: SILICONFLOW_API_TIER
         value: unknown
       - key: SILICONFLOW_FREE_MODELS
-        value: tencent/Hunyuan-MT-7B|Qwen/Qwen2.5-7B-Instruct
+        value: ""
+      - key: SILICONFLOW_PROMOTION_MODELS
+        value: ""
+      - key: SILICONFLOW_PAID_MODELS
+        value: ""
+      - key: SILICONFLOW_PRICING_VERIFIED_AT
+        value: ""
       - key: CEREBRAS_API_KEY
         sync: false
       - key: CEREBRAS_API_URL
         value: https://api.cerebras.ai/v1
       - key: CEREBRAS_API_TIER
         value: unknown
+      - key: CEREBRAS_FREE_MODELS
+        value: ""
+      - key: CEREBRAS_PROMOTION_MODELS
+        value: ""
+      - key: CEREBRAS_PAID_MODELS
+        value: ""
+      - key: CEREBRAS_PRICING_VERIFIED_AT
+        value: ""
       - key: CEREBRAS_PRIVATE_DATA_AUTHORIZED
         value: "false"
       - key: CLOUDFLARE_AI_API_TOKEN
@@ -77,6 +143,14 @@ services:
         value: "false"
       - key: CLOUDFLARE_AI_DAILY_NEURON_BUDGET
         value: "8000"
+      - key: CLOUDFLARE_AI_FREE_MODELS
+        value: ""
+      - key: CLOUDFLARE_AI_PROMOTION_MODELS
+        value: ""
+      - key: CLOUDFLARE_AI_PAID_MODELS
+        value: ""
+      - key: CLOUDFLARE_AI_PRICING_VERIFIED_AT
+        value: ""
       - key: CLOUDFLARE_AI_PRIVATE_DATA_AUTHORIZED
         value: "false"
       - key: COHERE_API_KEY
@@ -85,6 +159,14 @@ services:
         value: https://api.cohere.ai/compatibility/v1
       - key: COHERE_API_TIER
         value: unknown
+      - key: COHERE_FREE_MODELS
+        value: ""
+      - key: COHERE_PROMOTION_MODELS
+        value: ""
+      - key: COHERE_PAID_MODELS
+        value: ""
+      - key: COHERE_PRICING_VERIFIED_AT
+        value: ""
       - key: COHERE_INTERNAL_EVALUATION
         value: "false"
       - key: COHERE_PRODUCTION_AUTHORIZED
@@ -103,6 +185,14 @@ services:
         value: "false"
       - key: NVIDIA_PRIVATE_DATA_AUTHORIZED
         value: "false"
+      - key: NVIDIA_FREE_MODELS
+        value: ""
+      - key: NVIDIA_PROMOTION_MODELS
+        value: ""
+      - key: NVIDIA_PAID_MODELS
+        value: ""
+      - key: NVIDIA_PRICING_VERIFIED_AT
+        value: ""
       - key: SENSENOVA_API_KEY
         sync: false
       - key: SENSENOVA_TRANSLATION_API_KEY
@@ -111,6 +201,14 @@ services:
         value: https://token.sensenova.cn/v1
       - key: SENSENOVA_API_TIER
         value: unknown
+      - key: SENSENOVA_FREE_MODELS
+        value: ""
+      - key: SENSENOVA_PROMOTION_MODELS
+        value: ""
+      - key: SENSENOVA_PAID_MODELS
+        value: ""
+      - key: SENSENOVA_PRICING_VERIFIED_AT
+        value: ""
       - key: SENSENOVA_PRIVATE_DATA_AUTHORIZED
         value: "false"
       - key: OPENROUTER_API_KEY
@@ -121,16 +219,28 @@ services:
         value: https://tokusatsu-monitor-web.onrender.com
       - key: OPENROUTER_APP_NAME
         value: Kamen Procurement
+      - key: OPENROUTER_API_TIER
+        value: unknown
+      - key: OPENROUTER_FREE_MODELS
+        value: ""
+      - key: OPENROUTER_PROMOTION_MODELS
+        value: ""
+      - key: OPENROUTER_PAID_MODELS
+        value: ""
+      - key: OPENROUTER_PRICING_VERIFIED_AT
+        value: ""
       - key: AI_PROVIDER_ORDER
-        value: bai|gemini|groq|siliconflow|cerebras|cloudflare|cohere|nvidia|sensenova|openrouter
+        value: gemini|ovo
       - key: AI_COST_POLICY
-        value: free_only
+        value: free_first
       - key: AI_ALLOW_PAID_MODELS
-        value: "false"
+        value: "true"
+      - key: AI_PAID_PROVIDER_ALLOWLIST
+        value: ovo
       - key: AI_PUBLIC_COST_POLICY
-        value: free_only
+        value: free_first
       - key: AI_PUBLIC_ALLOW_PAID_MODELS
-        value: "false"
+        value: "true"
       - key: AI_PUBLIC_CHAT_RATE_LIMIT
         value: "12"
       - key: AI_PUBLIC_CHAT_RATE_WINDOW_MS
@@ -157,28 +267,96 @@ services:
         value: "60000"
       - key: AI_PROVIDER_5XX_COOLDOWN_MS
         value: "900000"
+      - key: AI_COOLDOWN_PROBE_INTERVAL_MS
+        value: "60000"
       - key: AI_PROVIDER_ORDER_BULK_FILTER
-        value: groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|sensenova|openrouter
+        value: gemini|ovo
       - key: AI_PROVIDER_ORDER_TRANSLATION
-        value: gemini|cloudflare|siliconflow|cerebras|nvidia|bai|groq|cohere|sensenova|openrouter
+        value: gemini|ovo
       - key: AI_PROVIDER_ORDER_CLASSIFICATION
-        value: groq|cerebras|cloudflare|gemini|siliconflow|bai|nvidia|cohere|sensenova|openrouter
+        value: gemini|ovo
       - key: AI_PROVIDER_ORDER_IMAGE_ANALYSIS
-        value: gemini|bai|cloudflare|cohere|cerebras|siliconflow|groq|sensenova|openrouter
+        value: ovo
       - key: AI_PROVIDER_ORDER_SELLER_ANALYSIS
-        value: gemini|groq|cloudflare|cerebras|nvidia|bai|siliconflow|cohere|sensenova|openrouter
+        value: gemini|ovo
       - key: AI_PROVIDER_ORDER_COMPLEX_ANALYSIS
-        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|sensenova|openrouter|siliconflow
+        value: gemini|ovo
       - key: AI_PROVIDER_ORDER_CROSS_VALIDATION
-        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|sensenova|siliconflow|openrouter
+        value: gemini|ovo
       - key: AI_PROVIDER_ORDER_MARKET_ANALYSIS
-        value: groq|gemini|cloudflare|cerebras|nvidia|bai|cohere|sensenova|openrouter|siliconflow
+        value: gemini|ovo
       - key: AI_PROVIDER_ORDER_CRAWLER_DIAGNOSIS
-        value: gemini|groq|cerebras|cloudflare|nvidia|bai|cohere|sensenova|openrouter|siliconflow
+        value: gemini|ovo
       - key: AI_PROVIDER_ORDER_LOGISTICS_ANALYSIS
-        value: gemini|cloudflare|cerebras|nvidia|bai|groq|siliconflow|cohere|sensenova|openrouter
+        value: gemini|ovo
       - key: AI_PROVIDER_ORDER_ASSISTANT_CHAT
-        value: groq|cloudflare|cerebras|gemini|nvidia|bai|cohere|sensenova|siliconflow|openrouter
+        value: gemini|ovo
+      - key: AI_ROUTE_GEMINI_BULK_FILTER
+        value: gemini-3.1-flash-lite
+      - key: AI_ROUTE_GEMINI_TRANSLATION
+        value: gemini-3.1-flash-lite
+      - key: AI_ROUTE_GEMINI_CLASSIFICATION
+        value: gemini-3.1-flash-lite
+      - key: AI_ROUTE_GEMINI_IMAGE_ANALYSIS
+        value: gemini-3.7-flash
+      - key: AI_ROUTE_GEMINI_SELLER_ANALYSIS
+        value: gemini-3.1-flash-lite
+      - key: AI_ROUTE_GEMINI_COMPLEX_ANALYSIS
+        value: gemini-3.1-flash-lite
+      - key: AI_ROUTE_GEMINI_CROSS_VALIDATION
+        value: gemini-3.1-flash-lite
+      - key: AI_ROUTE_GEMINI_MARKET_ANALYSIS
+        value: gemini-3.1-flash-lite
+      - key: AI_ROUTE_GEMINI_CRAWLER_DIAGNOSIS
+        value: gemini-3.1-flash-lite
+      - key: AI_ROUTE_GEMINI_LOGISTICS_ANALYSIS
+        value: gemini-3.1-flash-lite
+      - key: AI_ROUTE_GEMINI_ASSISTANT_CHAT
+        value: gemini-3.1-flash-lite
+      - key: AI_ROUTE_OVO_BULK_FILTER
+        value: "*"
+      - key: AI_ROUTE_OVO_TRANSLATION
+        value: "*"
+      - key: AI_ROUTE_OVO_CLASSIFICATION
+        value: "*"
+      - key: AI_ROUTE_OVO_IMAGE_ANALYSIS
+        value: "*"
+      - key: AI_ROUTE_OVO_SELLER_ANALYSIS
+        value: "*"
+      - key: AI_ROUTE_OVO_COMPLEX_ANALYSIS
+        value: "*"
+      - key: AI_ROUTE_OVO_CROSS_VALIDATION
+        value: "*"
+      - key: AI_ROUTE_OVO_MARKET_ANALYSIS
+        value: "*"
+      - key: AI_ROUTE_OVO_CRAWLER_DIAGNOSIS
+        value: "*"
+      - key: AI_ROUTE_OVO_LOGISTICS_ANALYSIS
+        value: "*"
+      - key: AI_ROUTE_OVO_ASSISTANT_CHAT
+        value: "*"
+      - key: AI_ROUTE_LITELLM_BULK_FILTER
+        value: fast|smart
+      - key: AI_ROUTE_LITELLM_TRANSLATION
+        value: fast|smart
+      - key: AI_ROUTE_LITELLM_CLASSIFICATION
+        value: fast|smart
+      - key: AI_ROUTE_LITELLM_IMAGE_ANALYSIS
+        value: vision|ocr
+      - key: AI_ROUTE_LITELLM_SELLER_ANALYSIS
+        value: smart|fast
+      - key: AI_ROUTE_LITELLM_COMPLEX_ANALYSIS
+        value: smart|fast
+      - key: AI_ROUTE_LITELLM_CROSS_VALIDATION
+        value: smart|fast
+      - key: AI_ROUTE_LITELLM_MARKET_ANALYSIS
+        value: smart|fast
+      - key: AI_ROUTE_LITELLM_CRAWLER_DIAGNOSIS
+        value: smart|fast
+      - key: AI_ROUTE_LITELLM_LOGISTICS_ANALYSIS
+        value: vision|smart
+      - key: AI_ROUTE_LITELLM_ASSISTANT_CHAT
+        value: smart|fast
       - key: AI_ROUTE_CEREBRAS_BULK_FILTER
         value: gemma-4-31b|gpt-oss-120b
       - key: AI_ROUTE_CEREBRAS_TRANSLATION
@@ -186,7 +364,7 @@ services:
       - key: AI_ROUTE_CEREBRAS_CLASSIFICATION
         value: gemma-4-31b|gpt-oss-120b
       - key: AI_ROUTE_CEREBRAS_IMAGE_ANALYSIS
-        value: ""
+        value: gemma-4-31b
       - key: AI_ROUTE_CEREBRAS_SELLER_ANALYSIS
         value: gpt-oss-120b|gemma-4-31b
       - key: AI_ROUTE_CEREBRAS_COMPLEX_ANALYSIS
@@ -208,7 +386,7 @@ services:
       - key: AI_ROUTE_CLOUDFLARE_CLASSIFICATION
         value: "@cf/google/gemma-4-26b-a4b-it|@cf/zai-org/glm-4.7-flash|@cf/openai/gpt-oss-120b"
       - key: AI_ROUTE_CLOUDFLARE_IMAGE_ANALYSIS
-        value: "@cf/meta/llama-3.2-11b-vision-instruct"
+        value: "@cf/meta/llama-3.2-11b-vision-instruct|@cf/google/gemma-4-26b-a4b-it"
       - key: AI_ROUTE_CLOUDFLARE_SELLER_ANALYSIS
         value: "@cf/zai-org/glm-4.7-flash|@cf/nvidia/nemotron-3-120b-a12b|@cf/openai/gpt-oss-120b"
       - key: AI_ROUTE_CLOUDFLARE_COMPLEX_ANALYSIS
@@ -259,6 +437,18 @@ services:
         value: "1"
       - key: AI_CHAT_PLANNER_ENABLED
         value: "false"
+      # The API uses the same refresh/stale contract as the worker when
+      # deciding whether a stored comparison may still be shown.
+      - key: CHINA_MARKET_COMPARISON_ENABLED
+        value: "false"
+      - key: CHINA_MARKET_COMPARISON_AUTHORIZED
+        value: "false"
+      - key: XIANYU_COMPARISON_ENABLED
+        value: "false"
+      - key: XIANYU_COMPARISON_INTERVAL_MS
+        value: "21600000"
+      - key: XIANYU_COMPARISON_MAX_STALE_MS
+        value: "86400000"
 
   - type: worker
     name: tokusatsu-monitor-worker
@@ -280,6 +470,11 @@ services:
           name: tokusatsu-monitor-kv
           type: keyvalue
           property: connectionString
+      - key: API_INTERNAL_URL
+        fromService:
+          name: tokusatsu-monitor-api
+          type: pserv
+          property: hostport
       - key: REAL_ADAPTER_ENABLED
         value: "true"
       - key: MOCK_ADAPTER_ENABLED
@@ -324,6 +519,18 @@ services:
         value: "30000"
       - key: MARKET_KEYWORDS
         value: 仮面ライダー|仮面ライダー まとめ売り|仮面ライダー DX|仮面ライダー ベルト|仮面ライダー ソフビ|仮面ライダー 食玩|仮面ライダー ガシャポン|ウルトラマン|特撮 まとめ売り
+      - key: PROCUREMENT_SEARCH_KEYWORDS
+        value: 仮面ライダー まとめ売り|ウルトラマン まとめ売り|特撮 ガシャポン まとめ売り|特撮 食玩 まとめ売り|特撮 指人形 まとめ売り|特撮 ミニフィギュア まとめ売り|仮面ライダー S.H.Figuarts|仮面ライダー 真骨彫製法|仮面ライダー S.H.Figuarts まとめ売り|仮面ライダー SHF 魂ウェブ商店
+      - key: PROCUREMENT_MIN_QUANTITY
+        value: "5"
+      - key: PROCUREMENT_TARGET_QUANTITY
+        value: "10"
+      - key: PROCUREMENT_MAX_UNIT_COST_JPY
+        value: "1000"
+      - key: PROCUREMENT_MAX_VOLUME_CM3
+        value: "10000"
+      - key: PROCUREMENT_MAX_UNIT_VOLUME_CM3
+        value: "1000"
       - key: MARKET_INCREMENTAL_INTERVAL_MS
         value: "900000"
       - key: MARKET_BACKFILL_INTERVAL_MS
@@ -345,6 +552,8 @@ services:
       # Provider credentials are intentionally API-only. Empty Worker values
       # make the isolation explicit even if environment groups are added later.
       - key: BAI_API_KEY
+        value: ""
+      - key: OVO_API_KEY
         value: ""
       - key: GEMINI_API_KEY
         value: ""
@@ -388,6 +597,8 @@ services:
         value: "2"
       - key: DETAIL_TRANSLATION_RPM
         value: "1"
+      - key: BACKGROUND_AI_PAID_AUTOMATION_ENABLED
+        value: "false"
       - key: MARKET_INTEL_INTERVAL_MS
         value: "3600000"
       - key: MARKET_INTEL_MAX_AGE_DAYS
@@ -402,6 +613,50 @@ services:
         value: www.amazon.co.jp,item.rakuten.co.jp,www.ebay.com,store.shopping.yahoo.co.jp,netmall.hardoff.co.jp
       - key: APIFY_DISCOVERY_INTERVAL_MS
         value: "21600000"
+      - key: CHINA_MARKET_COMPARISON_ENABLED
+        value: "false"
+      - key: CHINA_MARKET_COMPARISON_AUTHORIZED
+        value: "false"
+      - key: XIANYU_COMPARISON_ENABLED
+        value: "false"
+      - key: XIANYU_APIFY_ACTOR
+        value: zen-studio~goofish-xianyu-search-scraper
+      - key: XIANYU_SEARCH_API_URL
+        value: ""
+      - key: XIANYU_SEARCH_API_TOKEN
+        sync: false
+      - key: XIANYU_COMPARISON_INTERVAL_MS
+        value: "21600000"
+      - key: XIANYU_COMPARISON_DISPATCH_INTERVAL_MS
+        value: "900000"
+      - key: XIANYU_COMPARISON_BATCH_SIZE
+        value: "20"
+      - key: XIANYU_COMPARISON_NEW_PRODUCT_QUOTA
+        value: "5"
+      - key: XIANYU_COMPARISON_MAX_KEYWORDS
+        value: "5"
+      - key: XIANYU_COMPARISON_MAX_CANDIDATES
+        value: "40"
+      - key: XIANYU_COMPARISON_RPM
+        value: "1"
+      - key: XIANYU_COMPARISON_MAX_STALE_MS
+        value: "86400000"
+      - key: XIANYU_COMPARISON_LEASE_MS
+        value: "600000"
+      - key: XIANYU_COMPARISON_OFFER_RETENTION_DAYS
+        value: "30"
+      - key: XIANYU_COMPARISON_MAX_STORED_OFFERS
+        value: "2000"
+      - key: XIANYU_PROVIDER_DEADLINE_MS
+        value: "180000"
+      - key: XIANYU_REQUEST_INTERVAL_MS
+        value: "3000"
+      - key: XIANYU_CROSS_MARKET_ARBITRAGE_ENABLED
+        value: "false"
+      - key: XIANYU_REVERSE_SEARCH_ENABLED
+        value: "false"
+      - key: XIANYU_ARBITRAGE_MAX_LISTING_AGE_MS
+        value: "86400000"
       - key: PLAYWRIGHT_WS_ENDPOINT
         sync: false
       - key: PLAYWRIGHT_EXECUTABLE_PATH

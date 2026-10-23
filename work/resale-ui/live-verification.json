@@ -1,0 +1,114 @@
+{
+  "authenticated": true,
+  "capabilities": {
+    "search": true,
+    "publish": false,
+    "edit": false,
+    "metrics": false
+  },
+  "before": {
+    "settings": {
+      "paused": true,
+      "autoPublish": false,
+      "autoMetrics": false
+    },
+    "listings": [
+      {
+        "id": "a1f89703-173f-4ad7-9876-85b541038199",
+        "version": 1,
+        "title": "昭和仮面ライダー 、怪人ソフビ大量セット まとめ売り　全26体 by メルカリ",
+        "status": "draft",
+        "priceCny": 812.5,
+        "rightsConfirmed": false,
+        "fulfillmentConfirmed": false
+      },
+      {
+        "id": "c66ec89c-b12b-4c5d-a3a4-6639011f91f8",
+        "version": 1,
+        "title": "HGシリーズ ガシャポン 仮面ライダー 龍騎 10体セット  #m00307",
+        "status": "draft",
+        "priceCny": 117,
+        "rightsConfirmed": false,
+        "fulfillmentConfirmed": false
+      }
+    ]
+  },
+  "after": {
+    "settings": {
+      "paused": true,
+      "autoPublish": false,
+      "autoMetrics": false
+    },
+    "listings": [
+      {
+        "id": "a1f89703-173f-4ad7-9876-85b541038199",
+        "version": 1,
+        "title": "昭和仮面ライダー 、怪人ソフビ大量セット まとめ売り　全26体 by メルカリ",
+        "status": "draft",
+        "priceCny": 812.5,
+        "rightsConfirmed": false,
+        "fulfillmentConfirmed": false
+      },
+      {
+        "id": "c66ec89c-b12b-4c5d-a3a4-6639011f91f8",
+        "version": 1,
+        "title": "HGシリーズ ガシャポン 仮面ライダー 龍騎 10体セット  #m00307",
+        "status": "draft",
+        "priceCny": 117,
+        "rightsConfirmed": false,
+        "fulfillmentConfirmed": false
+      }
+    ]
+  },
+  "checks": [
+    {
+      "width": 1440,
+      "short": [],
+      "overflow": false,
+      "primaryCount": 1,
+      "primaryHeight": 48,
+      "primaryContrast": 13.29,
+      "thumbnailWidth": 131.296875,
+      "pageErrors": [],
+      "blockedWrites": [
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "short": [],
+      "overflow": false,
+      "primaryCount": 1,
+      "primaryHeight": 48,
+      "primaryContrast": 13.29,
+      "thumbnailWidth": 108.65625,
+      "pageErrors": [],
+      "blockedWrites": [
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        }
+      ]
+    },
+    {
+      "width": 320,
+      "short": [],
+      "overflow": false,
+      "primaryCount": 1,
+      "primaryHeight": 48,
+      "primaryContrast": 13.29,
+      "thumbnailWidth": 85.328125,
+      "pageErrors": [],
+      "blockedWrites": [
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        }
+      ]
+    }
+  ],
+  "note": "真实商品 GET 数据；所有写入拦截，标题编辑只存在于隔离浏览器，未保存。"
+}

@@ -1,0 +1,175 @@
+{
+  "target": "http://localhost:3105",
+  "completed": [],
+  "diagnostics": {
+    "errors": [],
+    "hydration": [],
+    "backendRequests": [
+      {
+        "endpoint": "/monitoring/config",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/collaboration/accounts",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/imports",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/purchases",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/purchases/bundles",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/exchange-rate",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/cart",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/monitoring/overview",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/collaboration/presence",
+        "method": "POST"
+      },
+      {
+        "endpoint": "/items",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/33333333-3333-4333-8333-333333333333",
+        "method": "PATCH"
+      },
+      {
+        "endpoint": "/items/33333333-3333-4333-8333-333333333333",
+        "method": "PATCH"
+      },
+      {
+        "endpoint": "/cart/items/33333333-3333-4333-8333-333333333333",
+        "method": "PATCH"
+      },
+      {
+        "endpoint": "/cart/items/33333333-3333-4333-8333-333333333333",
+        "method": "PATCH"
+      },
+      {
+        "endpoint": "/items/33333333-3333-4333-8333-333333333333",
+        "method": "PATCH"
+      },
+      {
+        "endpoint": "/items/33333333-3333-4333-8333-333333333333",
+        "method": "PATCH"
+      },
+      {
+        "endpoint": "/items/changes",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/cart",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/33333333-3333-4333-8333-333333333333",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/changes",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/cart",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/33333333-3333-4333-8333-333333333333/purchase",
+        "method": "POST"
+      },
+      {
+        "endpoint": "/items/33333333-3333-4333-8333-333333333333/purchase",
+        "method": "POST"
+      },
+      {
+        "endpoint": "/items/purchases",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/purchases/bundles",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/changes",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/cart",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/purchases/analyze-links",
+        "method": "POST"
+      },
+      {
+        "endpoint": "/items/purchases/analyze-links/fixture-link-0",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/purchases/analyze-links/fixture-link-1",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/purchases/analyze-links/fixture-link-0",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/purchases/analyze-links/fixture-link-1",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/changes",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/cart",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/items/changes",
+        "method": "GET"
+      },
+      {
+        "endpoint": "/cart",
+        "method": "GET"
+      }
+    ]
+  },
+  "error": "AssertionError [ERR_ASSERTION]: keyboard press adds no ambient button displacement\n\nfalse !== true\n\n    at D:\\tokusatsu-monitoring-platform\\work\\apple-upgrade\\transactions.cjs:116:64"
+}

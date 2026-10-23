@@ -1,337 +1,105 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { readFetchError } from "../lib/fetch-error";
+import { motionTokens } from "../lib/motion-tokens";
+import styles from "./ai-system-workspace.module.css";
 
-type AiSystemData = {
+type Resources = {
   configured: boolean;
-  provider: string;
-  models: Array<{
-    model: string;
-    role: string;
-    status: string;
-    callsToday: number;
-    inputTokensToday: number;
-    outputTokensToday: number;
-    consecutiveFailures: number;
-    lastErrorCode?: string | null;
-  }>;
-  tasks: Array<{ task: string; status: string; count: number }>;
-  errors: Array<{
-    id: string;
-    task: string;
-    requestedModel: string;
-    errorCode?: string | null;
-    errorMessage?: string | null;
-    startedAt: string;
-  }>;
-  cacheEntries: number;
-  backlogs: { translation: number; review: number };
-  latestBriefs: Array<{
-    id: string;
-    period: string;
-    model: string;
-    result: Record<string, unknown>;
-    createdAt: string;
-  }>;
-  generatedAt: string;
+  available: boolean;
+  model: string;
+  tokenLimit: number;
+  dailyTokenLimit: number;
+  accountedTokens: number;
+  todayTokens: number;
+  remainingLocalBudget: number;
+  expiresAt: string | null;
+  allowedUses: string[];
+  note: string;
 };
 
-const statusText: Record<string, string> = {
-  online: "在线",
-  ready: "待调用",
-  degraded: "已降级",
-  unavailable: "不可用 · 已跳过",
-  not_configured: "未配置",
-};
-
-const taskText: Record<string, string> = {
-  bulk_filter: "商品初筛",
-  translation: "完整翻译",
-  classification: "结构化分类",
-  image_analysis: "图片分析",
-  seller_analysis: "卖家画像",
-  complex_analysis: "高级判断",
-  cross_validation: "交叉审核",
-  market_analysis: "市场分析",
-  crawler_diagnosis: "爬虫诊断",
-};
-
-function list(value: unknown) {
-  return Array.isArray(value)
-    ? value.filter((row) => typeof row === "string")
-    : [];
-}
-
-export function AiSystemWorkspace({ apiBaseUrl }: { apiBaseUrl: string }) {
-  const [data, setData] = useState<AiSystemData | null>(null);
+export function AiSystemWorkspace({ apiBaseUrl, onOpenChat, onOpenProducts }: { apiBaseUrl: string; onOpenChat?: () => void; onOpenProducts?: () => void }) {
+  const [data, setData] = useState<Resources | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [diagnosing, setDiagnosing] = useState(false);
-  const [diagnosis, setDiagnosis] = useState<Record<string, unknown> | null>(
-    null,
-  );
-
-  const load = useCallback(async () => {
+  const reduceMotion = useReducedMotion();
+  const pointerInputRef = useRef(false);
+  const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${apiBaseUrl}/ai/system`, {
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error(`AI System ${response.status}`);
-      setData((await response.json()) as AiSystemData);
+      const response = await fetch(`${apiBaseUrl}/ai/resources`, { cache: "no-store", signal });
+      if (!response.ok) throw new Error(await readFetchError(response, "无法读取额度状态"));
+      setData(await response.json());
     } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "AI System 暂时不可用",
-      );
+      if (!signal?.aborted) setError(reason instanceof Error ? reason.message : "连接暂不可用");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [apiBaseUrl]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+  const dailyFraction = data && data.dailyTokenLimit > 0 ? Math.min(1, data.todayTokens / data.dailyTokenLimit) : 0;
+  const tokenNumber = (value: number) => new Intl.NumberFormat("zh-CN").format(value);
 
-  useEffect(() => void load(), [load]);
-
-  async function diagnose() {
-    setDiagnosing(true);
-    setDiagnosis(null);
-    try {
-      const response = await fetch(`${apiBaseUrl}/ai/system/diagnose`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      });
-      if (!response.ok) throw new Error(`诊断失败（${response.status}）`);
-      const payload = (await response.json()) as {
-        data?: Record<string, unknown>;
-      };
-      setDiagnosis(payload.data ?? payload);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "诊断失败");
-    } finally {
-      setDiagnosing(false);
-    }
-  }
-
-  const calls =
-    data?.models.reduce((sum, model) => sum + model.callsToday, 0) ?? 0;
-  const tokens =
-    data?.models.reduce(
-      (sum, model) => sum + model.inputTokensToday + model.outputTokensToday,
-      0,
-    ) ?? 0;
-
-  return (
-    <section
-      className="mx-auto max-w-6xl pb-8"
-      aria-labelledby="ai-system-title"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+  return <section className={styles.workspace} aria-labelledby="ai-system-title" onPointerDownCapture={() => { pointerInputRef.current = true; }} onKeyDownCapture={() => { pointerInputRef.current = false; }}>
+    <header className={styles.header}>
+      <div><h2 id="ai-system-title">AI 与额度</h2><p>智谱 · 按需使用，结果复用</p></div>
+      <button type="button" disabled={loading} aria-busy={loading} onClick={() => void load()}>{loading && data ? "刷新中…" : "刷新状态"}</button>
+    </header>
+    <AnimatePresence initial={false}>
+      {error && <motion.p key="error" role="alert" className={styles.error} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : motionTokens.duration.fast }}>{error}</motion.p>}
+    </AnimatePresence>
+    {loading && !data && <div className={styles.loading} role="status"><span />正在读取服务状态…</div>}
+    {data && <>
+      <div className={styles.connection}>
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[.18em] text-moss">
-            AI Gateway
-          </p>
-          <h2
-            id="ai-system-title"
-            className="mt-1 text-2xl font-bold tracking-tight text-ink"
-          >
-            AI System
-          </h2>
-          <p className="mt-1 text-sm text-ink/55">
-            路由、缓存、回退与审计集中在后端。
-          </p>
+          <span className={styles.sectionLabel}>当前模型</span>
+          <h3>{data.model}</h3>
+          <p className={styles.status} data-available={data.configured && data.available}>{!data.configured ? "尚未配置" : data.available ? "赠送资源规则已启用" : "调用已暂停，请检查资源期限和用量"}</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void diagnose()}
-            disabled={diagnosing || !data?.configured}
-            className="min-h-11 rounded-xl border border-ink/10 bg-white/75 px-4 text-xs font-semibold text-ink shadow-sm disabled:opacity-40"
-          >
-            {diagnosing ? "诊断中…" : "诊断"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
-            className="min-h-11 rounded-xl bg-ink px-4 text-xs font-semibold text-white disabled:opacity-40"
-          >
-            刷新
-          </button>
-        </div>
+        {onOpenChat ? <button type="button" className={styles.primary} onClick={onOpenChat}>打开 AI 聊天<span aria-hidden="true">↗</span></button> : <a className={styles.primary} href="/?workspace=assistant">打开 AI 聊天<span aria-hidden="true">↗</span></a>}
       </div>
-
-      {error && (
-        <p
-          role="alert"
-          className="mt-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700"
-        >
-          {error}
-        </p>
-      )}
-      {loading && !data && (
-        <div className="mt-5 h-44 animate-pulse rounded-3xl bg-white/60" />
-      )}
-      {data && (
-        <>
-          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {[
-              [data.configured ? "已连接" : "未配置", data.provider],
-              [calls.toLocaleString(), "今日调用"],
-              [tokens.toLocaleString(), "今日 Token"],
-              [data.cacheEntries.toLocaleString(), "有效缓存"],
-            ].map(([value, label]) => (
-              <div
-                key={label}
-                className="rounded-2xl border border-white/70 bg-white/65 p-3 shadow-sm backdrop-blur-xl"
-              >
-                <div className="text-lg font-bold text-ink">{value}</div>
-                <div className="mt-1 text-[11px] text-ink/45">{label}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 grid gap-3 lg:grid-cols-[1.3fr_.7fr]">
-            <section className="min-w-0 rounded-3xl border border-white/70 bg-white/65 p-3 shadow-sm backdrop-blur-xl">
-              <h3 className="px-1 text-sm font-semibold text-ink">模型状态</h3>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {data.models.map((model) => (
-                  <article
-                    key={model.model}
-                    className="min-w-0 rounded-2xl bg-white/80 p-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div
-                          className="truncate text-xs font-semibold text-ink"
-                          title={model.model}
-                        >
-                          {model.model}
-                        </div>
-                        <div className="mt-1 text-[11px] text-ink/45">
-                          {model.role}
-                        </div>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${model.status === "online" ? "bg-emerald-50 text-emerald-700" : model.status === "unavailable" ? "bg-slate-100 text-slate-500" : "bg-amber-50 text-amber-700"}`}
-                      >
-                        {statusText[model.status] ?? model.status}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex gap-3 text-[10px] text-ink/45">
-                      <span>{model.callsToday} 次</span>
-                      <span>
-                        {(
-                          model.inputTokensToday + model.outputTokensToday
-                        ).toLocaleString()}{" "}
-                        token
-                      </span>
-                      {model.lastErrorCode && (
-                        <span className="truncate">{model.lastErrorCode}</span>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className="min-w-0 rounded-3xl border border-white/70 bg-white/65 p-4 shadow-sm backdrop-blur-xl">
-              <h3 className="text-sm font-semibold text-ink">任务与积压</h3>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-2xl bg-white/80 p-3">
-                  <div className="text-xl font-bold">
-                    {data.backlogs.translation}
-                  </div>
-                  <div className="text-[11px] text-ink/45">待完整翻译</div>
-                </div>
-                <div className="rounded-2xl bg-white/80 p-3">
-                  <div className="text-xl font-bold">
-                    {data.backlogs.review}
-                  </div>
-                  <div className="text-[11px] text-ink/45">待人工复核</div>
-                </div>
-              </div>
-              <div className="mt-3 space-y-2">
-                {data.tasks.slice(0, 12).map((task, index) => (
-                  <div
-                    key={`${task.task}-${task.status}-${index}`}
-                    className="flex items-center justify-between rounded-xl bg-white/65 px-3 py-2 text-xs"
-                  >
-                    <span>{taskText[task.task] ?? task.task}</span>
-                    <span className="font-mono text-ink/45">
-                      {task.status} · {task.count}
-                    </span>
-                  </div>
-                ))}
-                {!data.tasks.length && (
-                  <p className="py-5 text-center text-xs text-ink/40">
-                    今日暂无调用
-                  </p>
-                )}
-              </div>
-            </section>
-          </div>
-
-          {data.latestBriefs.length > 0 && (
-            <section className="mt-3 rounded-3xl border border-white/70 bg-white/65 p-4 shadow-sm backdrop-blur-xl">
-              <h3 className="text-sm font-semibold text-ink">市场记忆</h3>
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {data.latestBriefs.map((brief) => (
-                  <article
-                    key={brief.id}
-                    className="rounded-2xl bg-white/80 p-3"
-                  >
-                    <div className="flex justify-between gap-2 text-xs font-semibold">
-                      <span>{brief.period}</span>
-                      <span className="truncate text-[10px] text-ink/40">
-                        {brief.model}
-                      </span>
-                    </div>
-                    <ul className="mt-2 space-y-1 text-xs leading-5 text-ink/65">
-                      {[
-                        ...list(brief.result.facts),
-                        ...list(brief.result.actions),
-                      ]
-                        .slice(0, 4)
-                        .map((row, index) => (
-                          <li key={index}>• {row}</li>
-                        ))}
-                    </ul>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {(data.errors.length > 0 || diagnosis) && (
-            <section className="mt-3 rounded-3xl border border-white/70 bg-white/65 p-4 shadow-sm backdrop-blur-xl">
-              <h3 className="text-sm font-semibold text-ink">异常与诊断</h3>
-              {diagnosis && (
-                <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-2xl bg-ink p-3 text-[11px] leading-5 text-white">
-                  {JSON.stringify(diagnosis, null, 2)}
-                </pre>
-              )}
-              <div className="mt-3 space-y-2">
-                {data.errors.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="rounded-xl bg-white/80 p-3 text-xs"
-                  >
-                    <div className="flex justify-between gap-2 font-semibold">
-                      <span>{taskText[entry.task] ?? entry.task}</span>
-                      <span className="text-red-600">
-                        {entry.errorCode ?? "PROVIDER_ERROR"}
-                      </span>
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-[11px] text-ink/45">
-                      {entry.requestedModel} · {entry.errorMessage}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </>
-      )}
-    </section>
-  );
+      <dl className={styles.usage}>
+        <div className={styles.daily}>
+          <dt>今日计入用量</dt>
+          <dd>{tokenNumber(data.todayTokens)}<small> / {tokenNumber(data.dailyTokenLimit)} tokens</small></dd>
+          <div className={styles.meter} role="meter" aria-label="今日本地调用用量" aria-valuemin={0} aria-valuemax={data.dailyTokenLimit} aria-valuenow={data.todayTokens}><motion.span data-apple-motion-owned="true" initial={false} animate={{ transform: `scaleX(${dailyFraction})` }} transition={{ duration: reduceMotion || !pointerInputRef.current ? 0 : motionTokens.duration.fast, ease: motionTokens.easing.smooth }} /></div>
+        </div>
+        <div><dt>剩余本地预算</dt><dd>{tokenNumber(data.remainingLocalBudget)}<small>tokens</small></dd></div>
+        <div><dt>资源到期</dt><dd className={styles.date}>{data.expiresAt ? new Date(data.expiresAt).toLocaleDateString("zh-CN") : "期限无效"}</dd><span className={styles.budgetCaption}>到期后停止调用</span></div>
+      </dl>
+      <p className={styles.note}>{data.note}</p>
+      <section className={styles.uses} aria-labelledby="ai-uses-title">
+        <header><h3 id="ai-uses-title">从任务开始</h3><span>只有主动操作才调用 AI</span></header>
+        <div className={styles.useList}>
+          <article data-ai-purpose="product_reading">
+            <span className={styles.useIndex} aria-hidden="true">01</span>
+            <div><h4>读取商品</h4><p>在商品详情读取图片与资料，核对商品事实。</p></div>
+            {onOpenProducts ? <button type="button" onClick={onOpenProducts} aria-label="到商品库，从详情读取商品">商品库<span aria-hidden="true">→</span></button> : <a href="/?workspace=catalog" aria-label="到商品库，从详情读取商品">商品库<span aria-hidden="true">→</span></a>}
+          </article>
+          <article data-ai-purpose="translation">
+            <span className={styles.useIndex} aria-hidden="true">02</span>
+            <div><h4>翻译商品</h4><p>在商品详情翻译原文，已有译文直接复用。</p></div>
+            {onOpenProducts ? <button type="button" onClick={onOpenProducts} aria-label="到商品库，从详情翻译商品">商品库<span aria-hidden="true">→</span></button> : <a href="/?workspace=catalog" aria-label="到商品库，从详情翻译商品">商品库<span aria-hidden="true">→</span></a>}
+          </article>
+          <article data-ai-purpose="chat">
+            <span className={styles.useIndex} aria-hidden="true">03</span>
+            <div><h4>AI 聊天</h4><p>带着商品、采购或库存问题，直接询问助手。</p></div>
+            {onOpenChat ? <button type="button" onClick={onOpenChat}>开始聊天<span aria-hidden="true">→</span></button> : <a href="/?workspace=assistant">开始聊天<span aria-hidden="true">→</span></a>}
+          </article>
+        </div>
+      </section>
+      <details className={styles.rules}>
+        <summary>调用规则与资源口径<span aria-hidden="true">+</span></summary>
+        <ul><li>只使用 GLM-5.3-Flash，没有付费模型回退。</li><li>商品翻译和读取结果复用缓存，相同并发请求合并。</li><li>后台批量 AI、模型规划、图片生成和联网搜索均关闭。</li><li>每次调用先预留额度，超时不自动重试。达到预算或到期后停止请求。</li><li>资源包也可能被该账号的其他应用使用，请以智谱控制台余额为准。</li></ul>
+      </details>
+    </>}
+    {!loading && !data && !error && <p className={styles.loading}>暂无可用的服务状态，刷新后重试。</p>}
+  </section>;
 }

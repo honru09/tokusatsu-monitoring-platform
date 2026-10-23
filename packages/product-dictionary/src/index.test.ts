@@ -23,4 +23,25 @@ describe("product dictionary", () => {
   it("does not invent a result when no alias is visible", () => {
     expect(resolveCatalogEntry("series", "特撮 おもちゃ まとめ")).toBeNull();
   });
+
+  it("does not confuse Kamen Rider Zeronos with Ultraman Zero", () => {
+    expect(resolveCatalogEntry("series", "仮面ライダー ゼロノス")).toBeNull();
+    expect(resolveCatalogEntry("series", "仮面ライダー ゼロワン")).toEqual(
+      expect.objectContaining({
+        value: expect.objectContaining({ key: "KAMEN_RIDER_ZERO_ONE" }),
+      }),
+    );
+    expect(
+      resolveCatalogEntry("series", "ウルトラマンゼロ ソフビ")?.value.key,
+    ).toBe("ULTRAMAN_ZERO");
+  });
+
+  it("resolves every physical-toy franchise used by the catalogue", () => {
+    expect(
+      resolveCatalogEntry("franchise", "スーパー戦隊 ロボ玩具")?.value.key,
+    ).toBe("SUPER_SENTAI");
+    expect(resolveCatalogEntry("franchise", "ゴジラ ソフビ")?.value.key).toBe(
+      "GODZILLA",
+    );
+  });
 });

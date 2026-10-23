@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from "@nestjs/common";
 import { LogisticsService } from "./logistics.service.js";
 import {
   CreateCarrierDto,
@@ -15,7 +24,12 @@ export class LogisticsController {
 
   @Get("items")
   items(@Query("ids") ids?: string) {
-    return this.logistics.listItems(ids?.split(",").map((id) => id.trim()).filter(Boolean));
+    return this.logistics.listItems(
+      ids
+        ?.split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    );
   }
 
   @Patch("items/:id")
@@ -44,7 +58,10 @@ export class LogisticsController {
   }
 
   @Post("carriers/:carrierId/tariffs")
-  createTariff(@Param("carrierId") carrierId: string, @Body() body: CreateTariffDto) {
+  createTariff(
+    @Param("carrierId") carrierId: string,
+    @Body() body: CreateTariffDto,
+  ) {
     return this.logistics.createTariff(carrierId, body);
   }
 

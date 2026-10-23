@@ -1,0 +1,2369 @@
+[
+  {
+    "id": "b9d3b579-1766-4f9a-8d99-a8d9f390ed91",
+    "entityType": "franchise",
+    "entityKey": "KAMEN_RIDER",
+    "aliasText": "仮面ライダー",
+    "normalizedText": "仮面ライダー",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "4b10f0fa-938e-4dee-b4d4-54512b54e3c8",
+    "entityType": "franchise",
+    "entityKey": "KAMEN_RIDER",
+    "aliasText": "假面骑士",
+    "normalizedText": "假面骑士",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c57ea563-30c8-486a-a5d1-4da2a1fa34d8",
+    "entityType": "franchise",
+    "entityKey": "KAMEN_RIDER",
+    "aliasText": "Kamen Rider",
+    "normalizedText": "kamen rider",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "b5e9393a-7a07-40d7-b28d-9bb02f2a4662",
+    "entityType": "franchise",
+    "entityKey": "KAMEN_RIDER",
+    "aliasText": "masked rider",
+    "normalizedText": "masked rider",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "10cd2f00-4014-4944-93fc-5464714dd56d",
+    "entityType": "franchise",
+    "entityKey": "KAMEN_RIDER",
+    "aliasText": "幪面超人",
+    "normalizedText": "幪面超人",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "cd9fa309-0092-431b-9728-0ab0a11416e5",
+    "entityType": "franchise",
+    "entityKey": "ULTRAMAN",
+    "aliasText": "ウルトラマン",
+    "normalizedText": "ウルトラマン",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "88aafb0f-3256-48c6-bd4e-ad034f5ba0f6",
+    "entityType": "franchise",
+    "entityKey": "ULTRAMAN",
+    "aliasText": "奥特曼",
+    "normalizedText": "奥特曼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "74827e86-008a-41de-8fbb-5e8d1d78c5bb",
+    "entityType": "franchise",
+    "entityKey": "ULTRAMAN",
+    "aliasText": "Ultraman",
+    "normalizedText": "ultraman",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "2565506e-d60f-4e32-8e22-df9c3206db5a",
+    "entityType": "franchise",
+    "entityKey": "ULTRAMAN",
+    "aliasText": "超人力霸王",
+    "normalizedText": "超人力霸王",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e469123e-e762-4c61-b35b-a6e5753dc7da",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KUUGA",
+    "aliasText": "仮面ライダークウガ",
+    "normalizedText": "仮面ライダークウガ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "96f93bbb-9533-4a40-8819-f737b65e8923",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KUUGA",
+    "aliasText": "假面骑士空我",
+    "normalizedText": "假面骑士空我",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "09436254-6bba-4a0a-9b22-b7d676e12a46",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KUUGA",
+    "aliasText": "Kamen Rider Kuuga",
+    "normalizedText": "kamen rider kuuga",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "fdd0f586-61af-428d-a79e-cca3fde93695",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KUUGA",
+    "aliasText": "クウガ",
+    "normalizedText": "クウガ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c6e76ea7-458c-4ff5-b14b-b6bf28cba985",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KUUGA",
+    "aliasText": "空我",
+    "normalizedText": "空我",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a5994213-f53c-4b5a-b8ed-e8adf9002919",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KUUGA",
+    "aliasText": "kuuga",
+    "normalizedText": "kuuga",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ed65e78f-c5f3-4a45-b29d-cf34b494fad6",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_AGITO",
+    "aliasText": "仮面ライダーアギト",
+    "normalizedText": "仮面ライダーアギト",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "56d515a2-7acb-4ce2-881e-56cba24b015b",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_AGITO",
+    "aliasText": "假面骑士亚极陀",
+    "normalizedText": "假面骑士亚极陀",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "47cc0df2-68b5-4c78-8a81-235fd7d5c107",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_AGITO",
+    "aliasText": "Kamen Rider Agito",
+    "normalizedText": "kamen rider agito",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e03a65e5-8f7d-4c4d-a9ae-391756f212bb",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_AGITO",
+    "aliasText": "アギト",
+    "normalizedText": "アギト",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "7159f6bc-7c1d-44cd-aa45-8ace2aca3e34",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_AGITO",
+    "aliasText": "亚极陀",
+    "normalizedText": "亚极陀",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "36b730b3-d8d1-432c-bb11-f30b9861510f",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_AGITO",
+    "aliasText": "agito",
+    "normalizedText": "agito",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f836bf04-217d-42a1-94a6-6508ddd9dda0",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_RYUKI",
+    "aliasText": "仮面ライダー龍騎",
+    "normalizedText": "仮面ライダー龍騎",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "df1f3a7d-4655-4679-a949-22e62a7bfbd9",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_RYUKI",
+    "aliasText": "假面骑士龙骑",
+    "normalizedText": "假面骑士龙骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "2a45eb6e-ec01-4767-b248-66fe76c1f62d",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_RYUKI",
+    "aliasText": "Kamen Rider Ryuki",
+    "normalizedText": "kamen rider ryuki",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "5142f143-c233-4953-a550-2b8dcddeeb9f",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_RYUKI",
+    "aliasText": "龍騎",
+    "normalizedText": "龍騎",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ac8a1ccd-fb0c-49a4-a4a7-32059bfd8195",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_RYUKI",
+    "aliasText": "龙骑",
+    "normalizedText": "龙骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "5fb0133e-add2-4249-9cf7-0a6d36af0f5d",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_RYUKI",
+    "aliasText": "ryuki",
+    "normalizedText": "ryuki",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "57d6996e-d266-4c11-bd3b-eb6751ca47c1",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_FAIZ",
+    "aliasText": "仮面ライダー555",
+    "normalizedText": "仮面ライダー555",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "6f642c45-2da5-4f50-92fd-a651fa3af691",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_FAIZ",
+    "aliasText": "假面骑士555",
+    "normalizedText": "假面骑士555",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "13b1f7e3-9fb7-44e5-b8fe-d2e211f6db33",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_FAIZ",
+    "aliasText": "Kamen Rider Faiz",
+    "normalizedText": "kamen rider faiz",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "755ad3bf-1150-434c-bd15-fc6429a38feb",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_FAIZ",
+    "aliasText": "ファイズ",
+    "normalizedText": "ファイズ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "5902d423-92e6-4124-9058-e9d80959c9c1",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_FAIZ",
+    "aliasText": "faiz",
+    "normalizedText": "faiz",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "48abb134-fd09-4248-91ca-501188a7eca4",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_BLADE",
+    "aliasText": "仮面ライダー剣",
+    "normalizedText": "仮面ライダー剣",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "1e08aa2b-d9c0-4e8c-bb51-efc773b2fb08",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_BLADE",
+    "aliasText": "假面骑士剑",
+    "normalizedText": "假面骑士剑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f6716d73-a1b6-4a03-8546-f8b07390331e",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_BLADE",
+    "aliasText": "Kamen Rider Blade",
+    "normalizedText": "kamen rider blade",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a4cbf1ef-5268-47be-a9bc-5c732f7bef0b",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_BLADE",
+    "aliasText": "ブレイド",
+    "normalizedText": "ブレイド",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ae70b5ea-f54c-41a2-9563-36f695cba026",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_BLADE",
+    "aliasText": "blade",
+    "normalizedText": "blade",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "b3d3de71-bc19-4337-9946-684d7b375f07",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_HIBIKI",
+    "aliasText": "仮面ライダー響鬼",
+    "normalizedText": "仮面ライダー響鬼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "57e5cfd5-0ac5-4ce9-bf78-fdd9f548474e",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_HIBIKI",
+    "aliasText": "假面骑士响鬼",
+    "normalizedText": "假面骑士响鬼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "bbbf150c-9f89-4a67-afc5-612d8d23a81b",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_HIBIKI",
+    "aliasText": "Kamen Rider Hibiki",
+    "normalizedText": "kamen rider hibiki",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "242758b0-a436-492a-a7a9-3606b53b3e86",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_HIBIKI",
+    "aliasText": "響鬼",
+    "normalizedText": "響鬼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a025d17f-31b2-4db8-b863-522611edbc17",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_HIBIKI",
+    "aliasText": "响鬼",
+    "normalizedText": "响鬼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "23376ff9-a1a0-476c-8033-01892c17c383",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_HIBIKI",
+    "aliasText": "hibiki",
+    "normalizedText": "hibiki",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "eddfedad-12a2-4d6e-9109-0a2b0ca9875f",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KABUTO",
+    "aliasText": "仮面ライダーカブト",
+    "normalizedText": "仮面ライダーカブト",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "5c9a8d44-0465-4b27-b363-6b17f975dc85",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KABUTO",
+    "aliasText": "假面骑士甲斗",
+    "normalizedText": "假面骑士甲斗",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "5fa081fb-5cae-4fd8-81cf-5a898dabd680",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KABUTO",
+    "aliasText": "Kamen Rider Kabuto",
+    "normalizedText": "kamen rider kabuto",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a2587a59-c0e8-43e9-b919-48a535093342",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KABUTO",
+    "aliasText": "カブト",
+    "normalizedText": "カブト",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "85e9b617-305b-4295-949e-b9ae6aa0697f",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KABUTO",
+    "aliasText": "甲斗",
+    "normalizedText": "甲斗",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "4cfaf4e6-d775-4ff7-8e22-f2b4d594cfec",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KABUTO",
+    "aliasText": "kabuto",
+    "normalizedText": "kabuto",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "8a2b6a98-5e15-46ad-9678-3e65b3b35da9",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DEN_O",
+    "aliasText": "仮面ライダー電王",
+    "normalizedText": "仮面ライダー電王",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "d3ef55c7-73af-4383-89c1-6971e829d19f",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DEN_O",
+    "aliasText": "假面骑士电王",
+    "normalizedText": "假面骑士电王",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "3693d940-7d50-4c62-8a2b-27a024a187fa",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DEN_O",
+    "aliasText": "Kamen Rider Den-O",
+    "normalizedText": "kamen rider den-o",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "1ce5c4c5-a36d-4d2b-9efd-a5ecbe88ad0b",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DEN_O",
+    "aliasText": "電王",
+    "normalizedText": "電王",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "38f43488-8fe1-45a8-ad4d-29cf267ea096",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DEN_O",
+    "aliasText": "电王",
+    "normalizedText": "电王",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "1f8a4bf2-b2e4-4681-a360-b30521ffc5ad",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DEN_O",
+    "aliasText": "den-o",
+    "normalizedText": "den-o",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "109697f8-9609-4677-807d-d7163c83bbaf",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DEN_O",
+    "aliasText": "den o",
+    "normalizedText": "den o",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "781f020e-739d-4998-b191-8ca59f2d76cc",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KIVA",
+    "aliasText": "仮面ライダーキバ",
+    "normalizedText": "仮面ライダーキバ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "6cf310d0-cee1-410a-b413-444f0a4ca273",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KIVA",
+    "aliasText": "假面骑士月骑",
+    "normalizedText": "假面骑士月骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "d8fdd332-5b18-444b-950d-85aa01c623a6",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KIVA",
+    "aliasText": "Kamen Rider Kiva",
+    "normalizedText": "kamen rider kiva",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "14221384-a200-47bf-a080-c561762b6416",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KIVA",
+    "aliasText": "キバ",
+    "normalizedText": "キバ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "1e48f88c-7e4c-41cb-a5a8-70abc399b752",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KIVA",
+    "aliasText": "月骑",
+    "normalizedText": "月骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "7870693b-725f-4eb6-925d-cda0f7a54a61",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_KIVA",
+    "aliasText": "kiva",
+    "normalizedText": "kiva",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "54b6c9d0-c09b-4b75-aafc-fe2ca53ff87e",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_Z",
+    "aliasText": "Ultraman Z",
+    "normalizedText": "ultraman z",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "64072795-aae4-4385-b198-af3b239e52b1",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DECADE",
+    "aliasText": "仮面ライダーディケイド",
+    "normalizedText": "仮面ライダーディケイド",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "d4d20edd-6d30-4344-bed4-2aef02e6a5a8",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DECADE",
+    "aliasText": "假面骑士帝骑",
+    "normalizedText": "假面骑士帝骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "02057df1-f9db-4436-93e7-11678c74d6d9",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DECADE",
+    "aliasText": "Kamen Rider Decade",
+    "normalizedText": "kamen rider decade",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c814ea99-29be-44af-88f1-0f6ba2c44c22",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DECADE",
+    "aliasText": "ディケイド",
+    "normalizedText": "ディケイド",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "bc90b655-04b1-43c3-8d63-31e109a661e3",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DECADE",
+    "aliasText": "帝骑",
+    "normalizedText": "帝骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "aed57c80-c19a-40eb-94c0-52f7402d0bc2",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DECADE",
+    "aliasText": "decade",
+    "normalizedText": "decade",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "cf650dc2-af46-45f2-a143-1bda7aea146b",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_W",
+    "aliasText": "仮面ライダーW",
+    "normalizedText": "仮面ライダーw",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c62e347d-75b1-4389-8244-1fcab28dfab9",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_W",
+    "aliasText": "假面骑士W",
+    "normalizedText": "假面骑士w",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a31c7bc7-29eb-4f2a-b075-1878d4e4ee56",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_W",
+    "aliasText": "Kamen Rider W",
+    "normalizedText": "kamen rider w",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "bf151fb1-7fa6-4229-857a-f69e96a99b48",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_W",
+    "aliasText": "ダブル",
+    "normalizedText": "ダブル",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f72aa538-9700-4a64-a7f5-2f5be03ee169",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_W",
+    "aliasText": "double",
+    "normalizedText": "double",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "3bbf6d6f-3cde-48fc-a3ee-69176b914ecb",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_OOO",
+    "aliasText": "仮面ライダーオーズ",
+    "normalizedText": "仮面ライダーオーズ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "65328a67-4b56-4431-81b2-27371d1f02f6",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_OOO",
+    "aliasText": "假面骑士欧兹",
+    "normalizedText": "假面骑士欧兹",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "07797ea7-e295-47ad-bfec-d2d81393fdac",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_OOO",
+    "aliasText": "Kamen Rider OOO",
+    "normalizedText": "kamen rider ooo",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f62438cd-db9c-46fa-b4ec-ce0a6317c960",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_OOO",
+    "aliasText": "オーズ",
+    "normalizedText": "オーズ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "0120f218-2513-45a2-becb-8a80e0f1a4fc",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_OOO",
+    "aliasText": "欧兹",
+    "normalizedText": "欧兹",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c7261578-be19-41d7-8d38-fa03573a10db",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_OOO",
+    "aliasText": "ooo",
+    "normalizedText": "ooo",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a485df1c-4981-4252-bcfd-72e121ccfc9f",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_FOURZE",
+    "aliasText": "仮面ライダーフォーゼ",
+    "normalizedText": "仮面ライダーフォーゼ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "cb9cfbff-b155-423c-8551-ba58ec60ed54",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_FOURZE",
+    "aliasText": "假面骑士卌骑",
+    "normalizedText": "假面骑士卌骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "8f7c72e5-9230-437e-944f-bf47d01d3817",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_FOURZE",
+    "aliasText": "Kamen Rider Fourze",
+    "normalizedText": "kamen rider fourze",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "8b350f5c-8d1d-4957-94a3-a9982b0cf291",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_FOURZE",
+    "aliasText": "フォーゼ",
+    "normalizedText": "フォーゼ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "486cbcda-0613-4038-9394-dffa6fc4ae4a",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_FOURZE",
+    "aliasText": "fourze",
+    "normalizedText": "fourze",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "46115678-720f-424f-ad11-9693b972f5cf",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_WIZARD",
+    "aliasText": "仮面ライダーウィザード",
+    "normalizedText": "仮面ライダーウィザード",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "062ab56c-f3af-4067-b8fb-396727f71bda",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_WIZARD",
+    "aliasText": "假面骑士巫骑",
+    "normalizedText": "假面骑士巫骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "1a002ea5-83fe-43af-bc0e-cb6c8784881d",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_WIZARD",
+    "aliasText": "Kamen Rider Wizard",
+    "normalizedText": "kamen rider wizard",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "39acbfee-1f6c-4bc9-869c-e9072f7a89e0",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_WIZARD",
+    "aliasText": "ウィザード",
+    "normalizedText": "ウィザード",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ab22c494-4f80-4841-88f5-ccf4dd9a1603",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_WIZARD",
+    "aliasText": "wizard",
+    "normalizedText": "wizard",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "d6a47dae-0731-42e4-b4b1-eabee44a77c6",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAIM",
+    "aliasText": "仮面ライダー鎧武",
+    "normalizedText": "仮面ライダー鎧武",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "8858ecd6-d469-41ba-b777-9e793a059e9f",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAIM",
+    "aliasText": "假面骑士铠武",
+    "normalizedText": "假面骑士铠武",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "08fa171c-b5fb-4db1-bb82-9bc92d6b27b8",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAIM",
+    "aliasText": "Kamen Rider Gaim",
+    "normalizedText": "kamen rider gaim",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "0e4d3d65-46b4-45a0-aedd-1099d5397f64",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAIM",
+    "aliasText": "鎧武",
+    "normalizedText": "鎧武",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "0ebd1cc0-9526-45ff-a85f-dca22dab37e9",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAIM",
+    "aliasText": "铠武",
+    "normalizedText": "铠武",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "3e2babbf-35d5-42f5-af04-37bd6a2f56ff",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAIM",
+    "aliasText": "gaim",
+    "normalizedText": "gaim",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "7cecb713-16de-41a1-a821-5a438be7ab22",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DRIVE",
+    "aliasText": "仮面ライダードライブ",
+    "normalizedText": "仮面ライダードライブ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "66b254b0-8810-47ab-bcc2-c82618e2671c",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DRIVE",
+    "aliasText": "假面骑士驰骑",
+    "normalizedText": "假面骑士驰骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "9b38948f-5ec4-4ebd-a344-5dc6986b524a",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DRIVE",
+    "aliasText": "Kamen Rider Drive",
+    "normalizedText": "kamen rider drive",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "cf9cfc11-88de-4607-b569-f861e1c5b92a",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DRIVE",
+    "aliasText": "ドライブ",
+    "normalizedText": "ドライブ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "4da124d4-7c64-46b4-b69c-d7c36dceeadc",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_DRIVE",
+    "aliasText": "drive",
+    "normalizedText": "drive",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a576f938-70fd-4df0-8f3a-675a5e02b5d0",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GHOST",
+    "aliasText": "仮面ライダーゴースト",
+    "normalizedText": "仮面ライダーゴースト",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "736860ba-0a98-4f42-b18f-0614e51d4efd",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GHOST",
+    "aliasText": "假面骑士灵骑",
+    "normalizedText": "假面骑士灵骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "67fa6a90-ef6f-43cb-b83c-5614d4818956",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GHOST",
+    "aliasText": "Kamen Rider Ghost",
+    "normalizedText": "kamen rider ghost",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "5e7afc65-6b24-4bb6-9538-c4ecfb81eca0",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GHOST",
+    "aliasText": "ゴースト",
+    "normalizedText": "ゴースト",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a5527ff8-ae35-41e3-ac9a-66d37cfe2371",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GHOST",
+    "aliasText": "ghost",
+    "normalizedText": "ghost",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "64ffd811-fe64-4d74-93f8-d78467398d7c",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_EX_AID",
+    "aliasText": "仮面ライダーエグゼイド",
+    "normalizedText": "仮面ライダーエグゼイド",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "80828200-7242-4847-ad38-4561e3324e39",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_EX_AID",
+    "aliasText": "假面骑士艾克赛德",
+    "normalizedText": "假面骑士艾克赛德",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "beb0d59a-47b0-4892-8b0f-836d3d4e273a",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_EX_AID",
+    "aliasText": "Kamen Rider Ex-Aid",
+    "normalizedText": "kamen rider ex-aid",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e57ef2d5-8054-42a0-8f0e-e98b2fd1e736",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_EX_AID",
+    "aliasText": "エグゼイド",
+    "normalizedText": "エグゼイド",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "d4576fd0-6dfb-4532-8162-ee58f14f1e82",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_EX_AID",
+    "aliasText": "ex-aid",
+    "normalizedText": "ex-aid",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a9d099b2-5573-488c-9ca6-da168de6d0df",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_EX_AID",
+    "aliasText": "ex aid",
+    "normalizedText": "ex aid",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c313d8f4-709d-4e42-ae79-bfeda3e0f4cc",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_BUILD",
+    "aliasText": "仮面ライダービルド",
+    "normalizedText": "仮面ライダービルド",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "024dd033-2737-4746-91c8-ac15bac16be1",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_BUILD",
+    "aliasText": "假面骑士创骑",
+    "normalizedText": "假面骑士创骑",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "9113ce74-1372-4ecc-aeca-3a3189032786",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_BUILD",
+    "aliasText": "Kamen Rider Build",
+    "normalizedText": "kamen rider build",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "6084cfd6-936e-47f9-84ae-aecaac6ffe1b",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_BUILD",
+    "aliasText": "ビルド",
+    "normalizedText": "ビルド",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "d5ff4980-a216-43ec-8b5e-a59ff3e7c0e0",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_BUILD",
+    "aliasText": "build",
+    "normalizedText": "build",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "40ae9c90-ec67-43da-802c-903757bc8588",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZI_O",
+    "aliasText": "仮面ライダージオウ",
+    "normalizedText": "仮面ライダージオウ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e1875b70-e3e6-45f7-8ef0-bb2d5dfccbe3",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZI_O",
+    "aliasText": "假面骑士时王",
+    "normalizedText": "假面骑士时王",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e617c6b3-e9c7-4b9a-a308-8a23eec874c6",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZI_O",
+    "aliasText": "Kamen Rider Zi-O",
+    "normalizedText": "kamen rider zi-o",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c8ea57ce-4788-48c2-bb28-3f704034ea14",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZI_O",
+    "aliasText": "ジオウ",
+    "normalizedText": "ジオウ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "3320567b-1ea9-4c1c-a5d2-f07dff0a9ad1",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZI_O",
+    "aliasText": "时王",
+    "normalizedText": "时王",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "13e50b96-58aa-4661-8e13-d0d2a00bf684",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZI_O",
+    "aliasText": "zi-o",
+    "normalizedText": "zi-o",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "5aa3701d-c175-4527-9833-27ddc6c16ad6",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZI_O",
+    "aliasText": "zio",
+    "normalizedText": "zio",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "dfc8a8bf-7b20-40ed-b8ec-eba4acd48516",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZERO_ONE",
+    "aliasText": "仮面ライダーゼロワン",
+    "normalizedText": "仮面ライダーゼロワン",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "80719023-c503-4800-b1b2-827ae6f94125",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZERO_ONE",
+    "aliasText": "假面骑士零一",
+    "normalizedText": "假面骑士零一",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e839257e-e140-4d4d-8987-0d25247239ce",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZERO_ONE",
+    "aliasText": "Kamen Rider Zero-One",
+    "normalizedText": "kamen rider zero-one",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "022e8a50-156a-4a5d-9484-8a218262c2de",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZERO_ONE",
+    "aliasText": "ゼロワン",
+    "normalizedText": "ゼロワン",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c7cdde2b-7fbe-4b8b-a27e-eb0578668aa1",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZERO_ONE",
+    "aliasText": "零一",
+    "normalizedText": "零一",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "465c97a8-7b56-42aa-8952-ef9e13f656af",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZERO_ONE",
+    "aliasText": "zero-one",
+    "normalizedText": "zero-one",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "d9084b3c-dda1-4dd0-abfd-61ebf9d31d9f",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_ZERO_ONE",
+    "aliasText": "zero one",
+    "normalizedText": "zero one",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "007c2b2d-e83a-40c4-b8dc-94b78fbedb6a",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_SABER",
+    "aliasText": "仮面ライダーセイバー",
+    "normalizedText": "仮面ライダーセイバー",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "aeb2aa0c-3612-4dc0-97b1-6dfd47e07e98",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_SABER",
+    "aliasText": "假面骑士圣刃",
+    "normalizedText": "假面骑士圣刃",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "9e9aae9d-8415-432c-85cd-ae9f002984a4",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_SABER",
+    "aliasText": "Kamen Rider Saber",
+    "normalizedText": "kamen rider saber",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "d1a74316-cd24-4abd-87d7-2bbdf39e8a89",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_SABER",
+    "aliasText": "セイバー",
+    "normalizedText": "セイバー",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "7824dc51-3f7c-41b1-9435-97af4c4019d2",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_SABER",
+    "aliasText": "圣刃",
+    "normalizedText": "圣刃",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ba2f284a-6ed4-48c1-a3ae-5fb4f62e7405",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_SABER",
+    "aliasText": "saber",
+    "normalizedText": "saber",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "90de2219-d704-4901-a889-f17c813d59de",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_REVICE",
+    "aliasText": "仮面ライダーリバイス",
+    "normalizedText": "仮面ライダーリバイス",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e9b06c72-1593-4518-9dc8-5caf55d1f427",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_REVICE",
+    "aliasText": "假面骑士利维斯",
+    "normalizedText": "假面骑士利维斯",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f1c3d65f-524f-44c6-8850-0ec24ed93704",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_REVICE",
+    "aliasText": "Kamen Rider Revice",
+    "normalizedText": "kamen rider revice",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "17262840-ed9f-445f-9121-3e2407043384",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_REVICE",
+    "aliasText": "リバイス",
+    "normalizedText": "リバイス",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ac386c12-9246-4370-add8-c3ab7be06ca9",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_REVICE",
+    "aliasText": "revice",
+    "normalizedText": "revice",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a5d5adfa-6c2f-4a1d-a8ce-dc240f569efe",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GEATS",
+    "aliasText": "仮面ライダーギーツ",
+    "normalizedText": "仮面ライダーギーツ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "6db8c9d3-c3ae-4f7c-8aa4-93adbdf95d2e",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GEATS",
+    "aliasText": "假面骑士极狐",
+    "normalizedText": "假面骑士极狐",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a433ff4e-faa4-4352-8323-da1c136902e9",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GEATS",
+    "aliasText": "Kamen Rider Geats",
+    "normalizedText": "kamen rider geats",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ec96054b-dc77-40a3-beb1-8a26ef8bb740",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GEATS",
+    "aliasText": "ギーツ",
+    "normalizedText": "ギーツ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ac2ba9db-55b1-4500-8a92-dfaec9832835",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GEATS",
+    "aliasText": "极狐",
+    "normalizedText": "极狐",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "8f10873a-deb7-4f75-982f-b7bfa3dc1d49",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GEATS",
+    "aliasText": "geats",
+    "normalizedText": "geats",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "197ae677-a040-44a7-b848-b0d83f04adf6",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GOTCHARD",
+    "aliasText": "仮面ライダーガッチャード",
+    "normalizedText": "仮面ライダーガッチャード",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "b9a0a83f-0b4b-442b-8ea8-77d12c67fbcd",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GOTCHARD",
+    "aliasText": "假面骑士歌查德",
+    "normalizedText": "假面骑士歌查德",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "4806050b-2be7-4162-beed-f8aa7f1e3fca",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GOTCHARD",
+    "aliasText": "Kamen Rider Gotchard",
+    "normalizedText": "kamen rider gotchard",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "9800be22-7f23-4adb-be99-41b1ea083dda",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GOTCHARD",
+    "aliasText": "ガッチャード",
+    "normalizedText": "ガッチャード",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e72b7add-895e-4f1c-a431-ab50ed1ff206",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GOTCHARD",
+    "aliasText": "歌查德",
+    "normalizedText": "歌查德",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "3f940734-6e32-4006-a4c1-d227c89f4af8",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GOTCHARD",
+    "aliasText": "gotchard",
+    "normalizedText": "gotchard",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "07fa0116-97ec-42d1-b7d9-1c3d3d0b2749",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAVV",
+    "aliasText": "仮面ライダーガヴ",
+    "normalizedText": "仮面ライダーガヴ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "9f8d3446-cad0-4986-a31a-ce233ed24843",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAVV",
+    "aliasText": "假面骑士加布",
+    "normalizedText": "假面骑士加布",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "fec24771-7926-4812-854f-e1f135f6b000",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAVV",
+    "aliasText": "Kamen Rider Gavv",
+    "normalizedText": "kamen rider gavv",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "4ff1c765-a30c-41e0-b44a-4ccaf020b57e",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAVV",
+    "aliasText": "ガヴ",
+    "normalizedText": "ガヴ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "cf0edf44-1adb-43f8-b606-6e91c428c4fd",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAVV",
+    "aliasText": "加布",
+    "normalizedText": "加布",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "3b97fcc9-30ee-443f-b9a3-42e5841db04d",
+    "entityType": "series",
+    "entityKey": "KAMEN_RIDER_GAVV",
+    "aliasText": "gavv",
+    "normalizedText": "gavv",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "7b05699c-138c-4076-9788-4bf1a2bdf8a9",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_TIGA",
+    "aliasText": "ウルトラマンティガ",
+    "normalizedText": "ウルトラマンティガ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "36e14730-a322-4472-8e0d-b04ff05cdbcc",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_TIGA",
+    "aliasText": "迪迦奥特曼",
+    "normalizedText": "迪迦奥特曼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "d8e3fb0a-846a-475a-8286-c4f2cbf6a5aa",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_TIGA",
+    "aliasText": "Ultraman Tiga",
+    "normalizedText": "ultraman tiga",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ee48eee6-3950-437e-8ad7-04cbccab5393",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_TIGA",
+    "aliasText": "ティガ",
+    "normalizedText": "ティガ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c71279bf-5faf-4359-b139-e58122c0c728",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_TIGA",
+    "aliasText": "迪迦",
+    "normalizedText": "迪迦",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "335ed458-46f2-453a-a554-71362dc6b681",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_TIGA",
+    "aliasText": "tiga",
+    "normalizedText": "tiga",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ae8296fc-4eae-41ce-a26f-ef4b9268de7c",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_DYNA",
+    "aliasText": "ウルトラマンダイナ",
+    "normalizedText": "ウルトラマンダイナ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a05b808f-4a96-43d2-95b2-b04152f404fb",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_DYNA",
+    "aliasText": "戴拿奥特曼",
+    "normalizedText": "戴拿奥特曼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "79ca7a03-9194-4985-bb51-dcce38b55376",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_DYNA",
+    "aliasText": "Ultraman Dyna",
+    "normalizedText": "ultraman dyna",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "bfaae134-4872-4ca3-aabf-af4d8e8e1c31",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_DYNA",
+    "aliasText": "ダイナ",
+    "normalizedText": "ダイナ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f20b5ab2-dd52-4627-8b44-866580d22ee0",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_DYNA",
+    "aliasText": "戴拿",
+    "normalizedText": "戴拿",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "221bdf11-ad89-4aaa-95f2-f6253557fd43",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_DYNA",
+    "aliasText": "dyna",
+    "normalizedText": "dyna",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "18e00440-d13c-44e0-8f88-bec6f29c1bba",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_GAIA",
+    "aliasText": "ウルトラマンガイア",
+    "normalizedText": "ウルトラマンガイア",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "7e39863a-8ae4-401f-87c2-c5eab5793068",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_GAIA",
+    "aliasText": "盖亚奥特曼",
+    "normalizedText": "盖亚奥特曼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c34ca8c2-2c6d-4ce1-9577-4d702f57b7e2",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_GAIA",
+    "aliasText": "Ultraman Gaia",
+    "normalizedText": "ultraman gaia",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e2d9cc1c-9fec-4f4e-9094-3807fb116d43",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_GAIA",
+    "aliasText": "ガイア",
+    "normalizedText": "ガイア",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "0233a3ab-7487-4147-8a12-b0f84628f453",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_GAIA",
+    "aliasText": "盖亚",
+    "normalizedText": "盖亚",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "9a37c76f-3725-4d70-8506-b4d6b573c82f",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_GAIA",
+    "aliasText": "gaia",
+    "normalizedText": "gaia",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "8918480e-60cc-486d-b905-a802a5b44f29",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ZERO",
+    "aliasText": "ウルトラマンゼロ",
+    "normalizedText": "ウルトラマンゼロ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "05a8177c-17e4-4a80-8a32-0371d88499b8",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ZERO",
+    "aliasText": "赛罗奥特曼",
+    "normalizedText": "赛罗奥特曼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "6a05ff45-5d47-4796-95c3-b8a0b4c65395",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ZERO",
+    "aliasText": "Ultraman Zero",
+    "normalizedText": "ultraman zero",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f9e3b20e-6a88-4b70-a057-5418af1c8e7f",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ZERO",
+    "aliasText": "赛罗",
+    "normalizedText": "赛罗",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "2c40e6c4-fe69-401e-99fe-fcc2874511b2",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_Z",
+    "aliasText": "ウルトラマンZ",
+    "normalizedText": "ウルトラマンz",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "5cb98bfd-668d-4528-8cb2-aabf5236ad70",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_Z",
+    "aliasText": "泽塔奥特曼",
+    "normalizedText": "泽塔奥特曼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "8a6d80bb-6162-4533-b0a0-22f1d13a87ca",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_Z",
+    "aliasText": "ウルトラマンゼット",
+    "normalizedText": "ウルトラマンゼット",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "8478ab3d-6dc5-4ad5-95e2-316f5a6507c9",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_Z",
+    "aliasText": "泽塔",
+    "normalizedText": "泽塔",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "441a028c-779c-4ab8-b29b-acb193eb9688",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_BLAZAR",
+    "aliasText": "ウルトラマンブレーザー",
+    "normalizedText": "ウルトラマンブレーザー",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "5b74a832-b522-4fa2-b827-94fad683c427",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_BLAZAR",
+    "aliasText": "布莱泽奥特曼",
+    "normalizedText": "布莱泽奥特曼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "099362a2-ee84-4fc4-8d6a-99eb63355233",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_BLAZAR",
+    "aliasText": "Ultraman Blazar",
+    "normalizedText": "ultraman blazar",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f34d9890-53a9-4117-bd75-21f87addcf13",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_BLAZAR",
+    "aliasText": "ブレーザー",
+    "normalizedText": "ブレーザー",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "db0a668c-bc45-4bee-a995-d07fff497382",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_BLAZAR",
+    "aliasText": "布莱泽",
+    "normalizedText": "布莱泽",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "cbe4a038-56ea-4363-a0f5-5284d306935f",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_BLAZAR",
+    "aliasText": "blazar",
+    "normalizedText": "blazar",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f14ad585-8f33-42ee-b5ba-4fa34c6c5611",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ARC",
+    "aliasText": "ウルトラマンアーク",
+    "normalizedText": "ウルトラマンアーク",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ee89ac4b-9523-45f1-a6b7-9c3df6f96f96",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ARC",
+    "aliasText": "亚刻奥特曼",
+    "normalizedText": "亚刻奥特曼",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a34808a1-dc03-4d64-8c49-9556dc755745",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ARC",
+    "aliasText": "Ultraman Arc",
+    "normalizedText": "ultraman arc",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "0814d64d-5bab-4465-827f-2caad2669d61",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ARC",
+    "aliasText": "アーク",
+    "normalizedText": "アーク",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e02b7e18-009a-4e35-af4a-cb1b7336976b",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ARC",
+    "aliasText": "亚刻",
+    "normalizedText": "亚刻",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "cd0aeab9-0353-4b74-97ab-9408f3191512",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ARC",
+    "aliasText": "arc",
+    "normalizedText": "arc",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a7018621-3002-49c0-abdb-f4d3829c99c6",
+    "entityType": "manufacturer",
+    "entityKey": "bandai",
+    "aliasText": "バンダイ",
+    "normalizedText": "バンダイ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "2036e394-ad13-4ef2-ac03-0ff8d63b3b94",
+    "entityType": "manufacturer",
+    "entityKey": "bandai",
+    "aliasText": "万代",
+    "normalizedText": "万代",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "99ec14ed-374d-4524-b127-340f8c92522a",
+    "entityType": "manufacturer",
+    "entityKey": "bandai",
+    "aliasText": "BANDAI",
+    "normalizedText": "bandai",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f34f672b-9088-427d-8d75-600e105c10ab",
+    "entityType": "manufacturer",
+    "entityKey": "bandai",
+    "aliasText": "万代株式会社",
+    "normalizedText": "万代株式会社",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ce5cd3d0-f8c7-407b-861b-43dcb6713373",
+    "entityType": "manufacturer",
+    "entityKey": "bandai_spirits",
+    "aliasText": "BANDAI SPIRITS",
+    "normalizedText": "bandai spirits",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "466db77d-ea98-490e-9d51-79bc2dfd3e50",
+    "entityType": "manufacturer",
+    "entityKey": "bandai_spirits",
+    "aliasText": "万代魂",
+    "normalizedText": "万代魂",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "3e388efb-8727-457e-8863-248e81f96740",
+    "entityType": "manufacturer",
+    "entityKey": "bandai_spirits",
+    "aliasText": "バンダイスピリッツ",
+    "normalizedText": "バンダイスピリッツ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f30345c7-e570-4708-a12b-7d6db4f0242b",
+    "entityType": "manufacturer",
+    "entityKey": "banpresto",
+    "aliasText": "バンプレスト",
+    "normalizedText": "バンプレスト",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "bdb6b354-db97-4a9b-874a-15bc5bf96a38",
+    "entityType": "manufacturer",
+    "entityKey": "banpresto",
+    "aliasText": "眼镜厂",
+    "normalizedText": "眼镜厂",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "741b863d-193d-48b6-8aab-e35fa8ce6a01",
+    "entityType": "manufacturer",
+    "entityKey": "banpresto",
+    "aliasText": "BANPRESTO",
+    "normalizedText": "banpresto",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f093c7b6-5836-467c-b653-963a1ae7db2a",
+    "entityType": "manufacturer",
+    "entityKey": "megahouse",
+    "aliasText": "メガハウス",
+    "normalizedText": "メガハウス",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "33ba7b4c-8280-4426-96d4-889bc73b363a",
+    "entityType": "manufacturer",
+    "entityKey": "megahouse",
+    "aliasText": "MegaHouse",
+    "normalizedText": "megahouse",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "7972bda4-212d-4781-bbfb-9d58a37aa1fa",
+    "entityType": "manufacturer",
+    "entityKey": "plex",
+    "aliasText": "プレックス",
+    "normalizedText": "プレックス",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "ec37a6b8-626b-494b-93b3-63e8723fb475",
+    "entityType": "manufacturer",
+    "entityKey": "plex",
+    "aliasText": "PLEX",
+    "normalizedText": "plex",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "397491d7-2cef-44a8-a749-8e553b4544a7",
+    "entityType": "toy_type",
+    "entityKey": "sofubi",
+    "aliasText": "ソフビ",
+    "normalizedText": "ソフビ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "508ab69d-a80f-4498-9b09-e4282e9fbc6b",
+    "entityType": "toy_type",
+    "entityKey": "sofubi",
+    "aliasText": "软胶",
+    "normalizedText": "软胶",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f82d87cd-4d0d-4988-acd4-bf11dcac0eba",
+    "entityType": "toy_type",
+    "entityKey": "sofubi",
+    "aliasText": "Soft vinyl",
+    "normalizedText": "soft vinyl",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "daf762ef-ff2f-4492-8381-1bb8d39fcf48",
+    "entityType": "toy_type",
+    "entityKey": "finger_puppet",
+    "aliasText": "指人形",
+    "normalizedText": "指人形",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "69c1ef8c-2ac0-46bf-81bd-4a418590b8a6",
+    "entityType": "toy_type",
+    "entityKey": "finger_puppet",
+    "aliasText": "手指玩偶",
+    "normalizedText": "手指玩偶",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "9f5ae428-5efd-4869-be72-0a1f6d95d275",
+    "entityType": "toy_type",
+    "entityKey": "finger_puppet",
+    "aliasText": "Finger puppet",
+    "normalizedText": "finger puppet",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "21bbc4ad-74c8-45c5-a90a-25677bc4dcb7",
+    "entityType": "toy_type",
+    "entityKey": "gashapon",
+    "aliasText": "ガシャポン",
+    "normalizedText": "ガシャポン",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "dddf0dcd-3fc0-411c-97e6-b24ce753bb98",
+    "entityType": "toy_type",
+    "entityKey": "gashapon",
+    "aliasText": "扭蛋",
+    "normalizedText": "扭蛋",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "00f64ec9-1535-41e4-965b-f8a69d854684",
+    "entityType": "toy_type",
+    "entityKey": "gashapon",
+    "aliasText": "Gashapon",
+    "normalizedText": "gashapon",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "d9175786-1160-47a1-8c6f-51a21e10eebf",
+    "entityType": "toy_type",
+    "entityKey": "gashapon",
+    "aliasText": "ガチャ",
+    "normalizedText": "ガチャ",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "e06684a4-ddc0-4f4b-8432-512125b60ec2",
+    "entityType": "toy_type",
+    "entityKey": "gashapon",
+    "aliasText": "カプセル",
+    "normalizedText": "カプセル",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c04202d6-8b82-474e-9567-ea3b89d5bca0",
+    "entityType": "toy_type",
+    "entityKey": "shokugan",
+    "aliasText": "食玩",
+    "normalizedText": "食玩",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "085c583c-95e4-468a-a55c-a70bb7f5500b",
+    "entityType": "toy_type",
+    "entityKey": "shokugan",
+    "aliasText": "Candy toy",
+    "normalizedText": "candy toy",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f0e402b5-386e-496b-ae86-358c4db98114",
+    "entityType": "toy_type",
+    "entityKey": "shokugan",
+    "aliasText": "shokugan",
+    "normalizedText": "shokugan",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "8a38afaf-e4d2-465b-8af6-a811d7ac48cd",
+    "entityType": "toy_type",
+    "entityKey": "figure",
+    "aliasText": "フィギュア",
+    "normalizedText": "フィギュア",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "398f7735-7301-4654-8244-8f4157266bca",
+    "entityType": "toy_type",
+    "entityKey": "figure",
+    "aliasText": "手办",
+    "normalizedText": "手办",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "18b3d8f1-e23e-429f-b7ff-4ed321f3f82f",
+    "entityType": "toy_type",
+    "entityKey": "figure",
+    "aliasText": "Figure",
+    "normalizedText": "figure",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "9d39013c-e7c7-43f0-a6a2-273ae8101cd6",
+    "entityType": "toy_type",
+    "entityKey": "figure",
+    "aliasText": "s h figuarts",
+    "normalizedText": "s h figuarts",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "925ad24e-0695-4a15-a16a-b44b7c2c80cb",
+    "entityType": "toy_type",
+    "entityKey": "figure",
+    "aliasText": "shf",
+    "normalizedText": "shf",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "388a39ec-8fa9-444a-90df-74bc46708d8c",
+    "entityType": "toy_type",
+    "entityKey": "dx_belt",
+    "aliasText": "変身ベルト",
+    "normalizedText": "変身ベルト",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "14899a93-5add-4e04-bbce-cff0a2c17581",
+    "entityType": "toy_type",
+    "entityKey": "dx_belt",
+    "aliasText": "DX变身腰带",
+    "normalizedText": "dx变身腰带",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "aee2099e-7040-433d-906d-b732772d6c0f",
+    "entityType": "toy_type",
+    "entityKey": "dx_belt",
+    "aliasText": "DX transformation belt",
+    "normalizedText": "dx transformation belt",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "3248a967-333b-4287-a336-98df1d563fb9",
+    "entityType": "toy_type",
+    "entityKey": "dx_belt",
+    "aliasText": "dx belt",
+    "normalizedText": "dx belt",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "b6683ce1-1467-4242-b3aa-8d9f5bc76326",
+    "entityType": "toy_type",
+    "entityKey": "dx_belt",
+    "aliasText": "driver",
+    "normalizedText": "driver",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a794f6ec-ac84-4414-85da-8c35137ffc09",
+    "entityType": "toy_type",
+    "entityKey": "dx_belt",
+    "aliasText": "ドライバー",
+    "normalizedText": "ドライバー",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "fa0fab58-7d3e-4c2e-9c3e-4ba1cfb1d3cd",
+    "entityType": "toy_type",
+    "entityKey": "henshin_item",
+    "aliasText": "変身アイテム",
+    "normalizedText": "変身アイテム",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "1e4f45c8-b320-4f5c-b4a9-979617fb9c28",
+    "entityType": "toy_type",
+    "entityKey": "henshin_item",
+    "aliasText": "变身道具",
+    "normalizedText": "变身道具",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "1c6c5a01-8f68-4c75-ae35-434441f0f4a7",
+    "entityType": "toy_type",
+    "entityKey": "henshin_item",
+    "aliasText": "Transformation item",
+    "normalizedText": "transformation item",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c7597448-b9af-4739-862c-a2a828c59ad7",
+    "entityType": "toy_type",
+    "entityKey": "henshin_item",
+    "aliasText": "変身",
+    "normalizedText": "変身",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "f83cdb6f-5730-421a-bc33-be1dc53cf37f",
+    "entityType": "toy_type",
+    "entityKey": "henshin_item",
+    "aliasText": "henshin",
+    "normalizedText": "henshin",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "96964d09-0e31-4494-a5db-cfab6cdd42ea",
+    "entityType": "toy_type",
+    "entityKey": "medal",
+    "aliasText": "メダル",
+    "normalizedText": "メダル",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "4e13f62a-d567-4812-ae70-6d1c4d611226",
+    "entityType": "toy_type",
+    "entityKey": "medal",
+    "aliasText": "奖牌/硬币道具",
+    "normalizedText": "奖牌 硬币道具",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "c6ac86c2-e63f-439d-ae92-2ea950cc6411",
+    "entityType": "toy_type",
+    "entityKey": "medal",
+    "aliasText": "Medal",
+    "normalizedText": "medal",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "de1ea879-b9e2-4d05-b7c6-99b7722dfe0a",
+    "entityType": "toy_type",
+    "entityKey": "model",
+    "aliasText": "プラモデル",
+    "normalizedText": "プラモデル",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "4f6fcbcf-6165-4b37-b077-ca6f97935a32",
+    "entityType": "toy_type",
+    "entityKey": "model",
+    "aliasText": "模型",
+    "normalizedText": "模型",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "b70bfccf-c4d7-4a3e-af9e-03272186b7e3",
+    "entityType": "toy_type",
+    "entityKey": "model",
+    "aliasText": "Model kit",
+    "normalizedText": "model kit",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "36c260e5-94c5-4037-b4ca-eddcbe00b9f0",
+    "entityType": "toy_type",
+    "entityKey": "set",
+    "aliasText": "まとめ売り",
+    "normalizedText": "まとめ売り",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "8202f56f-b4ab-469c-b54e-6be1fe33d4b2",
+    "entityType": "toy_type",
+    "entityKey": "set",
+    "aliasText": "整批套装",
+    "normalizedText": "整批套装",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a0e61ee4-c2f5-4822-89c3-641b0588305e",
+    "entityType": "toy_type",
+    "entityKey": "set",
+    "aliasText": "Lot",
+    "normalizedText": "lot",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "cea45621-7864-43ee-92c4-f069785a01a3",
+    "entityType": "toy_type",
+    "entityKey": "set",
+    "aliasText": "大量",
+    "normalizedText": "大量",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "6d6235ad-caa0-4c5e-8810-8481a95a38ac",
+    "entityType": "toy_type",
+    "entityKey": "set",
+    "aliasText": "セット",
+    "normalizedText": "セット",
+    "locale": null,
+    "createdAt": "2026-08-29T01:25:22.564Z"
+  },
+  {
+    "id": "a5422cb1-3057-418b-8d4b-fae2aafd6d34",
+    "entityType": "franchise",
+    "entityKey": "SUPER_SENTAI",
+    "aliasText": "スーパー戦隊",
+    "normalizedText": "スーパー戦隊",
+    "locale": null,
+    "createdAt": "2026-09-05T17:11:25.459Z"
+  },
+  {
+    "id": "205370da-3e96-4fec-93f9-a189afc008da",
+    "entityType": "franchise",
+    "entityKey": "SUPER_SENTAI",
+    "aliasText": "超级战队",
+    "normalizedText": "超级战队",
+    "locale": null,
+    "createdAt": "2026-09-05T17:11:25.459Z"
+  },
+  {
+    "id": "8ef35817-ca55-4e35-bc65-6dc3f15c02f9",
+    "entityType": "franchise",
+    "entityKey": "SUPER_SENTAI",
+    "aliasText": "Super Sentai",
+    "normalizedText": "super sentai",
+    "locale": null,
+    "createdAt": "2026-09-05T17:11:25.459Z"
+  },
+  {
+    "id": "5e74c862-1277-4f53-be84-643b8f1cf4a4",
+    "entityType": "franchise",
+    "entityKey": "SUPER_SENTAI",
+    "aliasText": "超級戰隊",
+    "normalizedText": "超級戰隊",
+    "locale": null,
+    "createdAt": "2026-09-05T17:11:25.459Z"
+  },
+  {
+    "id": "679d9ead-32c5-4473-946b-2795486842a8",
+    "entityType": "franchise",
+    "entityKey": "SUPER_SENTAI",
+    "aliasText": "戦隊シリーズ",
+    "normalizedText": "戦隊シリーズ",
+    "locale": null,
+    "createdAt": "2026-09-05T17:11:25.459Z"
+  },
+  {
+    "id": "ec9611bd-3784-4a92-a453-dd16529d88e2",
+    "entityType": "franchise",
+    "entityKey": "GODZILLA",
+    "aliasText": "ゴジラ",
+    "normalizedText": "ゴジラ",
+    "locale": null,
+    "createdAt": "2026-09-05T17:11:25.459Z"
+  },
+  {
+    "id": "12a1dfdc-b338-4b2b-8ed3-418bc39f4b83",
+    "entityType": "franchise",
+    "entityKey": "GODZILLA",
+    "aliasText": "哥斯拉",
+    "normalizedText": "哥斯拉",
+    "locale": null,
+    "createdAt": "2026-09-05T17:11:25.459Z"
+  },
+  {
+    "id": "6557a66a-c0e8-492e-82de-a65be7ae142c",
+    "entityType": "franchise",
+    "entityKey": "GODZILLA",
+    "aliasText": "Godzilla",
+    "normalizedText": "godzilla",
+    "locale": null,
+    "createdAt": "2026-09-05T17:11:25.459Z"
+  },
+  {
+    "id": "1d9a2cd7-99e1-4a85-a8dc-d91d3e31a287",
+    "entityType": "franchise",
+    "entityKey": "GODZILLA",
+    "aliasText": "哥吉拉",
+    "normalizedText": "哥吉拉",
+    "locale": null,
+    "createdAt": "2026-09-05T17:11:25.459Z"
+  },
+  {
+    "id": "2399bf1c-17bb-4b7f-abd0-550187b4a778",
+    "entityType": "series",
+    "entityKey": "ULTRAMAN_ZERO",
+    "aliasText": "賽羅",
+    "normalizedText": "賽羅",
+    "locale": null,
+    "createdAt": "2026-09-05T17:11:25.459Z"
+  }
+]

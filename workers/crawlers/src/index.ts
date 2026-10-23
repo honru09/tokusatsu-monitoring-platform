@@ -4,7 +4,10 @@ import {
   backfillUnmatchedListings,
   seedCatalogDictionary,
 } from "@tokusatsu/product-intelligence";
-import { connection, scheduleJobs } from "./queues.js";
+import { connection, ensureStatusRefreshCoverage, scheduleJobs } from "./queues.js";
+import { dispatchMonitoringKeywords } from "./monitoring-keywords.js";
+import { startPeriodicTask } from "./periodic-task.js";
+import { rescheduleCompletedStatusJob } from "./status-refresh-lifecycle.js";
 import {
   processClassification,
   processSearch,
@@ -18,11 +21,26 @@ import { processMarketIntel } from "./market-intel.processor.js";
 import { processTitleTranslation } from "./title-translation.processor.js";
 import { processDetailTranslation } from "./detail-translation.processor.js";
 import { processAiOperations } from "./ai-operations.processor.js";
+import { processChinaMarketComparison } from "./china-market/comparison.processor.js";
+import {
+  configureAutomaticAiCoordination,
+  type AutomaticAiRedisClient,
+} from "./background-ai-guard.js";
+import {
+  isStatusRefreshEligible,
+  statusRefreshWorkerPlan,
+} from "./status-refresh-policy.js";
 
+// ioredis exposes overloaded command signatures, while the coordination layer
+// deliberately depends on only the compatible get/set/eval subset.
+configureAutomaticAiCoordination(
+  connection as unknown as AutomaticAiRedisClient,
+);
 await seedCatalogDictionary();
 await processCleanup();
 await backfillUnmatchedListings();
 await scheduleJobs();
+await dispatchMonitoringKeywords();
 
 function positiveIntegerEnvironment(name: string, fallback: number) {
   const value = Number(process.env[name]);
@@ -44,6 +62,28 @@ const detailTranslationRpm = positiveIntegerEnvironment(
   "DETAIL_TRANSLATION_RPM",
   1,
 );
+// Keep comparison work serial so provider requests and database writes never
+// fan out unexpectedly. Deployments with a larger catalog may raise the start
+// rate deliberately, but the hard ceiling protects the marketplace and host
+// from an accidental high value.
+const chinaComparisonRpm = Math.min(
+  positiveIntegerEnvironment("XIANYU_COMPARISON_RPM", 1),
+  10,
+);
+const activeStatusItems = await prisma.item.count({
+  where: {
+    archivedAt: null,
+    ignored: false,
+    status: { in: ["active", "unknown"] },
+    channel: "online",
+    purchaseRecord: null,
+    categoryToyType: { not: "card" },
+  },
+});
+const statusRefreshPlan = statusRefreshWorkerPlan(activeStatusItems);
+console.log(
+  JSON.stringify({ event: "status_refresh_worker_plan", ...statusRefreshPlan }),
+);
 
 const workers = [
   new Worker("source-search", processSearch, {
@@ -58,8 +98,8 @@ const workers = [
   }),
   new Worker("item-status-refresh", processStatus, {
     connection,
-    concurrency: 3,
-    limiter: { max: 20, duration: 60_000 },
+    concurrency: statusRefreshPlan.concurrency,
+    limiter: { max: statusRefreshPlan.rpm, duration: 60_000 },
   }),
   new Worker("seller-profile-backfill", processStatus, {
     connection,
@@ -87,6 +127,11 @@ const workers = [
     concurrency: 1,
     limiter: { max: 1, duration: 60_000 },
   }),
+  new Worker("china-market-comparison", processChinaMarketComparison, {
+    connection,
+    concurrency: 1,
+    limiter: { max: chinaComparisonRpm, duration: 60_000 },
+  }),
   new Worker("title-translation", processTitleTranslation, {
     connection,
     concurrency: 1,
@@ -104,6 +149,19 @@ const workers = [
   }),
 ];
 
+const periodicTasks = [
+  startPeriodicTask({
+    intervalMs: 10 * 60_000,
+    task: ensureStatusRefreshCoverage,
+    onError: (error) => console.error(JSON.stringify({ event: "status_coverage_repair_failed", error: String(error) })),
+  }),
+  startPeriodicTask({
+    intervalMs: 60_000,
+    task: dispatchMonitoringKeywords,
+    onError: (error) => console.error(JSON.stringify({ event: "monitoring_keyword_dispatch_failed", error: String(error) })),
+  }),
+];
+
 for (const worker of workers) {
   worker.on("completed", (job) => {
     if (worker.name !== "item-status-refresh" || job.name !== "refresh-status")
@@ -115,27 +173,17 @@ for (const worker of workers) {
       status?: string;
       auctionEndAt?: string | Date | null;
       adapterKey?: string;
+      listingType?: string;
     };
-    const result = job.returnvalue as { status?: string } | undefined;
-    if (
-      result?.status !== "active" ||
-      !data.itemId ||
-      !data.sourceItemId ||
-      !data.sourceUrl ||
-      !data.adapterKey
-    )
-      return;
+    const result = job.returnvalue as {
+      status?: string;
+      auctionEndAt?: string | Date | null;
+      listingType?: string;
+    } | undefined;
     // The current job is removed on completion. Scheduling from the
     // completion event therefore creates the next stable-id job without the
     // self-deduplication race that occurs when scheduling inside processStatus.
-    void scheduleStatus(
-      data.itemId,
-      data.sourceItemId,
-      data.sourceUrl,
-      "active",
-      data.auctionEndAt ? new Date(data.auctionEndAt) : null,
-      data.adapterKey,
-    ).catch((error) =>
+    void rescheduleCompletedStatusJob(data, result, scheduleStatus).catch((error) =>
       console.error(
         JSON.stringify({
           event: "status_reschedule_failed",
@@ -173,7 +221,7 @@ for (const worker of workers) {
           adapterKey?: string;
         };
         if (
-          data.status !== "active" ||
+          !isStatusRefreshEligible(data.status) ||
           !data.itemId ||
           !data.sourceItemId ||
           !data.sourceUrl ||
@@ -191,7 +239,7 @@ for (const worker of workers) {
           data.itemId,
           data.sourceItemId,
           data.sourceUrl,
-          "active",
+          data.status,
           data.auctionEndAt ? new Date(data.auctionEndAt) : null,
           data.adapterKey,
           retryDelay,
@@ -226,6 +274,7 @@ console.log(
 
 async function shutdown(signal: string) {
   console.log(JSON.stringify({ event: "worker_shutdown", signal }));
+  await Promise.all(periodicTasks.map((task) => task.stop()));
   await Promise.all(workers.map((worker) => worker.close()));
   await connection.quit();
   await prisma.$disconnect();

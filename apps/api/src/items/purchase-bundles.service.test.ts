@@ -83,6 +83,10 @@ function purchaseHarness() {
         id: `item-${suffix}`,
         productId: null,
         quantityEst: 1,
+        titleRaw: `商品 ${suffix}`,
+        titleZh: `商品 ${suffix}`,
+        source: { displayName: "Mercari" },
+        images: [] as { url: string }[],
         purchaseRecord: {
           ...purchase,
           bundle: {
@@ -92,6 +96,19 @@ function purchaseHarness() {
         },
       };
     });
+
+  const inventoryOrders = new Map<string, Record<string, unknown>>();
+  const readInventoryOrder = (where: {
+    sourceBundleId?: string;
+    id?: string;
+  }) => {
+    const row = where.id
+      ? inventoryOrders.get(where.id)
+      : [...inventoryOrders.values()].find(
+          (order) => order.sourceBundleId === where.sourceBundleId,
+        );
+    return row ? { ...row } : null;
+  };
 
   const tx = {
     item: {
@@ -106,7 +123,8 @@ function purchaseHarness() {
         const id = `bundle-new-${sequence}`;
         bundles.set(id, {
           id,
-          pricingMode: (data.pricingMode as BundleState["pricingMode"]) ?? "per_item",
+          pricingMode:
+            (data.pricingMode as BundleState["pricingMode"]) ?? "per_item",
           totalPurchaseAmount: data.totalPurchaseAmount as number,
           currency: "JPY",
           purchasedAt: (data.purchasedAt as Date) ?? now,
@@ -145,7 +163,8 @@ function purchaseHarness() {
             bundle.totalPurchaseAmount = data.totalPurchaseAmount;
           if (data.purchasedAt instanceof Date)
             bundle.purchasedAt = data.purchasedAt;
-          if ("note" in data) bundle.note = (data.note as string | null) ?? null;
+          if ("note" in data)
+            bundle.note = (data.note as string | null) ?? null;
           if (data.archivedAt instanceof Date)
             bundle.archivedAt = data.archivedAt;
           if (
@@ -187,13 +206,90 @@ function purchaseHarness() {
       findUnique: vi.fn(),
       upsert: vi.fn(),
     },
+    inventoryOrder: {
+      findUnique: vi.fn(
+        async ({
+          where,
+        }: {
+          where: { sourceBundleId?: string; id?: string };
+        }) => {
+          return readInventoryOrder(where);
+        },
+      ),
+      findUniqueOrThrow: vi.fn(
+        async ({
+          where,
+        }: {
+          where: { sourceBundleId?: string; id?: string };
+        }) => {
+          const order = readInventoryOrder(where);
+          if (!order) throw new Error("Inventory order missing");
+          return order;
+        },
+      ),
+      createMany: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        if (
+          readInventoryOrder({ sourceBundleId: data.sourceBundleId as string })
+        )
+          return { count: 0 };
+        const id = (data.id as string) ?? `inv-${inventoryOrders.size + 1}`;
+        inventoryOrders.set(id, { ...data, id });
+        return { count: 1 };
+      }),
+      create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        const id = (data.id as string) ?? `inv-${inventoryOrders.size + 1}`;
+        const row = { ...data, id };
+        inventoryOrders.set(id, row);
+        return row;
+      }),
+      update: vi.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: { id: string };
+          data: Record<string, unknown>;
+        }) => {
+          const row = inventoryOrders.get(where.id);
+          if (!row) throw new Error(`inventory order ${where.id} missing`);
+          Object.assign(row, data);
+          return row;
+        },
+      ),
+      updateMany: vi.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: Record<string, unknown> & { id: string };
+          data: Record<string, unknown>;
+        }) => {
+          const row = inventoryOrders.get(where.id);
+          if (
+            !row ||
+            Object.entries(where).some(([key, value]) => row[key] !== value)
+          )
+            return { count: 0 };
+          Object.assign(row, data);
+          return { count: 1 };
+        },
+      ),
+    },
   };
   const prisma = {
     $transaction: vi.fn(
       async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
     ),
   };
-  return { prisma, tx, bundles, purchases, audits, bundleRow };
+  return {
+    prisma,
+    tx,
+    bundles,
+    purchases,
+    audits,
+    bundleRow,
+    inventoryOrders,
+  };
 }
 
 describe("ItemsService purchase bundle membership", () => {
@@ -224,6 +320,7 @@ describe("ItemsService purchase bundle membership", () => {
       "archived",
       "created",
     ]);
+    expect(harness.tx.inventoryOrder.createMany).toHaveBeenCalled();
   });
 
   it("moves an existing singleton PurchaseRecord during PATCH replacement", async () => {
@@ -251,5 +348,78 @@ describe("ItemsService purchase bundle membership", () => {
       "archived",
       "members_changed",
     ]);
+    expect(harness.tx.inventoryOrder.createMany).toHaveBeenCalled();
+    const linked = [...harness.inventoryOrders.values()].find(
+      (order) => order.sourceBundleId === "bundle-a",
+    );
+    expect(linked).toMatchObject({
+      purchaseCost: 1_000,
+      initialQuantity: 2,
+      remainingQuantity: 2,
+      soldQuantity: 0,
+    });
+  });
+
+  it("resyncs linked inventory cost/qty on PATCH when still pristine", async () => {
+    const harness = purchaseHarness();
+    harness.inventoryOrders.set("inv-a", {
+      id: "inv-a",
+      sourceBundleId: "bundle-a",
+      purchaseCost: 400,
+      initialQuantity: 1,
+      remainingQuantity: 1,
+      soldQuantity: 0,
+      totalSales: 0,
+      status: "in_stock",
+      name: "商品 a",
+      note: null,
+    });
+    const service = new ItemsService(harness.prisma as never);
+
+    await service.updatePurchaseBundle("bundle-a", {
+      expectedVersion: 1,
+      members: [{ itemId: "item-a", amountYen: 480 }],
+      actor: "operator-c",
+      reason: "更正采购价",
+    });
+
+    expect(harness.inventoryOrders.get("inv-a")).toMatchObject({
+      purchaseCost: 480,
+      initialQuantity: 1,
+      remainingQuantity: 1,
+    });
+    expect(harness.tx.inventoryOrder.updateMany).toHaveBeenCalled();
+  });
+
+  it("does not clobber inventory cost/qty after sales on PATCH", async () => {
+    const harness = purchaseHarness();
+    harness.inventoryOrders.set("inv-a", {
+      id: "inv-a",
+      sourceBundleId: "bundle-a",
+      purchaseCost: 400,
+      initialQuantity: 1,
+      remainingQuantity: 0,
+      soldQuantity: 1,
+      totalSales: 500,
+      status: "sold_out",
+      name: "商品 a",
+      note: null,
+    });
+    const service = new ItemsService(harness.prisma as never);
+
+    await service.updatePurchaseBundle("bundle-a", {
+      expectedVersion: 1,
+      members: [{ itemId: "item-a", amountYen: 999 }],
+      actor: "operator-d",
+      reason: "事后改价不应覆盖已售批次",
+    });
+
+    expect(harness.inventoryOrders.get("inv-a")).toMatchObject({
+      purchaseCost: 400,
+      initialQuantity: 1,
+      remainingQuantity: 0,
+      soldQuantity: 1,
+      totalSales: 500,
+    });
   });
 });

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ImageGallery } from "../../../components/image-gallery";
+import { listingTypeLabel, type ListingType } from "../../../lib/listing-type";
 
 type SnapshotItem = {
   id: string;
@@ -12,7 +13,7 @@ type SnapshotItem = {
   priceCurrent: number;
   shippingFee?: number | null;
   quantityEst?: number | null;
-  listingType: "auction" | "direct";
+  listingType: ListingType;
   auctionEndAt?: string | null;
   note?: string | null;
   images: { url: string; position: number }[];
@@ -81,9 +82,9 @@ export default function SharePage({
   );
 
   return (
-    <main className="ios-shell min-h-dvh px-4 py-6 sm:px-6">
+    <main className="ios-shell procurement-shell share-workspace min-h-dvh px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-5xl">
-        <header className="ios-surface mb-4 flex items-center gap-3 rounded-3xl p-4">
+        <header className="share-editorial-header mb-6 flex items-center gap-3 py-4">
           <img src="/brand-icon.svg" alt="假面采购" className="h-11 w-11" />
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold">
@@ -131,7 +132,7 @@ export default function SharePage({
                 return (
                   <article
                     key={item.id}
-                    className="ios-card overflow-hidden rounded-3xl"
+                    className="share-editorial-item overflow-hidden"
                   >
                     <ImageGallery
                       images={item.images}
@@ -160,7 +161,7 @@ export default function SharePage({
                       </div>
                       <div className="mt-2 flex items-center justify-between text-[11px] text-ink/55">
                         <span>
-                          {item.listingType === "auction" ? "拍卖" : "直购"} ·{" "}
+                          {listingTypeLabel(item.listingType)} ·{" "}
                           {item.quantityEst ?? "?"} 件
                         </span>
                         {item.shippingFee === 0 ? (

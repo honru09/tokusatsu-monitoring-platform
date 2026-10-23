@@ -3,22 +3,42 @@
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=22.13.0",
+    "pnpm": "11.19.0"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.19.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.19.0",
+      "onFail": "error"
+    }
+  },
   "scripts": {
-    "build": "pnpm -r --if-present build",
-    "typecheck": "pnpm --filter @tokusatsu/shared build && pnpm --filter @tokusatsu/db build && pnpm --filter @tokusatsu/product-dictionary build && pnpm --filter @tokusatsu/matching build && pnpm --filter @tokusatsu/classification build && pnpm --filter @tokusatsu/product-intelligence build && pnpm -r --if-present typecheck",
-    "test": "pnpm -r --if-present test",
+    "build": "node scripts/run-pnpm.mjs -r --if-present build",
+    "typecheck": "node scripts/run-pnpm.mjs --filter @tokusatsu/shared build && node scripts/run-pnpm.mjs --filter @tokusatsu/db build && node scripts/run-pnpm.mjs --filter @tokusatsu/product-dictionary build && node scripts/run-pnpm.mjs --filter @tokusatsu/matching build && node scripts/run-pnpm.mjs --filter @tokusatsu/classification build && node scripts/run-pnpm.mjs --filter @tokusatsu/product-intelligence build && node scripts/run-pnpm.mjs -r --workspace-concurrency=1 --if-present typecheck",
+    "test": "node scripts/run-pnpm.mjs -r --if-present test",
+    "toolchain:check": "node scripts/check-toolchain.mjs",
     "format:check": "prettier --check .",
-    "db:generate": "pnpm --filter @tokusatsu/db generate",
-    "db:migrate": "pnpm --filter @tokusatsu/db migrate:dev",
-    "db:seed": "pnpm --filter @tokusatsu/db seed",
-    "compose:up": "docker compose -f infrastructure/docker-compose.yml up -d --build",
-    "compose:down": "docker compose -f infrastructure/docker-compose.yml down",
-    "compose:logs": "docker compose -f infrastructure/docker-compose.yml logs -f"
+    "db:generate": "node scripts/run-pnpm.mjs --filter @tokusatsu/db generate",
+    "db:migrate": "node scripts/run-pnpm.mjs --filter @tokusatsu/db migrate:dev",
+    "db:seed": "node scripts/run-pnpm.mjs --filter @tokusatsu/db seed",
+    "compose:up": "docker compose --env-file .env -f infrastructure/docker-compose.yml up -d --build",
+    "compose:down": "docker compose --env-file .env -f infrastructure/docker-compose.yml down",
+    "compose:logs": "docker compose --env-file .env -f infrastructure/docker-compose.yml logs -f",
+    "ai:validate": "node scripts/run-pnpm.mjs --filter @tokusatsu/api ai:validate",
+    "ai:validate:upstreams": "node scripts/run-pnpm.mjs --filter @tokusatsu/api ai:validate:upstreams",
+    "test:gemini": "node scripts/run-pnpm.mjs --filter @tokusatsu/api test:gemini"
   },
   "devDependencies": {
     "@types/node": "22.18.1",
     "prettier": "3.6.2",
     "typescript": "5.9.2",
-    "vitest": "3.2.4"
+    "vitest": "3.2.6"
   }
 }

@@ -1,6 +1,31 @@
+import { createHash } from "node:crypto";
 import { Injectable } from "@nestjs/common";
-import { SourceChannel, ToyType } from "@tokusatsu/db";
-import { AiGatewayService } from "../ai/ai-gateway.service.js";
+import { Prisma, SourceChannel, ToyType } from "@tokusatsu/db";
+import {
+  compareProcurementCandidates,
+  procurementConfigFromEnv,
+  procurementLogisticsEvidence,
+  rankProcurementCandidates,
+  type ProcurementAssessment,
+  type ProcurementMissingFact,
+} from "@tokusatsu/shared";
+import {
+  AiGatewayService,
+  type AiGatewayResult,
+} from "../ai/ai-gateway.service.js";
+import { ProductAiService } from "../ai/product-ai.service.js";
+import type { AiCostPolicy } from "../ai/ai-router.js";
+import {
+  SELLER_BATCH_SUMMARY_SCHEMA,
+  SELLER_PROFILE_SCHEMA,
+  itemTranslationSchema,
+  priceJudgementSchema,
+} from "../ai/ai-response-contracts.js";
+import {
+  batchTranslationSchema,
+  detailFragmentsSchema,
+} from "../ai/ai-response-schema.js";
+import { activeMarketItemWhere } from "../items/active-market-scope.js";
 import { classifySellerSegment } from "../items/seller-segments.js";
 import { PrismaService } from "../prisma.service.js";
 import type { TranslateDto } from "./analysis.dto.js";
@@ -14,6 +39,57 @@ const conditionWeight: Record<string, number> = {
   unknown: 0,
 };
 
+const procurementMissingFactLabel: Record<ProcurementMissingFact, string> = {
+  price: "价格",
+  shipping_fee: "运费",
+  quantity: "数量",
+  volume: "体积",
+  condition: "品相",
+  listing_type: "交易方式",
+};
+
+function procurementReason(assessment: ProcurementAssessment) {
+  const evidence = [...assessment.facts, ...assessment.reasons];
+  if (assessment.missingFacts.length) {
+    evidence.push(
+      `待核验：${assessment.missingFacts
+        .map((fact) => procurementMissingFactLabel[fact])
+        .join("、")}。`,
+    );
+  }
+  return evidence.join(" ");
+}
+
+function publicDetailStringNeedsTranslation(path: string, text: string) {
+  const normalizedPath = path.replace(/\[\d+\]/g, "");
+  const fieldName = normalizedPath.split(".").at(-1) ?? "";
+
+  // Marketplace payloads commonly embed JSON-LD transport metadata beside
+  // the human-readable listing facts. None of these values belong in a
+  // translation request, and media arrays otherwise evade a simple
+  // `path.endsWith("image")` check once they become `image[0]`.
+  if (
+    /^(?:@context|@type)$/i.test(fieldName) ||
+    /(?:image|images|imageurl|imageurls|thumbnail|thumbnails|photo|photos|picture|pictures|url|uri|href)$/i.test(
+      fieldName,
+    )
+  )
+    return false;
+
+  if (/^(?:https?:\/\/|data:image\/|blob:)/i.test(text)) return false;
+
+  // Empty technical sentinels carry no customer-facing fact. Sending them to
+  // an LLM wastes tokens and can make a strict all-fields response fail even
+  // after the meaningful title, condition and seller description succeeded.
+  if (/^(?:unknown|undefined|null|n\/a|none|not[_ -]?available)$/i.test(text))
+    return false;
+
+  if (/(?:currency|currencycode)$/i.test(fieldName) && /^[A-Z]{3}$/u.test(text))
+    return false;
+
+  return true;
+}
+
 export function publicDetailFields(value: unknown) {
   const rows: { path: string; value: string }[] = [];
   let totalLength = 0;
@@ -24,7 +100,7 @@ export function publicDetailFields(value: unknown) {
     if (rows.length >= 500 || totalLength >= 80_000 || depth > 7) return;
     if (typeof current === "string") {
       const text = current.replace(/\s+/g, " ").trim();
-      if (!text || /(?:image|thumbnail|photo|url)$/i.test(path)) return;
+      if (!text || !publicDetailStringNeedsTranslation(path, text)) return;
       if (
         /(?:^|\.)(?:bodyText)$/i.test(path) &&
         /(?:window\.[A-Z_$]|<\/?(?:div|script|style|a)\b|__NEXT_DATA__|webpack|function\s*\()/i.test(
@@ -143,7 +219,14 @@ export function publicDetailFieldChunks(
 
 export function translationOutputTokenBudget(texts: readonly string[]) {
   const characters = texts.reduce((total, text) => total + text.length, 0);
-  return Math.max(800, Math.min(3_000, characters * 2));
+  // JSON framing and one complete sentence per title consume a meaningful
+  // fixed budget even when the source strings are short. Without a per-row
+  // reserve, providers tend to return only the first few titles in a batch.
+  return Math.max(
+    800,
+    Math.min(6_000, characters * 2, Number.MAX_SAFE_INTEGER),
+    Math.min(6_000, texts.length * 500),
+  );
 }
 
 function sourceShippingEvidence(value: unknown) {
@@ -180,149 +263,186 @@ export function negotiationFallback(targetPrice?: number) {
 
 @Injectable()
 export class AnalysisService {
+  private readonly translationRequests = new Map<
+    string,
+    Promise<AiGatewayResult<{ translations?: unknown; confidence?: unknown }>>
+  >();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: AiGatewayService,
+    private readonly productAi: ProductAiService,
   ) {}
 
   async market() {
-    const items = await this.prisma.item.findMany({
-      where: {
-        archivedAt: null,
-        channel: "online",
-        purchaseRecord: null,
-        ignored: false,
-        categoryToyType: { not: "card" },
-        AND: [
-          {
-            OR: [
-              { descriptionRaw: null },
-              {
-                NOT: {
-                  descriptionRaw: {
-                    contains: "カードダス",
-                    mode: "insensitive",
-                  },
+    const where = {
+      archivedAt: null,
+      channel: "online",
+      purchaseRecord: null,
+      ignored: false,
+      status: { in: ["active", "unknown"] },
+      categoryToyType: { not: "card" },
+      AND: [
+        {
+          OR: [
+            { descriptionRaw: null },
+            {
+              NOT: {
+                descriptionRaw: {
+                  contains: "カードダス",
+                  mode: "insensitive",
                 },
               },
-            ],
-          },
-        ],
-        NOT: [
-          { titleRaw: { contains: "トレカ", mode: "insensitive" } },
-          { titleRaw: { contains: "trading card", mode: "insensitive" } },
-          { titleRaw: { contains: "card game", mode: "insensitive" } },
-          { titleRaw: { contains: "mook", mode: "insensitive" } },
-          { titleRaw: { contains: "magazine", mode: "insensitive" } },
-          { titleRaw: { contains: "comic", mode: "insensitive" } },
-          { titleRaw: { contains: "novel", mode: "insensitive" } },
-          { titleRaw: { contains: "書籍", mode: "insensitive" } },
-          { titleRaw: { contains: "漫画", mode: "insensitive" } },
-          { titleRaw: { contains: "マンガ", mode: "insensitive" } },
-          { titleRaw: { contains: "コミック", mode: "insensitive" } },
-          { titleRaw: { contains: "写真集", mode: "insensitive" } },
-          { titleRaw: { contains: "攻略本", mode: "insensitive" } },
-          { titleRaw: { contains: "図鑑", mode: "insensitive" } },
-          { titleRaw: { contains: "辞典", mode: "insensitive" } },
-          { titleRaw: { contains: "事典", mode: "insensitive" } },
-          { titleRaw: { contains: "図録", mode: "insensitive" } },
-          { titleRaw: { contains: "資料集", mode: "insensitive" } },
-          { titleRaw: { contains: "雑誌", mode: "insensitive" } },
-          { titleRaw: { contains: "絵本", mode: "insensitive" } },
-          { titleRaw: { contains: "小説", mode: "insensitive" } },
-          { titleRaw: { contains: "パンフレット", mode: "insensitive" } },
-        ],
+            },
+          ],
+        },
+      ],
+      NOT: [
+        { titleRaw: { contains: "トレカ", mode: "insensitive" } },
+        { titleRaw: { contains: "trading card", mode: "insensitive" } },
+        { titleRaw: { contains: "card game", mode: "insensitive" } },
+        { titleRaw: { contains: "mook", mode: "insensitive" } },
+        { titleRaw: { contains: "magazine", mode: "insensitive" } },
+        { titleRaw: { contains: "comic", mode: "insensitive" } },
+        { titleRaw: { contains: "novel", mode: "insensitive" } },
+        { titleRaw: { contains: "書籍", mode: "insensitive" } },
+        { titleRaw: { contains: "漫画", mode: "insensitive" } },
+        { titleRaw: { contains: "マンガ", mode: "insensitive" } },
+        { titleRaw: { contains: "コミック", mode: "insensitive" } },
+        { titleRaw: { contains: "写真集", mode: "insensitive" } },
+        { titleRaw: { contains: "攻略本", mode: "insensitive" } },
+        { titleRaw: { contains: "図鑑", mode: "insensitive" } },
+        { titleRaw: { contains: "辞典", mode: "insensitive" } },
+        { titleRaw: { contains: "事典", mode: "insensitive" } },
+        { titleRaw: { contains: "図録", mode: "insensitive" } },
+        { titleRaw: { contains: "資料集", mode: "insensitive" } },
+        { titleRaw: { contains: "雑誌", mode: "insensitive" } },
+        { titleRaw: { contains: "絵本", mode: "insensitive" } },
+        { titleRaw: { contains: "小説", mode: "insensitive" } },
+        { titleRaw: { contains: "パンフレット", mode: "insensitive" } },
+      ],
+    } satisfies Prisma.ItemWhereInput;
+    const select = {
+      id: true,
+      titleRaw: true,
+      sourceUrl: true,
+      priceCurrent: true,
+      priceTotalEst: true,
+      unitCostEst: true,
+      quantityEst: true,
+      categoryToyType: true,
+      conditionGrade: true,
+      status: true,
+      imageCount: true,
+      descriptionRaw: true,
+      shippingFee: true,
+      listingType: true,
+      bidCount: true,
+      auctionEndAt: true,
+      detectedAt: true,
+      logistics: {
+        select: {
+          volumeCm3: true,
+          lengthMm: true,
+          widthMm: true,
+          heightMm: true,
+          notes: true,
+        },
       },
-      select: {
-        id: true,
-        titleRaw: true,
-        sourceUrl: true,
-        priceCurrent: true,
-        priceTotalEst: true,
-        unitCostEst: true,
-        quantityEst: true,
-        conditionGrade: true,
-        status: true,
-        imageCount: true,
-        descriptionRaw: true,
-        shippingFee: true,
-        listingType: true,
-        bidCount: true,
-        auctionEndAt: true,
-        detectedAt: true,
-        source: { select: { key: true, displayName: true } },
-      },
-      orderBy: { detectedAt: "desc" },
-      take: 1000,
-    });
-    const fallbackBestValue =
+      source: { select: { key: true, displayName: true } },
+    } satisfies Prisma.ItemSelect;
+    const items: Prisma.ItemGetPayload<{ select: typeof select }>[] = [];
+    let cursor: string | undefined;
+    for (;;) {
+      const page = await this.prisma.item.findMany({
+        where,
+        select,
+        orderBy: [{ detectedAt: "desc" }, { id: "asc" }],
+        take: 1_000,
+        cursor: cursor ? { id: cursor } : undefined,
+        skip: cursor ? 1 : undefined,
+      });
+      items.push(...page);
+      if (page.length < 1_000) break;
+      cursor = page.at(-1)!.id;
+    }
+    const procurementConfig = procurementConfigFromEnv(process.env);
+    const procurementItems = items.map((item) => ({
+      ...item,
+      logistics: procurementLogisticsEvidence(item.logistics),
+    }));
+    const rankedProcurement = rankProcurementCandidates(
+      procurementItems,
+      procurementConfig,
+    );
+    const fallbackBestValueEntry = rankedProcurement[0] ?? null;
+    const fallbackBestValue = fallbackBestValueEntry?.candidate ?? null;
+    const fallbackLargestQuantity =
       items
-        .filter((item) => item.unitCostEst != null)
+        .filter((item) => item.quantityEst != null)
+        .sort((a, b) => (b.quantityEst ?? 0) - (a.quantityEst ?? 0))[0] ?? null;
+    const fallbackBestCondition =
+      items
+        .filter((item) => (conditionWeight[item.conditionGrade] ?? 0) > 0)
         .sort(
           (a, b) =>
-            (a.unitCostEst ?? Number.MAX_SAFE_INTEGER) -
-              (b.unitCostEst ?? Number.MAX_SAFE_INTEGER) ||
-            (b.quantityEst ?? 0) - (a.quantityEst ?? 0),
+            (conditionWeight[b.conditionGrade] ?? 0) -
+            (conditionWeight[a.conditionGrade] ?? 0),
         )[0] ?? null;
-    const fallbackLargestQuantity =
-      [...items].sort(
-        (a, b) => (b.quantityEst ?? 0) - (a.quantityEst ?? 0),
-      )[0] ?? null;
-    const fallbackBestCondition =
-      [...items].sort(
-        (a, b) =>
-          (conditionWeight[b.conditionGrade] ?? 0) -
-          (conditionWeight[a.conditionGrade] ?? 0),
-      )[0] ?? null;
     let bestValue = fallbackBestValue;
     let largestQuantity = fallbackLargestQuantity;
     let bestCondition = fallbackBestCondition;
-    const recommendation = fallbackBestValue
-      ? `建议先核验「${fallbackBestValue.titleRaw.slice(0, 42)}」：估算单件 ${fallbackBestValue.unitCostEst == null ? "未知" : `¥${fallbackBestValue.unitCostEst.toLocaleString("ja-JP")}`}。同时确认数量、成色、缺件情况与竞拍截止时间。`
+    const recommendation = fallbackBestValueEntry
+      ? `建议先核验「${fallbackBestValueEntry.candidate.titleRaw.slice(0, 42)}」：${procurementReason(fallbackBestValueEntry.assessment)}`
       : "当前没有可分析的在售商品，等待下一轮市场扫描。";
     let mode: "rules" | "ai" = "rules";
     let engineLabel = "透明规则分析";
     let aiRecommendation: string | null = null;
-    const fallbackRanked = items
-      .filter((item) => item.unitCostEst != null)
-      .sort(
-        (a, b) =>
-          (a.unitCostEst ?? Number.MAX_SAFE_INTEGER) -
-            (b.unitCostEst ?? Number.MAX_SAFE_INTEGER) ||
-          (b.quantityEst ?? 0) - (a.quantityEst ?? 0),
-      )
+    const fallbackRanked = rankedProcurement
       .slice(0, 5)
-      .map((item) => ({
-        item,
-        reason: `估算单件 ${item.unitCostEst == null ? "未知" : `¥${item.unitCostEst.toLocaleString("ja-JP")}`}，数量 ${item.quantityEst ?? "未知"} 件，购买前仍需核验缺件、成色和运费。`,
+      .map(({ candidate, assessment }) => ({
+        item: candidate,
+        reason: procurementReason(assessment),
       }));
     let rankedRecommendations = fallbackRanked;
     let insights = [
-      `本次分析读取 ${items.length} 件在售商品，其中拍卖 ${items.filter((item) => item.listingType === "auction").length} 件，直购 ${items.filter((item) => item.listingType === "direct").length} 件。`,
+      `本次分析读取 ${items.length} 件在售商品，其中拍卖 ${items.filter((item) => item.listingType === "auction").length} 件，直购 ${items.filter((item) => item.listingType === "direct").length} 件，交易方式待核验 ${items.filter((item) => item.listingType === "unknown").length} 件。`,
     ];
     let risks = [
       `${items.filter((item) => item.shippingFee == null).length} 件没有可靠固定运费，比较价格时需要到原平台确认最终配送成本。`,
       `${items.filter((item) => item.quantityEst == null).length} 件数量尚未可靠识别，不应直接按单件估值采购。`,
+      `${rankedProcurement.filter(({ assessment }) => assessment.missingFacts.includes("volume")).length} 件缺少可靠体积，不能直接视为小体积商品。`,
     ];
     if (fallbackBestValue && this.gateway.configured()) {
       try {
-        const promptItems = items.slice(0, 80).map((item) => ({
-          id: item.id,
-          title: item.titleRaw,
-          price: item.priceCurrent,
-          total: item.priceTotalEst,
-          unitCost: item.unitCostEst,
-          quantity: item.quantityEst,
-          condition: item.conditionGrade,
-          status: item.status,
-          listingType: item.listingType,
-          bidCount: item.bidCount,
-          auctionEndAt: item.auctionEndAt,
-          shippingFee: item.shippingFee,
-          platform: item.source.displayName,
-          description: item.descriptionRaw?.slice(0, 1_200) ?? null,
+        const promptEntries = rankedProcurement.slice(0, 80);
+        const promptItems = promptEntries.map(({ candidate, assessment }) => ({
+          id: candidate.id,
+          title: candidate.titleRaw,
+          price: candidate.priceCurrent,
+          total: candidate.priceTotalEst,
+          unitCost: candidate.unitCostEst,
+          quantity: candidate.quantityEst,
+          condition: candidate.conditionGrade,
+          status: candidate.status,
+          listingType: candidate.listingType,
+          bidCount: candidate.bidCount,
+          auctionEndAt: candidate.auctionEndAt,
+          shippingFee: candidate.shippingFee,
+          platform: candidate.source.displayName,
+          description: candidate.descriptionRaw?.slice(0, 1_200) ?? null,
+          logistics: candidate.logistics,
+          ruleAssessment: {
+            category: assessment.category,
+            compactness: assessment.compactness,
+            compactnessBasis: assessment.compactnessBasis,
+            costBasis: assessment.costBasis,
+            facts: assessment.facts,
+            reasons: assessment.reasons,
+            missingFacts: assessment.missingFacts,
+          },
         }));
-        const execution = await this.gateway.executeJson<{
+        const execution = await this.productAi.execute<{
           bestValueId?: unknown;
           largestQuantityId?: unknown;
           bestConditionId?: unknown;
@@ -330,16 +450,15 @@ export class AnalysisService {
           ranked?: unknown;
           insights?: unknown;
           risks?: unknown;
-        }>({
-          task: "market_analysis",
-          dataClass: "public_market",
-          costPolicy: "free_first",
-          maxTokens: 1_200,
+        }>("price_judgement", {
+          responseSchema: priceJudgementSchema(
+            promptItems.map((item) => item.id),
+          ),
           messages: [
             {
               role: "system",
               content:
-                '你是日本特摄中古商品采购顾问。严禁生成数字评分或虚构信息。请完整结合商品标题、卖家描述、当前价、预计总价、运费、数量、品相、拍卖/直购方式、竞拍次数、截止时间和真实平台，选择三个可核验的商品，并给出中文采购判断。明确区分已知事实、需要核验的风险和推断，不得把未知信息写成事实。bestValueId 表示价格、数量、成色和总成本综合最值得核验，largestQuantityId 表示数量最大，bestConditionId 表示品相最好；ID 必须来自输入。ranked 返回最多 5 个输入中的商品，按采购优先级排列，每项包含 id 和不超过 80 字的具体 reason。insights 与 risks 各返回 2 至 4 条具体结论，不得评分。只输出 JSON：{"bestValueId":"id","largestQuantityId":"id","bestConditionId":"id","recommendation":"...","ranked":[{"id":"id","reason":"..."}],"insights":["..."],"risks":["..."]}。',
+                '你是日本特摄中古商品采购顾问。目标是在事实可核验的前提下优先找总体积及单件体积更小、数量更多、价格更低的货。输入已经过透明规则预排序，ruleAssessment 是规则根据已知字段得出的分类、事实、推断依据和缺失事实，不包含数字评分。体积只可使用 logistics 中的已知总体积、三维尺寸和规则明确标注的推断；未知体积绝不能写成小体积。数量越多越优先，但数量未知时不得猜测。只有 shippingFee 已知时，才可把 (price + shippingFee) / quantity 称为已知的含运费单件成本；运费未知时，price / quantity 只能称为成本下限，绝不能称为已知低价。输入中的 total 和 unitCost 是历史估算字段，不能覆盖 shippingFee、quantity 或 ruleAssessment 的事实边界。严禁生成数字评分、虚构信息或把缺失事实写成事实。请完整结合标题、卖家描述、当前价、预计总价、运费、数量、品相、拍卖/直购方式、竞拍次数、截止时间、真实平台和规则事实，选择三个可核验的商品并给出中文采购判断。bestValueId 表示体积、数量、含运费单件成本和品相综合最值得核验，largestQuantityId 表示输入中已知数量最大，bestConditionId 表示输入中品相最好；ID 必须来自输入。ranked 返回最多 5 个输入中的商品，按采购优先级排列，每项包含 id 和不超过 80 字的具体 reason，reason 必须引用已知事实或明确指出待核验项。insights 与 risks 各返回 2 至 4 条具体结论，不得评分。只输出 JSON：{"bestValueId":"id","largestQuantityId":"id","bestConditionId":"id","recommendation":"...","ranked":[{"id":"id","reason":"..."}],"insights":["..."],"risks":["..."]}。',
             },
             { role: "user", content: JSON.stringify(promptItems) },
           ],
@@ -349,49 +468,112 @@ export class AnalysisService {
           typeof result.recommendation === "string" &&
           result.recommendation.trim()
         ) {
-          const byId = new Map(items.map((item) => [item.id, item]));
-          if (typeof result.bestValueId === "string")
-            bestValue = byId.get(result.bestValueId) ?? bestValue;
-          if (typeof result.largestQuantityId === "string")
-            largestQuantity =
-              byId.get(result.largestQuantityId) ?? largestQuantity;
-          if (typeof result.bestConditionId === "string")
-            bestCondition = byId.get(result.bestConditionId) ?? bestCondition;
+          const byId = new Map(
+            promptEntries.map(({ candidate }) => [candidate.id, candidate]),
+          );
+          const assessmentById = new Map(
+            promptEntries.map(({ candidate, assessment }) => [
+              candidate.id,
+              assessment,
+            ]),
+          );
+          const rulePositionById = new Map(
+            promptEntries.map(({ candidate }, index) => [candidate.id, index]),
+          );
+          if (typeof result.bestValueId === "string") {
+            const proposed = byId.get(result.bestValueId);
+            const proposedAssessment = assessmentById.get(result.bestValueId);
+            if (
+              proposed &&
+              proposedAssessment &&
+              proposedAssessment.category !== "deprioritized" &&
+              fallbackBestValue &&
+              compareProcurementCandidates(
+                proposed,
+                fallbackBestValue,
+                procurementConfig,
+              ) === 0
+            ) {
+              bestValue = proposed;
+            }
+          }
+          if (typeof result.largestQuantityId === "string") {
+            const proposed = byId.get(result.largestQuantityId);
+            if (
+              proposed?.quantityEst != null &&
+              proposed.quantityEst === fallbackLargestQuantity?.quantityEst
+            ) {
+              largestQuantity = proposed;
+            }
+          }
+          if (typeof result.bestConditionId === "string") {
+            const proposed = byId.get(result.bestConditionId);
+            if (
+              proposed &&
+              (conditionWeight[proposed.conditionGrade] ?? 0) > 0 &&
+              (conditionWeight[proposed.conditionGrade] ?? 0) >=
+                (conditionWeight[fallbackBestCondition?.conditionGrade ?? ""] ??
+                  0)
+            ) {
+              bestCondition = proposed;
+            }
+          }
           mode = "ai";
           engineLabel = execution.model;
-          aiRecommendation = result.recommendation.trim();
+          const selectedAssessment = bestValue
+            ? assessmentById.get(bestValue.id)
+            : undefined;
+          const verifiedRecommendation =
+            bestValue && selectedAssessment
+              ? `建议先核验「${bestValue.titleRaw.slice(0, 42)}」：${procurementReason(selectedAssessment)}`
+              : recommendation;
+          // Model prose is not a trusted fact source. AI may choose only among
+          // deterministic ties; all user-visible reasons stay rule-generated.
+          aiRecommendation = verifiedRecommendation;
           if (Array.isArray(result.ranked)) {
-            const ranked = result.ranked.flatMap((entry) => {
-              if (!entry || typeof entry !== "object") return [];
+            const aiOrderById = new Map<string, number>();
+            const rankedById = new Map<
+              string,
+              (typeof fallbackRanked)[number]
+            >();
+            result.ranked.forEach((entry, index) => {
+              if (!entry || typeof entry !== "object") return;
               const value = entry as Record<string, unknown>;
-              if (typeof value.id !== "string") return [];
+              if (typeof value.id !== "string") return;
               const item = byId.get(value.id);
-              if (!item) return [];
-              return [
-                {
-                  item,
-                  reason:
-                    typeof value.reason === "string" && value.reason.trim()
-                      ? value.reason.trim()
-                      : "请核验数量、品相、配件和最终运费。",
-                },
-              ];
+              const assessment = assessmentById.get(value.id);
+              if (!item || !assessment) return;
+              if (rankedById.has(item.id)) return;
+              aiOrderById.set(item.id, index);
+              rankedById.set(item.id, {
+                item,
+                reason: `AI复核（仅同分候选可调整）。规则依据：${procurementReason(assessment)}`,
+              });
+            });
+            for (const entry of fallbackRanked) {
+              if (!rankedById.has(entry.item.id))
+                rankedById.set(entry.item.id, entry);
+            }
+            const ranked = [...rankedById.values()].sort((left, right) => {
+              const ruleDifference = compareProcurementCandidates(
+                left.item,
+                right.item,
+                procurementConfig,
+              );
+              if (ruleDifference) return ruleDifference;
+              const leftAiOrder = aiOrderById.get(left.item.id);
+              const rightAiOrder = aiOrderById.get(right.item.id);
+              if (leftAiOrder != null && rightAiOrder != null)
+                return leftAiOrder - rightAiOrder;
+              if (leftAiOrder != null) return -1;
+              if (rightAiOrder != null) return 1;
+              return (
+                (rulePositionById.get(left.item.id) ??
+                  Number.MAX_SAFE_INTEGER) -
+                (rulePositionById.get(right.item.id) ?? Number.MAX_SAFE_INTEGER)
+              );
             });
             if (ranked.length) rankedRecommendations = ranked.slice(0, 5);
-          }
-          if (Array.isArray(result.insights)) {
-            const next = result.insights.filter(
-              (value): value is string =>
-                typeof value === "string" && Boolean(value.trim()),
-            );
-            if (next.length) insights = next.slice(0, 4);
-          }
-          if (Array.isArray(result.risks)) {
-            const next = result.risks.filter(
-              (value): value is string =>
-                typeof value === "string" && Boolean(value.trim()),
-            );
-            if (next.length) risks = next.slice(0, 4);
           }
         }
       } catch {
@@ -413,25 +595,9 @@ export class AnalysisService {
     };
   }
 
-  async translate(body: TranslateDto) {
+  async translate(body: TranslateDto, costPolicy?: AiCostPolicy) {
     const texts = body.texts.map((text) => text.trim());
-    const execution = await this.gateway.executeJson<{
-      translations?: unknown;
-      confidence?: unknown;
-    }>({
-      task: "translation",
-      dataClass: "public_market",
-      costPolicy: "free_first",
-      maxTokens: translationOutputTokenBudget(texts),
-      messages: [
-        {
-          role: "system",
-          content:
-            '你是日本特摄中古商品采购平台的专业翻译。逐条完整翻译输入文本，不得摘要、改写成关键词或省略句子。保留数量、角色、版本、编号、成色、缺件、套装、卖家备注、运费、时间和交易条件等全部事实；日语商品标题中的修饰词和括号内容也要翻译。无法确定的专有名词保留原文并在括号中说明，不要擅自补充信息。输出数组长度必须与输入相同，按输入顺序输出 JSON：{"translations":["完整中文翻译"]}。',
-        },
-        { role: "user", content: JSON.stringify({ texts }) },
-      ],
-    });
+    const execution = await this.executeTranslation(texts, costPolicy);
     const result = execution.data;
     const translations = Array.isArray(result.translations)
       ? result.translations.map((value, index) =>
@@ -453,7 +619,43 @@ export class AnalysisService {
     return { translations, model: execution.model, cached: execution.cached };
   }
 
-  async itemTranslation(id: string, refresh = false) {
+  private async executeTranslation(texts: string[], costPolicy?: AiCostPolicy) {
+    const key = createHash("sha256")
+      .update(JSON.stringify({ texts, costPolicy: costPolicy ?? "default" }))
+      .digest("hex");
+    const existing = this.translationRequests.get(key);
+    if (existing) return existing;
+
+    const pending = this.productAi.execute<{
+      translations?: unknown;
+      confidence?: unknown;
+    }>("translation", {
+      responseSchema: batchTranslationSchema(texts),
+      maxTokens: translationOutputTokenBudget(texts),
+      ...(costPolicy ? { costPolicy } : {}),
+      messages: [
+        {
+          role: "system",
+          content:
+            '你是日本特摄中古商品采购平台的专业翻译。逐条完整翻译输入文本，不得摘要、改写成关键词或省略句子。保留数量、角色、版本、编号、成色、缺件、套装、卖家备注、运费、时间和交易条件等全部事实；日语商品标题中的修饰词和括号内容也要翻译。无法确定的专有名词保留原文并在括号中说明，不要擅自补充信息。输出数组长度必须与输入相同，按输入顺序输出 JSON：{"translations":["完整中文翻译"]}。',
+        },
+        { role: "user", content: JSON.stringify({ texts }) },
+      ],
+    });
+    this.translationRequests.set(key, pending);
+    try {
+      return await pending;
+    } finally {
+      if (this.translationRequests.get(key) === pending)
+        this.translationRequests.delete(key);
+    }
+  }
+
+  async itemTranslation(
+    id: string,
+    refresh = false,
+    costPolicy?: AiCostPolicy,
+  ) {
     const item = await this.prisma.item.findUnique({
       where: { id },
       select: {
@@ -473,27 +675,13 @@ export class AnalysisService {
       },
     });
     if (!item) return null;
-    const cachedDetails = Array.isArray(item.detailsZh) ? item.detailsZh : [];
-    const hasPurchaseAnalysis = cachedDetails.some(
-      (entry) =>
-        entry &&
-        typeof entry === "object" &&
-        !Array.isArray(entry) &&
-        (entry as Record<string, unknown>).path === "ai.purchaseSummary",
-    );
-    if (
-      !refresh &&
-      item.translationStatus === "completed" &&
-      item.titleZh &&
-      hasPurchaseAnalysis
-    ) {
+    if (!refresh && item.translationStatus === "completed" && item.titleZh) {
       return { translation: item, cached: true };
     }
     await this.prisma.item.update({
       where: { id },
       data: { translationStatus: "processing" },
     });
-    const detailFields = publicDetailFields(item.sourceData);
     const shippingEvidence = sourceShippingEvidence(item.sourceData);
     const shippingRaw =
       item.shippingFee === 0
@@ -506,27 +694,26 @@ export class AnalysisService {
               ? "卖家承担运费/包邮"
               : "平台未提供可靠的固定运费，可能按地区或配送方式计算";
     try {
-      const execution = await this.gateway.executeJson<{
+      const execution = await this.productAi.execute<{
         titleZh?: unknown;
         descriptionZh?: unknown;
         conditionZh?: unknown;
         shippingZh?: unknown;
-        purchaseSummaryZh?: unknown;
-        includedItemsZh?: unknown;
-        missingOrRiskZh?: unknown;
-        checksBeforePurchaseZh?: unknown;
         confidence?: unknown;
-      }>({
-        task: "classification",
-        dataClass: "public_market",
-        costPolicy: "free_first",
+      }>("translation", {
+        responseSchema: itemTranslationSchema({
+          titleZh: item.titleRaw,
+          descriptionZh: item.descriptionRaw ?? "平台没有公开卖家正文",
+          conditionZh: item.conditionRaw ?? "平台没有公开品相说明",
+          shippingZh: shippingRaw,
+        }),
         itemId: id,
-        maxTokens: 3_000,
+        ...(costPolicy ? { costPolicy } : {}),
         messages: [
           {
             role: "system",
             content:
-              '你是日本特摄中古商品的专业全量翻译员和采购信息整理员。必须把输入中的商品标题、卖家正文、品相和运费完整翻译成自然、准确、中文母语者可独立理解的简体中文。不得摘要，不得只翻译角色名，不得省略括号、数量、缺件、瑕疵、版本、型号、时间、配送和竞拍条件；品牌、型号或无法确定的专名可保留原文并给出中文说明。另外基于这些公开信息生成四项采购解读：purchaseSummaryZh 说明商品到底是什么、销售方式和已知价值点；includedItemsZh 完整列出明确包含的本体、配件、包装与数量；missingOrRiskZh 只列出明确缺失、瑕疵、未知或需要核验的风险，不能把推断写成事实；checksBeforePurchaseZh 给出购买前需要确认的具体事项。绝对不能因为输入里没有图片字段就声称卖家未提供实物照片、没有图片或缺图，只有公开文字明确写明无图时才可这样判断。只输出 JSON：{"titleZh":"...","descriptionZh":"...","conditionZh":"...","shippingZh":"...","purchaseSummaryZh":"...","includedItemsZh":"...","missingOrRiskZh":"...","checksBeforePurchaseZh":"..."}。',
+              '你是日本特摄中古商品的专业全量翻译员。必须把输入中的商品标题、卖家正文、品相和运费完整翻译成自然、准确、中文母语者可独立理解的简体中文。不得摘要，不得只翻译角色名，不得省略括号、数量、缺件、瑕疵、版本、型号、时间、配送和竞拍条件；品牌、型号或无法确定的专名可保留原文并给出中文说明。只做逐项翻译，不生成采购结论、包含物清单或风险推断。绝对不能因为输入里没有图片字段就声称卖家未提供实物照片、没有图片或缺图，只有公开文字明确写明无图时才可这样翻译。只输出 JSON：{"titleZh":"...","descriptionZh":"...","conditionZh":"...","shippingZh":"..."}。',
           },
           {
             role: "user",
@@ -540,31 +727,6 @@ export class AnalysisService {
         ],
       });
       const result = execution.data;
-      const detailTranslations = await this.translateDetailFields(
-        id,
-        detailFields,
-      );
-      const analysisRows = [
-        ["ai.model", "AI 模型", execution.model],
-        ["ai.purchaseSummary", "AI 采购解读", result.purchaseSummaryZh],
-        ["ai.includedItems", "包含内容", result.includedItemsZh],
-        ["ai.missingOrRisk", "缺失与风险", result.missingOrRiskZh],
-        [
-          "ai.checksBeforePurchase",
-          "购买前确认",
-          result.checksBeforePurchaseZh,
-        ],
-      ].flatMap(([path, labelZh, value]) =>
-        typeof value === "string" && value.trim()
-          ? [
-              {
-                path: path as string,
-                labelZh: labelZh as string,
-                valueZh: value.trim(),
-              },
-            ]
-          : [],
-      );
       const translated = await this.prisma.item.update({
         where: { id },
         data: {
@@ -585,7 +747,7 @@ export class AnalysisService {
             typeof result.shippingZh === "string" && result.shippingZh.trim()
               ? result.shippingZh.trim()
               : shippingRaw,
-          detailsZh: [...analysisRows, ...detailTranslations],
+          detailsZh: item.detailsZh ?? [],
           translationStatus: "completed",
           translatedAt: new Date(),
         },
@@ -621,71 +783,98 @@ export class AnalysisService {
   private async translateDetailFields(
     itemId: string,
     fields: Array<{ path: string; value: string }>,
+    costPolicy?: AiCostPolicy,
   ) {
     if (!fields.length) return [];
+    const chunks = publicDetailFieldChunks(fields);
+    const fragments = chunks.flat();
     const translatedFragments = new Map<
       string,
       { labelZh: string; valueZh: string }
     >();
-    for (const chunk of publicDetailFieldChunks(fields)) {
-      const execution = await this.gateway.executeJson<{
-        translations?: unknown;
-      }>({
-        task: "translation",
-        dataClass: "public_market",
-        costPolicy: "free_first",
-        itemId,
-        maxTokens: 4_000,
-        messages: [
-          {
-            role: "system",
-            content:
-              '你是日本中古商品公开字段的完整翻译员。逐项完整翻译 value，不得摘要、删减数字、条件、配件、瑕疵、运费、时间或专有名词。fragmentKey 和 path 必须原样返回，顺序和数量必须与输入完全一致；labelZh 是普通中文用户能理解的简短字段名。只输出 JSON：{"translations":[{"fragmentKey":"...","path":"...","labelZh":"...","valueZh":"完整中文翻译"}]}。',
-          },
-          {
-            role: "user",
-            content: JSON.stringify({ fields: chunk }),
-          },
-        ],
-      });
-      const rows = Array.isArray(execution.data.translations)
-        ? execution.data.translations
-        : [];
-      for (const row of rows) {
-        if (!row || typeof row !== "object" || Array.isArray(row)) continue;
-        const value = row as Record<string, unknown>;
-        if (
-          typeof value.fragmentKey !== "string" ||
-          typeof value.valueZh !== "string" ||
-          !value.valueZh.trim()
-        )
-          continue;
-        translatedFragments.set(value.fragmentKey, {
-          labelZh:
-            typeof value.labelZh === "string" && value.labelZh.trim()
-              ? value.labelZh.trim()
-              : typeof value.path === "string" && value.path.trim()
-                ? value.path.trim()
-                : value.fragmentKey,
-          valueZh: value.valueZh,
-        });
-      }
-      const missing = chunk.filter(
+    for (const chunk of chunks) {
+      let missing = chunk.filter(
         (fragment) => !translatedFragments.has(fragment.fragmentKey),
       );
+      for (let attempt = 0; missing.length && attempt < 3; attempt += 1) {
+        const expectedKeys = new Set(
+          missing.map((fragment) => fragment.fragmentKey),
+        );
+        const execution = await this.productAi.execute<{
+          translations?: unknown;
+        }>("translation", {
+          responseSchema: detailFragmentsSchema(
+            new Map(
+              missing.map((fragment) => [fragment.fragmentKey, fragment.path]),
+            ),
+            new Map(
+              missing.map((fragment) => [fragment.fragmentKey, fragment.value]),
+            ),
+          ),
+          itemId,
+          maxTokens: 4_000,
+          ...(costPolicy ? { costPolicy } : {}),
+          // A structurally incomplete response must not be replayed from the
+          // long-lived translation cache. Retry only the omitted fragments.
+          ...(attempt > 0 ? { bypassCache: true } : {}),
+          messages: [
+            {
+              role: "system",
+              content:
+                '你是日本中古商品公开字段的完整翻译员。逐项完整翻译 value，不得摘要、删减数字、条件、配件、瑕疵、运费、时间或专有名词。fragmentKey 和 path 必须原样返回，顺序和数量必须与输入完全一致；labelZh 是普通中文用户能理解的简短字段名。只输出 JSON：{"translations":[{"fragmentKey":"...","path":"...","labelZh":"...","valueZh":"完整中文翻译"}]}。',
+            },
+            {
+              role: "user",
+              content: JSON.stringify({ fields: missing }),
+            },
+          ],
+        });
+        const rows = Array.isArray(execution.data.translations)
+          ? execution.data.translations
+          : [];
+        for (const row of rows) {
+          if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+          const value = row as Record<string, unknown>;
+          if (
+            typeof value.fragmentKey !== "string" ||
+            !expectedKeys.has(value.fragmentKey) ||
+            translatedFragments.has(value.fragmentKey) ||
+            typeof value.valueZh !== "string" ||
+            !value.valueZh.trim()
+          )
+            continue;
+          translatedFragments.set(value.fragmentKey, {
+            labelZh:
+              typeof value.labelZh === "string" && value.labelZh.trim()
+                ? value.labelZh.trim()
+                : typeof value.path === "string" && value.path.trim()
+                  ? value.path.trim()
+                  : value.fragmentKey,
+            valueZh: value.valueZh.trim(),
+          });
+        }
+        missing = missing.filter(
+          (fragment) => !translatedFragments.has(fragment.fragmentKey),
+        );
+      }
       if (missing.length)
         throw new Error(
-          `Detail translation omitted ${missing.length} public field fragments`,
+          `Detail translation omitted ${missing.length} public field fragments after 3 attempts`,
         );
     }
 
     return fields.map((field, fieldIndex) => {
-      const parts = splitDetailValue(field.value);
-      const translated = parts.map((_, part) => {
-        const row = translatedFragments.get(`${fieldIndex}:${part}`);
+      // Reassemble the exact fragments produced by the chunker. Re-splitting
+      // with a different character budget can silently drop or misorder long
+      // marketplace descriptions.
+      const fieldFragments = fragments
+        .filter((fragment) => fragment.fragmentKey.startsWith(`${fieldIndex}:`))
+        .sort((left, right) => left.part - right.part);
+      const translated = fieldFragments.map((fragment) => {
+        const row = translatedFragments.get(fragment.fragmentKey);
         if (!row)
           throw new Error(
-            `Detail translation missing ${field.path} part ${part}`,
+            `Detail translation missing ${field.path} part ${fragment.part}`,
           );
         return row;
       });
@@ -707,12 +896,7 @@ export class AnalysisService {
       include: {
         source: { select: { key: true, displayName: true } },
         items: {
-          where: {
-            archivedAt: null,
-            channel: SourceChannel.online,
-            purchaseRecord: null,
-            categoryToyType: { not: ToyType.card },
-          },
+          where: activeMarketItemWhere(),
           select: {
             id: true,
             titleRaw: true,
@@ -819,12 +1003,22 @@ export class AnalysisService {
         status: item.status,
         listedAt: item.listedAt,
         sourceUrl: item.sourceUrl,
+        sourceData: item.sourceData,
       }));
+      const sellerPublicFacts = {
+        name: seller.name,
+        type: seller.sellerType,
+        locationText: seller.locationText,
+        profileUrl: seller.profileUrl,
+        source: seller.source,
+        sourceData: seller.sourceData,
+      };
       const systemPrompt =
         '你是日本中古特摄采购谈判顾问。系统已经根据公开资料和全部可见商品确定卖家群体标签；你只能解释该标签，不得改写或推断私人身份。根据商品描述、价格、运费、成色和真实平台总结可核验的中文画像。针对用户给定预算生成礼貌、自然、可直接复制给日本卖家的日语砍价消息 negotiationJa，并提供逐意对应的简体中文小字翻译 negotiationZh。日语必须是主文，中文不能混进日语正文。明确询问商品状态、配件和运费，只有输入了预算才写入具体价格。禁止虚构卖家信息，禁止评分。只输出 JSON：{"profile":"...","negotiationJa":"...","negotiationZh":"...","suggestedPrice":数字或null}。';
       let execution: { data: SellerModelResult; model: string };
       if (sellerRows.length <= 120) {
         execution = await this.gateway.executeJson<SellerModelResult>({
+          responseSchema: SELLER_PROFILE_SCHEMA,
           task: "seller_analysis",
           dataClass: "public_market",
           costPolicy: "free_first",
@@ -836,7 +1030,7 @@ export class AnalysisService {
               role: "user",
               content: JSON.stringify({
                 targetPrice: targetPrice ?? null,
-                seller: { name: seller.name, type: seller.sellerType },
+                seller: sellerPublicFacts,
                 sellerSegment: segment,
                 catalogStats,
                 items: sellerRows,
@@ -853,6 +1047,7 @@ export class AnalysisService {
             facts?: unknown;
             risks?: unknown;
           }>({
+            responseSchema: SELLER_BATCH_SUMMARY_SCHEMA,
             task: "seller_analysis",
             dataClass: "public_market",
             costPolicy: "free_first",
@@ -867,7 +1062,7 @@ export class AnalysisService {
               {
                 role: "user",
                 content: JSON.stringify({
-                  seller: { name: seller.name, type: seller.sellerType },
+                  seller: sellerPublicFacts,
                   batch: `${start + 1}-${Math.min(start + 120, sellerRows.length)}`,
                   items: batch,
                 }),
@@ -877,6 +1072,7 @@ export class AnalysisService {
           batchSummaries.push(summary.data);
         }
         execution = await this.gateway.executeJson<SellerModelResult>({
+          responseSchema: SELLER_PROFILE_SCHEMA,
           task: "seller_analysis",
           dataClass: "public_market",
           costPolicy: "free_first",
@@ -888,7 +1084,7 @@ export class AnalysisService {
               role: "user",
               content: JSON.stringify({
                 targetPrice: targetPrice ?? null,
-                seller: { name: seller.name, type: seller.sellerType },
+                seller: sellerPublicFacts,
                 sellerSegment: segment,
                 catalogStats,
                 catalogueBatches: batchSummaries,
@@ -902,6 +1098,10 @@ export class AnalysisService {
       const result = execution.data;
       const analysis = {
         sellerType: segment.label,
+        // The operational segment remains deterministic. The narrative profile
+        // may summarize only the complete public seller/catalogue evidence sent
+        // above; the response schema prevents it from becoming an identity or
+        // reliability score.
         profile:
           typeof result.profile === "string" && result.profile.trim()
             ? result.profile.trim()
@@ -919,11 +1119,8 @@ export class AnalysisService {
           result.negotiationZh.trim()
             ? result.negotiationZh.trim()
             : fallback.negotiationZh,
-        suggestedPrice:
-          typeof result.suggestedPrice === "number"
-            ? result.suggestedPrice
-            : fallback.suggestedPrice,
-        confidence: "基于卖家当前可见商品与原始描述",
+        suggestedPrice: fallback.suggestedPrice,
+        confidence: fallback.confidence,
       };
       return {
         seller: sellerProfileWithSegment,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MercariAdapter,
   mergeMercariDetails,
@@ -7,7 +7,9 @@ import {
 } from "./mercari.adapter.js";
 
 describe("Mercari adapter", () => {
-  it("turns a removed public-price page into a sold status", async () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("does not mistake a price-less challenge or shell page for a sale", async () => {
     const adapter = new MercariAdapter();
     (adapter as unknown as { fetchDetail: () => Promise<never> }).fetchDetail =
       async () => {
@@ -18,8 +20,128 @@ describe("Mercari adapter", () => {
         sourceItemId: "m123",
         sourceUrl: "https://jp.mercari.com/item/m123",
         status: "active",
+        listingType: "direct",
       }),
-    ).resolves.toEqual({ status: "sold" });
+    ).rejects.toThrow("did not contain a public price");
+  });
+
+  it("recognizes structured sold status without a visible sold badge", () => {
+    const detail = parseMercariDetailHtml(
+      `<meta property="og:title" content="SHF 仮面ライダー" />
+       <meta name="product:price:amount" content="3000" />
+       <script type="application/ld+json">{"@type":"Product","offers":{"availability":"https://schema.org/SoldOut"}}</script>`,
+      "https://jp.mercari.com/item/m123",
+      "m123",
+    );
+    expect(detail.status).toBe("sold");
+  });
+
+  it("ignores sold wording in seller descriptions and hidden status widgets", () => {
+    const detail = parseMercariDetailHtml(
+      `<meta property="og:title" content="SHF 仮面ライダー" />
+       <meta name="product:price:amount" content="3000" />
+       <body><section data-testid="item-description">以前のセットは売り切れ。取引完了後に発送します。</section>
+       <span hidden data-testid="sold-out">SOLD OUT</span></body>`,
+      "https://jp.mercari.com/item/m123",
+      "m123",
+    );
+    expect(detail.status).toBe("unknown");
+  });
+
+  it("does not reuse cached active search results during a removed-page refresh", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("entities:search"))
+          return new Response(
+            JSON.stringify({
+              items: [
+                {
+                  id: "m12345678",
+                  status: "ITEM_STATUS_ON_SALE",
+                  name: "SHF 仮面ライダー",
+                  price: "3000",
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+        if (url.endsWith("robots.txt"))
+          return new Response("User-agent: *\nAllow: /", { status: 200 });
+        return new Response("not found", { status: 404 });
+      }),
+    );
+    const adapter = new MercariAdapter();
+    expect(await adapter.search({ keyword: "SHF" })).toHaveLength(1);
+    await expect(
+      adapter.refreshStatus({
+        sourceItemId: "m12345678",
+        sourceUrl: "https://jp.mercari.com/item/m12345678",
+        status: "active",
+        listingType: "direct",
+      }),
+    ).resolves.toEqual({ status: "sold", listingType: "direct" });
+  });
+
+  it("recognizes an explicit removed-page notice without a price", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (input: string | URL | Request) =>
+          new Response(
+            String(input).endsWith("robots.txt")
+              ? "User-agent: *\nAllow: /"
+              : "<h1>商品が見つかりません</h1>",
+            { status: 200 },
+          ),
+      ),
+    );
+    await expect(
+      new MercariAdapter().refreshStatus({
+        sourceItemId: "m12345678",
+        sourceUrl: "https://jp.mercari.com/item/m12345678",
+        status: "active",
+      }),
+    ).resolves.toEqual({ status: "ended", listingType: "unknown" });
+  });
+
+  it("keeps a network failure on the retry path instead of calling it sold", async () => {
+    const adapter = new MercariAdapter();
+    vi.spyOn(adapter, "fetchDetail").mockRejectedValue(
+      new Error("fetch failed"),
+    );
+    await expect(
+      adapter.refreshStatus({
+        sourceItemId: "m12345678",
+        sourceUrl: "https://jp.mercari.com/item/m12345678",
+        status: "active",
+      }),
+    ).rejects.toThrow("fetch failed");
+  });
+
+  it("does not renew an old active status when the public page is inconclusive", async () => {
+    const adapter = new MercariAdapter();
+    vi.spyOn(adapter, "fetchDetail").mockResolvedValue({
+      sourcePlatform: "mercari",
+      sourceItemId: "m12345678",
+      sourceUrl: "https://jp.mercari.com/item/m12345678",
+      titleRaw: "SHF",
+      priceCurrent: 3000,
+      imageUrls: [],
+      channel: "online",
+      listingType: "direct",
+      status: "unknown",
+    });
+    expect(
+      (
+        await adapter.refreshStatus({
+          sourceItemId: "m12345678",
+          sourceUrl: "https://jp.mercari.com/item/m12345678",
+          status: "active",
+        })
+      ).status,
+    ).toBe("unknown");
   });
 
   it("parses public Open Graph and product price metadata", () => {
@@ -37,6 +159,7 @@ describe("Mercari adapter", () => {
     expect(raw.priceCurrent).toBe(300);
     expect(raw.imageUrls).toEqual(["https://static.mercdn.net/item.jpg"]);
     expect(raw.sourcePlatform).toBe("mercari");
+    expect(raw.listingType).toBe("direct");
   });
 
   it("turns Mercari search fields into a direct-purchase detail fallback", () => {

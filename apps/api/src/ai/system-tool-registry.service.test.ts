@@ -151,4 +151,152 @@ describe("SystemToolRegistryService execution", () => {
       expect.objectContaining({ where: activeCacheWhere }),
     );
   });
+
+  it("uses live catalogue models for wildcard providers instead of stale routes", async () => {
+    const prisma = { aiRun: { groupBy: vi.fn().mockResolvedValue([]) } };
+    const registry = new SystemToolRegistryService(
+      prisma as never,
+      {} as never,
+    );
+    const liveModel = {
+      provider: "ovo",
+      model: "Astra",
+      role: "主模型",
+      status: "online",
+      lastSuccessAt: new Date(),
+      lastFailureAt: null,
+      cooldownUntil: null,
+      quotaResetAt: null,
+      consecutiveFailures: 0,
+      lastErrorCode: null,
+    };
+    const current = {
+      ...snapshot,
+      ai: {
+        ...snapshot.ai,
+        providers: [{ id: "ovo", label: "OVO", tier: "paid" }],
+        providerConfigured: true,
+        providerStates: [
+          {
+            provider: "ovo",
+            status: "ready",
+            cooldownUntil: null,
+            quotaResetAt: null,
+            remainingRequests: null,
+            remainingTokens: null,
+            lastErrorCode: null,
+            consecutiveFailures: 0,
+            updatedAt: new Date(),
+          },
+        ],
+        liveProviderStates: [
+          {
+            provider: "ovo",
+            status: "online",
+            evidence: "live_catalogue",
+          },
+        ],
+        // The configured route may still say gpt-5.6-luna. The live
+        // catalogue only exposes Astra, which must be what the tool reports.
+        liveModelStates: [liveModel],
+        models: [
+          {
+            provider: "ovo",
+            model: "gpt-5.6-luna",
+            status: "unavailable",
+          },
+        ],
+      },
+    };
+
+    const [result] = await registry.execute(
+      ["ai_system_status"],
+      "AI 模型现在怎么样",
+      current as never,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    const systemData = result.data as {
+      models: unknown[];
+      providers: unknown[];
+    };
+    expect(systemData).toEqual(
+      expect.objectContaining({
+        models: [liveModel],
+        providers: expect.arrayContaining([
+          expect.objectContaining({ provider: "ovo", status: "online" }),
+        ]),
+      }),
+    );
+    expect(systemData.models).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ model: "gpt-5.6-luna" }),
+      ]),
+    );
+  });
+
+  it("does not report a healthy provider when the live catalogue is unavailable", async () => {
+    const prisma = { aiRun: { groupBy: vi.fn().mockResolvedValue([]) } };
+    const registry = new SystemToolRegistryService(
+      prisma as never,
+      {} as never,
+    );
+    const current = {
+      ...snapshot,
+      ai: {
+        ...snapshot.ai,
+        providers: [{ id: "ovo", label: "OVO", tier: "paid" }],
+        providerConfigured: true,
+        providerStates: [
+          {
+            provider: "ovo",
+            status: "unverified",
+            lastErrorCode: "AI_GATEWAY_CATALOGUE_UNAVAILABLE",
+            cooldownUntil: null,
+          },
+        ],
+        liveProviderStates: [
+          {
+            provider: "ovo",
+            status: "unverified",
+            evidence: "catalogue_unavailable",
+          },
+        ],
+        liveModelStates: null,
+        models: [],
+      },
+    };
+
+    const [result] = await registry.execute(
+      ["ai_system_status"],
+      "AI 模型现在怎么样",
+      current as never,
+    );
+    if (!result.ok) throw new Error(result.error);
+    const ovo = (
+      result.data as { providers: Array<{ provider: string }> }
+    ).providers.find(
+      (provider: { provider: string }) => provider.provider === "ovo",
+    );
+    expect(ovo).toEqual(expect.objectContaining({ status: "unverified" }));
+  });
+
+  it("returns live model health from the supplied snapshot", async () => {
+    const registry = new SystemToolRegistryService({} as never, {} as never);
+    const liveModels = [{ provider: "ovo", model: "Astra", status: "online" }];
+    const current = {
+      ...snapshot,
+      ai: { ...snapshot.ai, liveModelStates: liveModels, models: [] },
+    };
+
+    const [result] = await registry.execute(
+      ["ai_model_health"],
+      "AI 模型健康",
+      current as never,
+    );
+    expect(result).toEqual(
+      expect.objectContaining({ ok: true, data: liveModels }),
+    );
+  });
 });

@@ -1,0 +1,364 @@
+/* A single geometry contract for the dock, floating tools and mobile keyboard. */
+:root {
+  --visible-height: 100dvh;
+  --visible-top: 0px;
+}
+.header-tools {
+  gap: 4px !important;
+  flex-wrap: nowrap !important;
+}
+.header-tools .exchange-rate-chip {
+  background: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  min-height: 44px;
+  padding-inline: 8px;
+  color: #555b65;
+  font-size: 11px;
+}
+.header-tools
+  :is(
+    .header-translate-button,
+    .header-settings-button,
+    .header-account-button
+  ) {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 50%;
+  color: #1d1d1f !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  box-shadow:
+    inset 0 1px 0 #ffffffb3,
+    0 2px 8px #1c2b3a08;
+}
+.header-tools .header-account-button > span {
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: none;
+  font-size: 14px;
+  font-weight: 650;
+}
+.home-menu-entry {
+  min-height: 64px;
+}
+.home-menu-entry-copy strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.home-menu-entry-copy {
+  display: flex;
+  align-items: center;
+}
+.home-menu-entry-icon {
+  width: 38px;
+  height: 38px;
+  background: #0071e309;
+}
+.home-entry-group > h3 {
+  font-weight: 500;
+  color: #666c75;
+}
+.home-menu-group {
+  box-shadow: 0 6px 20px #22364c07;
+  border-color: #ffffffa8;
+}
+.floating-control.workspace-history-orb,
+.floating-control.collaboration-negotiation-float {
+  position: fixed;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: auto !important;
+  right: auto !important;
+  z-index: 80;
+  pointer-events: none;
+  transition: transform 220ms var(--ease-apple-out);
+}
+.floating-control.is-dragging {
+  transition: none;
+  z-index: 90;
+}
+#floating-controls-root {
+  position: static;
+}
+.collaboration-composer textarea {
+  resize: none;
+  min-height: 44px;
+  max-height: 126px;
+  line-height: 1.5;
+  font-size: 16px;
+  padding: 10px 12px;
+  overflow-y: auto;
+}
+.collaboration-composer-row {
+  align-items: end;
+}
+.collaboration-composer-row > button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  touch-action: manipulation;
+}
+@media (max-width: 699px) {
+  :root {
+    --app-nav-height: 64px;
+    --app-nav-clearance: calc(64px + env(safe-area-inset-bottom));
+  }
+  /* Compact touch targets are mobile-only. Desktop keeps the larger, calmer
+     52–56px floating controls from globals.css. */
+  .floating-control.workspace-history-orb,
+  .floating-control.collaboration-negotiation-float {
+    width: 44px;
+    height: 44px;
+  }
+  .floating-control :is(.workspace-history-trigger, .negotiation-float-button) {
+    pointer-events: auto;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    cursor: grab;
+    border-radius: 50%;
+    color: #1d1d1f;
+    background: linear-gradient(150deg, #ffffffe6, #f0f5fbd9);
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 4px 16px #1c2b3a14;
+    backdrop-filter: blur(20px) saturate(180%);
+    opacity: 0.78;
+  }
+  .floating-control:is(.is-open, .is-dragging)
+    :is(.workspace-history-trigger, .negotiation-float-button),
+  .floating-control
+    :is(.workspace-history-trigger, .negotiation-float-button):focus-visible {
+    opacity: 1;
+  }
+  .floating-control.is-dragging
+    :is(.workspace-history-trigger, .negotiation-float-button) {
+    cursor: grabbing;
+    transform: none;
+  }
+  .floating-control .workspace-history-trigger-glyph {
+    width: 21px;
+    height: 21px;
+  }
+  .floating-control .workspace-history-trigger:active {
+    transform: none;
+  }
+  .floating-control .workspace-history-entry {
+    display: flex;
+    min-height: 48px;
+    padding: 10px 16px;
+    transform: none;
+  }
+  .floating-control .workspace-history-rail {
+    width: min(172px, calc(100vw - 56px));
+  }
+  .floating-control .negotiation-float-button.has-active {
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 0 16px #30d15830,
+      0 4px 16px #1c2b3a14;
+    opacity: 1;
+  }
+  .floating-control .negotiation-status-rail {
+    right: 0;
+    top: 54px;
+    max-width: calc(100vw - 12px);
+    transform-origin: right top;
+  }
+  .floating-control[data-edge="left"] .negotiation-status-rail {
+    right: auto;
+    left: 0;
+    transform-origin: left top;
+  }
+  .floating-control[data-rail-direction="up"] .negotiation-status-rail {
+    top: auto;
+    bottom: 54px;
+  }
+  .floating-control .negotiation-status-rail button {
+    min-width: 60px;
+    padding-inline: 8px;
+  }
+  .procurement-header > div {
+    min-height: 62px !important;
+    padding: 8px 14px !important;
+    gap: 8px !important;
+  }
+  .procurement-header .brand-logo {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .header-tools .exchange-rate-chip {
+    font-size: 10px !important;
+    padding-inline: 4px !important;
+    max-width: none !important;
+  }
+  .header-tools
+    :is(
+      .header-translate-button,
+      .header-settings-button,
+      .header-account-button
+    ) {
+    width: 40px;
+    min-width: 40px;
+  }
+  .primary-navigation.ios-nav {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    height: calc(64px + env(safe-area-inset-bottom)) !important;
+    min-height: calc(64px + env(safe-area-inset-bottom)) !important;
+    padding: 5px max(8px, env(safe-area-inset-right))
+      calc(5px + env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left)) !important;
+    border-radius: 22px 22px 0 0 !important;
+    background: linear-gradient(180deg, #fafcfef5, #f7f9fb 64%) !important;
+    border: 0 !important;
+    border-top: 0.5px solid #fff !important;
+    box-shadow: 0 -8px 26px #1c2b3a0c !important;
+    backdrop-filter: blur(26px) saturate(180%) !important;
+    transition: none !important;
+    z-index: 100 !important;
+  }
+  .primary-navigation::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    /* The dock already owns the visible 64px track and its safe-area
+       inset.  A fixed 100px tail made a second, invisible layout layer that
+       could read as a blank gap on short phones.  Keep only the OS gesture
+       area covered so the dock stays edge-to-edge without masking content. */
+    height: env(safe-area-inset-bottom, 0px);
+    background: #f7f9fb;
+    pointer-events: none;
+  }
+  .primary-navigation-item {
+    min-height: 50px !important;
+  }
+  .primary-navigation-label {
+    font-size: 11px !important;
+  }
+  .procurement-content {
+    padding-bottom: calc(86px + env(safe-area-inset-bottom)) !important;
+  }
+  .workspace-collaboration,
+  .workspace-assistant {
+    position: fixed !important;
+    inset: 0;
+    height: var(--visible-height);
+    min-height: 0 !important;
+    overflow: hidden;
+  }
+  .workspace-collaboration > .procurement-header {
+    display: none !important;
+  }
+  .workspace-collaboration .procurement-content {
+    height: calc(
+      var(--visible-height) - var(--app-nav-height) -
+        env(safe-area-inset-bottom)
+    ) !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+  .workspace-assistant .procurement-content {
+    height: calc(
+      var(--visible-height) - var(--app-header-height) - var(--app-nav-height) -
+        env(safe-area-inset-bottom)
+    ) !important;
+    min-height: 0 !important;
+    padding: 0 12px !important;
+    overflow: hidden !important;
+  }
+  .collaboration-chat {
+    height: 100% !important;
+    border-radius: 0 !important;
+    border: 0;
+    box-shadow: none;
+  }
+  .collaboration-feed,
+  .assistant-chat-feed {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    overflow-anchor: none;
+    scroll-padding-bottom: 16px;
+  }
+  .collaboration-composer {
+    flex: 0 0 auto;
+    padding: 8px 10px !important;
+    background: #f6f8fb;
+    border-top: 0.5px solid #d9dfe7;
+  }
+  .assistant-chat {
+    height: 100% !important;
+    padding: 0 !important;
+  }
+  html[data-keyboard-open="true"] .primary-navigation {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  html[data-keyboard-open="true"] .floating-control {
+    visibility: hidden !important;
+  }
+  html[data-keyboard-open="true"] .workspace-collaboration,
+  html[data-keyboard-open="true"] .workspace-assistant {
+    top: var(--visible-top);
+    bottom: auto;
+    height: var(--visible-height);
+  }
+  html[data-keyboard-open="true"]
+    .workspace-collaboration
+    .procurement-content {
+    height: var(--visible-height) !important;
+  }
+  html[data-keyboard-open="true"] .workspace-assistant .procurement-content {
+    height: calc(var(--visible-height) - var(--app-header-height)) !important;
+  }
+  html[data-keyboard-open="true"] .collaboration-heading {
+    min-height: 52px;
+    padding-block: 4px;
+  }
+  html[data-keyboard-open="true"] .collaboration-activity-strip {
+    display: none;
+  }
+  html[data-keyboard-open="true"] .assistant-chat-heading {
+    padding-block: 6px;
+  }
+  html[data-keyboard-open="true"] .collaboration-composer {
+    padding-bottom: 8px !important;
+  }
+}
+@media (max-width: 359px) {
+  .header-tools .exchange-rate-chip {
+    display: none !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .floating-control {
+    transition: none !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .floating-control :is(.workspace-history-trigger, .negotiation-float-button),
+  .primary-navigation.ios-nav {
+    background: #f7f9fb !important;
+    backdrop-filter: none !important;
+  }
+}

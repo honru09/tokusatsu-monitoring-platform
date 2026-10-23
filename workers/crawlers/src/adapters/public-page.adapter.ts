@@ -248,6 +248,7 @@ export function parsePublicProductPage(
     .slice(0, 24);
   return {
     sourcePlatform: "public_page",
+    listingType: "unknown",
     sourceItemId,
     sourceUrl,
     titleRaw,
@@ -325,7 +326,11 @@ export class PublicPageAdapter implements SourceAdapter {
       sourceItemId: item.sourceItemId,
       sourceUrl: item.sourceUrl,
     });
-    return { status: detail.status, priceCurrent: detail.priceCurrent };
+    return {
+      status: detail.status,
+      listingType: detail.listingType,
+      priceCurrent: detail.priceCurrent,
+    };
   }
 
   async normalize(raw: RawItemDetail) {

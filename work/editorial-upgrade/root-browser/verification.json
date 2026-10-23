@@ -1,0 +1,765 @@
+{
+  "base": "http://localhost:3000",
+  "results": [
+    {
+      "workspace": "inventory",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1000
+      },
+      "short": []
+    },
+    {
+      "workspace": "catalog",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1000
+      },
+      "short": []
+    },
+    {
+      "workspace": "workbench",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1000
+      },
+      "short": []
+    },
+    {
+      "workspace": "links",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1000
+      },
+      "short": []
+    },
+    {
+      "workspace": "purchases",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1000
+      },
+      "short": []
+    },
+    {
+      "workspace": "favorites",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1000
+      },
+      "short": []
+    },
+    {
+      "workspace": "sellers",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1000
+      },
+      "short": []
+    },
+    {
+      "workspace": "disliked",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1000
+      },
+      "short": []
+    },
+    {
+      "workspace": "inventory",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "content": {
+        "top": 68,
+        "bottom": 2192.40625
+      },
+      "short": []
+    },
+    {
+      "workspace": "catalog",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "content": {
+        "top": 68,
+        "bottom": 21879.75
+      },
+      "short": []
+    },
+    {
+      "workspace": "workbench",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "content": {
+        "top": 68,
+        "bottom": 1880.484375
+      },
+      "short": []
+    },
+    {
+      "workspace": "links",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "content": {
+        "top": 68,
+        "bottom": 842
+      },
+      "short": []
+    },
+    {
+      "workspace": "purchases",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "content": {
+        "top": 68,
+        "bottom": 842
+      },
+      "short": []
+    },
+    {
+      "workspace": "favorites",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "content": {
+        "top": 68,
+        "bottom": 5264.75
+      },
+      "short": []
+    },
+    {
+      "workspace": "sellers",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "content": {
+        "top": 68,
+        "bottom": 8153.625
+      },
+      "short": []
+    },
+    {
+      "workspace": "disliked",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "content": {
+        "top": 68,
+        "bottom": 842
+      },
+      "short": []
+    },
+    {
+      "workspace": "inventory",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "width": 320,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 504,
+        "bottom": 568
+      },
+      "content": {
+        "top": 68,
+        "bottom": 2256.40625
+      },
+      "short": []
+    },
+    {
+      "workspace": "catalog",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "width": 320,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 504,
+        "bottom": 568
+      },
+      "content": {
+        "top": 68,
+        "bottom": 21953.75
+      },
+      "short": []
+    },
+    {
+      "workspace": "workbench",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "width": 320,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 504,
+        "bottom": 568
+      },
+      "content": {
+        "top": 68,
+        "bottom": 1880.484375
+      },
+      "short": []
+    },
+    {
+      "workspace": "links",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "width": 320,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 504,
+        "bottom": 568
+      },
+      "content": {
+        "top": 68,
+        "bottom": 729
+      },
+      "short": []
+    },
+    {
+      "workspace": "purchases",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "width": 320,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 504,
+        "bottom": 568
+      },
+      "content": {
+        "top": 68,
+        "bottom": 11039.125
+      },
+      "short": []
+    },
+    {
+      "workspace": "favorites",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "width": 320,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 504,
+        "bottom": 568
+      },
+      "content": {
+        "top": 68,
+        "bottom": 5319.75
+      },
+      "short": []
+    },
+    {
+      "workspace": "sellers",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "width": 320,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 504,
+        "bottom": 568
+      },
+      "content": {
+        "top": 68,
+        "bottom": 8224.125
+      },
+      "short": []
+    },
+    {
+      "workspace": "disliked",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "width": 320,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 504,
+        "bottom": 568
+      },
+      "content": {
+        "top": 68,
+        "bottom": 566
+      },
+      "short": []
+    },
+    {
+      "workspace": "inventory",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "width": 768,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 950,
+        "bottom": 1010
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1135.953125
+      },
+      "short": []
+    },
+    {
+      "workspace": "catalog",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "width": 768,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 950,
+        "bottom": 1010
+      },
+      "content": {
+        "top": 76,
+        "bottom": 8895.65625
+      },
+      "short": []
+    },
+    {
+      "workspace": "workbench",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "width": 768,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 950,
+        "bottom": 1010
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1175.15625
+      },
+      "short": []
+    },
+    {
+      "workspace": "links",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "width": 768,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 950,
+        "bottom": 1010
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1028
+      },
+      "short": []
+    },
+    {
+      "workspace": "purchases",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "width": 768,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 950,
+        "bottom": 1010
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1028
+      },
+      "short": []
+    },
+    {
+      "workspace": "favorites",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "width": 768,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 950,
+        "bottom": 1010
+      },
+      "content": {
+        "top": 76,
+        "bottom": 3125.75
+      },
+      "short": []
+    },
+    {
+      "workspace": "sellers",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "width": 768,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 950,
+        "bottom": 1010
+      },
+      "content": {
+        "top": 76,
+        "bottom": 4457.3125
+      },
+      "short": []
+    },
+    {
+      "workspace": "disliked",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "width": 768,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 950,
+        "bottom": 1010
+      },
+      "content": {
+        "top": 76,
+        "bottom": 1028
+      },
+      "short": []
+    },
+    {
+      "workspace": "inventory",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "width": 1280,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 900
+      },
+      "short": []
+    },
+    {
+      "workspace": "catalog",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "width": 1280,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 900
+      },
+      "short": []
+    },
+    {
+      "workspace": "workbench",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "width": 1280,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 900
+      },
+      "short": []
+    },
+    {
+      "workspace": "links",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "width": 1280,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 900
+      },
+      "short": []
+    },
+    {
+      "workspace": "purchases",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "width": 1280,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 900
+      },
+      "short": []
+    },
+    {
+      "workspace": "favorites",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "width": 1280,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 900
+      },
+      "short": []
+    },
+    {
+      "workspace": "sellers",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "width": 1280,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 900
+      },
+      "short": []
+    },
+    {
+      "workspace": "disliked",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "width": 1280,
+      "overflow": false,
+      "contentOverflow": false,
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "content": {
+        "top": 76,
+        "bottom": 900
+      },
+      "short": []
+    }
+  ]
+}

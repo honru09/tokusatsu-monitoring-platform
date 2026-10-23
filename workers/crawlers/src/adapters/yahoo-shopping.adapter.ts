@@ -12,6 +12,48 @@ import { sanitizeProductImageUrls } from "./images.js";
 const API_URL =
   process.env.YAHOO_SHOPPING_API_URL ??
   "https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch";
+const MINIMUM_REQUEST_SPACING_MS = 1_000;
+
+type YahooShoppingRequestGateOptions = {
+  now?: () => number;
+  wait?: (milliseconds: number) => Promise<void>;
+};
+
+/** Yahoo documents a one-query-per-second limit for the Shopping API. */
+export class YahooShoppingRequestGate {
+  private tail: Promise<void> = Promise.resolve();
+  private nextAllowedAt = 0;
+  private readonly now: () => number;
+  private readonly wait: (milliseconds: number) => Promise<void>;
+
+  constructor(options: YahooShoppingRequestGateOptions = {}) {
+    this.now = options.now ?? Date.now;
+    this.wait =
+      options.wait ??
+      ((milliseconds) =>
+        new Promise((resolve) => setTimeout(resolve, milliseconds)));
+  }
+
+  run<T>(minimumDelayMs: number, operation: () => Promise<T>): Promise<T> {
+    const delay = Number.isFinite(minimumDelayMs)
+      ? Math.max(MINIMUM_REQUEST_SPACING_MS, Math.floor(minimumDelayMs))
+      : MINIMUM_REQUEST_SPACING_MS;
+    const execute = async () => {
+      const waitMs = Math.max(0, this.nextAllowedAt - this.now());
+      if (waitMs > 0) await this.wait(waitMs);
+      this.nextAllowedAt = Math.max(this.nextAllowedAt, this.now() + delay);
+      return operation();
+    };
+    const pending = this.tail.then(execute, execute);
+    this.tail = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
+  }
+}
+
+const sharedYahooShoppingRequestGate = new YahooShoppingRequestGate();
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -66,7 +108,7 @@ export function parseYahooShoppingResponse(payload: unknown): SearchResult[] {
       undefined;
     const shippingFee =
       /送料無料|free shipping/i.test(shippingText ?? "") ||
-      Number(shipping.Code ?? shipping.code) === 1
+      Number(shipping.Code ?? shipping.code) === 2
         ? 0
         : undefined;
     const images = sanitizeProductImageUrls(
@@ -78,6 +120,7 @@ export function parseYahooShoppingResponse(payload: unknown): SearchResult[] {
     );
     const detailHint: RawItemDetail = {
       sourcePlatform: "yahoo_shopping",
+      listingType: "direct",
       sourceItemId: code,
       sourceUrl,
       titleRaw,
@@ -123,7 +166,18 @@ export function parseYahooShoppingResponse(payload: unknown): SearchResult[] {
 export class YahooShoppingAdapter implements SourceAdapter {
   readonly key = "yahoo_shopping";
   readonly displayName = "Yahoo!ショッピング";
-  private lastRequestAt = 0;
+  private readonly fetchImpl: typeof fetch;
+  private readonly requestGate: YahooShoppingRequestGate;
+
+  constructor(
+    options: {
+      fetchImpl?: typeof fetch;
+      requestGate?: YahooShoppingRequestGate;
+    } = {},
+  ) {
+    this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
+    this.requestGate = options.requestGate ?? sharedYahooShoppingRequestGate;
+  }
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
     const pages = Math.max(1, Math.min(query.pages ?? 1, 4));
@@ -133,6 +187,8 @@ export class YahooShoppingAdapter implements SourceAdapter {
     for (let page = 0; page < pages && results.length < limit; page += 1) {
       const payload = await this.request({
         query: query.keyword,
+        condition: "used",
+        in_stock: "true",
         results: String(Math.min(100, limit - results.length)),
         start: String(
           Math.max(1, (query.pageStart ?? 0) * 100 + page * 100 + 1),
@@ -161,9 +217,10 @@ export class YahooShoppingAdapter implements SourceAdapter {
     const result = parseYahooShoppingResponse(
       await this.request({ itemcode: item.sourceItemId, results: "1" }),
     )[0];
-    if (!result?.detailHint) return { status: "sold" };
+    if (!result?.detailHint) return { status: "sold", listingType: "direct" };
     return {
       status: "active",
+      listingType: "direct",
       priceCurrent: result.detailHint.priceCurrent,
       shippingFee: result.detailHint.shippingFee,
     };
@@ -180,27 +237,26 @@ export class YahooShoppingAdapter implements SourceAdapter {
         "Yahoo Shopping official API requires YAHOO_SHOPPING_CLIENT_ID",
       );
     const delay = Math.max(
-      1_000,
+      MINIMUM_REQUEST_SPACING_MS,
       Number(process.env.YAHOO_SHOPPING_CRAWL_DELAY_MS ?? 1_100),
     );
-    const elapsed = Date.now() - this.lastRequestAt;
-    if (elapsed < delay)
-      await new Promise((resolve) => setTimeout(resolve, delay - elapsed));
     const url = new URL(API_URL);
     url.searchParams.set("appid", clientId);
     url.searchParams.set("output", "json");
     for (const [key, value] of Object.entries(parameters))
       url.searchParams.set(key, value);
-    const response = await fetch(url, {
-      headers: {
-        accept: "application/json",
-        "user-agent": process.env.CRAWLER_USER_AGENT ?? "TokusatsuMonitor/1.0",
-      },
-      signal: AbortSignal.timeout(30_000),
+    return this.requestGate.run(delay, async () => {
+      const response = await this.fetchImpl(url, {
+        headers: {
+          accept: "application/json",
+          "user-agent":
+            process.env.CRAWLER_USER_AGENT ?? "TokusatsuMonitor/1.0",
+        },
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!response.ok)
+        throw new Error(`Yahoo Shopping API returned ${response.status}`);
+      return response.json();
     });
-    this.lastRequestAt = Date.now();
-    if (!response.ok)
-      throw new Error(`Yahoo Shopping API returned ${response.status}`);
-    return response.json();
   }
 }

@@ -1,0 +1,6 @@
+interface:
+  display_name: "闲鱼市场情报"
+  short_description: "为日本特摄商品搜索闲鱼同款并生成可核验的中国市场参考价"
+  default_prompt: "Use $xianyu-market-intelligence to compare a Japanese tokusatsu product with current Xianyu listings."
+policy:
+  allow_implicit_invocation: true

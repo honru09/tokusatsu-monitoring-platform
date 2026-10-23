@@ -114,6 +114,7 @@ export function parseRakumaSearchHtml(
       card.find("img[src]").first().attr("src");
     const detailHint: RawItemDetail = {
       sourcePlatform: "rakuma",
+      listingType: "direct",
       sourceItemId,
       sourceUrl: parsed.toString(),
       titleRaw,
@@ -222,6 +223,7 @@ export function parseRakumaDetailHtml(
     ) || "一般";
   return {
     sourcePlatform: "rakuma",
+    listingType: "direct",
     sourceItemId,
     sourceUrl,
     titleRaw,
@@ -303,12 +305,13 @@ export class RakumaAdapter implements SourceAdapter {
       });
       return {
         status: detail.status,
+        listingType: "direct",
         priceCurrent: detail.priceCurrent,
         shippingFee: detail.shippingFee,
       };
     } catch (error) {
       if (/Rakuma returned (?:404|410)/i.test(String(error)))
-        return { status: "sold" };
+        return { status: "sold", listingType: "direct" };
       throw error;
     }
   }

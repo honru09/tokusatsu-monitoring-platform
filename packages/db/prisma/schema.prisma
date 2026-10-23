@@ -21,6 +21,8 @@ enum SellerType {
 enum CategoryIp {
   kamen_rider
   ultraman
+  super_sentai
+  godzilla
   other
   unknown
 }
@@ -84,6 +86,37 @@ enum ImportOrigin {
 enum ListingType {
   auction
   direct
+  unknown
+}
+
+enum ShfLine {
+  standard
+  shinkocchou
+}
+
+enum ShfReleaseChannel {
+  retail
+  tamashii_web
+  event
+  unknown
+}
+
+enum ShfEdition {
+  first
+  reissue
+  unknown
+}
+
+enum ShfRegion {
+  japanese
+  agent
+  hong_kong
+  unknown
+}
+
+enum CollectibleSeries {
+  shf
+  sic
 }
 
 enum MatchDecision {
@@ -91,6 +124,32 @@ enum MatchDecision {
   auto_matched
   review_required
   manually_matched
+}
+
+enum MarketComparisonStatus {
+  pending
+  refreshing
+  ready
+  insufficient
+  failed
+}
+
+enum JapanReverseSearchStatus {
+  idle
+  skipped
+  scheduled
+  failed
+}
+
+enum CrossMarketOpportunityStatus {
+  needs_facts
+  rejected
+  ready
+}
+
+enum CrossMarketOpportunityTrigger {
+  japan_listing
+  xianyu_reverse_search
 }
 
 enum ReviewQueueStatus {
@@ -118,21 +177,25 @@ enum ShippingBasis {
 }
 
 model Source {
-  id             String          @id @default(uuid())
-  key            String          @unique
-  displayName    String
-  baseUrl        String?
-  channel        SourceChannel   @default(online)
-  enabled        Boolean         @default(true)
-  rateLimitMs    Int             @default(2000)
-  circuitOpenAt  DateTime?
-  failureCount   Int             @default(0)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  items          Item[]
-  sellers        Seller[]
-  crawlJobs      CrawlJob[]
-  physicalStores PhysicalStore[]
+  id                String                    @id @default(uuid())
+  key               String                    @unique
+  displayName       String
+  baseUrl           String?
+  channel           SourceChannel             @default(online)
+  enabled           Boolean                   @default(true)
+  /// Comparison-only sources may back ProductMarketComparison evidence but
+  /// are rejected by database triggers when used by procurement Item rows.
+  comparisonOnly    Boolean                   @default(false) @map("comparison_only")
+  rateLimitMs       Int                       @default(2000)
+  circuitOpenAt     DateTime?
+  failureCount      Int                       @default(0)
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  items             Item[]
+  sellers           Seller[]
+  crawlJobs         CrawlJob[]
+  physicalStores    PhysicalStore[]
+  marketComparisons ProductMarketComparison[]
 }
 
 model Seller {
@@ -159,78 +222,94 @@ model Seller {
 }
 
 model Item {
-  id                 String               @id @default(uuid())
-  sourceId           String
-  sourceItemId       String
-  sourceUrl          String
-  titleRaw           String
-  descriptionRaw     String?
-  sellerId           String?
-  locationText       String?
-  priceCurrent       Int
-  shippingFee        Int?
-  priceTotalEst      Int
-  listedAt           DateTime?
-  detectedAt         DateTime             @default(now())
-  lastSeenAt         DateTime             @default(now())
-  auctionEndAt       DateTime?
-  listingType        ListingType          @default(direct)
-  bidCount           Int?
-  conditionRaw       String?
-  categoryIp         CategoryIp           @default(unknown)
-  categoryToyType    ToyType              @default(unknown)
-  manufacturer       Manufacturer         @default(unknown)
-  conditionGrade     ConditionGrade       @default(unknown)
-  channel            SourceChannel        @default(online)
-  quantityEst        Int?
-  imageCount         Int                  @default(0)
-  unitCostEst        Int?
-  confidence         Float                @default(0)
-  needsReview        Boolean              @default(true)
-  status             ItemStatus           @default(unknown)
-  suspectedDuplicate Boolean              @default(false)
-  favorite           Boolean              @default(false)
-  ignored            Boolean              @default(false)
-  ignoredAt          DateTime?
-  importOrigin       ImportOrigin         @default(search)
-  productId          String?              @map("product_id")
-  normalizedTitle    String?              @map("normalized_title")
-  fieldConfidences   Json?                @map("field_confidences")
-  extractionEvidence Json?                @map("extraction_evidence")
-  sourceData         Json?                @map("source_data")
+  id                       String                   @id @default(uuid())
+  sourceId                 String
+  sourceItemId             String
+  sourceUrl                String
+  titleRaw                 String
+  descriptionRaw           String?
+  sellerId                 String?
+  locationText             String?
+  priceCurrent             Int
+  shippingFee              Int?
+  priceTotalEst            Int
+  listedAt                 DateTime?
+  detectedAt               DateTime                 @default(now())
+  lastSeenAt               DateTime                 @default(now())
+  auctionEndAt             DateTime?
+  listingType              ListingType              @default(unknown)
+  bidCount                 Int?
+  conditionRaw             String?
+  categoryIp               CategoryIp               @default(unknown)
+  categoryToyType          ToyType                  @default(unknown)
+  shfLine                  ShfLine?                 @map("shf_line")
+  shfReleaseChannel        ShfReleaseChannel?       @map("shf_release_channel")
+  shfEdition               ShfEdition?              @map("shf_edition")
+  shfRegion                ShfRegion?               @map("shf_region")
+  collectibleSeries        CollectibleSeries?       @map("collectible_series")
+  manufacturer             Manufacturer             @default(unknown)
+  conditionGrade           ConditionGrade           @default(unknown)
+  channel                  SourceChannel            @default(online)
+  quantityEst              Int?
+  imageCount               Int                      @default(0)
+  unitCostEst              Int?
+  confidence               Float                    @default(0)
+  needsReview              Boolean                  @default(true)
+  status                   ItemStatus               @default(unknown)
+  suspectedDuplicate       Boolean                  @default(false)
+  favorite                 Boolean                  @default(false)
+  ignored                  Boolean                  @default(false)
+  ignoredAt                DateTime?
+  ignoredReason            String?                  @map("ignored_reason")
+  importOrigin             ImportOrigin             @default(search)
+  productId                String?                  @map("product_id")
+  normalizedTitle          String?                  @map("normalized_title")
+  fieldConfidences         Json?                    @map("field_confidences")
+  extractionEvidence       Json?                    @map("extraction_evidence")
+  sourceData               Json?                    @map("source_data")
   /// Complete AI Gateway translation persisted for every surface.
-  titleZh            String?              @map("title_zh")
-  descriptionZh      String?              @map("description_zh")
-  conditionZh        String?              @map("condition_zh")
-  shippingZh         String?              @map("shipping_zh")
-  detailsZh          Json?                @map("details_zh")
-  translationStatus  String               @default("pending") @map("translation_status")
-  translatedAt       DateTime?            @map("translated_at")
-  matchConfidence    Float?               @map("match_confidence")
-  matchDecision      MatchDecision        @default(unmatched) @map("match_decision")
-  archivedAt         DateTime?
-  note               String?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  source             Source               @relation(fields: [sourceId], references: [id], onDelete: Restrict)
-  seller             Seller?              @relation(fields: [sellerId], references: [id], onDelete: SetNull)
-  images             ItemImage[]
-  priceHistory       ItemPriceHistory[]
-  classifications    ItemClassification[]
-  manualReviews      ManualReview[]
-  alerts             Alert[]
-  purchaseRecord     PurchaseRecord?
-  urlImports         UrlImport[]
-  product            Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
-  reviewQueue        ReviewQueue[]
-  discoveryFeedback  DiscoveryFeedback[]  @relation("ListingDiscoveryFeedback")
-  aiRuns             AiRun[]
-  aiFeedback         AiFeedback[]
-  cartItems          ShoppingCartItem[]
-  logistics          ItemLogistics?
+  titleZh                  String?                  @map("title_zh")
+  descriptionZh            String?                  @map("description_zh")
+  conditionZh              String?                  @map("condition_zh")
+  shippingZh               String?                  @map("shipping_zh")
+  detailsZh                Json?                    @map("details_zh")
+  translationStatus        String                   @default("pending") @map("translation_status")
+  translatedAt             DateTime?                @map("translated_at")
+  matchConfidence          Float?                   @map("match_confidence")
+  matchDecision            MatchDecision            @default(unmatched) @map("match_decision")
+  archivedAt               DateTime?
+  note                     String?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  source                   Source                   @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  seller                   Seller?                  @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  images                   ItemImage[]
+  priceHistory             ItemPriceHistory[]
+  classifications          ItemClassification[]
+  manualReviews            ManualReview[]
+  alerts                   Alert[]
+  purchaseRecord           PurchaseRecord?
+  urlImports               UrlImport[]
+  product                  Product?                 @relation(fields: [productId], references: [id], onDelete: SetNull)
+  reviewQueue              ReviewQueue[]
+  discoveryFeedback        DiscoveryFeedback[]      @relation("ListingDiscoveryFeedback")
+  aiRuns                   AiRun[]
+  aiFeedback               AiFeedback[]
+  cartItems                ShoppingCartItem[]
+  collaborationMessages    DirectMessage[]
+  managerActivities        ManagerActivity[]
+  negotiationCase          NegotiationCase?
+  logistics                ItemLogistics?
+  crossMarketOpportunities CrossMarketOpportunity[]
+  monitoringCategoryId     String?                  @map("monitoring_category_id")
+  monitoringCategory       MonitoringCategory?      @relation(fields: [monitoringCategoryId], references: [id], onDelete: SetNull)
+  monitoringKeywordMatches MonitoringKeywordMatch[]
+  resaleListing            ResaleListing?
 
   @@unique([sourceId, sourceItemId])
   @@index([categoryIp, priceCurrent])
+  @@index([categoryIp, shfLine, listingType])
+  @@index([collectibleSeries, categoryIp, listingType])
   @@index([conditionGrade, categoryToyType, manufacturer])
   @@index([auctionEndAt])
   @@index([listingType, detectedAt])
@@ -241,6 +320,57 @@ model Item {
   @@index([productId])
   @@index([sellerId])
   @@index([needsReview, detectedAt])
+  @@index([ignored, ignoredAt])
+  @@index([monitoringCategoryId, status, archivedAt])
+}
+
+model MonitoringCategory {
+  id        String               @id @default(uuid())
+  name      String
+  parentId  String?              @map("parent_id")
+  scope     String               @default("toys")
+  createdAt DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  parent    MonitoringCategory?  @relation("MonitoringCategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  MonitoringCategory[] @relation("MonitoringCategoryTree")
+  keywords  MonitoringKeyword[]
+  items     Item[]
+
+  // The migration uses NULLS NOT DISTINCT so root names are unique too.
+  @@unique([parentId, name])
+  @@index([parentId])
+  @@map("monitoring_categories")
+}
+
+model MonitoringKeyword {
+  id                String                   @id @default(uuid())
+  keyword           String
+  normalizedKeyword String                   @unique @map("normalized_keyword")
+  enabled           Boolean                  @default(true)
+  intervalMinutes   Int                      @default(60) @map("interval_minutes")
+  categoryId        String                   @map("category_id")
+  sourceKeys        String[]                 @default([]) @map("source_keys")
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+  category          MonitoringCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  matches           MonitoringKeywordMatch[]
+
+  @@index([categoryId])
+  @@index([enabled, updatedAt])
+  @@map("monitoring_keywords")
+}
+
+model MonitoringKeywordMatch {
+  itemId         String            @map("item_id")
+  keywordId      String            @map("keyword_id")
+  matchedKeyword String            @map("matched_keyword")
+  matchedAt      DateTime          @default(now()) @map("matched_at") @db.Timestamptz
+  item           Item              @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  keyword        MonitoringKeyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, keywordId])
+  @@index([keywordId, matchedAt])
+  @@map("monitoring_keyword_matches")
 }
 
 /// Optional package and margin inputs for deterministic delivery planning.
@@ -331,36 +461,197 @@ model MarketIntel {
 /// Canonical product entity. Multiple marketplace Item rows (listings) can
 /// point to one Product without changing the legacy Item API contract.
 model Product {
-  id                   String               @id @default(uuid())
-  canonicalKey         String               @unique @map("canonical_key")
-  canonicalName        String               @map("canonical_name")
-  normalizedName       String               @map("normalized_name")
-  titleZh              String?              @map("title_zh")
-  productLine          String?              @map("product_line")
-  modelNumber          String?              @map("model_number")
-  releaseYear          Int?                 @map("release_year")
-  franchiseId          String?              @map("franchise_id")
-  seriesId             String?              @map("series_id")
-  manufacturerEntityId String?              @map("manufacturer_id")
-  toyTypeEntityId      String?              @map("toy_type_id")
-  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz
-  franchise            Franchise?           @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
-  series               Series?              @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  manufacturerEntity   ProductManufacturer? @relation(fields: [manufacturerEntityId], references: [id], onDelete: SetNull)
-  toyTypeEntity        ProductToyType?      @relation(fields: [toyTypeEntityId], references: [id], onDelete: SetNull)
-  listings             Item[]
-  characters           ProductCharacter[]
-  inventory            Inventory?
-  reviewQueue          ReviewQueue[]
-  discoveryFeedback    DiscoveryFeedback[]
-  marketSnapshots      MarketSnapshot[]
+  id                       String                    @id @default(uuid())
+  canonicalKey             String                    @unique @map("canonical_key")
+  canonicalName            String                    @map("canonical_name")
+  normalizedName           String                    @map("normalized_name")
+  titleZh                  String?                   @map("title_zh")
+  productLine              String?                   @map("product_line")
+  modelNumber              String?                   @map("model_number")
+  releaseYear              Int?                      @map("release_year")
+  franchiseId              String?                   @map("franchise_id")
+  seriesId                 String?                   @map("series_id")
+  manufacturerEntityId     String?                   @map("manufacturer_id")
+  toyTypeEntityId          String?                   @map("toy_type_id")
+  createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+  franchise                Franchise?                @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
+  series                   Series?                   @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  manufacturerEntity       ProductManufacturer?      @relation(fields: [manufacturerEntityId], references: [id], onDelete: SetNull)
+  toyTypeEntity            ProductToyType?           @relation(fields: [toyTypeEntityId], references: [id], onDelete: SetNull)
+  listings                 Item[]
+  characters               ProductCharacter[]
+  inventory                Inventory?
+  reviewQueue              ReviewQueue[]
+  discoveryFeedback        DiscoveryFeedback[]
+  marketSnapshots          MarketSnapshot[]
+  marketComparisons        ProductMarketComparison[]
+  crossMarketOpportunities CrossMarketOpportunity[]
 
   @@index([normalizedName])
+  @@index([normalizedName(ops: raw("gin_trgm_ops"))], type: Gin, map: "products_normalized_name_trgm_idx")
   @@index([franchiseId, seriesId])
   @@index([manufacturerEntityId])
   @@index([toyTypeEntityId])
   @@map("products")
+}
+
+/// One refreshable China-market comparison summary for a canonical product
+/// and marketplace. Raw marketplace listings remain outside the procurement
+/// Item table so CNY comparison prices cannot leak into JPY listing workflows.
+model ProductMarketComparison {
+  id                       String                     @id @default(uuid())
+  productId                String                     @map("product_id")
+  sourceId                 String                     @map("source_id")
+  status                   MarketComparisonStatus     @default(pending)
+  searchKeywords           String[]                   @default([]) @map("search_keywords")
+  candidateCount           Int                        @default(0) @map("candidate_count")
+  matchedCount             Int                        @default(0) @map("matched_count")
+  referencePriceCny        Decimal?                   @map("reference_price_cny") @db.Decimal(12, 2)
+  minPriceCny              Decimal?                   @map("min_price_cny") @db.Decimal(12, 2)
+  maxPriceCny              Decimal?                   @map("max_price_cny") @db.Decimal(12, 2)
+  referenceUrl             String?                    @map("reference_url")
+  referenceTitle           String?                    @map("reference_title")
+  confidence               Float?
+  /// Versioned deterministic pricing/matching contract used for this summary.
+  comparisonMethod         String?                    @map("comparison_method")
+  /// SHA-256 of the allowlisted product identity used to generate keywords.
+  keywordIdentityHash      String?                    @map("keyword_identity_hash")
+  /// Allowlisted provider completion/counter diagnostics; never raw rows.
+  providerStats            Json?                      @map("provider_stats")
+  observedAt               DateTime?                  @map("observed_at") @db.Timestamptz
+  nextRefreshAt            DateTime?                  @map("next_refresh_at") @db.Timestamptz
+  refreshToken             String?                    @map("refresh_token")
+  refreshLeaseUntil        DateTime?                  @map("refresh_lease_until") @db.Timestamptz
+  lastError                String?                    @map("last_error")
+  japanSearchStatus        JapanReverseSearchStatus   @default(idle) @map("japan_search_status")
+  japanSearchKeywords      String[]                   @default([]) @map("japan_search_keywords")
+  japanSearchTriggeredAt   DateTime?                  @map("japan_search_triggered_at") @db.Timestamptz
+  japanSearchReason        String?                    @map("japan_search_reason")
+  createdAt                DateTime                   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime                   @updatedAt @map("updated_at") @db.Timestamptz
+  product                  Product                    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  source                   Source                     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  offers                   ComparisonOffer[]
+  runs                     ChinaMarketComparisonRun[]
+  crossMarketOpportunities CrossMarketOpportunity[]
+
+  @@unique([productId, sourceId])
+  @@index([status, nextRefreshAt])
+  @@index([sourceId, status, nextRefreshAt])
+  @@index([sourceId, refreshLeaseUntil, nextRefreshAt, updatedAt], map: "product_market_comparisons_source_id_refresh_lease_until_next_r")
+  @@index([productId, status, observedAt])
+  @@map("product_market_comparisons")
+}
+
+/// One public China-market listing considered during a comparison refresh.
+/// Rejected candidates are retained with evidence for audit and matcher tuning.
+model ComparisonOffer {
+  id              String                  @id @default(uuid())
+  comparisonId    String                  @map("comparison_id")
+  sourceListingId String                  @map("source_listing_id")
+  sourceUrl       String                  @map("source_url")
+  titleRaw        String                  @map("title_raw")
+  priceCny        Decimal                 @map("price_cny") @db.Decimal(12, 2)
+  currency        String                  @default("CNY")
+  imageUrl        String?                 @map("image_url")
+  location        String?
+  condition       String?
+  status          ItemStatus              @default(unknown)
+  matchConfidence Float?                  @map("match_confidence")
+  matchDecision   MatchDecision           @default(unmatched) @map("match_decision")
+  rejectionReason String?                 @map("rejection_reason")
+  matchEvidence   Json?                   @map("match_evidence")
+  /// Allowlisted product-side metadata only (for example category,
+  /// listingType or badges). Never persist an unfiltered provider response.
+  sourceData      Json?                   @map("source_data")
+  providerKey     String                  @map("provider_key")
+  providerRunId   String?                 @map("provider_run_id")
+  queryKeyword    String                  @map("query_keyword")
+  lastSeenAt      DateTime                @default(now()) @map("last_seen_at") @db.Timestamptz
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+  comparison      ProductMarketComparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+
+  @@unique([comparisonId, sourceListingId])
+  @@index([comparisonId, status, priceCny])
+  @@index([comparisonId, lastSeenAt])
+  @@index([matchDecision, lastSeenAt])
+  @@map("comparison_offers")
+}
+
+/// Append-only summary of one authorized China-market refresh. Offers remain
+/// in ComparisonOffer; this row records only enough evidence to reproduce
+/// which aggregate was published without duplicating marketplace listings.
+model ChinaMarketComparisonRun {
+  id                       String                   @id @default(uuid())
+  comparisonId             String                   @map("comparison_id")
+  refreshToken             String                   @unique @map("refresh_token")
+  status                   MarketComparisonStatus   @default(refreshing)
+  searchKeywords           String[]                 @default([]) @map("search_keywords")
+  candidateCount           Int                      @default(0) @map("candidate_count")
+  matchedCount             Int                      @default(0) @map("matched_count")
+  comparisonMethod         String?                  @map("comparison_method")
+  providerStats            Json?                    @map("provider_stats")
+  referencePriceCny        Decimal?                 @map("reference_price_cny") @db.Decimal(12, 2)
+  referenceUrl             String?                  @map("reference_url")
+  observedAt               DateTime?                @map("observed_at") @db.Timestamptz
+  startedAt                DateTime                 @map("started_at") @db.Timestamptz
+  completedAt              DateTime?                @map("completed_at") @db.Timestamptz
+  sanitizedError           String?                  @map("sanitized_error")
+  createdAt                DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  comparison               ProductMarketComparison  @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  crossMarketOpportunities CrossMarketOpportunity[]
+
+  @@index([comparisonId, completedAt])
+  @@index([status, startedAt])
+  @@map("china_market_comparison_runs")
+}
+
+/// One deterministic evaluation of a Japan procurement listing against a
+/// ready China resale-market comparison for the same canonical product.
+/// Rejected and incomplete evaluations are retained for audit, while only
+/// ready rows may be exposed as profitable opportunities.
+model CrossMarketOpportunity {
+  id                       String                        @id @default(uuid())
+  productId                String                        @map("product_id")
+  japanItemId              String                        @map("japan_item_id")
+  comparisonId             String                        @map("comparison_id")
+  comparisonRunId          String?                       @map("comparison_run_id")
+  status                   CrossMarketOpportunityStatus
+  trigger                  CrossMarketOpportunityTrigger
+  xianyuReferencePriceCny  Decimal                       @map("xianyu_reference_price_cny") @db.Decimal(12, 2)
+  jpyToCnyRate             Decimal?                      @map("jpy_to_cny_rate") @db.Decimal(18, 8)
+  acquisitionCostJpy       Int?                          @map("acquisition_cost_jpy")
+  grossRevenueJpy          Int?                          @map("gross_revenue_jpy")
+  grossSpreadCny           Decimal?                      @map("gross_spread_cny") @db.Decimal(12, 2)
+  grossSpreadRatio         Float?                        @map("gross_spread_ratio")
+  platformFeeJpy           Int?                          @map("platform_fee_jpy")
+  internationalShippingJpy Int?                          @map("international_shipping_jpy")
+  chinaFulfillmentJpy      Int?                          @map("china_fulfillment_jpy")
+  netProfitJpy             Int?                          @map("net_profit_jpy")
+  netMarginRatio           Float?                        @map("net_margin_ratio")
+  missingFacts             String[]                      @default([]) @map("missing_facts")
+  rejectionReason          String?                       @map("rejection_reason")
+  evidence                 Json
+  listingObservedAt        DateTime                      @map("listing_observed_at") @db.Timestamptz
+  comparisonObservedAt     DateTime                      @map("comparison_observed_at") @db.Timestamptz
+  exchangeRateFetchedAt    DateTime?                     @map("exchange_rate_fetched_at") @db.Timestamptz
+  evidenceExpiresAt        DateTime?                     @map("evidence_expires_at") @db.Timestamptz
+  evaluatedAt              DateTime                      @map("evaluated_at") @db.Timestamptz
+  createdAt                DateTime                      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime                      @updatedAt @map("updated_at") @db.Timestamptz
+  product                  Product                       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  japanItem                Item                          @relation(fields: [japanItemId], references: [id], onDelete: Cascade)
+  comparison               ProductMarketComparison       @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  comparisonRun            ChinaMarketComparisonRun?     @relation(fields: [comparisonRunId], references: [id], onDelete: SetNull)
+
+  @@unique([japanItemId, comparisonId])
+  @@index([status, netProfitJpy, evaluatedAt], map: "cross_market_opportunities_status_net_profit_jpy_evaluated_at_i")
+  @@index([productId, status, evaluatedAt])
+  @@index([comparisonId, status])
+  @@index([comparisonRunId])
+  @@map("cross_market_opportunities")
 }
 
 model Franchise {
@@ -655,6 +946,7 @@ model PurchaseBundle {
   updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz
   purchases           PurchaseRecord[]
   audits              PurchaseBundleAudit[]
+  inventoryOrder      InventoryOrder?
 
   @@index([archivedAt, purchasedAt])
   @@index([purchasedAt])
@@ -715,11 +1007,14 @@ model ManualReview {
   item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([itemId, createdAt])
+  @@index([createdAt, id])
 }
 
 /// Append-only record for every model attempt, including fallbacks and
-/// failures. Inputs contain public marketplace data only; provider secrets are
-/// never persisted. This table is intentionally separate from the hot Item row.
+/// failures. Public marketplace payloads may be retained for audit and cache
+/// provenance. Private and sensitive inputs are reduced to non-content metadata
+/// and their outputs are not retained. Provider secrets are never persisted.
+/// This table is intentionally separate from the hot Item row.
 model AiRun {
   id             String       @id @default(uuid())
   itemId         String?      @map("item_id")
@@ -741,6 +1036,8 @@ model AiRun {
   latencyMs      Int?         @map("latency_ms")
   inputTokens    Int?         @map("input_tokens")
   outputTokens   Int?         @map("output_tokens")
+  quotaReservation Int?       @map("quota_reservation")
+  quotaGroup       String?    @map("quota_group")
   /// Provider-native metering unit when supplied (for example Cloudflare Neurons).
   providerUsage  Float?       @map("provider_usage")
   errorCode      String?      @map("error_code")
@@ -759,6 +1056,7 @@ model AiRun {
   @@index([itemId, startedAt])
   @@index([sellerId, startedAt])
   @@index([inputHash, task])
+  @@index([quotaGroup, startedAt])
   @@map("ai_runs")
 }
 
@@ -963,4 +1261,334 @@ model CartShare {
   @@index([createdAt])
   @@index([expiresAt])
   @@map("cart_shares")
+}
+
+/// Fixed operator identities for the current private two-person workspace.
+/// This is deliberate identity selection, not password authentication.
+model ManagerAccount {
+  id               String            @id
+  key              String            @unique
+  displayName      String            @map("display_name")
+  avatarInitial    String            @map("avatar_initial")
+  position         Int               @unique
+  active           Boolean           @default(true)
+  lastSeenAt       DateTime?         @map("last_seen_at") @db.Timestamptz
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  sentMessages     DirectMessage[]   @relation("DirectMessageSender")
+  receivedMessages DirectMessage[]   @relation("DirectMessageRecipient")
+  reactions        MessageReaction[]
+  activities       ManagerActivity[]
+  negotiationCases NegotiationCase[]
+
+  @@index([active, position])
+  @@map("manager_accounts")
+}
+
+/// Append-only manager actions used for the shared two-person activity view.
+/// Item state remains global; this table records who performed the action.
+model ManagerActivity {
+  id        String         @id @default(uuid())
+  accountId String         @map("account_id")
+  action    String
+  itemId    String?        @map("item_id")
+  count     Int            @default(1)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  account   ManagerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  item      Item?          @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, action, createdAt])
+  @@index([itemId])
+  @@map("manager_activities")
+}
+
+/// Shared purchasing negotiation state. Moving an item from the cart starts
+/// one durable case that both managers can inspect from the conversation.
+model NegotiationCase {
+  id              String         @id @default(uuid())
+  itemId          String         @unique @map("item_id")
+  initiatedById   String         @map("initiated_by_id")
+  status          String         @default("in_progress")
+  statusChangedAt DateTime       @default(now()) @map("status_changed_at") @db.Timestamptz
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  item            Item           @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  initiatedBy     ManagerAccount @relation(fields: [initiatedById], references: [id], onDelete: Restrict)
+
+  @@index([status, statusChangedAt])
+  @@index([initiatedById, updatedAt])
+  @@map("negotiation_cases")
+}
+
+/// Durable one-to-one collaboration stream between the two fixed managers.
+/// Item references survive archive; actual item deletion clears the reference.
+model DirectMessage {
+  id              String            @id @default(uuid())
+  senderId        String            @map("sender_id")
+  recipientId     String            @map("recipient_id")
+  text            String?
+  itemId          String?           @map("item_id")
+  replyToId       String?           @map("reply_to_id")
+  forwardedFromId String?           @map("forwarded_from_id")
+  readAt          DateTime?         @map("read_at") @db.Timestamptz
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  sender          ManagerAccount    @relation("DirectMessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+  recipient       ManagerAccount    @relation("DirectMessageRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+  item            Item?             @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  replyTo         DirectMessage?    @relation("DirectMessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies         DirectMessage[]   @relation("DirectMessageReplies")
+  forwardedFrom   DirectMessage?    @relation("DirectMessageForwards", fields: [forwardedFromId], references: [id], onDelete: SetNull)
+  forwards        DirectMessage[]   @relation("DirectMessageForwards")
+  reactions       MessageReaction[]
+
+  @@index([senderId, createdAt])
+  @@index([recipientId, readAt, createdAt])
+  @@index([itemId])
+  @@index([replyToId])
+  @@index([forwardedFromId])
+  @@index([createdAt, id])
+  @@map("direct_messages")
+}
+
+model MessageReaction {
+  id        String         @id @default(uuid())
+  messageId String         @map("message_id")
+  accountId String         @map("account_id")
+  reaction  String
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  message   DirectMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  account   ManagerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@unique([messageId, accountId, reaction])
+  @@index([accountId, createdAt])
+  @@map("message_reactions")
+}
+
+/// One purchase order = one inventory batch. Average cost is derived as
+/// purchaseCost / initialQuantity and never reallocated per SKU in v1.
+/// Legacy PurchaseBundle / PurchaseRecord rows stay intact; sourceBundleId
+/// is an optional back-reference for migration and dual-write.
+model InventoryOrder {
+  id                String                @id @default(uuid())
+  orderNumber       String                @unique @map("order_number")
+  name              String?
+  platform          String?
+  purchaseCost      Int                   @map("purchase_cost")
+  initialQuantity   Int                   @map("initial_quantity")
+  remainingQuantity Int                   @map("remaining_quantity")
+  soldQuantity      Int                   @default(0) @map("sold_quantity")
+  totalSales        Int                   @default(0) @map("total_sales")
+  status            String                @default("in_stock")
+  purchasedAt       DateTime?             @map("purchased_at") @db.Timestamptz
+  imageUrl          String?               @map("image_url")
+  note              String?
+  /// Optional link to the legacy purchase_bundles row that seeded this order.
+  sourceBundleId    String?               @unique @map("source_bundle_id")
+  sourceBundle      PurchaseBundle?       @relation(fields: [sourceBundleId], references: [id], onDelete: SetNull)
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+  salesRecords      SalesRecord[]
+  adjustments       InventoryAdjustment[]
+
+  @@index([status, purchasedAt])
+  @@index([purchasedAt])
+  @@index([createdAt])
+  @@map("inventory_orders")
+}
+
+/// Lightweight sale line against an inventory order batch.
+model SalesRecord {
+  id               String         @id @default(uuid())
+  inventoryOrderId String         @map("inventory_order_id")
+  quantity         Int
+  salePrice        Int            @map("sale_price")
+  costOfSale       Int            @map("cost_of_sale")
+  profit           Int
+  note             String?
+  soldAt           DateTime       @default(now()) @map("sold_at") @db.Timestamptz
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  order            InventoryOrder @relation(fields: [inventoryOrderId], references: [id], onDelete: Restrict)
+
+  @@index([inventoryOrderId, soldAt])
+  @@index([soldAt])
+  @@map("sales_records")
+}
+
+/// Non-sale inventory change (damage / gift / loss). No revenue impact.
+model InventoryAdjustment {
+  id               String         @id @default(uuid())
+  inventoryOrderId String         @map("inventory_order_id")
+  quantityDelta    Int            @map("quantity_delta")
+  reason           String
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  order            InventoryOrder @relation(fields: [inventoryOrderId], references: [id], onDelete: Restrict)
+
+  @@index([inventoryOrderId, createdAt])
+  @@map("inventory_adjustments")
+}
+
+model ResaleSettings {
+  id                 String   @id @default("default")
+  paused             Boolean  @default(true)
+  autoImport         Boolean  @default(false) @map("auto_import")
+  autoGenerate       Boolean  @default(false) @map("auto_generate")
+  autoPublish        Boolean  @default(false) @map("auto_publish")
+  dailyPublishLimit  Int      @default(30) @map("daily_publish_limit")
+  keywords           String[] @default([])
+  minPriceJpy        Int      @default(0) @map("min_price_jpy")
+  maxPriceJpy        Int      @default(1000000) @map("max_price_jpy")
+  exchangeRate       Float    @default(0.05) @map("exchange_rate")
+  markupPercent      Float    @default(30) @map("markup_percent")
+  extraCostCny       Float    @default(0) @map("extra_cost_cny")
+  sourceFreshMinutes Int      @default(10) @map("source_fresh_minutes")
+  deliveryText       String   @default("") @map("delivery_text")
+  shippingMode       String   @default("free") @map("shipping_mode")
+  shippingFeeCny     Float    @default(0) @map("shipping_fee_cny")
+  locationText       String   @default("") @map("location_text")
+  titleStyle         String   @default("professional") @map("title_style")
+  autoMetrics        Boolean  @default(false) @map("auto_metrics")
+  titleMaxLength     Int      @default(40) @map("title_max_length")
+  excludedKeywords   String[] @default([]) @map("excluded_keywords")
+  requiredKeywords   String[] @default([]) @map("required_keywords")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("resale_settings")
+}
+
+model ResaleListing {
+  id                  String        @id @default(uuid())
+  itemId              String        @unique @map("item_id")
+  status              String        @default("draft")
+  version             Int           @default(1)
+  humanControl        Boolean       @default(false) @map("human_control")
+  title               String
+  description         String
+  titleCandidates     String[]      @default([]) @map("title_candidates")
+  contentKeywords     String[]      @default([]) @map("content_keywords")
+  contentWarnings     String[]      @default([]) @map("content_warnings")
+  metricsCheckedAt    DateTime?     @map("metrics_checked_at") @db.Timestamptz
+  metricsError        String?       @map("metrics_error")
+  publishAt           DateTime?     @map("publish_at") @db.Timestamptz
+  priceCny            Float         @map("price_cny")
+  imageUrls           String[]      @default([]) @map("image_urls")
+  deliveryText        String        @default("") @map("delivery_text")
+  shippingMode        String        @default("free") @map("shipping_mode")
+  shippingFeeCny      Float         @default(0) @map("shipping_fee_cny")
+  locationText        String        @default("") @map("location_text")
+  rightsConfirmed     Boolean       @default(false) @map("rights_confirmed")
+  fulfillmentConfirmed Boolean      @default(false) @map("fulfillment_confirmed")
+  sourcePriceJpy      Int           @map("source_price_jpy")
+  sourceShippingJpy   Int?          @map("source_shipping_jpy")
+  generatedAt         DateTime?     @map("generated_at") @db.Timestamptz
+  generationToken     String?       @map("generation_token")
+  generationStartedAt DateTime?     @map("generation_started_at") @db.Timestamptz
+  generationError     String?       @map("generation_error")
+  generationRequestedBy String?     @map("generation_requested_by")
+  targetItemId        String?       @unique @map("target_item_id")
+  targetUrl           String?       @map("target_url")
+  publishedAt         DateTime?     @map("published_at") @db.Timestamptz
+  publishOrigin       String?       @map("publish_origin")
+  operationToken      String?       @map("operation_token")
+  operationStartedAt  DateTime?     @map("operation_started_at") @db.Timestamptz
+  requiresWithdrawal  Boolean       @default(false) @map("requires_withdrawal")
+  lastError           String?       @map("last_error")
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  item                Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  events              ResaleEvent[]
+  metrics             ResaleMetricSnapshot[]
+  tasks               ResaleSellerTask[]
+
+  @@index([status, humanControl, updatedAt])
+  @@map("resale_listings")
+}
+
+model ResaleMonitor {
+  id               String   @id @default(uuid())
+  keyword          String
+  minPriceCny      Float    @default(0) @map("min_price_cny")
+  maxPriceCny      Float    @default(1000000) @map("max_price_cny")
+  excludedKeywords String[] @default([]) @map("excluded_keywords")
+  requiredKeywords String[] @default([]) @map("required_keywords")
+  regions          String[] @default([])
+  intervalMinutes  Int      @default(60) @map("interval_minutes")
+  active           Boolean  @default(false)
+  lastScanAt       DateTime? @map("last_scan_at") @db.Timestamptz
+  nextScanAt       DateTime? @map("next_scan_at") @db.Timestamptz
+  leaseToken       String?  @map("lease_token")
+  leaseUntil       DateTime? @map("lease_until") @db.Timestamptz
+  lastError        String?  @map("last_error")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  observations     ResaleMarketObservation[]
+  @@index([active, nextScanAt])
+  @@map("resale_monitors")
+}
+
+model ResaleMarketObservation {
+  id             String   @id @default(uuid())
+  monitorId      String   @map("monitor_id")
+  targetItemId   String   @map("target_item_id")
+  title          String
+  priceCny       Float    @map("price_cny")
+  region         String   @default("")
+  sourceUrl      String   @map("source_url")
+  imageUrl       String?  @map("image_url")
+  discoveredAt   DateTime @default(now()) @map("discovered_at") @db.Timestamptz
+  lastSeenAt     DateTime @default(now()) @map("last_seen_at") @db.Timestamptz
+  readAt         DateTime? @map("read_at") @db.Timestamptz
+  monitor        ResaleMonitor @relation(fields: [monitorId], references: [id], onDelete: Restrict)
+  @@unique([monitorId, targetItemId])
+  @@index([discoveredAt])
+  @@map("resale_market_observations")
+}
+
+model ResaleMetricSnapshot {
+  id          String   @id @default(uuid())
+  listingId   String   @map("listing_id")
+  targetItemId String  @map("target_item_id")
+  views       Int?
+  wants       Int?
+  orders      Int?
+  revenueCny  Float?   @map("revenue_cny")
+  origin      String   @default("manual")
+  observedAt  DateTime @default(now()) @map("observed_at") @db.Timestamptz
+  listing     ResaleListing @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  @@unique([listingId, observedAt])
+  @@map("resale_metric_snapshots")
+}
+
+model ResaleSellerTask {
+  id            String   @id @default(uuid())
+  listingId     String   @map("listing_id")
+  listingVersion Int     @map("listing_version")
+  targetItemId  String   @map("target_item_id")
+  kind          String
+  status        String   @default("queued")
+  priceCny      Float?   @map("price_cny")
+  scheduledAt   DateTime @default(now()) @map("scheduled_at") @db.Timestamptz
+  startedAt     DateTime? @map("started_at") @db.Timestamptz
+  finishedAt    DateTime? @map("finished_at") @db.Timestamptz
+  accountId     String   @map("account_id")
+  lastError     String?  @map("last_error")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  listing       ResaleListing @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  @@index([status, scheduledAt])
+  @@index([listingId, kind, createdAt])
+  @@map("resale_seller_tasks")
+}
+
+model ResaleEvent {
+  id        String        @id @default(uuid())
+  listingId String?       @map("listing_id")
+  accountId String?       @map("account_id")
+  action    String
+  detail    String
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  listing   ResaleListing? @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  @@index([listingId, createdAt])
+  @@index([action, createdAt])
+  @@map("resale_events")
 }

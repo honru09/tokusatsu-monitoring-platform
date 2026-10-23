@@ -1,0 +1,38 @@
+[
+  {
+    "id": "0e85645a-d883-4fa7-9dee-c88f0f78eb22",
+    "key": "ULTRAMAN",
+    "nameJa": "ウルトラマン",
+    "nameZh": "奥特曼",
+    "nameEn": "Ultraman",
+    "createdAt": "2026-08-29T01:25:22.394Z",
+    "updatedAt": "2026-10-23T01:29:02.231Z"
+  },
+  {
+    "id": "catalog-franchise-godzilla",
+    "key": "GODZILLA",
+    "nameJa": "ゴジラ",
+    "nameZh": "哥斯拉",
+    "nameEn": "Godzilla",
+    "createdAt": "2026-09-05T17:11:08.952Z",
+    "updatedAt": "2026-10-23T01:29:44.134Z"
+  },
+  {
+    "id": "catalog-franchise-super-sentai",
+    "key": "SUPER_SENTAI",
+    "nameJa": "スーパー戦隊",
+    "nameZh": "超级战队",
+    "nameEn": "Super Sentai",
+    "createdAt": "2026-09-05T17:11:08.952Z",
+    "updatedAt": "2026-10-21T16:21:00.277Z"
+  },
+  {
+    "id": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "key": "KAMEN_RIDER",
+    "nameJa": "仮面ライダー",
+    "nameZh": "假面骑士",
+    "nameEn": "Kamen Rider",
+    "createdAt": "2026-08-29T01:25:22.390Z",
+    "updatedAt": "2026-10-23T01:37:38.202Z"
+  }
+]

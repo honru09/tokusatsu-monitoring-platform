@@ -1,0 +1,147 @@
+{
+  "base": "http://localhost:3000",
+  "capturedAt": "2026-10-09T13:15:41.448Z",
+  "fixtures": "Anonymous accounts, empty messages, public product images, in-memory writes",
+  "realBusinessWrites": 0,
+  "realModels": 0,
+  "runs": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "label": "desktop",
+      "steps": [
+        "primary-navigation-hover-and-spring-press",
+        "workbench-action-rail-continuous-selection",
+        "product-gallery-directional-switch-with-decoded-images",
+        "favorite-and-cart-pending-to-confirmed-feedback",
+        "note-failure-keeps-input-and-success-confirmation",
+        "resale-photo-selection-and-cover-result",
+        "resale-preview-return-and-save-pending-to-checkmark",
+        "resale-tools-drawer-and-escape-focus-return"
+      ],
+      "screenshots": [
+        "desktop-catalog.png",
+        "desktop-note-retry.png",
+        "desktop-resale-photo-edit.png",
+        "desktop-resale-preview.png",
+        "desktop-resale-tools.png"
+      ],
+      "intercepted": [
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        },
+        {
+          "method": "PATCH",
+          "path": "/backend/items/b80d1c40-9fc5-43b2-96b8-9aba30d42a46"
+        },
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        },
+        {
+          "method": "PATCH",
+          "path": "/backend/cart/items/b80d1c40-9fc5-43b2-96b8-9aba30d42a46"
+        },
+        {
+          "method": "PATCH",
+          "path": "/backend/items/b80d1c40-9fc5-43b2-96b8-9aba30d42a46"
+        },
+        {
+          "method": "PATCH",
+          "path": "/backend/items/b80d1c40-9fc5-43b2-96b8-9aba30d42a46"
+        },
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        },
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        },
+        {
+          "method": "PATCH",
+          "path": "/backend/resale/motion-demo-0"
+        }
+      ],
+      "pageErrors": [],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 409 (Conflict)"
+      ],
+      "expectedFixture409": 1,
+      "durationSeconds": 42,
+      "trimLeadSeconds": 1.22,
+      "video": "desktop.webm",
+      "format": "webm"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "label": "mobile",
+      "steps": [
+        "primary-navigation-hover-and-spring-press",
+        "product-gallery-directional-switch-with-decoded-images",
+        "favorite-and-cart-pending-to-confirmed-feedback",
+        "note-failure-keeps-input-and-success-confirmation",
+        "resale-photo-selection-and-cover-result",
+        "resale-preview-return-and-save-pending-to-checkmark",
+        "mobile-sheet-direct-drag-reversal-spring-return-down-dismiss-and-focus"
+      ],
+      "screenshots": [
+        "mobile-catalog.png",
+        "mobile-note-retry.png",
+        "mobile-resale-photo-edit.png",
+        "mobile-resale-preview.png",
+        "mobile-resale-tools.png",
+        "mobile-sheet-drag.png"
+      ],
+      "intercepted": [
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        },
+        {
+          "method": "PATCH",
+          "path": "/backend/items/b80d1c40-9fc5-43b2-96b8-9aba30d42a46"
+        },
+        {
+          "method": "PATCH",
+          "path": "/backend/cart/items/b80d1c40-9fc5-43b2-96b8-9aba30d42a46"
+        },
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        },
+        {
+          "method": "PATCH",
+          "path": "/backend/items/b80d1c40-9fc5-43b2-96b8-9aba30d42a46"
+        },
+        {
+          "method": "PATCH",
+          "path": "/backend/items/b80d1c40-9fc5-43b2-96b8-9aba30d42a46"
+        },
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        },
+        {
+          "method": "PATCH",
+          "path": "/backend/resale/motion-demo-0"
+        },
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        }
+      ],
+      "pageErrors": [],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 409 (Conflict)"
+      ],
+      "expectedFixture409": 1,
+      "durationSeconds": 43,
+      "trimLeadSeconds": 1.268,
+      "video": "mobile.webm",
+      "format": "webm"
+    }
+  ]
+}

@@ -13,7 +13,7 @@ import { Reflector } from "@nestjs/core";
 import { isIP } from "node:net";
 import type { AiCostPolicy } from "./ai-model-catalog.js";
 
-type PublicAiEndpoint = "chat" | "diagnose";
+type PublicAiEndpoint = "chat" | "diagnose" | "reading";
 
 type PublicAiRequest = {
   headers?: Record<string, string | string[] | undefined>;
@@ -199,6 +199,7 @@ export class PublicAiAccessGuard implements CanActivate, OnModuleDestroy {
   }
 
   private policy(endpoint: PublicAiEndpoint) {
+    if (endpoint === "reading") return { limit: 6, windowMs: 15 * 60_000 };
     if (endpoint === "diagnose") {
       return {
         limit: this.integerEnv("AI_PUBLIC_DIAGNOSE_RATE_LIMIT", 2, 1, 1_000),

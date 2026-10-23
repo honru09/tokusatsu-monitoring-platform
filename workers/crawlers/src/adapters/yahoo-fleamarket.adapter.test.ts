@@ -1,12 +1,114 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   YahooFleamarketAdapter,
+  YahooFleamarketRequestGate,
   isYahooFleamarketPlaceholderSellerName,
   parseYahooFleamarketDetailHtml,
   parseYahooFleamarketSearchHtml,
+  yahooFleamarketRetryAfterMs,
 } from "./yahoo-fleamarket.adapter.js";
 
+function detailPage(sourceItemId: string) {
+  return `<script id="__NEXT_DATA__">${JSON.stringify({
+    props: {
+      initialState: {
+        itemsState: {
+          items: {
+            item: {
+              id: sourceItemId,
+              title: `仮面ライダー ${sourceItemId}`,
+              price: 4200,
+              status: "OPEN",
+              seller: { id: `seller-${sourceItemId}`, nickname: "ジョー" },
+              images: [],
+            },
+          },
+        },
+      },
+    },
+  })}</script>`;
+}
+
+function mockedResponse(
+  url: string,
+  status: number,
+  body: string,
+  headers: Record<string, string> = {},
+) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    url,
+    headers: new Headers(headers),
+    text: vi.fn(async () => body),
+    arrayBuffer: vi.fn(async () => new TextEncoder().encode(body).buffer),
+  } as unknown as Response;
+}
+
 describe("Yahoo! Fleamarket parsing", () => {
+  it("recognizes an explicit removed-page notice without hydration state", async () => {
+    const adapter = new YahooFleamarketAdapter({
+      fetchImpl: vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        return mockedResponse(
+          url,
+          200,
+          url.endsWith("robots.txt")
+            ? "User-agent: *\nAllow: /"
+            : "<h1>商品が見つかりません</h1>",
+        );
+      }) as typeof fetch,
+      requestGate: new YahooFleamarketRequestGate(),
+    });
+    await expect(
+      adapter.refreshStatus({
+        sourceItemId: "z100",
+        sourceUrl: "https://paypayfleamarket.yahoo.co.jp/item/z100",
+        status: "active",
+      }),
+    ).resolves.toEqual({ status: "ended", listingType: "direct" });
+  });
+  it("does not assume sold when an item has an unrecognized state", () => {
+    const html = detailPage("z100").replace(
+      '"status":"OPEN"',
+      '"status":"NEW_UNKNOWN_STATE"',
+    );
+    expect(
+      parseYahooFleamarketDetailHtml(
+        html,
+        "https://paypayfleamarket.yahoo.co.jp/item/z100",
+        "z100",
+      ).status,
+    ).toBe("unknown");
+  });
+
+  it("uses the purchase flag even when a search row still says OPEN", () => {
+    const state = {
+      props: {
+        initialState: {
+          searchState: {
+            search: {
+              result: {
+                items: [
+                  {
+                    id: "z100",
+                    title: "SHF 仮面ライダー",
+                    price: 3000,
+                    itemStatus: "OPEN",
+                    isPurchased: true,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    };
+    const [result] = parseYahooFleamarketSearchHtml(
+      `<script id="__NEXT_DATA__">${JSON.stringify(state)}</script>`,
+    );
+    expect(result.detailHint?.status).toBe("sold");
+  });
   it("turns a removed listing page into a sold status", async () => {
     const adapter = new YahooFleamarketAdapter();
     (adapter as unknown as { fetchDetail: () => Promise<never> }).fetchDetail =
@@ -19,7 +121,7 @@ describe("Yahoo! Fleamarket parsing", () => {
         sourceUrl: "https://paypayfleamarket.yahoo.co.jp/item/z100",
         status: "active",
       }),
-    ).resolves.toEqual({ status: "sold" });
+    ).resolves.toEqual({ status: "sold", listingType: "direct" });
   });
 
   it("filters card results before detail crawling", () => {
@@ -151,5 +253,97 @@ describe("Yahoo! Fleamarket parsing", () => {
       isYahooFleamarketPlaceholderSellerName("Yahoo!フリマ出品者 p188926"),
     ).toBe(true);
     expect(isYahooFleamarketPlaceholderSellerName("ジョー")).toBe(false);
+  });
+
+  it("serializes concurrent platform calls and shares Retry-After with queued status refreshes", async () => {
+    let now = 0;
+    const waits: number[] = [];
+    const requestGate = new YahooFleamarketRequestGate({
+      now: () => now,
+      wait: async (milliseconds) => {
+        waits.push(milliseconds);
+        now += milliseconds;
+      },
+    });
+    const itemAttempts = new Map<string, number>();
+    const itemRequestTimes: Array<{ sourceItemId: string; at: number }> = [];
+    let activeItemRequests = 0;
+    let maximumConcurrentItemRequests = 0;
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/robots.txt"))
+        return mockedResponse(url, 200, "User-agent: *\nAllow: /");
+
+      const sourceItemId = new URL(url).pathname.split("/").at(-1)!;
+      itemRequestTimes.push({ sourceItemId, at: now });
+      activeItemRequests += 1;
+      maximumConcurrentItemRequests = Math.max(
+        maximumConcurrentItemRequests,
+        activeItemRequests,
+      );
+      await Promise.resolve();
+      activeItemRequests -= 1;
+      const attempt = (itemAttempts.get(sourceItemId) ?? 0) + 1;
+      itemAttempts.set(sourceItemId, attempt);
+      if (sourceItemId === "z100" && attempt === 1)
+        return mockedResponse(url, 429, "rate limited", {
+          "retry-after": "45",
+        });
+      return mockedResponse(url, 200, detailPage(sourceItemId));
+    });
+    const adapter = new YahooFleamarketAdapter({
+      fetchImpl: fetchImpl as typeof fetch,
+      requestGate,
+    });
+
+    await Promise.all([
+      adapter.fetchDetail({
+        sourceItemId: "z100",
+        sourceUrl: "https://paypayfleamarket.yahoo.co.jp/item/z100",
+      }),
+      adapter.fetchDetail({
+        sourceItemId: "z101",
+        sourceUrl: "https://paypayfleamarket.yahoo.co.jp/item/z101",
+      }),
+    ]);
+
+    expect(maximumConcurrentItemRequests).toBe(1);
+    expect(itemRequestTimes).toEqual([
+      { sourceItemId: "z100", at: 0 },
+      { sourceItemId: "z101", at: 45_000 },
+      { sourceItemId: "z100", at: 50_000 },
+    ]);
+    expect(waits).toEqual([45_000, 5_000]);
+    expect(
+      fetchImpl.mock.calls.filter(([input]) =>
+        String(input).endsWith("/robots.txt"),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("uses a conservative exponential cooldown when Retry-After is absent", () => {
+    expect(yahooFleamarketRetryAfterMs(null, 0, 1_000)).toBe(60_000);
+    expect(yahooFleamarketRetryAfterMs("", 1, 1_000)).toBe(120_000);
+    expect(yahooFleamarketRetryAfterMs("45", 0, 1_000)).toBe(45_000);
+  });
+
+  it("keeps the shared request lane usable after a failed status attempt", async () => {
+    let now = 0;
+    const requestGate = new YahooFleamarketRequestGate({
+      now: () => now,
+      wait: async (milliseconds) => {
+        now += milliseconds;
+      },
+    });
+
+    await expect(
+      requestGate.run(5_000, async () => {
+        throw new Error("transient failure");
+      }),
+    ).rejects.toThrow("transient failure");
+    await expect(
+      requestGate.run(5_000, async () => "next refresh"),
+    ).resolves.toBe("next refresh");
+    expect(now).toBe(5_000);
   });
 });

@@ -1,0 +1,18 @@
+{
+  "model": "glm-5.3-flash",
+  "tokenLimit": 14000000,
+  "dailyTokenLimit": 200000,
+  "expiresAt": "2026-11-09T06:35:56Z",
+  "allowedUses": [
+    "商品读取",
+    "商品翻译",
+    "AI 聊天"
+  ],
+  "paidFallback": false,
+  "backgroundAi": false,
+  "configured": true,
+  "accountedTokens": 5090,
+  "todayTokens": 5090,
+  "remainingLocalBudget": 13994910,
+  "available": true
+}

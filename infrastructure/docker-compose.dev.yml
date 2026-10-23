@@ -1,0 +1,39 @@
+# Local live UI for the web service (bind-mounted apps/web source → next dev).
+#
+# Why: the default `web` service uses a Next standalone production image. Source
+# edits do not appear on :3000 until that image is rebuilt. Render deploy is
+# unaffected — it uses render.yaml + apps/web/Dockerfile, not this file.
+#
+# Usage (from repo root or infrastructure/):
+#   docker compose -f infrastructure/docker-compose.yml -f infrastructure/docker-compose.dev.yml up -d --build web
+#
+# Prefer host `next dev` on :3002 while iterating UI; use this override when you
+# specifically need Docker :3000 to match the workspace.
+#
+# Stop / return to baked image:
+#   docker compose -f infrastructure/docker-compose.yml up -d --build web
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile.dev
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/backend}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/backend}
+      API_INTERNAL_URL: http://api:3001
+      PORT: 3000
+      # Windows Docker Desktop often needs polling for bind-mount HMR.
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      AI_PROXY_TIMEOUT_MS: ${AI_PROXY_TIMEOUT_MS:-270000}
+    volumes:
+      - ../apps/web/src:/app/apps/web/src
+      - ../apps/web/public:/app/apps/web/public
+      - ../apps/web/next.config.ts:/app/apps/web/next.config.ts:ro
+      - ../apps/web/tsconfig.json:/app/apps/web/tsconfig.json:ro
+      - ../apps/web/postcss.config.js:/app/apps/web/postcss.config.js:ro
+      - ../apps/web/tailwind.config.ts:/app/apps/web/tailwind.config.ts:ro
+      - ../apps/web/package.json:/app/apps/web/package.json:ro
+    # Healthcheck from base compose still hits /api/health on :3000.

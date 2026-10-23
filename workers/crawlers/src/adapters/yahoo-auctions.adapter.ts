@@ -14,10 +14,94 @@ import * as cheerio from "cheerio";
 import { createRequire } from "node:module";
 import { sanitizeProductImageUrls } from "./images.js";
 import { shippingEvidence } from "./shipping.js";
+import {
+  ListingUnavailableError,
+  publicListingUiStatus,
+  schemaListingStatus,
+} from "./public-listing-status.js";
 
 const SEARCH_ORIGIN = "https://auctions.yahoo.co.jp";
 const DETAIL_ORIGIN = SEARCH_ORIGIN;
 const DEFAULT_PAGE_SIZE = 50;
+const MINIMUM_REQUEST_SPACING_MS = 1_000;
+const MINIMUM_TRANSIENT_COOLDOWN_MS = 60_000;
+const MAXIMUM_TRANSIENT_COOLDOWN_MS = 6 * 60 * 60_000;
+
+type YahooAuctionsRequestGateOptions = {
+  now?: () => number;
+  wait?: (milliseconds: number) => Promise<void>;
+};
+
+/** A process-wide, atomic lane for every Yahoo Auctions detail request. */
+export class YahooAuctionsRequestGate {
+  private tail: Promise<void> = Promise.resolve();
+  private nextAllowedAt = 0;
+  private readonly now: () => number;
+  private readonly wait: (milliseconds: number) => Promise<void>;
+
+  constructor(options: YahooAuctionsRequestGateOptions = {}) {
+    this.now = options.now ?? Date.now;
+    this.wait =
+      options.wait ??
+      ((milliseconds) =>
+        new Promise((resolve) => setTimeout(resolve, milliseconds)));
+  }
+
+  run<T>(minimumDelayMs: number, operation: () => Promise<T>): Promise<T> {
+    const boundedDelay = Number.isFinite(minimumDelayMs)
+      ? Math.max(0, Math.floor(minimumDelayMs))
+      : 0;
+    const execute = async () => {
+      const waitMs = Math.max(0, this.nextAllowedAt - this.now());
+      if (waitMs > 0) await this.wait(waitMs);
+      this.nextAllowedAt = Math.max(
+        this.nextAllowedAt,
+        this.now() + boundedDelay,
+      );
+      return operation();
+    };
+    const pending = this.tail.then(execute, execute);
+    this.tail = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
+  }
+
+  defer(milliseconds: number) {
+    if (!Number.isFinite(milliseconds) || milliseconds <= 0) return;
+    this.nextAllowedAt = Math.max(
+      this.nextAllowedAt,
+      this.now() + Math.floor(milliseconds),
+    );
+  }
+}
+
+export function yahooAuctionsRetryAfterMs(
+  value: string | null,
+  attempt: number,
+  now = Date.now(),
+) {
+  const normalizedAttempt = Number.isFinite(attempt)
+    ? Math.max(0, Math.min(Math.floor(attempt), 5))
+    : 0;
+  const fallback = MINIMUM_TRANSIENT_COOLDOWN_MS * 2 ** normalizedAttempt;
+  const trimmed = value?.trim();
+  let requested: number | undefined;
+  if (trimmed && /^\d+(?:\.\d+)?$/.test(trimmed)) {
+    requested = Number(trimmed) * 1_000;
+  } else if (trimmed) {
+    const retryAt = Date.parse(trimmed);
+    if (Number.isFinite(retryAt)) requested = retryAt - now;
+  }
+  const cooldown = Number.isFinite(requested) ? requested! : fallback;
+  return Math.max(
+    MINIMUM_TRANSIENT_COOLDOWN_MS,
+    Math.min(Math.ceil(cooldown), MAXIMUM_TRANSIENT_COOLDOWN_MS),
+  );
+}
+
+const sharedYahooAuctionsRequestGate = new YahooAuctionsRequestGate();
 
 type RobotPolicy = {
   isAllowed(url: string, userAgent?: string): boolean | undefined;
@@ -156,6 +240,11 @@ export function parseYahooAuctionDetailHtml(
 ): RawItemDetail {
   const $ = cheerio.load(html);
   const json = productJson(html);
+  const observedStatus = publicListingUiStatus($) ?? schemaListingStatus(json);
+  const status: ItemStatus =
+    observedStatus === "sold" || observedStatus === "ended"
+      ? "ended"
+      : (observedStatus ?? "unknown");
   const offers = (json?.offers ?? {}) as Record<string, unknown>;
   const titleRaw = String(
     json?.name ??
@@ -163,8 +252,10 @@ export function parseYahooAuctionDetailHtml(
       $("h1").first().text() ??
       "",
   ).trim();
-  if (!titleRaw)
+  if (!titleRaw) {
+    if (status === "ended") throw new ListingUnavailableError("ended");
     throw new Error("Yahoo Auctions detail page did not contain a title");
+  }
   const descriptionRaw =
     String(
       json?.description ??
@@ -177,19 +268,15 @@ export function parseYahooAuctionDetailHtml(
       $('[itemprop="price"]').attr("content") ??
       $('[class*="Price"]').first().text(),
   );
-  if (priceCurrent == null)
+  if (priceCurrent == null) {
+    if (status === "ended") throw new ListingUnavailableError("ended");
     throw new Error(
       "Yahoo Auctions detail page did not contain a public price",
     );
-  const availability = String(offers.availability ?? "").toLowerCase();
+  }
   const visibleBody = $("body").clone();
   visibleBody.find("script, style, noscript, template").remove();
   const bodyText = visibleBody.text().replace(/\s+/g, " ").trim();
-  const status: ItemStatus =
-    availability.includes("outofstock") ||
-    /このオークションは終了|落札されました|終了しました/i.test(bodyText)
-      ? "ended"
-      : "active";
   const imageSet = new Set<string>();
   const jsonImages = Array.isArray(json?.image) ? json.image : [json?.image];
   for (const image of jsonImages) {
@@ -285,6 +372,7 @@ export function parseYahooAuctionDetailHtml(
   const listedAt = listedAtValue ? new Date(listedAtValue) : undefined;
   return {
     sourcePlatform: "yahoo_auctions",
+    listingType: "auction",
     sourceItemId,
     sourceUrl,
     titleRaw,
@@ -324,10 +412,22 @@ export function parseYahooAuctionDetailHtml(
 export class YahooAuctionsAdapter implements SourceAdapter {
   readonly key = "yahoo_auctions";
   readonly displayName = "Yahoo!オークション";
-  private lastRequestAt = 0;
   private readonly userAgent =
     process.env.CRAWLER_USER_AGENT ?? "TokusatsuMonitor/1.0";
   private robots?: RobotPolicy;
+  private robotsPromise?: Promise<RobotPolicy>;
+  private readonly fetchImpl: typeof fetch;
+  private readonly requestGate: YahooAuctionsRequestGate;
+
+  constructor(
+    options: {
+      fetchImpl?: typeof fetch;
+      requestGate?: YahooAuctionsRequestGate;
+    } = {},
+  ) {
+    this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
+    this.requestGate = options.requestGate ?? sharedYahooAuctionsRequestGate;
+  }
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
     const pages = Math.max(1, Math.min(query.pages ?? 1, 8));
@@ -397,17 +497,16 @@ export class YahooAuctionsAdapter implements SourceAdapter {
       });
       return {
         status: detail.status,
+        listingType: "auction",
         priceCurrent: detail.priceCurrent,
         auctionEndAt: detail.auctionEndAt,
         bidCount: detail.bidCount,
       };
     } catch (error) {
-      if (
-        /Yahoo Auctions returned (?:404|410)|did not contain a public price/i.test(
-          String(error),
-        )
-      )
-        return { status: "ended" };
+      if (error instanceof ListingUnavailableError)
+        return { status: "ended", listingType: "auction" };
+      if (/Yahoo Auctions returned (?:404|410)\b/i.test(String(error)))
+        return { status: "ended", listingType: "auction" };
       throw error;
     }
   }
@@ -430,40 +529,77 @@ export class YahooAuctionsAdapter implements SourceAdapter {
     const robots = await this.getRobots();
     if (!robots.isAllowed(canonicalUrl, this.userAgent))
       throw new Error(`robots.txt disallows ${canonicalUrl}`);
-    const elapsed = Date.now() - this.lastRequestAt;
-    if (elapsed < 3000)
-      await new Promise((resolve) => setTimeout(resolve, 3000 - elapsed));
-    const response = await fetch(canonicalUrl, {
-      headers: {
-        "user-agent": this.userAgent,
-        accept: "text/html,application/xhtml+xml",
-        "accept-language": "ja,en;q=0.8",
-      },
-      signal: AbortSignal.timeout(25_000),
-      redirect: "follow",
-    });
-    this.lastRequestAt = Date.now();
-    if (!response.ok)
-      throw new Error(`Yahoo Auctions returned ${response.status}`);
-    if (new URL(response.url).hostname !== "auctions.yahoo.co.jp")
-      throw new Error(
-        `Yahoo Auctions detail redirected unexpectedly (${response.url})`,
-      );
-    return response.text();
+    const configuredDelay = Number(
+      process.env.YAHOO_AUCTIONS_CRAWL_DELAY_MS ?? MINIMUM_REQUEST_SPACING_MS,
+    );
+    const delay = Number.isFinite(configuredDelay)
+      ? Math.max(MINIMUM_REQUEST_SPACING_MS, configuredDelay)
+      : MINIMUM_REQUEST_SPACING_MS;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const response = await this.requestGate.run(delay, async () => {
+        const result = await this.fetchImpl(canonicalUrl, {
+          headers: {
+            "user-agent": this.userAgent,
+            accept: "text/html,application/xhtml+xml",
+            "accept-language": "ja,en;q=0.8",
+          },
+          signal: AbortSignal.timeout(25_000),
+          redirect: "follow",
+        });
+        if (result.status === 429 || result.status >= 500) {
+          this.requestGate.defer(
+            yahooAuctionsRetryAfterMs(
+              result.headers.get("retry-after"),
+              attempt,
+            ),
+          );
+        }
+        return result;
+      });
+      if (response.status === 429 || response.status >= 500) {
+        await response.arrayBuffer().catch(() => undefined);
+        if (attempt < 2) continue;
+      }
+      if (!response.ok)
+        throw new Error(`Yahoo Auctions returned ${response.status}`);
+      const finalUrl = new URL(response.url);
+      if (
+        !["auctions.yahoo.co.jp", "page.auctions.yahoo.co.jp"].includes(
+          finalUrl.hostname,
+        ) ||
+        finalUrl.pathname.replace(/\/$/, "") !==
+          requestedUrl.pathname.replace(/\/$/, "")
+      )
+        throw new Error(
+          `Yahoo Auctions detail redirected unexpectedly (${response.url})`,
+        );
+      return response.text();
+    }
+    throw new Error("Yahoo Auctions exhausted transient retries");
   }
 
   private async getRobots() {
     if (this.robots) return this.robots;
-    const url = `${DETAIL_ORIGIN}/robots.txt`;
-    const response = await fetch(url, {
-      headers: { "user-agent": this.userAgent },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok)
-      throw new Error(
-        `Cannot verify Yahoo Auctions robots.txt (${response.status}); refusing crawl`,
-      );
-    this.robots = robotsParser(url, await response.text());
-    return this.robots;
+    if (this.robotsPromise) return this.robotsPromise;
+    const pending = (async () => {
+      const url = `${DETAIL_ORIGIN}/robots.txt`;
+      const response = await this.fetchImpl(url, {
+        headers: { "user-agent": this.userAgent },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok)
+        throw new Error(
+          `Cannot verify Yahoo Auctions robots.txt (${response.status}); refusing crawl`,
+        );
+      const policy = robotsParser(url, await response.text());
+      this.robots = policy;
+      return policy;
+    })();
+    this.robotsPromise = pending;
+    try {
+      return await pending;
+    } finally {
+      if (this.robotsPromise === pending) this.robotsPromise = undefined;
+    }
   }
 }

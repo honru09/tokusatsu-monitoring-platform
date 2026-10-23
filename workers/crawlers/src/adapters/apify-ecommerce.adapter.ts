@@ -18,6 +18,9 @@ const MARKETPLACE_NAMES: Record<string, string> = {
   "store.shopping.yahoo.co.jp": "Yahoo! Shopping",
   "netmall.hardoff.co.jp": "HARD OFF Netmall",
 };
+const JPY_MARKETPLACE_HOSTS = new Set(
+  Object.keys(MARKETPLACE_NAMES).filter((host) => host !== "www.ebay.com"),
+);
 
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -26,8 +29,55 @@ function asObject(value: unknown): Record<string, unknown> {
 }
 
 function numberValue(value: unknown): number | undefined {
-  const parsed = Number(String(value ?? "").replace(/[^\d.]/g, ""));
-  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined;
+  const object = asObject(value);
+  if (Object.keys(object).length)
+    return numberValue(object.value ?? object.amount ?? object.price);
+  const text = String(value ?? "").trim();
+  if (!text || /(^|[^\d])-\s*\d/.test(text)) return undefined;
+  const matches = text.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g);
+  if (matches?.length !== 1) return undefined;
+  const parsed = Number(matches[0].replace(/,/g, ""));
+  return Number.isFinite(parsed) && parsed >= 0
+    ? Math.round(parsed)
+    : undefined;
+}
+
+function shippingValue(value: unknown) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (
+    /^(?:free(?:\s+(?:shipping|delivery))?|送料無料|送料(?:込み|込))$/i.test(
+      text,
+    )
+  )
+    return 0;
+  return numberValue(value);
+}
+
+function normalizedCurrency(value: unknown) {
+  const currency = String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
+  if (["JPY", "YEN", "JP¥"].includes(currency)) return "JPY";
+  return /^[A-Z]{3}$/.test(currency) ? currency : undefined;
+}
+
+function currencyFromPriceText(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  if (/(?:JPY|JP¥|円)/i.test(value)) return "JPY";
+  if (/(?:USD|US\s*\$|\$)/i.test(value)) return "USD";
+  if (/(?:EUR|€)/i.test(value)) return "EUR";
+  if (/(?:GBP|£)/i.test(value)) return "GBP";
+  return undefined;
+}
+
+function jpyShippingValue(value: unknown, fallbackCurrency?: unknown) {
+  const object = asObject(value);
+  const currency = normalizedCurrency(
+    object.currency ?? object.priceCurrency ?? fallbackCurrency,
+  );
+  if (currency && currency !== "JPY") return undefined;
+  return shippingValue(value);
 }
 
 function urls(value: unknown): string[] {
@@ -61,11 +111,40 @@ export function parseApifyProduct(row: ActorRow): RawItemDetail {
   if (!sourceUrl) throw new Error("Apify result has no product URL");
   const offers = asObject(row.offers);
   const brand = asObject(row.brand);
-  const priceCurrent =
-    numberValue(offers.price) ??
-    numberValue(row.price) ??
-    numberValue(row.currentPrice);
+  const marketplaceHost = new URL(sourceUrl).hostname.toLowerCase();
+  const priceCandidates = [
+    {
+      value: offers.price,
+      currency:
+        offers.priceCurrency ??
+        offers.currency ??
+        asObject(offers.price).currency,
+    },
+    {
+      value: row.price,
+      currency:
+        row.priceCurrency ??
+        row.currency ??
+        row.currencyCode ??
+        asObject(row.price).currency,
+    },
+    {
+      value: row.currentPrice,
+      currency: row.priceCurrency ?? row.currency ?? row.currencyCode,
+    },
+  ];
+  const priceCandidate = priceCandidates.find(
+    ({ value }) => numberValue(value) != null,
+  );
+  const priceCurrent = numberValue(priceCandidate?.value);
   if (!priceCurrent) throw new Error("Apify result has no public price");
+  const priceCurrency =
+    normalizedCurrency(priceCandidate?.currency) ??
+    currencyFromPriceText(priceCandidate?.value);
+  if (priceCurrency && priceCurrency !== "JPY")
+    throw new Error(`Apify result is not priced in JPY: ${priceCurrency}`);
+  if (!priceCurrency && !JPY_MARKETPLACE_HOSTS.has(marketplaceHost))
+    throw new Error("Apify result has no verifiable JPY currency");
   const titleRaw = String(
     row.name ?? row.title ?? row.productName ?? "",
   ).trim();
@@ -73,9 +152,9 @@ export function parseApifyProduct(row: ActorRow): RawItemDetail {
   const availability = String(
     offers.availability ?? row.availability ?? row.inStock ?? "",
   );
-  const marketplaceHost = new URL(sourceUrl).hostname.toLowerCase();
   return {
     sourcePlatform: "apify_ecommerce",
+    listingType: marketplaceHost === "www.ebay.com" ? "unknown" : "direct",
     sourceItemId: rowId(row, sourceUrl),
     sourceUrl,
     titleRaw,
@@ -87,8 +166,14 @@ export function parseApifyProduct(row: ActorRow): RawItemDetail {
     sellerType: "store",
     priceCurrent,
     shippingFee:
-      numberValue(asObject(offers.shippingDetails).shippingRate) ??
-      numberValue(row.shipping),
+      jpyShippingValue(
+        asObject(offers.shippingDetails).shippingRate,
+        offers.priceCurrency ?? offers.currency ?? priceCurrency,
+      ) ??
+      jpyShippingValue(
+        row.shipping,
+        row.shippingCurrency ?? row.currency ?? priceCurrency,
+      ),
     conditionRaw:
       String(row.condition ?? row.itemCondition ?? "").trim() || undefined,
     imageUrls: [
@@ -163,6 +248,10 @@ export class ApifyEcommerceAdapter implements SourceAdapter {
           sourceItemId: detail.sourceItemId,
           sourceUrl: detail.sourceUrl,
           titleHint: detail.titleRaw,
+          // The actor search response already contains the normalized public
+          // facts. Expose them to central procurement ranking instead of
+          // making every Apify result look equally unknown until fetchDetail.
+          detailHint: detail,
         });
       } catch {}
     }
@@ -187,6 +276,7 @@ export class ApifyEcommerceAdapter implements SourceAdapter {
     });
     return {
       status: detail.status,
+      listingType: detail.listingType,
       priceCurrent: detail.priceCurrent,
       shippingFee: detail.shippingFee,
     };

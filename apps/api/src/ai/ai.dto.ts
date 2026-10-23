@@ -2,6 +2,7 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNumber,
@@ -9,10 +10,20 @@ import {
   IsString,
   IsUrl,
   Length,
+  Max,
+  Min,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
 import type { AiTask } from "./ai-router.js";
+import {
+  PRODUCT_AI_OPERATIONS,
+  type ProductAiOperation,
+} from "./product-ai.service.js";
+import {
+  INTERNAL_RESPONSE_SCHEMA_IDS,
+  type InternalResponseSchemaId,
+} from "./ai-internal-response-contracts.js";
 
 export class ImageAnalysisDto {
   @IsString()
@@ -27,7 +38,14 @@ export class ImageAnalysisDto {
   @IsArray()
   @ArrayNotEmpty()
   @ArrayMaxSize(50)
-  @IsUrl({ require_protocol: true }, { each: true })
+  @IsUrl(
+    {
+      protocols: ["https"],
+      require_protocol: true,
+      require_valid_protocol: true,
+    },
+    { each: true },
+  )
   imageUrls!: string[];
 }
 
@@ -70,7 +88,24 @@ export class AssistantChatDto {
   history?: AssistantChatMessageDto[];
 }
 
+export class InternalAiMessageDto {
+  @IsIn(["system", "user", "assistant"])
+  role!: "system" | "user" | "assistant";
+
+  @IsString()
+  @Length(1, 50_000)
+  content!: string;
+}
+
 export class InternalExecuteDto {
+  @IsIn([...INTERNAL_RESPONSE_SCHEMA_IDS])
+  responseSchemaId!: InternalResponseSchemaId;
+
+  @IsInt()
+  @Min(1)
+  @Max(999_999)
+  responseSchemaVersion!: number;
+
   @IsIn([
     "bulk_filter",
     "translation",
@@ -97,32 +132,119 @@ export class InternalExecuteDto {
   @IsArray()
   @ArrayNotEmpty()
   @ArrayMaxSize(30)
-  messages!: Array<{
-    role: "system" | "user" | "assistant";
-    content: string;
-  }>;
+  @ValidateNested({ each: true })
+  @Type(() => InternalAiMessageDto)
+  messages!: InternalAiMessageDto[];
 
   @IsInt()
+  @Min(8)
+  @Max(20_000)
   maxTokens!: number;
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
+  @Max(2)
   temperature?: number;
 
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(50)
-  @IsUrl({ require_protocol: true }, { each: true })
+  @IsUrl(
+    {
+      protocols: ["https"],
+      require_protocol: true,
+      require_valid_protocol: true,
+    },
+    { each: true },
+  )
   imageUrls?: string[];
 
   @IsOptional()
   @IsString()
+  @Length(1, 200)
   itemId?: string;
 
   @IsOptional()
   @IsString()
+  @Length(1, 200)
   sellerId?: string;
 
   @IsOptional()
+  @IsBoolean()
+  bypassCache?: boolean;
+}
+
+export class InternalProductExecuteDto {
+  @IsIn([...INTERNAL_RESPONSE_SCHEMA_IDS])
+  responseSchemaId!: InternalResponseSchemaId;
+
+  @IsInt()
+  @Min(1)
+  @Max(999_999)
+  responseSchemaVersion!: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @Length(1, 200, { each: true })
+  expectedIds?: string[];
+
+  @IsIn(PRODUCT_AI_OPERATIONS)
+  operation!: ProductAiOperation;
+
+  @IsOptional()
+  @IsIn(["public_market", "user_private", "sensitive_image"])
+  dataClass?: "public_market" | "user_private" | "sensitive_image";
+
+  @IsOptional()
+  @IsIn(["free_only", "free_first", "paid_allowed"])
+  costPolicy?: "free_only" | "free_first" | "paid_allowed";
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => InternalAiMessageDto)
+  messages!: InternalAiMessageDto[];
+
+  @IsOptional()
+  @IsInt()
+  @Min(8)
+  @Max(20_000)
+  maxTokens?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(2)
+  temperature?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsUrl(
+    {
+      protocols: ["https"],
+      require_protocol: true,
+      require_valid_protocol: true,
+    },
+    { each: true },
+  )
+  imageUrls?: string[];
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  itemId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  sellerId?: string;
+
+  @IsOptional()
+  @IsBoolean()
   bypassCache?: boolean;
 }

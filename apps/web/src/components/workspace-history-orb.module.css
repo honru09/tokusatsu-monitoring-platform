@@ -1,0 +1,250 @@
+/* A single elevated navigation surface keeps the reading plane quiet. */
+.orb:global(.workspace-history-orb):global(.floating-control) {
+  width: 44px;
+  height: 44px;
+}
+
+.orb .trigger.trigger {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  color: #34465c;
+  background-color: rgba(246, 250, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 5px 18px #1c344523,
+    0 1px 3px #1c344512;
+  opacity: 0.9;
+  cursor: grab;
+  transition:
+    transform 130ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 130ms ease,
+    opacity 130ms ease;
+}
+
+.orb .triggerGlyph.triggerGlyph {
+  width: 22px;
+  height: 22px;
+  transform: none;
+}
+
+.orb:global(.is-open) .trigger.trigger {
+  color: var(--ios-blue, #0071e3);
+  opacity: 1;
+}
+
+.orb .trigger.trigger:active {
+  transform: scale(0.95);
+  opacity: 1;
+}
+
+.orb:global(.is-dragging) .trigger.trigger {
+  transform: scale(1.04);
+  color: var(--ios-blue, #0071e3);
+  cursor: grabbing;
+  opacity: 1;
+  box-shadow:
+    0 0 0 4px #0071e319,
+    inset 0 1px 0 #fff,
+    0 10px 26px #18384c30;
+}
+
+.rail {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  display: grid;
+  width: min(232px, calc(100vw - 24px));
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  border-radius: 22px;
+  background:
+    linear-gradient(150deg, #ffffffc9, #ffffff33 54%), rgba(247, 250, 254, 0.94);
+  color: #1d1d1f;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 16px 44px #19344824,
+    0 2px 8px #1934480f;
+  backdrop-filter: blur(24px) saturate(165%);
+  -webkit-backdrop-filter: blur(24px) saturate(165%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate3d(0, 5px, 0) scale(0.97);
+  transform-origin: left bottom;
+  transition:
+    opacity 120ms ease,
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    visibility 160ms;
+}
+
+.orb[data-edge="right"] .rail {
+  left: auto;
+  right: 0;
+  transform-origin: right bottom;
+}
+
+.orb[data-rail-direction="down"] .rail {
+  top: calc(100% + 10px);
+  bottom: auto;
+  transform: translate3d(0, -5px, 0) scale(0.97);
+  transform-origin: left top;
+}
+
+.orb[data-edge="right"][data-rail-direction="down"] .rail {
+  transform-origin: right top;
+}
+
+.orb:global(.is-open) .rail {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.heading {
+  padding: 7px 12px 5px;
+  color: #536074;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.entry,
+.positionAction {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color 100ms ease,
+    transform 100ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.entryLabel {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 550;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.entryIcon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border-radius: 9px;
+  background: #e9f0f8;
+  color: #285780;
+}
+
+.entryIcon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.returnGlyph {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  color: #6a7483;
+}
+
+.positionAction {
+  margin-top: 4px;
+  border-top: 1px solid #26374d14;
+  border-radius: 0 0 15px 15px;
+  color: #46556b;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.positionAction svg {
+  width: 20px;
+  height: 20px;
+  margin-inline: 5px;
+  flex: 0 0 20px;
+}
+
+.entry:active,
+.positionAction:active {
+  background: #dbe8f7;
+  transform: scale(0.98);
+}
+
+.orb .trigger:focus-visible,
+.entry:focus-visible,
+.positionAction:focus-visible {
+  outline: 2px solid var(--ios-blue, #0071e3);
+  outline-offset: 2px;
+}
+
+/* Keyboard navigation is instantaneous, including rapid repeated opening. */
+.orb[data-keyboard="true"] .rail,
+.orb[data-keyboard="true"] .entry,
+.orb[data-keyboard="true"] .trigger {
+  transition: none;
+}
+
+@media (min-width: 700px) {
+  .orb:global(.workspace-history-orb):global(.floating-control),
+  .orb .trigger.trigger {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .orb .trigger.trigger:hover {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+  .entry:hover,
+  .positionAction:hover {
+    background: #e5edf7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb:global(.workspace-history-orb):global(.floating-control),
+  .orb .trigger.trigger,
+  .rail,
+  .entry,
+  .positionAction {
+    transition: none;
+  }
+  .orb .rail,
+  .orb:global(.is-open) .rail,
+  .orb .trigger.trigger:active,
+  .orb .trigger.trigger:hover,
+  .orb:global(.is-dragging) .trigger.trigger {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .orb .trigger.trigger,
+  .rail {
+    background: #f8fafc;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: #68778b;
+  }
+}

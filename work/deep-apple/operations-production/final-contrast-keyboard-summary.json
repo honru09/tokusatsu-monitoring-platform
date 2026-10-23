@@ -1,0 +1,79 @@
+{
+  "target": "http://localhost:3000",
+  "samples": 27,
+  "passed": 27,
+  "failed": [],
+  "accent": [
+    {
+      "name": "Nav active workbench",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "color": "rgb(0, 102, 204)",
+      "minimum": 5.005
+    },
+    {
+      "name": "AI product entry on focused pale blue",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "color": "rgb(0, 102, 204)",
+      "minimum": 5.166
+    },
+    {
+      "name": "Nav active workbench",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "color": "rgb(0, 102, 204)",
+      "minimum": 4.974
+    },
+    {
+      "name": "AI product entry on focused pale blue",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "color": "rgb(0, 102, 204)",
+      "minimum": 5.166
+    },
+    {
+      "name": "Nav active workbench",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "color": "rgb(0, 102, 204)",
+      "minimum": 4.974
+    },
+    {
+      "name": "AI product entry on focused pale blue",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "color": "rgb(0, 102, 204)",
+      "minimum": 5.166
+    }
+  ],
+  "keyboard": 12,
+  "errors": [],
+  "intercepted": 12,
+  "forwardedMutations": 0,
+  "retainedOriginalRegression": {
+    "passed": true,
+    "checks": 33,
+    "errors": [],
+    "intercepted": 45,
+    "forwardedMutations": 0
+  }
+}

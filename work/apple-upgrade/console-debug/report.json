@@ -1,0 +1,76 @@
+[
+  {
+    "width": 320,
+    "height": 568,
+    "reducedMotion": "no-preference",
+    "pages": [
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 73.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 296,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 1595.703125,
+          "top": 84,
+          "right": 308,
+          "bottom": 1679.703125,
+          "left": 12
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0
+  },
+  {
+    "width": 320,
+    "height": 568,
+    "reducedMotion": "reduce",
+    "pages": [
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 73.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 296,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 1595.703125,
+          "top": 84,
+          "right": 308,
+          "bottom": 1679.703125,
+          "left": 12
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0
+  }
+]

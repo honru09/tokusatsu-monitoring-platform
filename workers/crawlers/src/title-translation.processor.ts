@@ -1,11 +1,14 @@
 import { prisma } from "@tokusatsu/db";
+import { normalizeHttpBaseUrl } from "@tokusatsu/shared";
+import {
+  AutomaticAiDeferredError,
+  automaticBackgroundAiEnabled,
+  backgroundAiFetch,
+} from "./background-ai-guard.js";
 
 async function sleep(milliseconds: number) {
   await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
-
-let titleTranslationPausedUntil = 0;
-const TITLE_TRANSLATION_PAUSE_MS = 10 * 60_000;
 
 /**
  * The worker only talks to the backend. Provider selection, credentials,
@@ -25,7 +28,8 @@ export async function fetchWithRetry(
         response.ok ||
         (response.status >= 400 &&
           response.status < 500 &&
-          response.status !== 429)
+          response.status !== 429) ||
+        [429, 502, 503, 504].includes(response.status)
       )
         return response;
       lastError = new Error(`AI Gateway title translation ${response.status}`);
@@ -48,11 +52,8 @@ export async function fetchWithRetry(
 }
 
 export async function processTitleTranslation() {
-  if (Date.now() < titleTranslationPausedUntil)
-    return {
-      skipped: "ai_gateway_temporarily_unavailable",
-      retryAfter: new Date(titleTranslationPausedUntil).toISOString(),
-    };
+  if (!automaticBackgroundAiEnabled())
+    return { skipped: "background_automation_not_authorized" } as const;
   const items = await prisma.item.findMany({
     where: {
       titleZh: null,
@@ -70,42 +71,35 @@ export async function processTitleTranslation() {
   });
   if (items.length === 0) return { translated: 0, remaining: 0 };
 
-  const apiBase = (
-    process.env.API_INTERNAL_URL ?? "http://localhost:3001"
-  ).replace(/\/$/, "");
+  const apiBase = normalizeHttpBaseUrl(process.env.API_INTERNAL_URL);
   try {
-    const response = await fetchWithRetry(`${apiBase}/analysis/translate`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        accept: "application/json",
-      },
-      body: JSON.stringify({
-        texts: items.map((item) => item.titleRaw),
-        itemIds: items.map((item) => item.id),
-      }),
-      signal: AbortSignal.timeout(
-        Math.max(
-          250_000,
-          Math.min(
-            Number(process.env.AI_GATEWAY_CLIENT_TIMEOUT_MS ?? 270_000),
-            300_000,
+    const response = await backgroundAiFetch(
+      `title:${items.map((item) => item.id).join(",")}`,
+      `${apiBase}/analysis/translate?costPolicy=free_only`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          texts: items.map((item) => item.titleRaw),
+          itemIds: items.map((item) => item.id),
+        }),
+        signal: AbortSignal.timeout(
+          Math.max(
+            250_000,
+            Math.min(
+              Number(process.env.AI_GATEWAY_CLIENT_TIMEOUT_MS ?? 270_000),
+              300_000,
+            ),
           ),
         ),
-      ),
-    });
+      },
+      { authorization: "free" },
+    );
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      if ([401, 402, 403, 429, 502, 503, 504].includes(response.status)) {
-        titleTranslationPausedUntil = Date.now() + TITLE_TRANSLATION_PAUSE_MS;
-        return {
-          translated: 0,
-          remaining: await countPending(),
-          deferred: true,
-          reason: "ai_gateway_unavailable",
-          retryAfter: new Date(titleTranslationPausedUntil).toISOString(),
-        };
-      }
       throw new Error(
         `AI Gateway title translation ${response.status}${body ? `: ${body.slice(0, 160)}` : ""}`,
       );
@@ -116,6 +110,14 @@ export async function processTitleTranslation() {
     return { translated: items.length, remaining: await countPending() };
   } catch (error) {
     const remaining = await countPending();
+    if (error instanceof AutomaticAiDeferredError)
+      return {
+        translated: 0,
+        remaining,
+        deferred: true,
+        reason: "ai_gateway_unavailable",
+        retryAfter: error.retryAt.toISOString(),
+      };
     console.warn(
       JSON.stringify({
         event: "title_translation_batch_deferred",

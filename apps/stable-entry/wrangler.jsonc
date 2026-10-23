@@ -1,0 +1,8 @@
+{
+  "name": "kamen-procurement-entry",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-09-09",
+  "workers_dev": true,
+  "durable_objects": { "bindings": [{ "name": "ENTRY_STATE", "class_name": "EntryState" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["EntryState"] }]
+}

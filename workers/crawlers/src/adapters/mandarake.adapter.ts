@@ -151,6 +151,7 @@ export function parseMandarakeDetailHtml(
     $('.condition, [class*="condition"]').first().text().trim() || undefined;
   return {
     sourcePlatform: "mandarake",
+    listingType: "direct",
     sourceItemId,
     sourceUrl,
     titleRaw,
@@ -207,6 +208,7 @@ export class MandarakeAdapter implements SourceAdapter {
     });
     return {
       status: detail.status,
+      listingType: "direct",
       priceCurrent: detail.priceCurrent,
       shippingFee: detail.shippingFee,
     };

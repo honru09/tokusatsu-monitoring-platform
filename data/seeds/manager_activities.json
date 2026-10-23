@@ -1,0 +1,970 @@
+[
+  {
+    "id": "98225226-ae70-44e5-b629-352571272c97",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "c5448298-5557-4a94-8fb6-4d3362a024d7",
+    "count": 1,
+    "createdAt": "2026-09-08T14:54:59.009Z"
+  },
+  {
+    "id": "17e6e999-e6e4-4041-a9b5-21823ad51828",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "13d4764f-7810-40d8-8c85-ec2eab10e02c",
+    "count": 1,
+    "createdAt": "2026-09-08T14:55:14.424Z"
+  },
+  {
+    "id": "bce4b554-41c4-41e0-8202-4e27ec0354c4",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "e1314aeb-db4a-4857-9d06-a5c50225230b",
+    "count": 1,
+    "createdAt": "2026-09-08T14:55:18.748Z"
+  },
+  {
+    "id": "498a48aa-93ae-4bbe-824a-6dd39e682321",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "fa884a7b-8232-4681-a427-d55f19a5a1f5",
+    "count": 1,
+    "createdAt": "2026-09-08T14:55:22.249Z"
+  },
+  {
+    "id": "31009d6d-bbfe-4745-8c2e-3e191bb22b5d",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "1660ccb6-e27e-4d54-81e4-2c14cedae92f",
+    "count": 1,
+    "createdAt": "2026-09-08T14:55:58.822Z"
+  },
+  {
+    "id": "1322fb44-a0aa-45e9-ac2f-7f7c85690d87",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "b7bb6eb7-2acf-412f-a1af-fe200d5d1d10",
+    "count": 1,
+    "createdAt": "2026-09-08T14:56:01.289Z"
+  },
+  {
+    "id": "b1f3369d-85e1-4af6-9526-84da1fda1801",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "c48c604d-e443-4bbd-b2c6-1ba55bac99c1",
+    "count": 1,
+    "createdAt": "2026-09-08T14:56:19.301Z"
+  },
+  {
+    "id": "1a93bcee-c543-4905-be8d-9d515a397f09",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "12ba3bd4-3858-461d-9fcb-92cd91bdda8c",
+    "count": 1,
+    "createdAt": "2026-09-08T14:56:40.445Z"
+  },
+  {
+    "id": "3839c4c1-b812-4d7d-b382-8e6a285eca1d",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "06cd4799-c942-4867-9376-6bf41b4ebc53",
+    "count": 1,
+    "createdAt": "2026-09-08T14:59:57.972Z"
+  },
+  {
+    "id": "ea694f26-df88-4585-a56d-759720cea084",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "644a1505-05ec-4969-94d9-98b5e50e735b",
+    "count": 1,
+    "createdAt": "2026-09-08T15:02:04.350Z"
+  },
+  {
+    "id": "7c463e94-d39e-4ef0-a5e7-ac31abe1fecc",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "bcaf6272-da43-426a-82b1-2fc45e4ef957",
+    "count": 1,
+    "createdAt": "2026-09-08T15:02:23.180Z"
+  },
+  {
+    "id": "bc9c4376-8ed9-4547-aa57-254b2b19b035",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "2a4d2eaf-bdb6-4354-85ce-e203da8992c6",
+    "count": 1,
+    "createdAt": "2026-09-08T15:04:09.525Z"
+  },
+  {
+    "id": "c62dd25c-2670-43d9-8e03-d77cb02c197a",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "9ef4e1ed-29a0-4e27-9f62-f2e45b06db6c",
+    "count": 1,
+    "createdAt": "2026-09-08T15:04:36.919Z"
+  },
+  {
+    "id": "9484bb30-25af-472e-99c0-fe160fd5671b",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "d00034a7-c8fa-42a3-8d21-b44dd4b3a5b0",
+    "count": 1,
+    "createdAt": "2026-09-08T15:04:42.041Z"
+  },
+  {
+    "id": "f5334cb7-66ef-4830-9c07-b8a98252530f",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "7a10515b-729c-462d-8c5c-0427dc9c8054",
+    "count": 1,
+    "createdAt": "2026-09-08T15:05:29.863Z"
+  },
+  {
+    "id": "29c82708-354c-47a6-8434-077638e905d2",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "a2100102-b934-466d-8b0e-e8a0f3676f4c",
+    "count": 1,
+    "createdAt": "2026-09-08T15:05:36.430Z"
+  },
+  {
+    "id": "6a6c51a7-a36c-4e4e-a085-6af8f8c05ad4",
+    "accountId": "manager-1",
+    "action": "favorite",
+    "itemId": "a6338a05-d281-4174-b17d-3051bb9648c5",
+    "count": 1,
+    "createdAt": "2026-09-08T15:05:42.359Z"
+  },
+  {
+    "id": "b7696f06-5d31-424c-8115-55e5e706eb7b",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "a6338a05-d281-4174-b17d-3051bb9648c5",
+    "count": 1,
+    "createdAt": "2026-09-08T15:05:45.738Z"
+  },
+  {
+    "id": "4201a6c2-8fba-4160-8001-79a0ba20b356",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "1ba568ee-cdfd-48ac-bb6b-47de63e77714",
+    "count": 1,
+    "createdAt": "2026-09-08T15:09:17.919Z"
+  },
+  {
+    "id": "21ecd90b-db2b-4235-bb59-d2bacebc3dba",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "f4242d49-8056-4d5e-a507-d877bd08c21b",
+    "count": 1,
+    "createdAt": "2026-09-08T15:12:11.923Z"
+  },
+  {
+    "id": "3c250f38-8b48-4429-81bb-260e5db2d723",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "bc5321b9-55e1-4617-a277-67b568de7caf",
+    "count": 1,
+    "createdAt": "2026-09-08T15:13:40.708Z"
+  },
+  {
+    "id": "b316ceec-cc8d-4b0c-8853-de69fc054684",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "29fa913f-436c-4690-8c55-77428cf37cd9",
+    "count": 1,
+    "createdAt": "2026-09-08T15:13:44.471Z"
+  },
+  {
+    "id": "bf386ddd-6a32-4966-be9f-04079761582d",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "8efc6595-bd25-40eb-98e4-864b543dca53",
+    "count": 1,
+    "createdAt": "2026-09-08T15:13:48.620Z"
+  },
+  {
+    "id": "a4901d8e-0d07-4d16-8572-9234037db422",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "c8e772ca-fc02-4686-92f7-215a080ceaa0",
+    "count": 1,
+    "createdAt": "2026-09-08T15:15:57.487Z"
+  },
+  {
+    "id": "e4096431-7633-4c77-b5c1-238dc2b56f85",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "adac2c31-a951-4093-9373-47de16a2b787",
+    "count": 1,
+    "createdAt": "2026-09-08T15:16:00.630Z"
+  },
+  {
+    "id": "bcc2d96f-90e1-4b69-9a07-db4a79607862",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "66529262-4593-4f27-b6d1-13ccd16ba8bf",
+    "count": 1,
+    "createdAt": "2026-09-08T15:16:03.548Z"
+  },
+  {
+    "id": "f8fb7160-b180-47aa-a966-3de8788bb735",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "aa595676-fa36-49c1-a4d6-fee6a673ddec",
+    "count": 1,
+    "createdAt": "2026-09-08T15:16:06.820Z"
+  },
+  {
+    "id": "725ce97d-b105-49cd-adea-735a6d754784",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "d35150f2-ffc5-44bd-a22b-d4a5090d8ddd",
+    "count": 1,
+    "createdAt": "2026-09-08T15:16:09.633Z"
+  },
+  {
+    "id": "acc2e311-7156-4b21-bf8b-598cf116f948",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "20ce29e1-62bc-4257-816d-9a0aa227f4c2",
+    "count": 1,
+    "createdAt": "2026-09-08T15:18:06.114Z"
+  },
+  {
+    "id": "973a08dd-2825-49e6-8625-8bd91a19a783",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "301404cc-f779-4c87-ac1c-09f14a508901",
+    "count": 1,
+    "createdAt": "2026-09-08T15:18:08.772Z"
+  },
+  {
+    "id": "faa69bc3-52fe-47fa-a443-d865d00b04cb",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "7e62a188-19df-429d-8ae3-dc212cd97d45",
+    "count": 1,
+    "createdAt": "2026-09-08T15:33:23.483Z"
+  },
+  {
+    "id": "ff9d83cd-5f0e-42c9-852f-deb36bb083e3",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "224c768b-ecac-4c1b-b5d5-9d889c9b05b8",
+    "count": 1,
+    "createdAt": "2026-09-08T15:33:50.006Z"
+  },
+  {
+    "id": "00ad1545-ff8c-4dcf-b32c-596138fa46f6",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "3c8279d4-dc0b-4203-ac38-0dd2e823c3d7",
+    "count": 1,
+    "createdAt": "2026-09-08T15:33:53.286Z"
+  },
+  {
+    "id": "deaec9ce-e953-4d6e-8c05-78442b1457c8",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "90ebe186-bfd7-404d-8b7e-d16e81a45b42",
+    "count": 1,
+    "createdAt": "2026-09-08T15:34:02.293Z"
+  },
+  {
+    "id": "31070740-5806-4a31-9d51-3a1f4a0f9cbd",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "5dc9e3e8-8dc2-442f-a19e-6fd01c3f21c5",
+    "count": 1,
+    "createdAt": "2026-09-08T15:34:04.678Z"
+  },
+  {
+    "id": "6adc46bd-5de9-4f6b-8798-e0ce846c4d1a",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "c6e0bee7-add5-4205-b808-59fb7b9f4a7b",
+    "count": 1,
+    "createdAt": "2026-09-08T15:40:39.171Z"
+  },
+  {
+    "id": "7f60a686-7620-4420-868e-6ea83d836186",
+    "accountId": "manager-1",
+    "action": "favorite",
+    "itemId": "a4127c44-0d44-4e0d-8165-6a3c77330ef7",
+    "count": 1,
+    "createdAt": "2026-09-08T15:47:36.945Z"
+  },
+  {
+    "id": "29efc8cc-cee3-47e6-8c5d-0ddfa70fb929",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "04317f88-9b32-4d29-b1e0-5b1d0604a965",
+    "count": 1,
+    "createdAt": "2026-09-08T15:49:05.667Z"
+  },
+  {
+    "id": "021013b4-38a4-4cb9-93dc-e9a3816b88dc",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "3e42fb39-fc31-4270-8519-a0de320a0286",
+    "count": 1,
+    "createdAt": "2026-09-08T15:49:13.898Z"
+  },
+  {
+    "id": "19da114f-7361-4244-a9cb-9af720ebc068",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "da8b1781-5a35-48ae-ba64-a32be20d095c",
+    "count": 1,
+    "createdAt": "2026-09-08T15:49:16.359Z"
+  },
+  {
+    "id": "35cfc2ed-2000-4673-82b3-7e4b7ac01d6a",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "619f7264-cf94-4f94-9a46-c7facfb031e0",
+    "count": 1,
+    "createdAt": "2026-09-08T15:49:20.110Z"
+  },
+  {
+    "id": "f3774067-7dd0-47f5-bf2f-3e6ec11a1fc9",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "0c8d3301-6528-4669-ac81-dc1fb9514d0a",
+    "count": 1,
+    "createdAt": "2026-09-08T15:49:22.507Z"
+  },
+  {
+    "id": "8c971f3c-c29e-4865-827f-86a4bcd40ab9",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "07d60906-5785-4381-8ed2-12a7e9ffcd97",
+    "count": 1,
+    "createdAt": "2026-09-08T15:49:26.123Z"
+  },
+  {
+    "id": "cfaaf900-6015-4844-a2ba-ba3231e1a289",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "f82eb045-1668-4991-acb4-69d1e94373d9",
+    "count": 1,
+    "createdAt": "2026-09-08T15:49:29.253Z"
+  },
+  {
+    "id": "5eafd991-41b6-40ee-98bc-07b78f37057d",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "41d9ce48-10bd-4e18-8c4d-a1aa5186d471",
+    "count": 1,
+    "createdAt": "2026-09-08T15:49:43.677Z"
+  },
+  {
+    "id": "1cf8b987-e256-4d6c-8142-37c3a6cc6d32",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "0e49a5c2-d540-402c-90d2-df67cd1dca23",
+    "count": 1,
+    "createdAt": "2026-09-08T15:50:17.274Z"
+  },
+  {
+    "id": "cba47cbe-5c49-41e8-85f9-4201893de70d",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "a08e5381-1aff-4ce8-b59e-550b86a77b16",
+    "count": 1,
+    "createdAt": "2026-09-08T15:50:26.410Z"
+  },
+  {
+    "id": "19a0dd04-55c9-4ad2-b741-6cfb0ace39db",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "4c674fee-2f59-4262-a7f8-2feb4c23a33c",
+    "count": 1,
+    "createdAt": "2026-09-08T15:50:30.399Z"
+  },
+  {
+    "id": "2863bb3a-cb98-48a2-8ee2-3de08c426081",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "d8664c0b-e090-4c34-b6f8-b11fa07fb7e6",
+    "count": 1,
+    "createdAt": "2026-09-08T15:50:32.726Z"
+  },
+  {
+    "id": "01c8f8b4-748f-4c8f-a428-df36f57388d2",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "4c111276-8b04-4fc6-924a-25030bd8c891",
+    "count": 1,
+    "createdAt": "2026-09-08T15:50:35.031Z"
+  },
+  {
+    "id": "cf1d5852-0ed4-4bee-a2c5-be016ed35159",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "beded0ac-86d7-4d55-9735-b78835a2c351",
+    "count": 1,
+    "createdAt": "2026-09-08T15:51:25.943Z"
+  },
+  {
+    "id": "5a0f0229-a26e-4e80-8289-0e05f9b68388",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "f379a393-e8bd-4567-8eea-3632c1be7d03",
+    "count": 1,
+    "createdAt": "2026-09-08T15:58:09.070Z"
+  },
+  {
+    "id": "85ea9fc8-2deb-4be1-844e-04104dfea964",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "a3fc9c22-5e99-4663-89a0-4e023c42a602",
+    "count": 1,
+    "createdAt": "2026-09-08T15:58:59.057Z"
+  },
+  {
+    "id": "120d701b-8c15-4762-80d7-f955f3a483c6",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "a78fa6f8-7adf-498a-a2f8-16d04125ce46",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:03.177Z"
+  },
+  {
+    "id": "74558859-2577-4492-b069-686a48b7e225",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "b8d0ad1c-194d-4222-bb7f-42209be1f1bb",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:07.131Z"
+  },
+  {
+    "id": "94081b3d-3094-41ee-9a60-ca0bdbc00451",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "099b1540-bd86-47c0-b781-2eb03814e6a3",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:10.087Z"
+  },
+  {
+    "id": "5508d7bf-3cd7-4696-908d-8a5a4da72801",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "699f4553-a057-4615-997d-5dd837403dac",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:13.310Z"
+  },
+  {
+    "id": "d1e0331a-78c3-431c-8f3f-edea34da9ce7",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "b26a946e-a294-4a57-ae31-442e6c7b2688",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:16.227Z"
+  },
+  {
+    "id": "7f7a21e8-7e23-4877-84db-511f27c41273",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "0644dd6d-c9fd-46e8-a681-31d01aa6b28f",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:19.128Z"
+  },
+  {
+    "id": "78f679ef-2523-44a8-80fc-3569da7fe463",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "3c9c5ed4-686e-4823-83b1-61f437451909",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:21.709Z"
+  },
+  {
+    "id": "5354b05b-f3e1-4534-afcd-db568eaa3502",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "c5f991ab-14b7-49aa-a7fd-13068c87e967",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:24.269Z"
+  },
+  {
+    "id": "9a835524-c73e-43be-a128-09f9e5d8e235",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "3934ceae-2351-4bad-9653-7fd515204f5e",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:43.281Z"
+  },
+  {
+    "id": "03809644-039f-492a-b365-dd104c159f73",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "a2e7c26c-fd36-4f0a-b3ba-b0cce0d1a250",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:45.826Z"
+  },
+  {
+    "id": "ee1b33cd-4a9d-4e8d-85fa-16accd9bcedd",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "e0c67322-0525-420f-bd30-c2a48eeb5f8f",
+    "count": 1,
+    "createdAt": "2026-09-08T16:00:19.966Z"
+  },
+  {
+    "id": "0bb41f7d-c88e-45c4-a4ab-9bdd68d6789a",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "cc6157e8-935f-4eff-a3a0-6a10ed8f9ab2",
+    "count": 1,
+    "createdAt": "2026-09-08T16:00:31.073Z"
+  },
+  {
+    "id": "6476b36d-e264-4efb-93e5-77adc840a1b0",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "b8055bc4-10f9-48e2-b95e-3d7908af6e9e",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:48.225Z"
+  },
+  {
+    "id": "1b8d2f5f-72d7-46bc-82a4-61ba3d97ed70",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "e52b2c6c-b5c4-4624-a45c-c5e98bb19669",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:52.076Z"
+  },
+  {
+    "id": "c8c85d05-7be0-4e69-bd4a-81319359db43",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "216bfb3d-73b9-4faa-8f6b-0daf1cce4ca1",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:54.161Z"
+  },
+  {
+    "id": "9d9d46a4-083d-4caa-8680-0d95b62ba8e9",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "9e183da0-09bc-4ee8-bf74-0fae130cc330",
+    "count": 1,
+    "createdAt": "2026-09-08T15:59:56.702Z"
+  },
+  {
+    "id": "504bc91c-7600-4cdf-82f9-19e1d6a6275e",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "cf04f509-6bd2-48a6-8f01-de75a37f2255",
+    "count": 1,
+    "createdAt": "2026-09-08T16:00:15.103Z"
+  },
+  {
+    "id": "65dbf90f-3411-4db3-ac6f-6b9377cad75e",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "286bdcc9-e87b-45db-a1ea-5eb327745eef",
+    "count": 1,
+    "createdAt": "2026-09-08T16:00:17.707Z"
+  },
+  {
+    "id": "0df40d49-9f15-4439-93fe-dda637d9233f",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "85423f25-41ba-4150-aa5e-986c2ff57240",
+    "count": 1,
+    "createdAt": "2026-09-08T16:00:34.141Z"
+  },
+  {
+    "id": "d13d9224-4b20-4206-bf20-2d5a435db753",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "2ae11dc1-17ba-4f1e-88a3-b4389df18190",
+    "count": 1,
+    "createdAt": "2026-09-08T16:00:37.067Z"
+  },
+  {
+    "id": "e0f989f8-8aa9-41d8-81b0-fedc1e968bcf",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "9b437a29-fdae-417e-8e5b-41d39df09cb7",
+    "count": 1,
+    "createdAt": "2026-09-08T16:03:51.183Z"
+  },
+  {
+    "id": "060e38ee-238f-40c5-8c47-ab4400b58176",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "04467a5d-20ec-42cc-997a-6b47febaf067",
+    "count": 1,
+    "createdAt": "2026-09-08T16:03:53.472Z"
+  },
+  {
+    "id": "ef65e76f-f703-4918-8fbb-3c1f095cae8a",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "6e3fb6cf-48ae-4512-9f16-5eac4e183495",
+    "count": 1,
+    "createdAt": "2026-09-08T16:05:17.796Z"
+  },
+  {
+    "id": "ff239ff1-a42d-4ea4-b4b4-b100e4cc4b03",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "9ef265c1-9e58-471c-9735-19834b3108bf",
+    "count": 1,
+    "createdAt": "2026-09-08T16:05:38.343Z"
+  },
+  {
+    "id": "a30411c3-187d-4a60-95dd-8ff582817f57",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "a1a78b08-a9dc-4eeb-b5ea-bad95b139921",
+    "count": 1,
+    "createdAt": "2026-09-08T16:05:47.518Z"
+  },
+  {
+    "id": "bce35f9f-f14a-405a-b03b-9ae493c84e84",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "130699e1-bf71-47b6-a81c-6009c8f65c65",
+    "count": 1,
+    "createdAt": "2026-09-08T16:05:50.251Z"
+  },
+  {
+    "id": "dcb005cf-c1cd-441d-966b-5daae30f65fb",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "7f27a17f-85a0-4768-9fa2-b2417c32c730",
+    "count": 1,
+    "createdAt": "2026-09-09T15:02:37.973Z"
+  },
+  {
+    "id": "2e58e384-8fd5-4766-8690-c65cda42461f",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "e7671240-defa-43f1-a6df-a46d481c46ca",
+    "count": 1,
+    "createdAt": "2026-09-09T15:03:39.166Z"
+  },
+  {
+    "id": "f0d1dfd8-d61f-4928-937a-21395503bdeb",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "2d326896-b079-4986-8bd2-37ecb22e1720",
+    "count": 1,
+    "createdAt": "2026-09-09T15:05:25.520Z"
+  },
+  {
+    "id": "e6e20284-bfab-4bc3-aede-f483dfee4697",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "a76933b3-840a-4100-8c35-2ff7b27fcf6c",
+    "count": 1,
+    "createdAt": "2026-09-09T15:09:00.461Z"
+  },
+  {
+    "id": "a13b9fb0-e339-4bde-bf22-a3f85a751c05",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "ea4b0e4c-b128-48ad-87df-3e78c93a7e3d",
+    "count": 1,
+    "createdAt": "2026-09-09T15:10:24.881Z"
+  },
+  {
+    "id": "5a662680-e39e-4cb7-b9ae-0c02508aad11",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "13686968-6b36-4181-a077-ba6b83c5fd09",
+    "count": 1,
+    "createdAt": "2026-09-09T15:17:04.138Z"
+  },
+  {
+    "id": "98102d1e-a1c6-4f10-80e7-3fb14d74ac6f",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "3865f82b-b972-4108-8b22-d9d2c7196159",
+    "count": 1,
+    "createdAt": "2026-09-09T15:17:09.238Z"
+  },
+  {
+    "id": "38f2c8e1-2176-4b93-880b-8eeed7916cf3",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "10a0df3f-53fb-4be8-8baf-3c2aff1d02a9",
+    "count": 1,
+    "createdAt": "2026-09-09T15:17:23.172Z"
+  },
+  {
+    "id": "ea777dd1-7453-4f8f-a6f2-28f5c8fce017",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "ad572131-1460-4aa5-b052-e301d648c372",
+    "count": 1,
+    "createdAt": "2026-09-11T03:40:33.241Z"
+  },
+  {
+    "id": "0cc7e29d-22de-4b16-9c6b-0416f80bcefc",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "7e0fc26a-0a2e-4798-8825-8efe9aff2d62",
+    "count": 1,
+    "createdAt": "2026-10-02T13:53:32.516Z"
+  },
+  {
+    "id": "898d564a-003b-4f8b-abdf-9e81a1b0cb38",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "827a6042-4c0e-4dd8-8676-0944547e026d",
+    "count": 1,
+    "createdAt": "2026-10-08T15:19:16.509Z"
+  },
+  {
+    "id": "126515c0-051d-4480-bf76-77e1b7abc8d9",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "0cb57977-42bd-4670-829f-8577264444c8",
+    "count": 1,
+    "createdAt": "2026-10-08T15:20:08.343Z"
+  },
+  {
+    "id": "92d60f91-bf4e-4c88-9c34-1b1a11885aae",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "d2760b88-0659-4147-a3e0-746b302eadf5",
+    "count": 1,
+    "createdAt": "2026-10-08T15:25:21.558Z"
+  },
+  {
+    "id": "7ebffbbf-ceac-4a48-a7b0-ff9a093927f6",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "70804d9f-985d-4a03-8ca6-a22bbd89b271",
+    "count": 1,
+    "createdAt": "2026-10-08T15:26:48.255Z"
+  },
+  {
+    "id": "ebdbe247-866a-41f0-af7e-f2826f68c018",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "89c985ac-4f8f-48cc-b5cf-15cda8321de9",
+    "count": 1,
+    "createdAt": "2026-10-08T15:48:23.841Z"
+  },
+  {
+    "id": "d2d6b4fd-0640-4f02-a39c-7ae5209d17a7",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "c3e8aaa7-2e1c-45ff-9e17-5392ac150539",
+    "count": 1,
+    "createdAt": "2026-10-08T15:50:12.902Z"
+  },
+  {
+    "id": "1b8427fc-ddf4-495d-8dbc-948a38645cea",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "1440377a-ecb0-4438-ad59-1d76e92e9c2b",
+    "count": 1,
+    "createdAt": "2026-10-08T15:56:36.420Z"
+  },
+  {
+    "id": "b3d29fe4-00b6-4563-b5ae-09708eb41fcb",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "ca11214a-8494-4a6d-904d-a52504b25e4a",
+    "count": 1,
+    "createdAt": "2026-10-08T16:00:52.129Z"
+  },
+  {
+    "id": "b62d3ef0-f027-4df0-ad20-6184c32aec18",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "c2a2701b-4e72-47aa-aab2-5bfc531c91c2",
+    "count": 1,
+    "createdAt": "2026-10-08T16:02:22.296Z"
+  },
+  {
+    "id": "fd1074e5-a1a0-4778-9f86-4f8250a0f0a6",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "c41e33ca-1fd4-449d-8da9-2aec9676f546",
+    "count": 1,
+    "createdAt": "2026-10-08T16:06:54.620Z"
+  },
+  {
+    "id": "eca35b89-a405-4ae0-b532-a59bf746f49c",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "145c686d-c7b5-40d4-b1ed-e111c4a0073c",
+    "count": 1,
+    "createdAt": "2026-10-20T10:21:53.910Z"
+  },
+  {
+    "id": "fb1c748d-37f3-4258-87bc-618c66f86531",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "42528bbe-f54e-4834-b907-98765517b6fa",
+    "count": 1,
+    "createdAt": "2026-10-20T10:32:04.524Z"
+  },
+  {
+    "id": "593cc6d6-2096-460c-b1e2-399c835d7975",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "8b42b8ad-9e4c-4e34-aadc-ecfdb13f1eed",
+    "count": 1,
+    "createdAt": "2026-10-20T10:55:19.703Z"
+  },
+  {
+    "id": "a5b9b381-cdaf-455d-bf05-69e7fe3a51f0",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "84951f5b-45a6-4fbd-a643-8d313196a187",
+    "count": 1,
+    "createdAt": "2026-10-20T10:55:43.731Z"
+  },
+  {
+    "id": "2f796a23-691a-44d7-b47f-643fe84e4f9e",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "0d9c1a56-40a1-4530-9239-37ab2d1a63a0",
+    "count": 1,
+    "createdAt": "2026-10-20T10:56:33.234Z"
+  },
+  {
+    "id": "6a6b1c2e-9112-4dca-81d4-fd784e0b9577",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "6387c23a-931c-422c-a98b-2c1aba7fe4c5",
+    "count": 1,
+    "createdAt": "2026-10-20T13:49:41.780Z"
+  },
+  {
+    "id": "a7b1aa6f-f224-44ab-b995-519cb7038251",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "ca4082ce-6f57-452e-b6ab-112b48a76cca",
+    "count": 1,
+    "createdAt": "2026-10-20T13:55:08.725Z"
+  },
+  {
+    "id": "889c731b-2d2b-4980-9f32-75df804dfd6f",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "2ffbd10f-5b0c-4afc-9cd1-889063a27f0d",
+    "count": 1,
+    "createdAt": "2026-10-20T13:55:34.412Z"
+  },
+  {
+    "id": "a4137961-a684-4381-b208-c255d44649cf",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "7da624cb-b2aa-4924-b61b-3f90b52a1753",
+    "count": 1,
+    "createdAt": "2026-10-20T13:58:09.134Z"
+  },
+  {
+    "id": "981d639a-a797-4cec-85bc-b16093f7361a",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "d84a3e10-cf4c-4c61-bba0-7c8a204fedbc",
+    "count": 1,
+    "createdAt": "2026-10-20T13:58:55.387Z"
+  },
+  {
+    "id": "a8c5814e-836f-4dda-bfb9-7c138bcc722a",
+    "accountId": "manager-1",
+    "action": "dislike",
+    "itemId": "91376e20-7524-413e-bee3-390f9dd245d3",
+    "count": 1,
+    "createdAt": "2026-10-20T13:59:01.199Z"
+  },
+  {
+    "id": "fcacf6ae-5dba-45fa-b656-94b327741f02",
+    "accountId": "manager-1",
+    "action": "favorite",
+    "itemId": "8345d3e0-c6ba-484e-a918-8905b38427f0",
+    "count": 1,
+    "createdAt": "2026-10-20T14:00:07.146Z"
+  },
+  {
+    "id": "a2356814-60e1-4a24-9382-a1b755beb6bf",
+    "accountId": "manager-1",
+    "action": "favorite",
+    "itemId": "a8ad848a-5f84-4829-a47c-77c4c48baae1",
+    "count": 1,
+    "createdAt": "2026-10-20T14:02:16.019Z"
+  },
+  {
+    "id": "d2ed0457-26d3-4873-aa2e-d6c0bf07103d",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "d46835ef-b7f1-460b-8879-03cd642d9ddf",
+    "count": 1,
+    "createdAt": "2026-10-22T14:10:33.951Z"
+  },
+  {
+    "id": "c6f4806f-d2d3-4a5c-88ba-bb2c9eaeec28",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "2b7f305d-a2b7-4915-9fe5-ccddc01f6a98",
+    "count": 1,
+    "createdAt": "2026-10-22T14:11:33.515Z"
+  },
+  {
+    "id": "5472414d-b4f3-4df4-9e92-12a337a4224f",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "a19bda68-b12d-4a3f-91ab-68f3f7b68e3d",
+    "count": 1,
+    "createdAt": "2026-10-22T14:14:00.309Z"
+  },
+  {
+    "id": "c8f43c8f-b691-4f88-aa33-6e480b8ebde1",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "d4fdaa01-b6fe-419a-ad50-237accd25f50",
+    "count": 1,
+    "createdAt": "2026-10-22T14:22:10.684Z"
+  },
+  {
+    "id": "a552b3d7-6e95-4be7-bef0-66a01863a7f8",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "092a9fa5-3f2a-45d8-baa3-e29a0180b12b",
+    "count": 1,
+    "createdAt": "2026-10-22T14:33:41.622Z"
+  },
+  {
+    "id": "ce3a7859-da41-4e7f-8619-096898aca572",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "ff5ae2c2-829f-4e4a-b57a-a2db99425165",
+    "count": 1,
+    "createdAt": "2026-10-22T17:25:44.714Z"
+  },
+  {
+    "id": "d176ff87-a53b-4ced-bd04-91e171dfbc77",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "690bae99-1eaa-4ccd-9f4b-f444542d2286",
+    "count": 1,
+    "createdAt": "2026-10-22T17:48:33.927Z"
+  },
+  {
+    "id": "ab9cc780-4e5a-4a40-9394-866668fc176c",
+    "accountId": "manager-1",
+    "action": "share",
+    "itemId": "b4dc4892-25b7-4ff8-86d4-c5207a30e67a",
+    "count": 1,
+    "createdAt": "2026-10-22T17:52:30.112Z"
+  },
+  {
+    "id": "5909f2bd-3056-4425-a99f-c27c771772ce",
+    "accountId": "manager-1",
+    "action": "favorite",
+    "itemId": "810936eb-93ed-4999-86ef-e6932fbf5bdc",
+    "count": 1,
+    "createdAt": "2026-10-22T17:56:58.240Z"
+  }
+]

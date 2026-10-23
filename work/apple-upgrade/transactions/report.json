@@ -1,0 +1,68 @@
+[
+  {
+    "width": 1440,
+    "height": 1000,
+    "reducedMotion": "no-preference",
+    "flows": [
+      "favorite-pending-success-rollback",
+      "cart-add-remove-confirmation",
+      "note-error-input-retention-save",
+      "gallery-reverse-thumbnail-keyboard-event-isolation",
+      "description-and-disclosure-fast-reversal",
+      "more-menu-escape-focus-keyboard",
+      "purchase-error-retry-completion"
+    ],
+    "patches": 4,
+    "purchases": 2,
+    "purchaseControlsOverflow": [],
+    "pageErrors": [],
+    "hydrationErrors": [],
+    "realWrites": 0,
+    "realModelCalls": 0,
+    "blockedModelAttempts": 0
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "reducedMotion": "no-preference",
+    "flows": [
+      "favorite-pending-success-rollback",
+      "cart-add-remove-confirmation",
+      "note-error-input-retention-save",
+      "gallery-reverse-thumbnail-keyboard-event-isolation",
+      "description-and-disclosure-fast-reversal",
+      "more-menu-escape-focus-keyboard",
+      "purchase-error-retry-completion"
+    ],
+    "patches": 4,
+    "purchases": 2,
+    "purchaseControlsOverflow": [],
+    "pageErrors": [],
+    "hydrationErrors": [],
+    "realWrites": 0,
+    "realModelCalls": 0,
+    "blockedModelAttempts": 0
+  },
+  {
+    "width": 320,
+    "height": 568,
+    "reducedMotion": "reduce",
+    "flows": [
+      "favorite-pending-success-rollback",
+      "cart-add-remove-confirmation",
+      "note-error-input-retention-save",
+      "gallery-reverse-thumbnail-keyboard-event-isolation",
+      "description-and-disclosure-fast-reversal",
+      "more-menu-escape-focus-keyboard",
+      "purchase-error-retry-completion"
+    ],
+    "patches": 4,
+    "purchases": 2,
+    "purchaseControlsOverflow": [],
+    "pageErrors": [],
+    "hydrationErrors": [],
+    "realWrites": 0,
+    "realModelCalls": 0,
+    "blockedModelAttempts": 0
+  }
+]

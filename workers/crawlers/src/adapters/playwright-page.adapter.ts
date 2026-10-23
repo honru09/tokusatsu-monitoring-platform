@@ -54,7 +54,11 @@ export class PlaywrightPageAdapter implements SourceAdapter {
       sourceItemId: item.sourceItemId,
       sourceUrl: item.sourceUrl,
     });
-    return { status: detail.status, priceCurrent: detail.priceCurrent };
+    return {
+      status: detail.status,
+      listingType: detail.listingType,
+      priceCurrent: detail.priceCurrent,
+    };
   }
 
   async normalize(raw: RawItemDetail) {

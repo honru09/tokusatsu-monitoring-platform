@@ -5,7 +5,12 @@ import {
   configuredProviderRuntimes,
   providerLabel,
 } from "./ai-provider-registry.js";
-import { AI_PROVIDER_IDS, isAiProvider, type AiProvider } from "./ai-router.js";
+import {
+  AI_PROVIDER_IDS,
+  isAiProvider,
+  providerRoutesForDisplay,
+  type AiProvider,
+} from "./ai-router.js";
 import {
   SystemContextService,
   type SystemSnapshot,
@@ -390,8 +395,14 @@ export class SystemToolRegistryService {
             _count: { _all: true },
           }),
         ]);
-      case "ai_system_status":
-        return this.aiSystemStatus(since24h);
+      case "ai_system_status": {
+        // The context snapshot is the single source of truth for the live
+        // catalogue probe.  Falling back to the persisted rows is retained
+        // only for callers that do not provide a snapshot (for example older
+        // integrations and isolated unit tests).
+        const current = await this.resolveSnapshot(snapshot);
+        return this.aiSystemStatus(since24h, current);
+      }
       case "crawler_status": {
         const current = await this.resolveSnapshot(snapshot);
         return { generatedAt: current.generatedAt, ...current.crawlers };
@@ -465,8 +476,18 @@ export class SystemToolRegistryService {
           orderBy: { createdAt: "desc" },
           take: 30,
         });
-      case "ai_model_health":
+      case "ai_model_health": {
+        const current = await this.resolveSnapshot(snapshot).catch(
+          () => undefined,
+        );
+        const liveModels = current?.ai.liveModelStates ?? current?.ai.models;
+        // `liveModelStates` is catalogue-normalized and therefore does not
+        // resurrect stale preferred aliases (e.g. an OVO wildcard route).
+        // It is safe to expose the persisted model rows only when no live
+        // snapshot is available.
+        if (liveModels) return liveModels;
         return this.prisma.aiModelState.findMany({ orderBy: { model: "asc" } });
+      }
       case "ai_error_summary":
         return this.prisma.aiRun.findMany({
           where: { status: "failed" },
@@ -513,70 +534,186 @@ export class SystemToolRegistryService {
     return snapshot ? Promise.resolve(snapshot) : this.context.snapshot();
   }
 
-  private async aiSystemStatus(since24h: Date) {
+  private async aiSystemStatus(since24h: Date, current?: SystemSnapshot) {
+    type RegistryProviderState = {
+      provider: string;
+      status?: string | null;
+      cooldownUntil?: Date | null;
+      quotaResetAt?: Date | null;
+      remainingRequests?: number | null;
+      remainingTokens?: number | null;
+      lastErrorCode?: string | null;
+      consecutiveFailures?: number | null;
+      updatedAt?: Date | null;
+      evidence?: string;
+    };
+    type RegistryModelState = {
+      provider: string;
+      model: string;
+      role?: string | null;
+      status?: string | null;
+      cooldownUntil?: Date | null;
+      quotaResetAt?: Date | null;
+      consecutiveFailures?: number | null;
+      lastSuccessAt?: Date | null;
+      lastFailureAt?: Date | null;
+      lastErrorCode?: string | null;
+    };
     const configured = configuredProviderRuntimes();
     const configuredIds = new Set(configured.map((provider) => provider.id));
-    const [providerStates, models, tasks] = await Promise.all([
-      this.prisma.aiProviderState.findMany({
-        select: {
-          provider: true,
-          status: true,
-          cooldownUntil: true,
-          quotaResetAt: true,
-          remainingRequests: true,
-          remainingTokens: true,
-          lastErrorCode: true,
-          consecutiveFailures: true,
-          updatedAt: true,
-        },
-        orderBy: { provider: "asc" },
-      }),
-      this.prisma.aiModelState.findMany({
-        select: {
-          provider: true,
-          model: true,
-          role: true,
-          status: true,
-          cooldownUntil: true,
-          quotaResetAt: true,
-          consecutiveFailures: true,
-          lastSuccessAt: true,
-          lastFailureAt: true,
-          lastErrorCode: true,
-        },
-        orderBy: [{ provider: "asc" }, { model: "asc" }],
-      }),
-      this.prisma.aiRun.groupBy({
-        by: ["provider", "task", "status"],
-        where: { startedAt: { gte: since24h } },
-        _count: { _all: true },
-      }),
-    ]);
+    const routes = providerRoutesForDisplay() as Record<
+      string,
+      Record<string, string[]>
+    >;
+    const tasksPromise = this.prisma.aiRun.groupBy({
+      by: ["provider", "task", "status"],
+      where: { startedAt: { gte: since24h } },
+      _count: { _all: true },
+    });
+    let providerStates: RegistryProviderState[];
+    let models: RegistryModelState[];
+    let tasks: unknown[];
+    if (current) {
+      providerStates = (current.ai.providerStates ??
+        current.ai.liveProviderStates ??
+        []) as RegistryProviderState[];
+      models = (current.ai.liveModelStates ??
+        current.ai.models ??
+        []) as RegistryModelState[];
+      tasks = (await tasksPromise) as unknown[];
+    } else {
+      [providerStates, models, tasks] = (await Promise.all([
+        this.prisma.aiProviderState.findMany({
+          select: {
+            provider: true,
+            status: true,
+            cooldownUntil: true,
+            quotaResetAt: true,
+            remainingRequests: true,
+            remainingTokens: true,
+            lastErrorCode: true,
+            consecutiveFailures: true,
+            updatedAt: true,
+          },
+          orderBy: { provider: "asc" },
+        }),
+        this.prisma.aiModelState.findMany({
+          select: {
+            provider: true,
+            model: true,
+            role: true,
+            status: true,
+            cooldownUntil: true,
+            quotaResetAt: true,
+            consecutiveFailures: true,
+            lastSuccessAt: true,
+            lastFailureAt: true,
+            lastErrorCode: true,
+          },
+          orderBy: [{ provider: "asc" }, { model: "asc" }],
+        }),
+        tasksPromise,
+      ])) as [RegistryProviderState[], RegistryModelState[], unknown[]];
+    }
     const stateByProvider = new Map(
       providerStates.map((state) => [state.provider, state]),
+    );
+    const configuredSnapshotIds = new Set(
+      current?.ai.providers?.map((provider) => provider.id) ?? [],
+    );
+    const liveModels = current?.ai.liveModelStates;
+    const usingLiveCatalogue = liveModels != null;
+    const liveProviderStates = current?.ai.liveProviderStates ?? [];
+    const liveStateByProvider = new Map<string, RegistryProviderState>(
+      (liveProviderStates as RegistryProviderState[]).map((state) => [
+        state.provider,
+        state,
+      ]),
     );
     const providerIds = [
       ...new Set([
         ...AI_PROVIDER_IDS,
         ...configured.map((provider) => provider.id),
+        ...configuredSnapshotIds,
         ...providerStates.map((state) => state.provider),
+        ...models.map((model) => model.provider),
       ]),
     ];
     return {
       generatedAt: new Date().toISOString(),
       providers: providerIds.map((provider) => {
         const state = stateByProvider.get(provider);
+        const providerConfigured =
+          configuredIds.has(provider as AiProvider) ||
+          configuredSnapshotIds.has(provider as AiProvider);
+        const providerRuntime = configured.find(
+          (runtime) => runtime.id === provider,
+        );
+        const now = Date.now();
+        const providerCooldownActive = Boolean(
+          state?.cooldownUntil && state.cooldownUntil.getTime() > now,
+        );
+        // A live catalogue (including a wildcard OVO route) is authoritative.
+        // Never compare it against the stale static preferred-model alias.
+        const routedModelIds = usingLiveCatalogue
+          ? new Set(
+              models
+                .filter((model) => model.provider === provider)
+                .map((model) => model.model),
+            )
+          : new Set(Object.values(routes[provider] ?? {}).flat());
+        const routedModels = models.filter(
+          (model) =>
+            model.provider === provider && routedModelIds.has(model.model),
+        );
+        const allRoutedModelsUnavailable =
+          routedModels.length > 0 &&
+          routedModels.every((model) => model.status === "unavailable");
+        const staticRouteUnverified = Boolean(
+          providerRuntime?.staticModelIds?.length &&
+            routedModelIds.size > 0 &&
+            routedModels.length === 0,
+        );
+        const allRoutedModelsCooling =
+          routedModels.length > 0 &&
+          routedModels.every(
+            (model) =>
+              model.status === "unavailable" ||
+              Boolean(
+                model.cooldownUntil && model.cooldownUntil.getTime() > now,
+              ),
+          );
+        const liveProvider = liveStateByProvider.get(provider);
+        const catalogueUnavailable =
+          liveProvider?.evidence === "catalogue_unavailable" ||
+          (!usingLiveCatalogue &&
+            state?.lastErrorCode === "AI_GATEWAY_CATALOGUE_UNAVAILABLE");
+        const successfulLiveModel =
+          usingLiveCatalogue &&
+          routedModels.some((model) => model.status === "online");
         return {
           provider,
           label: isAiProvider(provider)
             ? providerLabel(provider as AiProvider)
             : provider,
-          configured: configuredIds.has(provider as AiProvider),
-          status:
-            state?.status ??
-            (configuredIds.has(provider as AiProvider)
-              ? "ready"
-              : "not_configured"),
+          configured: providerConfigured,
+          status: catalogueUnavailable
+            ? "unverified"
+            : !providerConfigured
+              ? (state?.status ?? "not_configured")
+              : successfulLiveModel
+                ? "online"
+                : routedModelIds.size === 0 || allRoutedModelsUnavailable
+                  ? "unavailable"
+                  : providerCooldownActive
+                    ? "cooldown"
+                    : staticRouteUnverified
+                      ? "unverified"
+                      : allRoutedModelsCooling
+                        ? "cooldown"
+                        : state?.status === "cooldown"
+                          ? "degraded"
+                          : (state?.status ?? "ready"),
           cooldownUntil: state?.cooldownUntil ?? null,
           quotaResetAt: state?.quotaResetAt ?? null,
           remainingRequests: state?.remainingRequests ?? null,

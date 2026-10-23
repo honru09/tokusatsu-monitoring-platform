@@ -1,6 +1,8 @@
 export const categoryIps = [
   "kamen_rider",
   "ultraman",
+  "super_sentai",
+  "godzilla",
   "other",
   "unknown",
 ] as const;
@@ -46,6 +48,8 @@ export type ConditionGrade = (typeof conditionGrades)[number];
 
 export type SourceChannel = "online" | "physical_store";
 export type ItemStatus = "active" | "sold" | "ended" | "reserved" | "unknown";
+export const listingTypes = ["auction", "direct", "unknown"] as const;
+export type ListingType = (typeof listingTypes)[number];
 
 export interface SearchQuery {
   keyword: string;
@@ -82,7 +86,9 @@ export interface RawItemDetail {
   priceCurrent: number;
   shippingFee?: number;
   listedAt?: Date;
-  auctionEndAt?: Date;
+  /** Explicit marketplace sale mode. Use `unknown` when the source cannot tell. */
+  listingType: ListingType;
+  auctionEndAt?: Date | null;
   bidCount?: number;
   conditionRaw?: string;
   imageUrls: string[];
@@ -93,6 +99,7 @@ export interface RawItemDetail {
 }
 
 export interface NormalizedItem extends RawItemDetail {
+  listingType: ListingType;
   priceTotalEst: number;
   categoryIp: CategoryIp;
   categoryToyType: ToyType;
@@ -107,15 +114,17 @@ export interface NormalizedItem extends RawItemDetail {
 export interface StoredItem {
   sourceItemId: string;
   sourceUrl: string;
+  listingType?: ListingType | null;
   auctionEndAt?: Date | null;
   status: ItemStatus;
 }
 
 export interface ItemStatusUpdate {
   status: ItemStatus;
+  listingType?: ListingType;
   priceCurrent?: number;
   shippingFee?: number;
-  auctionEndAt?: Date;
+  auctionEndAt?: Date | null;
   bidCount?: number;
 }
 

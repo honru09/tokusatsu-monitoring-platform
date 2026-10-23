@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/zhu-guli326/image2_UI",
+  "revision": "462d6bd1ea8d9b3b0f1156df8ab7f4432da34d03",
+  "skillSha256": "4c2904a13ef5759d7a2e2f3806153763b20f79dcd39e72933f2bf93e627687e5",
+  "install": "safe filtered archive; official installer failed on Windows path length",
+  "omitted": [
+    "npm cache",
+    "demo images",
+    "repo tests"
+  ],
+  "runtimeExecuted": false
+}

@@ -1,14 +1,43 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 name: tokusatsu-monitor
 
 services:
   postgres:
+    logging: *default-logging
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tokusatsu}
       POSTGRES_USER: ${POSTGRES_USER:-tokusatsu}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env or a Secret Manager}
+    command:
+      [
+        "postgres",
+        "-c",
+        "shared_buffers=256MB",
+        "-c",
+        "work_mem=16MB",
+        "-c",
+        "wal_buffers=16MB",
+        "-c",
+        "checkpoint_timeout=15min",
+        "-c",
+        "checkpoint_completion_target=0.9",
+        "-c",
+        "autovacuum_vacuum_scale_factor=0.05",
+        "-c",
+        "autovacuum_analyze_scale_factor=0.02",
+        "-c",
+        "idle_in_transaction_session_timeout=60000",
+        "-c",
+        "statement_timeout=180000",
+      ]
     ports:
-      - "55432:5432"
+      - "127.0.0.1:55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,10 +52,11 @@ services:
     restart: unless-stopped
 
   redis:
+    logging: *default-logging
     image: redis:7.4-alpine
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction --auto-aof-rewrite-percentage 100 --auto-aof-rewrite-min-size 64mb
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -36,28 +66,80 @@ services:
       retries: 20
     restart: unless-stopped
 
+  litellm:
+    logging: *default-logging
+    image: ghcr.io/berriai/litellm:v1.98.0
+    profiles: ["ai-gateway"]
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
+      LITELLM_FAST_MODEL: ${LITELLM_FAST_MODEL:-}
+      LITELLM_SMART_MODEL: ${LITELLM_SMART_MODEL:-}
+      LITELLM_VISION_MODEL: ${LITELLM_VISION_MODEL:-}
+      LITELLM_OCR_MODEL: ${LITELLM_OCR_MODEL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    volumes:
+      - ./litellm/config.example.yaml:/app/config.yaml:ro
+    ports:
+      - "127.0.0.1:4000:4000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/readiness', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
   api:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
     env_file:
       - ../.env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://tokusatsu:change-me-in-production@postgres:5432/tokusatsu?schema=public}
+      NODE_OPTIONS: "--max-old-space-size=512"
       REDIS_URL: redis://redis:6379
       API_PORT: 3001
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       FIRECRAWL_INCLUDE_DOMAINS: ${FIRECRAWL_INCLUDE_DOMAINS:-jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp,paypayfleamarket.yahoo.co.jp,item.rakuten.co.jp,www.amazon.co.jp,www.ebay.com,netmall.hardoff.co.jp,store.shopping.yahoo.co.jp}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
       FIRECRAWL_ALLOW_ANY_DOMAIN: ${FIRECRAWL_ALLOW_ANY_DOMAIN:-false}
+      PROCUREMENT_MIN_QUANTITY: ${PROCUREMENT_MIN_QUANTITY:-5}
+      PROCUREMENT_TARGET_QUANTITY: ${PROCUREMENT_TARGET_QUANTITY:-10}
+      PROCUREMENT_MAX_UNIT_COST_JPY: ${PROCUREMENT_MAX_UNIT_COST_JPY:-1000}
+      PROCUREMENT_MAX_VOLUME_CM3: ${PROCUREMENT_MAX_VOLUME_CM3:-10000}
+      PROCUREMENT_MAX_UNIT_VOLUME_CM3: ${PROCUREMENT_MAX_UNIT_VOLUME_CM3:-1000}
       NVIDIA_INTERNAL_EVALUATION: ${NVIDIA_INTERNAL_EVALUATION:-false}
       # AI Provider keys, account tiers, task routes, and safety gates come
       # directly from ../.env. Repeating them here with interpolation defaults
       # would override env_file values when the compose file lives elsewhere.
+      # Upstream-only credentials and the LiteLLM master key are removed from
+      # the API container; it authenticates with LITELLM_API_KEY instead.
+      LITELLM_MASTER_KEY: ""
+      OPENAI_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      DEEPSEEK_API_KEY: ""
       TITLE_TRANSLATION_INTERVAL_MS: ${TITLE_TRANSLATION_INTERVAL_MS:-30000}
       INVENTORY_CLEANUP_INTERVAL_MS: ${INVENTORY_CLEANUP_INTERVAL_MS:-7200000}
+      CHINA_MARKET_COMPARISON_ENABLED: ${CHINA_MARKET_COMPARISON_ENABLED:-false}
+      CHINA_MARKET_COMPARISON_AUTHORIZED: ${CHINA_MARKET_COMPARISON_AUTHORIZED:-false}
+      XIANYU_COMPARISON_ENABLED: ${XIANYU_COMPARISON_ENABLED:-false}
+      XIANYU_COMPARISON_INTERVAL_MS: ${XIANYU_COMPARISON_INTERVAL_MS:-21600000}
+      XIANYU_COMPARISON_MAX_STALE_MS: ${XIANYU_COMPARISON_MAX_STALE_MS:-86400000}
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,16 +159,19 @@ services:
     restart: unless-stopped
 
   worker:
+    logging: *default-logging
     build:
       context: ..
       dockerfile: workers/crawlers/Dockerfile
     env_file:
       - ../.env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://tokusatsu:change-me-in-production@postgres:5432/tokusatsu?schema=public}
+      NODE_OPTIONS: "--max-old-space-size=768"
+      ZHIPU_API_KEY: ""
       REDIS_URL: redis://redis:6379
       REAL_ADAPTER_ENABLED: ${REAL_ADAPTER_ENABLED:-true}
       MOCK_ADAPTER_ENABLED: ${MOCK_ADAPTER_ENABLED:-false}
+      MANDARAKE_SEARCH_ENABLED: ${MANDARAKE_SEARCH_ENABLED:-false}
       MERCARI_SEARCH_ENABLED: ${MERCARI_SEARCH_ENABLED:-true}
       YAHOO_AUCTIONS_SEARCH_ENABLED: ${YAHOO_AUCTIONS_SEARCH_ENABLED:-true}
       YAHOO_FLEAMARKET_SEARCH_ENABLED: ${YAHOO_FLEAMARKET_SEARCH_ENABLED:-true}
@@ -111,19 +196,33 @@ services:
       RAKUMA_BACKFILL_INTERVAL_MS: ${RAKUMA_BACKFILL_INTERVAL_MS:-28800000}
       YAHOO_FLEAMARKET_CRAWL_DELAY_MS: ${YAHOO_FLEAMARKET_CRAWL_DELAY_MS:-5000}
       RAKUMA_CRAWL_DELAY_MS: ${RAKUMA_CRAWL_DELAY_MS:-3000}
+      YAHOO_AUCTIONS_CRAWL_DELAY_MS: ${YAHOO_AUCTIONS_CRAWL_DELAY_MS:-1000}
       SURUGAYA_CRAWL_DELAY_MS: ${SURUGAYA_CRAWL_DELAY_MS:-30000}
       MANDARAKE_NORMAL_KEYWORD: ${MANDARAKE_NORMAL_KEYWORD:-仮面ライダー}
+      PROCUREMENT_SEARCH_KEYWORDS: ${PROCUREMENT_SEARCH_KEYWORDS:-仮面ライダー まとめ売り|ウルトラマン まとめ売り|特撮 ガシャポン まとめ売り|特撮 食玩 まとめ売り|特撮 指人形 まとめ売り|特撮 ミニフィギュア まとめ売り|仮面ライダー S.H.Figuarts|仮面ライダー 真骨彫製法|仮面ライダー S.H.Figuarts まとめ売り|仮面ライダー SHF 魂ウェブ商店}
+      PROCUREMENT_MIN_QUANTITY: ${PROCUREMENT_MIN_QUANTITY:-5}
+      PROCUREMENT_TARGET_QUANTITY: ${PROCUREMENT_TARGET_QUANTITY:-10}
+      PROCUREMENT_MAX_UNIT_COST_JPY: ${PROCUREMENT_MAX_UNIT_COST_JPY:-1000}
+      PROCUREMENT_MAX_VOLUME_CM3: ${PROCUREMENT_MAX_VOLUME_CM3:-10000}
+      PROCUREMENT_MAX_UNIT_VOLUME_CM3: ${PROCUREMENT_MAX_UNIT_VOLUME_CM3:-1000}
       MARKET_KEYWORDS: ${MARKET_KEYWORDS:-仮面ライダー|仮面ライダー まとめ売り|仮面ライダー DX|仮面ライダー ベルト|仮面ライダー ソフビ|仮面ライダー 食玩|仮面ライダー ガシャポン|ウルトラマン|特撮 まとめ売り}
       MARKET_INCREMENTAL_INTERVAL_MS: ${MARKET_INCREMENTAL_INTERVAL_MS:-900000}
       MARKET_BACKFILL_INTERVAL_MS: ${MARKET_BACKFILL_INTERVAL_MS:-10800000}
       MARKET_BACKFILL_MAX_PAGES: ${MARKET_BACKFILL_MAX_PAGES:-80}
       FIRECRAWL_DISCOVERY_ENABLED: ${FIRECRAWL_DISCOVERY_ENABLED:-false}
       FIRECRAWL_DISCOVERY_INTERVAL_MS: ${FIRECRAWL_DISCOVERY_INTERVAL_MS:-7200000}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
       FIRECRAWL_API_URL: ${FIRECRAWL_API_URL:-https://api.firecrawl.dev}
       FIRECRAWL_INCLUDE_DOMAINS: ${FIRECRAWL_INCLUDE_DOMAINS:-jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp,paypayfleamarket.yahoo.co.jp,item.rakuten.co.jp,www.amazon.co.jp,www.ebay.com,netmall.hardoff.co.jp,store.shopping.yahoo.co.jp}
       # The Worker calls the private API for AI tasks. Override env_file values so
-      # provider credentials exist only inside the API container.
+      # AI credentials stay inside the API or LiteLLM container that needs them.
+      LITELLM_API_KEY: ""
+      LITELLM_MASTER_KEY: ""
+      OPENAI_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      DEEPSEEK_API_KEY: ""
       BAI_API_KEY: ""
+      OVO_API_KEY: ""
       GEMINI_API_KEY: ""
       GROQ_API_KEY: ""
       SILICONFLOW_API_KEY: ""
@@ -136,6 +235,7 @@ services:
       SENSENOVA_TRANSLATION_API_KEY: ""
       OPENROUTER_API_KEY: ""
       AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-30000}
+      AI_COOLDOWN_PROBE_INTERVAL_MS: ${AI_COOLDOWN_PROBE_INTERVAL_MS:-60000}
       AI_GATEWAY_CLIENT_TIMEOUT_MS: ${AI_GATEWAY_CLIENT_TIMEOUT_MS:-270000}
       TITLE_TRANSLATION_INTERVAL_MS: ${TITLE_TRANSLATION_INTERVAL_MS:-30000}
       DETAIL_TRANSLATION_INTERVAL_MS: ${DETAIL_TRANSLATION_INTERVAL_MS:-60000}
@@ -144,13 +244,38 @@ services:
       IMAGE_CLASSIFICATION_RPM: ${IMAGE_CLASSIFICATION_RPM:-2}
       TITLE_TRANSLATION_RPM: ${TITLE_TRANSLATION_RPM:-2}
       DETAIL_TRANSLATION_RPM: ${DETAIL_TRANSLATION_RPM:-1}
+      BACKGROUND_AI_PAID_AUTOMATION_ENABLED: ${BACKGROUND_AI_PAID_AUTOMATION_ENABLED:-false}
+      BACKGROUND_AI_FREE_AUTOMATION_ENABLED: ${BACKGROUND_AI_FREE_AUTOMATION_ENABLED:-false}
       API_INTERNAL_URL: http://api:3001
       MARKET_INTEL_INTERVAL_MS: ${MARKET_INTEL_INTERVAL_MS:-3600000}
       MARKET_INTEL_MAX_AGE_DAYS: ${MARKET_INTEL_MAX_AGE_DAYS:-90}
       APIFY_ECOMMERCE_ENABLED: ${APIFY_ECOMMERCE_ENABLED:-false}
+      APIFY_TOKEN: ${APIFY_TOKEN:-}
       APIFY_ECOMMERCE_ACTOR: ${APIFY_ECOMMERCE_ACTOR:-apify~e-commerce-scraping-tool}
       APIFY_MARKETPLACES: ${APIFY_MARKETPLACES:-www.amazon.co.jp,item.rakuten.co.jp,www.ebay.com,store.shopping.yahoo.co.jp,netmall.hardoff.co.jp}
       APIFY_DISCOVERY_INTERVAL_MS: ${APIFY_DISCOVERY_INTERVAL_MS:-21600000}
+      CHINA_MARKET_COMPARISON_ENABLED: ${CHINA_MARKET_COMPARISON_ENABLED:-false}
+      CHINA_MARKET_COMPARISON_AUTHORIZED: ${CHINA_MARKET_COMPARISON_AUTHORIZED:-false}
+      XIANYU_COMPARISON_ENABLED: ${XIANYU_COMPARISON_ENABLED:-false}
+      XIANYU_APIFY_ACTOR: ${XIANYU_APIFY_ACTOR:-zen-studio~goofish-xianyu-search-scraper}
+      XIANYU_SEARCH_API_URL: ${XIANYU_SEARCH_API_URL:-}
+      XIANYU_SEARCH_API_TOKEN: ${XIANYU_SEARCH_API_TOKEN:-}
+      XIANYU_COMPARISON_INTERVAL_MS: ${XIANYU_COMPARISON_INTERVAL_MS:-21600000}
+      XIANYU_COMPARISON_DISPATCH_INTERVAL_MS: ${XIANYU_COMPARISON_DISPATCH_INTERVAL_MS:-900000}
+      XIANYU_COMPARISON_BATCH_SIZE: ${XIANYU_COMPARISON_BATCH_SIZE:-20}
+      XIANYU_COMPARISON_NEW_PRODUCT_QUOTA: ${XIANYU_COMPARISON_NEW_PRODUCT_QUOTA:-5}
+      XIANYU_COMPARISON_MAX_KEYWORDS: ${XIANYU_COMPARISON_MAX_KEYWORDS:-5}
+      XIANYU_COMPARISON_MAX_CANDIDATES: ${XIANYU_COMPARISON_MAX_CANDIDATES:-40}
+      XIANYU_COMPARISON_RPM: ${XIANYU_COMPARISON_RPM:-1}
+      XIANYU_COMPARISON_MAX_STALE_MS: ${XIANYU_COMPARISON_MAX_STALE_MS:-86400000}
+      XIANYU_COMPARISON_LEASE_MS: ${XIANYU_COMPARISON_LEASE_MS:-600000}
+      XIANYU_COMPARISON_OFFER_RETENTION_DAYS: ${XIANYU_COMPARISON_OFFER_RETENTION_DAYS:-30}
+      XIANYU_COMPARISON_MAX_STORED_OFFERS: ${XIANYU_COMPARISON_MAX_STORED_OFFERS:-2000}
+      XIANYU_PROVIDER_DEADLINE_MS: ${XIANYU_PROVIDER_DEADLINE_MS:-180000}
+      XIANYU_REQUEST_INTERVAL_MS: ${XIANYU_REQUEST_INTERVAL_MS:-3000}
+      XIANYU_CROSS_MARKET_ARBITRAGE_ENABLED: ${XIANYU_CROSS_MARKET_ARBITRAGE_ENABLED:-false}
+      XIANYU_REVERSE_SEARCH_ENABLED: ${XIANYU_REVERSE_SEARCH_ENABLED:-false}
+      XIANYU_ARBITRAGE_MAX_LISTING_AGE_MS: ${XIANYU_ARBITRAGE_MAX_LISTING_AGE_MS:-86400000}
       PLAYWRIGHT_WS_ENDPOINT: ${PLAYWRIGHT_WS_ENDPOINT:-}
       PLAYWRIGHT_EXECUTABLE_PATH: ${PLAYWRIGHT_EXECUTABLE_PATH:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -169,18 +294,22 @@ services:
     restart: unless-stopped
 
   web:
+    logging: *default-logging
+    # Production/local baked image (Next standalone). UI edits do NOT hot-reload
+    # here — rebuild this service, use host next dev on :3002, or:
+    #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build web
+    # Render ignores this compose file (see render.yaml).
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/backend}
     environment:
+      NODE_OPTIONS: "--max-old-space-size=512"
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/backend}
       API_INTERNAL_URL: http://api:3001
       PORT: 3000
       AI_PROXY_TIMEOUT_MS: ${AI_PROXY_TIMEOUT_MS:-270000}
-    ports:
-      - "3000:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -196,6 +325,117 @@ services:
       timeout: 3s
       retries: 20
     restart: unless-stopped
+
+  gateway:
+    logging: *default-logging
+    image: tokusatsu-monitor-ops-gateway
+    build:
+      context: ..
+      dockerfile: apps/operations-gateway/Dockerfile
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=256"
+    command: [node, frontdoor.mjs]
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: [/tmp]
+
+  ops-gateway:
+    logging: *default-logging
+    profiles: [operations]
+    build:
+      context: ..
+      dockerfile: apps/operations-gateway/Dockerfile
+    volumes:
+      - ../.private-operations:/auth
+      - ../data/operations/materials:/materials
+    networks: [default, ops_browser]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: [/tmp]
+    mem_limit: 384m
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  ops-xiaohongshu:
+    logging: *default-logging
+    hostname: kamen-ops-xiaohongshu
+    profiles: [operations]
+    build:
+      context: ..
+      dockerfile: infrastructure/operations/browser.Dockerfile
+    environment:
+      START_URL: https://creator.xiaohongshu.com/
+    volumes:
+      - ../data/operations/xiaohongshu:/profile
+      - ../.private-operations/browser-control.token:/control/token:ro
+      - ../data/operations/materials/xiaohongshu:/materials:ro
+    networks: [ops_browser]
+    depends_on: [ops-egress]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true", "seccomp:./operations/chromium-seccomp.json"]
+    shm_size: 512m
+    mem_limit: 2g
+    cpus: 1.5
+    pids_limit: 256
+    tmpfs: ["/tmp:rw,size=256m,mode=1777", "/run:rw,size=32m,mode=1777"]
+
+  ops-douyin:
+    logging: *default-logging
+    hostname: kamen-ops-douyin
+    profiles: [operations]
+    build:
+      context: ..
+      dockerfile: infrastructure/operations/browser.Dockerfile
+    environment:
+      START_URL: https://creator.douyin.com/
+    volumes:
+      - ../data/operations/douyin:/profile
+      - ../.private-operations/browser-control.token:/control/token:ro
+      - ../data/operations/materials/douyin:/materials:ro
+    networks: [ops_browser]
+    depends_on: [ops-egress]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true", "seccomp:./operations/chromium-seccomp.json"]
+    shm_size: 512m
+    mem_limit: 2g
+    cpus: 1.5
+    pids_limit: 256
+    tmpfs: ["/tmp:rw,size=256m,mode=1777", "/run:rw,size=32m,mode=1777"]
+
+  ops-egress:
+    logging: *default-logging
+    profiles: [operations]
+    build:
+      context: ..
+      dockerfile: infrastructure/operations/egress.Dockerfile
+    networks: [ops_browser, ops_outbound]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:rw,mode=1777", "/var/log/squid:rw,mode=1777"]
+    mem_limit: 256m
+
+networks:
+  ops_browser:
+    internal: true
+  ops_outbound:
 
 volumes:
   postgres_data:

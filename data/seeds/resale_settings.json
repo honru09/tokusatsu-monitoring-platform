@@ -1,0 +1,28 @@
+[
+  {
+    "id": "default",
+    "paused": true,
+    "autoImport": false,
+    "autoGenerate": false,
+    "autoPublish": false,
+    "dailyPublishLimit": 30,
+    "keywords": [],
+    "minPriceJpy": 0,
+    "maxPriceJpy": 1000000,
+    "exchangeRate": 0.05,
+    "markupPercent": 30,
+    "extraCostCny": 0,
+    "sourceFreshMinutes": 10,
+    "deliveryText": "",
+    "shippingMode": "free",
+    "shippingFeeCny": 0,
+    "locationText": "",
+    "titleStyle": "professional",
+    "autoMetrics": false,
+    "titleMaxLength": 40,
+    "excludedKeywords": [],
+    "requiredKeywords": [],
+    "createdAt": "2026-10-09T04:31:13.894Z",
+    "updatedAt": "2026-10-09T09:47:39.625Z"
+  }
+]

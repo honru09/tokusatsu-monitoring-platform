@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { scoreProductMatch, trigramCosine } from "./index.js";
+import {
+  hasSalientOverlap,
+  scoreProductMatch,
+  trigramCosine,
+} from "./index.js";
 
 describe("multi-stage product matching", () => {
   it("matches multilingual Faiz aliases after normalization", () => {
@@ -36,6 +40,22 @@ describe("multi-stage product matching", () => {
     );
     expect(result.decision).not.toBe("auto_match");
     expect(result.evidence).toContain("作品系列冲突");
+  });
+
+  it("rejects an exact-looking title across conflicting franchises", () => {
+    const query = {
+      normalizedName: "仮面ライダー ゼロノス",
+      franchiseKey: "KAMEN_RIDER",
+    };
+    const polluted = {
+      normalizedName: "仮面ライダー ゼロノス",
+      franchiseKey: "ULTRAMAN",
+      seriesKey: "ULTRAMAN_ZERO",
+    };
+    expect(hasSalientOverlap(query, polluted)).toBe(false);
+    const result = scoreProductMatch(query, polluted);
+    expect(result.decision).toBe("create_new");
+    expect(result.evidence).toContain("作品大类冲突");
   });
 
   it("returns zero for empty titles", () => {

@@ -4,6 +4,17 @@ packages:
   - packages/*
   - services/*
 
+nodeVersion: 24.19.0
+runtimeOnFail: error
+pmOnFail: error
+
+overrides:
+  "@nestjs/platform-express>multer": 2.3.0
+  "@prisma/config>deepmerge-ts": 8.0.0
+  "next>postcss": 8.5.23
+  "next>sharp": 0.35.0
+  "router>path-to-regexp": 8.4.2
+
 allowBuilds:
   "@nestjs/core": true
   "@prisma/client": true
@@ -12,3 +23,7 @@ allowBuilds:
   msgpackr-extract: true
   prisma: true
   sharp: true
+
+minimumReleaseAgeExclude:
+  - "@ai-sdk/gateway@4.0.70"
+  - ai@7.0.87

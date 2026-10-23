@@ -1,0 +1,50 @@
+[
+  {
+    "width": 1440,
+    "height": 1000,
+    "reducedMotion": "no-preference",
+    "initialImmediate": true,
+    "rapidCancel": true,
+    "draftPreserved": true,
+    "scroll700Restored": true,
+    "keyboardImmediate": true,
+    "iframePreserved": true,
+    "rootTransformClear": true,
+    "interceptedWrites": 2,
+    "realModelCalls": 0,
+    "pageErrors": [],
+    "hydrationErrors": []
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "reducedMotion": "no-preference",
+    "initialImmediate": true,
+    "rapidCancel": true,
+    "draftPreserved": true,
+    "scroll700Restored": true,
+    "keyboardImmediate": true,
+    "iframePreserved": true,
+    "rootTransformClear": true,
+    "interceptedWrites": 1,
+    "realModelCalls": 0,
+    "pageErrors": [],
+    "hydrationErrors": []
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "reducedMotion": "reduce",
+    "initialImmediate": true,
+    "rapidCancel": true,
+    "draftPreserved": true,
+    "scroll700Restored": true,
+    "keyboardImmediate": true,
+    "iframePreserved": true,
+    "rootTransformClear": true,
+    "interceptedWrites": 1,
+    "realModelCalls": 0,
+    "pageErrors": [],
+    "hydrationErrors": []
+  }
+]

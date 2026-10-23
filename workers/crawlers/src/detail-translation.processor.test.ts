@@ -1,11 +1,38 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchTranslationWithRetry,
   DetailTranslationUnavailableError,
   processDetailTranslationBatch,
 } from "./detail-translation.processor.js";
+import { resetAutomaticAiGuardForTests } from "./background-ai-guard.js";
+
+afterEach(() => {
+  resetAutomaticAiGuardForTests();
+  vi.unstubAllEnvs();
+});
 
 describe("historical item detail translation", () => {
+  it("does not inspect the backlog or fetch when background automation is disabled", async () => {
+    vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "false");
+    vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
+    const findPending = vi.fn(async () => [{ id: "must-not-run" }]);
+    const countPending = vi.fn(async () => 1);
+    const fetcher = vi.fn(async () => Response.json({ translation: {} }));
+
+    await expect(
+      processDetailTranslationBatch({
+        findPending,
+        countPending,
+        fetcher,
+        apiBaseUrl: "http://api:3001",
+      }),
+    ).resolves.toEqual({ skipped: "background_automation_not_authorized" });
+
+    expect(findPending).not.toHaveBeenCalled();
+    expect(countPending).not.toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("submits every pending historical item in the batch and reports the remaining backlog", async () => {
     const fetcher = vi.fn(
       async (_url: string) =>
@@ -29,13 +56,13 @@ describe("historical item detail translation", () => {
 
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
-      "http://api:3001/analysis/item/item-old-1",
-      "http://api:3001/analysis/item/item-old-2",
+      "http://api:3001/analysis/item/item-old-1?costPolicy=free_only",
+      "http://api:3001/analysis/item/item-old-2?costPolicy=free_only",
     ]);
     expect(result).toEqual({ translated: 2, failed: 0, remaining: 91 });
   });
 
-  it("retries transient Gateway/API failures without dropping the item", async () => {
+  it("does not multiply a provider-side 503 already handled by the Gateway", async () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(new Response("busy", { status: 503 }))
@@ -47,7 +74,7 @@ describe("historical item detail translation", () => {
       );
     const waits: number[] = [];
 
-    const response = await fetchTranslationWithRetry(
+    const response = fetchTranslationWithRetry(
       "http://api:3001/analysis/item/item-1",
       fetcher,
       async (milliseconds) => {
@@ -55,9 +82,37 @@ describe("historical item detail translation", () => {
       },
     );
 
-    expect(response.ok).toBe(true);
-    expect(fetcher).toHaveBeenCalledTimes(2);
-    expect(waits).toEqual([2_000]);
+    await expect(response).rejects.toBeInstanceOf(
+      DetailTranslationUnavailableError,
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(waits).toEqual([]);
+  });
+
+  it("stops the rest of a batch after the first shared-capacity failure", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response('{"code":"AI_GATEWAY_CAPACITY_COOLDOWN"}', {
+          status: 503,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    const result = await processDetailTranslationBatch({
+      findPending: async () => [
+        { id: "item-capacity-1" },
+        { id: "item-capacity-2" },
+        { id: "item-capacity-3" },
+      ],
+      countPending: async () => 3,
+      fetcher,
+      apiBaseUrl: "http://api:3001",
+      batchSize: 3,
+      wait: async () => undefined,
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ translated: 0, failed: 3, remaining: 3 });
   });
 
   it("does not retry a Gateway outage already handled by backend fallback", async () => {

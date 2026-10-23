@@ -29,6 +29,7 @@ const items = [
     needsReview: false,
     status: "active" as const,
     channel: "online" as const,
+    listingType: "auction" as const,
     auctionEndAt: auctionEnd,
     bidCount: 4,
     images: [
@@ -56,6 +57,7 @@ const items = [
     needsReview: false,
     status: "active" as const,
     channel: "online" as const,
+    listingType: "direct" as const,
     auctionEndAt: null,
     bidCount: null,
     images: [
@@ -82,6 +84,7 @@ const items = [
     needsReview: false,
     status: "active" as const,
     channel: "online" as const,
+    listingType: "direct" as const,
     auctionEndAt: null,
     bidCount: null,
     images: [
@@ -108,6 +111,7 @@ const items = [
     needsReview: true,
     status: "active" as const,
     channel: "physical_store" as const,
+    listingType: "direct" as const,
     auctionEndAt: null,
     bidCount: null,
     images: [],
@@ -155,13 +159,11 @@ async function main() {
       },
       update: {
         ...data,
-        listingType: data.auctionEndAt ? "auction" : "direct",
         sellerId: seller.id,
         lastSeenAt: now,
       },
       create: {
         ...data,
-        listingType: data.auctionEndAt ? "auction" : "direct",
         sourceId: source.id,
         sellerId: seller.id,
         detectedAt: now,
@@ -187,6 +189,31 @@ async function main() {
     });
   }
   console.log(`Seeded ${items.length} procurement items.`);
+
+  // Demo batch inventory order (idempotent by order number).
+  const demoOrderNumber = "ORD-SEED0001";
+  const existingOrder = await prisma.inventoryOrder.findUnique({
+    where: { orderNumber: demoOrderNumber },
+  });
+  if (!existingOrder) {
+    await prisma.inventoryOrder.create({
+      data: {
+        orderNumber: demoOrderNumber,
+        name: "SEED · DX 腰带示例批次",
+        platform: "Mock 数据源",
+        purchaseCost: 12_000,
+        initialQuantity: 12,
+        remainingQuantity: 12,
+        soldQuantity: 0,
+        totalSales: 0,
+        status: "in_stock",
+        purchasedAt: now,
+        note: "seed inventory batch for average-cost model",
+        imageUrl: items[0]?.images[0] ?? null,
+      },
+    });
+    console.log("Seeded demo inventory order ORD-SEED0001.");
+  }
 }
 
 main().finally(async () => prisma.$disconnect());

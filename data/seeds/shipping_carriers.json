@@ -1,0 +1,35 @@
+[
+  {
+    "id": "cee64b0c-0fef-4c01-a63f-e02afd4e08c6",
+    "key": "jppost_reference",
+    "displayName": "日本郵便 ゆうパック（参考）",
+    "currency": "JPY",
+    "sourceUrl": "https://www.post.japanpost.jp/service/you_pack/charge/ichiran.html",
+    "note": "参考阶梯，按实际地区与燃油附加费校准",
+    "enabled": true,
+    "createdAt": "2026-08-30T06:28:57.169Z",
+    "updatedAt": "2026-08-30T06:28:57.169Z"
+  },
+  {
+    "id": "2a67426a-d8cc-4061-ac15-97887982ccf0",
+    "key": "sagawa_reference",
+    "displayName": "佐川急便（参考）",
+    "currency": "JPY",
+    "sourceUrl": "https://www.sagawa-exp.co.jp/send/fare/faretable.html",
+    "note": "参考阶梯，按实际地区与燃油附加费校准",
+    "enabled": true,
+    "createdAt": "2026-08-30T06:28:57.169Z",
+    "updatedAt": "2026-08-30T06:28:57.169Z"
+  },
+  {
+    "id": "71d9e97c-b8f1-4ad6-974c-56fd24f65d28",
+    "key": "yamato_reference",
+    "displayName": "ヤマト運輸（参考）",
+    "currency": "JPY",
+    "sourceUrl": "https://www.kuronekoyamato.co.jp/ytc/search/estimate/ichiran.html",
+    "note": "参考阶梯，按实际地区与燃油附加费校准",
+    "enabled": true,
+    "createdAt": "2026-08-30T06:28:57.169Z",
+    "updatedAt": "2026-08-30T07:00:13.728Z"
+  }
+]

@@ -1,0 +1,16 @@
+.panel { display: grid; gap: 14px; padding-top: 8px; color: #293c35; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
+.panel p { margin: 0; }
+.panel button { justify-self: start; min-height: 44px; padding: 9px 18px; border: 1px solid #b5c6bc; border-radius: 10px; background: #edf3ee; color: #253d31; font-weight: 600; }
+.panel button:disabled { opacity: .6; cursor: wait; }
+.panel :is(button,summary):focus-visible { outline: 2px solid #286b48; outline-offset: 3px; }
+.hint, .facts small { color: #52645c; font-size: 12px; }
+.summary { white-space: pre-wrap; }
+.facts { display: grid; gap: 12px; margin: 0; }
+.facts div { display: grid; grid-template-columns: minmax(70px, .3fr) 1fr; gap: 12px; }
+.facts dt { font-weight: 600; }
+.facts dd { margin: 0; }
+.facts small { display: block; margin-top: 4px; }
+.panel details summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+.panel ul { padding-left: 20px; margin: 0; }
+.error { color: #963e36; }
+@media (max-width: 440px) { .facts div { grid-template-columns: 1fr; gap: 2px; } }

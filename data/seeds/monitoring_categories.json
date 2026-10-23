@@ -1,0 +1,58 @@
+[
+  {
+    "id": "monitoring-toys",
+    "name": "玩具",
+    "parentId": null,
+    "scope": "toys",
+    "createdAt": "2026-10-08T13:16:55.105Z",
+    "updatedAt": "2026-10-08T13:16:55.105Z"
+  },
+  {
+    "id": "monitoring-kamen",
+    "name": "假面骑士",
+    "parentId": "monitoring-toys",
+    "scope": "toys",
+    "createdAt": "2026-10-08T13:16:55.105Z",
+    "updatedAt": "2026-10-08T13:16:55.105Z"
+  },
+  {
+    "id": "monitoring-ultraman",
+    "name": "奥特曼",
+    "parentId": "monitoring-toys",
+    "scope": "toys",
+    "createdAt": "2026-10-08T13:16:55.105Z",
+    "updatedAt": "2026-10-08T13:16:55.105Z"
+  },
+  {
+    "id": "monitoring-tokusatsu",
+    "name": "特摄玩具",
+    "parentId": "monitoring-toys",
+    "scope": "toys",
+    "createdAt": "2026-10-08T13:16:55.105Z",
+    "updatedAt": "2026-10-08T13:16:55.105Z"
+  },
+  {
+    "id": "monitoring-kamen-shf",
+    "name": "SHF",
+    "parentId": "monitoring-kamen",
+    "scope": "toys",
+    "createdAt": "2026-10-08T13:16:55.105Z",
+    "updatedAt": "2026-10-08T13:16:55.105Z"
+  },
+  {
+    "id": "monitoring-ultraman-shf",
+    "name": "SHF",
+    "parentId": "monitoring-ultraman",
+    "scope": "toys",
+    "createdAt": "2026-10-08T13:16:55.105Z",
+    "updatedAt": "2026-10-08T13:16:55.105Z"
+  },
+  {
+    "id": "monitoring-kamen-sic",
+    "name": "S.I.C.",
+    "parentId": "monitoring-kamen",
+    "scope": "toys",
+    "createdAt": "2026-10-08T13:16:55.105Z",
+    "updatedAt": "2026-10-08T13:16:55.105Z"
+  }
+]

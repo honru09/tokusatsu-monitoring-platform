@@ -1,0 +1,10 @@
+{
+  "status": 200,
+  "model": "glm-5.3-flash",
+  "facts": 8,
+  "hasSummary": true,
+  "missingFacts": 6,
+  "spent": 1353,
+  "total": 5090,
+  "remaining": 13994910
+}

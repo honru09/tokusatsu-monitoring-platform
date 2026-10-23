@@ -17,8 +17,8 @@ export class DiscoveryFeedQuery {
   limit = 12;
 
   @IsOptional()
-  @IsIn(["auction", "direct"])
-  listingType?: "auction" | "direct";
+  @IsIn(["auction", "direct", "unknown"])
+  listingType?: "auction" | "direct" | "unknown";
 }
 
 export class DiscoveryFeedbackDto {
@@ -32,6 +32,10 @@ export class DiscoveryFeedbackDto {
   @IsInt()
   @Min(0)
   position!: number;
+
+  @IsOptional()
+  @IsString()
+  accountId?: string;
 }
 
 export class DiscoveryUndoDto {

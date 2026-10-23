@@ -1,0 +1,32 @@
+model_list:
+  - model_name: fast
+    litellm_params:
+      model: os.environ/LITELLM_FAST_MODEL
+  - model_name: smart
+    litellm_params:
+      model: os.environ/LITELLM_SMART_MODEL
+  - model_name: vision
+    litellm_params:
+      model: os.environ/LITELLM_VISION_MODEL
+  - model_name: ocr
+    litellm_params:
+      model: os.environ/LITELLM_OCR_MODEL
+
+litellm_settings:
+  drop_params: true
+  request_timeout: 28
+
+router_settings:
+  routing_strategy: simple-shuffle
+  enable_pre_call_checks: true
+  num_retries: 1
+  allowed_fails: 2
+  cooldown_time: 60
+  fallbacks:
+    - fast: [smart]
+    - smart: [fast]
+    - vision: [ocr]
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  store_model_in_db: false

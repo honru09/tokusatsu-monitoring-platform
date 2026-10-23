@@ -1,0 +1,60 @@
+'use strict';
+const { chromium } = require('../../workers/crawlers/node_modules/playwright-core');
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const base = process.env.APPLE_UI_URL || 'http://localhost:3000';
+const output = path.join(__dirname, 'demo');
+fs.mkdirSync(output, { recursive: true });
+async function read(url) { const response = await fetch(`${base}/backend/${url}`); assert.ok(response.ok); return response.json(); }
+(async () => {
+  const [accounts, resale, overview] = await Promise.all([read('collaboration/accounts'), read('resale'), read('monitoring/overview')]);
+  const browser = await chromium.launch({ headless: true, channel: 'chrome' });
+  try {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, recordVideo: { dir: output, size: { width: 1280, height: 800 } } });
+    await context.addInitScript(id => localStorage.setItem('kamen-procurement-manager-v1', id), accounts.accounts[0].id);
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => { if (message.type() === 'error' && !/^Failed to load resource:/.test(message.text())) errors.push(message.text()); });
+    await page.route('**/*', route => {
+      const request = route.request(), url = new URL(request.url());
+      if (url.pathname === '/backend/monitoring/overview') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(overview) });
+      if (!['GET','HEAD','OPTIONS'].includes(request.method()) || /\/analysis(?:\/|$)/.test(url.pathname) || /\/ai\/(chat|translate|read|analyze)/.test(url.pathname)) return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      return route.continue();
+    });
+    const nav = page.getByRole('navigation', { name: '主要工作区' });
+    await page.goto(`${base}/?workspace=workbench`);
+    await page.locator('.workspace-workbench').waitFor();
+    await page.waitForTimeout(850);
+    await nav.getByRole('button', { name: 'AI', exact: true }).click();
+    await page.waitForTimeout(450);
+    await nav.getByRole('button', { name: '工作台', exact: true }).click();
+    await page.waitForTimeout(450);
+    await page.getByRole('button', { name: /^闲鱼上架/ }).first().click();
+    await page.getByRole('region', { name: '闲鱼运营', exact: true }).waitFor();
+    const row = resale.listings.find(row => row.images?.length) || resale.listings[0];
+    assert.ok(row);
+    const prefix = row.title.slice(0, 12).replace(/\s+/g, ' ');
+    await page.getByRole('button', { name: new RegExp(prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).first().click();
+    await page.getByLabel('标题', { exact: true }).waitFor();
+    await page.waitForTimeout(450);
+    await page.getByRole('button', { name: '商品预览', exact: true }).click();
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: '编辑商品', exact: true }).click();
+    await page.waitForTimeout(450);
+    await page.getByRole('button', { name: /^添加货源/ }).first().click();
+    await page.locator('dialog[open]').waitFor();
+    await page.waitForTimeout(650);
+    await page.screenshot({ path: path.join(output, 'resale-drawer-1280.png') });
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    await nav.getByRole('button', { name: '工作台', exact: true }).click();
+    await page.waitForTimeout(600);
+    assert.deepEqual(errors, []);
+    await context.close();
+    const file = await page.video().path();
+    fs.renameSync(file, path.join(output, 'apple-motion.webm'));
+    console.log(JSON.stringify({ video: 'apple-motion.webm', errors: 0, realTransactionsAndModels: 0 }));
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

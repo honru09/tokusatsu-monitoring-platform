@@ -1,20 +1,51 @@
 import { classifyImages } from "@tokusatsu/classification";
 import { prisma, Prisma } from "@tokusatsu/db";
-import { matchOrCreateProduct } from "@tokusatsu/product-intelligence";
 import {
+  matchOrCreateProduct,
+  mergeExtractionEvidence,
+} from "@tokusatsu/product-intelligence";
+import {
+  assessProcurementCandidate,
+  assessInventoryQuality,
   auctionRefreshDelay,
+  categoryIps,
+  classifyCollectibleSeries,
+  classifyShfListing,
+  classifyText,
+  conditionGrades,
+  extractQuantityEst,
   isExcludedNormalizedItem,
+  manufacturers,
+  procurementCategories,
+  procurementCompactness,
+  procurementConfigFromEnv,
+  procurementLogisticsEvidence,
+  rankProcurementCandidates,
+  resolveListingType,
+  toyTypes,
+  xianyuReverseSearchEnabled,
 } from "@tokusatsu/shared";
 import type {
+  CategoryIp,
+  ConditionGrade,
+  ItemStatusUpdate,
+  ListingType,
+  Manufacturer,
   NormalizedItem,
+  ProcurementAssessment,
   SearchQuery,
   SearchResult,
   SourceAdapter,
+  ToyType,
 } from "@tokusatsu/shared";
 import type { Job } from "bullmq";
 import { createHash } from "node:crypto";
 import { ApifyEcommerceAdapter } from "./adapters/apify-ecommerce.adapter.js";
 import { FirecrawlMarketplaceAdapter } from "./adapters/firecrawl-market.adapter.js";
+import {
+  extractLogisticsHints,
+  type LogisticsHints,
+} from "./adapters/logistics-hints.js";
 import {
   extractProductImageUrls,
   sanitizeProductImageUrls,
@@ -32,7 +63,39 @@ import {
   isYahooFleamarketPlaceholderSellerName,
 } from "./adapters/yahoo-fleamarket.adapter.js";
 import { YahooShoppingAdapter } from "./adapters/yahoo-shopping.adapter.js";
-import { classificationQueue, connection, statusQueue } from "./queues.js";
+import {
+  classificationQueue,
+  connection,
+  marketKeywordForRotation,
+  statusQueue,
+  type MarketKeywordRotation,
+} from "./queues.js";
+import {
+  PRODUCT_AI_RESPONSE_SCHEMAS,
+  executeProductAi,
+  type ProductAiResponseSchemaReference,
+} from "./product-ai.client.js";
+import {
+  automaticClassificationContentVersion,
+  classificationJobId,
+  shouldQueueAutomaticClassification,
+} from "./automatic-classification.js";
+import {
+  automaticPaidAiEnabled,
+  runAutomaticAiTask,
+} from "./background-ai-guard.js";
+import {
+  refreshCrossMarketOpportunityForItem,
+  refreshReadyCrossMarketOpportunitiesForItem,
+  type ArbitrageSearchContext,
+} from "./china-market/arbitrage.js";
+import { isStatusRefreshEligible } from "./status-refresh-policy.js";
+import { recordMonitoringKeywordMatch } from "./monitoring-keywords.js";
+
+export {
+  classificationJobId,
+  shouldQueueAutomaticClassification,
+} from "./automatic-classification.js";
 
 const adapters: Record<string, SourceAdapter> = {
   mock: new MockAdapter(),
@@ -58,8 +121,115 @@ function safeBidCount(value: number | null | undefined) {
     : undefined;
 }
 
+const marketAvailabilitySelect = {
+  id: true,
+  updatedAt: true,
+  status: true,
+  archivedAt: true,
+  auctionEndAt: true,
+  listingType: true,
+  priceCurrent: true,
+  shippingFee: true,
+  priceTotalEst: true,
+  bidCount: true,
+} satisfies Prisma.ItemSelect;
+type MarketAvailabilitySnapshot = Prisma.ItemGetPayload<{
+  select: typeof marketAvailabilitySelect;
+}>;
+type AuditedMarketUpdate = {
+  itemId: string;
+  where: Prisma.ItemWhereInput;
+  data:
+    | Prisma.ItemUpdateManyMutationInput
+    | ((
+        before: MarketAvailabilitySnapshot,
+      ) => Prisma.ItemUpdateManyMutationInput);
+  actor: string;
+  reason: string;
+};
+
+function resolvedMarketSaleMode(
+  update: { listingType?: ListingType | null; auctionEndAt?: Date | null },
+  current: { listingType: ListingType | null; auctionEndAt: Date | null },
+) {
+  const auctionEndAt =
+    update.listingType === "direct"
+      ? null
+      : Object.hasOwn(update, "auctionEndAt") &&
+          update.auctionEndAt !== undefined
+        ? update.auctionEndAt
+        : current.auctionEndAt;
+  return {
+    auctionEndAt,
+    listingType: resolveListingType(
+      update.listingType,
+      auctionEndAt,
+      current.listingType,
+    ),
+  };
+}
+
+async function writeMarketUpdateWithAudit(
+  tx: Prisma.TransactionClient,
+  input: AuditedMarketUpdate,
+) {
+  const before = await tx.item.findUnique({
+    where: { id: input.itemId },
+    select: marketAvailabilitySelect,
+  });
+  if (!before) return { count: 0 };
+  const data =
+    typeof input.data === "function" ? input.data(before) : input.data;
+  const changed = await tx.item.updateMany({
+    where: {
+      ...input.where,
+      id: input.itemId,
+      ...(before.updatedAt ? { updatedAt: before.updatedAt } : {}),
+    },
+    data,
+  });
+  if (!changed.count) return changed;
+  const beforeData: Record<string, Prisma.InputJsonValue | null> = {};
+  const afterData: Record<string, Prisma.InputJsonValue | null> = {};
+  for (const field of Object.keys(marketAvailabilitySelect)) {
+    if (field === "id" || field === "updatedAt") continue;
+    const value = data[field as keyof typeof data];
+    if (value === undefined) continue;
+    const oldValue = before[field as keyof typeof before];
+    const oldJson =
+      oldValue instanceof Date ? oldValue.toISOString() : (oldValue ?? null);
+    const newJson = value instanceof Date ? value.toISOString() : value;
+    if (oldJson === newJson) continue;
+    if (
+      newJson !== null &&
+      !["string", "number", "boolean"].includes(typeof newJson)
+    )
+      throw new Error(`Unsupported availability mutation: ${field}`);
+    beforeData[field] = oldJson as Prisma.InputJsonValue | null;
+    afterData[field] = newJson as Prisma.InputJsonValue | null;
+  }
+  if (Object.keys(afterData).length)
+    await tx.manualReview.create({
+      data: {
+        itemId: input.itemId,
+        actor: input.actor,
+        reason: input.reason,
+        beforeData,
+        afterData,
+      },
+    });
+  return changed;
+}
+
+function updateMarketWithAudit(input: AuditedMarketUpdate) {
+  return prisma.$transaction((tx) => writeMarketUpdateWithAudit(tx, input), {
+    timeout: 15_000,
+  });
+}
+
 type SearchMetrics = {
   candidates: number;
+  duplicatesDropped: number;
   inserted: number;
   skippedKnown: number;
   imagesBackfilled: number;
@@ -69,44 +239,547 @@ type SearchMetrics = {
   pages: number;
   scanMode: "incremental" | "backfill";
   errors: string[];
+  arbitrageReady: number;
+  arbitrageRejected: number;
+  arbitrageNeedsFacts: number;
+  arbitrageIdentityMisses: number;
+  qualityRejected: number;
 };
 
-function sourceBaseUrl(adapterKey: string): string {
+type SearchJobData = {
+  adapterKey: string;
+  monitoringKeywordId?: string;
+  query: SearchQuery;
+  keywordRotation?: MarketKeywordRotation;
+  arbitrageContext?: ArbitrageSearchContext;
+};
+
+const procurementConfig = procurementConfigFromEnv(process.env);
+
+export const AUTOMATIC_CLASSIFICATION_SYSTEM_PROMPT = [
+  "你是日本特摄中古商品自动分类器。只依据原始标题、卖家正文、品相和平台事实分类，不做翻译，不得把不知道的内容补成事实。",
+  '输出 categoryIp、categoryToyType、manufacturer、conditionGrade、quantity、series、subSeries、bulkSale、needsImageAnalysis；每个字段必须为 {"value":值或null,"confidence":0到1,"evidence":["原文依据"]}。',
+  `枚举只能使用 categoryIp=${categoryIps.join("|")}，categoryToyType=${toyTypes.join("|")}，manufacturer=${manufacturers.join("|")}，conditionGrade=${conditionGrades.join("|")}。`,
+  'quantity 只有原文明确数量时才给精确正整数；估算必须另给 quantityEstimate {"exact":null,"estimatedRange":{"min":数字,"max":数字},"evidence":["依据"]}，不得把区间写成精确数量。',
+  '还要输出 confidence（整体0到1）。书籍、杂志、漫画和卡片用 scope="excluded_card_or_book"。只输出 JSON。',
+].join("");
+
+type ProcurementFactsItem = {
+  titleRaw: string;
+  listingType?: ListingType | null;
+  categoryToyType: ToyType;
+  conditionGrade: ConditionGrade;
+  priceCurrent: number;
+  shippingFee: number | null;
+  quantityEst: number | null;
+  logistics: {
+    lengthMm: number | null;
+    widthMm: number | null;
+    heightMm: number | null;
+    volumeCm3: number | null;
+    notes?: string | null;
+  } | null;
+};
+
+/** Keep the rule result and its inputs separate from the model review. */
+export function procurementFactsForClassification(item: ProcurementFactsItem) {
+  const evidenceLogistics = procurementLogisticsEvidence(item.logistics);
+  const logistics = evidenceLogistics
+    ? {
+        lengthMm: evidenceLogistics.lengthMm,
+        widthMm: evidenceLogistics.widthMm,
+        heightMm: evidenceLogistics.heightMm,
+        volumeCm3: evidenceLogistics.volumeCm3,
+      }
+    : null;
+  const knownFacts = {
+    priceCurrentJpy: item.priceCurrent,
+    listingType: item.listingType ?? "unknown",
+    shippingFeeJpy: item.shippingFee,
+    quantityEst: item.quantityEst,
+    categoryToyType: item.categoryToyType,
+    conditionGrade: item.conditionGrade,
+    logistics,
+  };
+  const procurementLogistics = logistics?.volumeCm3 != null ? logistics : null;
+  return {
+    knownFacts,
+    deterministicAssessment: assessProcurementCandidate(
+      {
+        titleRaw: item.titleRaw,
+        listingType: item.listingType,
+        categoryToyType: item.categoryToyType,
+        conditionGrade: item.conditionGrade,
+        priceCurrent: item.priceCurrent,
+        shippingFee: item.shippingFee,
+        quantityEst: item.quantityEst,
+        logistics: procurementLogistics,
+      },
+      procurementConfig,
+    ),
+  };
+}
+
+const procurementScopes = [
+  "tokusatsu_toy",
+  "excluded_card_or_book",
+  "unrelated",
+  "unknown",
+] as const;
+const procurementMissingFacts = [
+  "price",
+  "shipping_fee",
+  "listing_type",
+  "quantity",
+  "volume",
+  "condition",
+] as const;
+const procurementEvidenceFields = [
+  "priceCurrentJpy",
+  "shippingFeeJpy",
+  "quantityEst",
+  "categoryToyType",
+  "conditionGrade",
+  "logistics",
+  "scope",
+] as const;
+const compactnessConservatism = {
+  compact: 0,
+  likely_compact: 1,
+  unknown: 2,
+  bulky: 3,
+} as const;
+
+function allowedValue<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fallback: T,
+) {
+  return typeof value === "string" && allowed.includes(value as T)
+    ? (value as T)
+    : fallback;
+}
+
+function allowedStringList<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+) {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value.filter(
+        (entry): entry is T =>
+          typeof entry === "string" && allowed.includes(entry as T),
+      ),
+    ),
+  ];
+}
+
+function evidenceStrings(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+/** Accept only the review surface. The model may lower confidence, but cannot
+ * promote a rule assessment or erase a fact that the rule engine marked
+ * missing. */
+export function normalizeProcurementAiReview(
+  value: Record<string, unknown>,
+  deterministic: ProcurementAssessment,
+) {
+  const requestedCategory = allowedValue(
+    value.procurementCategory,
+    procurementCategories,
+    deterministic.category,
+  );
+  const procurementCategory =
+    procurementCategories.indexOf(requestedCategory) >=
+    procurementCategories.indexOf(deterministic.category)
+      ? requestedCategory
+      : deterministic.category;
+  const requestedCompactness = allowedValue(
+    value.compactness,
+    procurementCompactness,
+    deterministic.compactness,
+  );
+  const compactness =
+    compactnessConservatism[requestedCompactness] >=
+    compactnessConservatism[deterministic.compactness]
+      ? requestedCompactness
+      : deterministic.compactness;
+  const missingFacts = [
+    ...new Set([
+      ...deterministic.missingFacts,
+      ...allowedStringList(value.missingFacts, procurementMissingFacts),
+    ]),
+  ];
+  const contradictedFacts = Array.isArray(value.contradictedFacts)
+    ? value.contradictedFacts.flatMap((entry) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry))
+          return [];
+        const record = entry as Record<string, unknown>;
+        const field =
+          typeof record.field === "string" &&
+          procurementEvidenceFields.includes(
+            record.field as (typeof procurementEvidenceFields)[number],
+          )
+            ? (record.field as (typeof procurementEvidenceFields)[number])
+            : undefined;
+        const evidence =
+          typeof record.evidence === "string" ? record.evidence.trim() : "";
+        return field && evidence
+          ? [{ field, evidence: evidence.slice(0, 500) }]
+          : [];
+      })
+    : [];
+  return {
+    scope: allowedValue(value.scope, procurementScopes, "unknown"),
+    procurementCategory,
+    compactness,
+    verifiedFacts: allowedStringList(
+      value.verifiedFacts,
+      procurementEvidenceFields,
+    ),
+    contradictedFacts: contradictedFacts.slice(0, 12),
+    missingFacts,
+    shouldAnalyze:
+      typeof value.shouldAnalyze === "boolean" ? value.shouldAnalyze : null,
+    confidence: numberConfidence(value.confidence),
+    evidence: evidenceStrings(value.evidence),
+  };
+}
+
+export function shouldAnalyzeProcurementImages(
+  imageCount: number,
+  procurementReview: Record<string, unknown> | null | undefined,
+  fallbackDecision: boolean,
+) {
+  if (imageCount <= 0) return false;
+  return fallbackDecision || procurementReview?.shouldAnalyze === true;
+}
+
+/** Only package-scoped logistics evidence is safe for procurement ranking. */
+export function procurementLogisticsFromHints(hints: LogisticsHints) {
+  const packageDimensions = hints.dimensionBasis === "package";
+  const packageVolume =
+    hints.volumeBasis === "package" && hints.volumeCm3 != null;
+  if (!packageDimensions && !packageVolume) return {};
+
+  return {
+    ...(packageDimensions
+      ? {
+          lengthMm: hints.lengthMm,
+          widthMm: hints.widthMm,
+          heightMm: hints.heightMm,
+        }
+      : {}),
+    ...(packageVolume ? { volumeCm3: hints.volumeCm3 } : {}),
+  };
+}
+
+export function logisticsColumnsForPersistence(hints: LogisticsHints) {
+  const packageDimensions = hints.dimensionBasis === "package";
+  const packageWeight = hints.weightBasis === "package";
+  const packageVolume = hints.volumeBasis === "package";
+  return {
+    weightGrams: packageWeight ? undefined : hints.weightGrams,
+    packageWeightGrams: packageWeight ? hints.weightGrams : undefined,
+    lengthMm: packageDimensions ? hints.lengthMm : undefined,
+    widthMm: packageDimensions ? hints.widthMm : undefined,
+    heightMm: packageDimensions ? hints.heightMm : undefined,
+    volumeCm3: packageVolume ? hints.volumeCm3 : undefined,
+  };
+}
+
+function searchProcurementCandidate(result: SearchResult) {
+  const raw = result.detailHint;
+  const titleRaw = raw?.titleRaw ?? result.titleHint ?? "";
+  const classification = classifyText(
+    titleRaw,
+    raw?.descriptionRaw,
+    raw?.conditionRaw,
+  );
+  const hints = raw ? extractLogisticsHints(raw) : {};
+  return {
+    titleRaw,
+    listingType: resolveListingType(raw?.listingType, raw?.auctionEndAt),
+    categoryToyType: classification.categoryToyType,
+    conditionGrade: classification.conditionGrade,
+    priceCurrent: raw?.priceCurrent ?? Number.NaN,
+    shippingFee: raw?.shippingFee,
+    quantityEst: classification.quantityEst,
+    logistics: procurementLogisticsFromHints(hints),
+  };
+}
+
+function hasText(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasFiniteNonNegativeNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function hasMeaningfulPublicData(
+  value: unknown,
+  seen = new Set<object>(),
+): boolean {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "boolean") return true;
+  if (value instanceof Date) return Number.isFinite(value.getTime());
+  if (typeof value !== "object" || seen.has(value)) return false;
+  seen.add(value);
+  return Object.values(value).some((entry) =>
+    hasMeaningfulPublicData(entry, seen),
+  );
+}
+
+/**
+ * Ordered completeness facts. A lower-priority field can break a tie, but it
+ * cannot outweigh a reliable price or shipping fact. This keeps malformed or
+ * metadata-heavy rows from displacing rows that procurement ranking can use.
+ */
+function searchResultCompleteness(result: SearchResult): readonly number[] {
+  const detail = result.detailHint;
+  if (!detail)
+    return [0, 0, 0, 0, 0, 0, 0, 0, 0, hasText(result.titleHint) ? 1 : 0];
+
+  const sellerFacts =
+    [detail.sellerName, detail.sellerProfileUrl].filter(hasText).length +
+    (detail.sellerType === "individual" || detail.sellerType === "store"
+      ? 1
+      : 0) +
+    (hasMeaningfulPublicData(detail.sellerData) ? 1 : 0);
+  const timeFacts = [detail.listedAt, detail.auctionEndAt].filter(
+    (value) => value instanceof Date && Number.isFinite(value.getTime()),
+  ).length;
+  const otherFacts =
+    (hasText(detail.locationText) ? 1 : 0) +
+    (hasFiniteNonNegativeNumber(detail.bidCount) ? 1 : 0);
+  const images = Array.isArray(detail.imageUrls)
+    ? sanitizeProductImageUrls(
+        detail.imageUrls.filter(
+          (value): value is string => typeof value === "string",
+        ),
+      ).length
+    : 0;
+
+  return [
+    hasFiniteNonNegativeNumber(detail.priceCurrent) ? 1 : 0,
+    hasFiniteNonNegativeNumber(detail.shippingFee) ? 1 : 0,
+    resolveListingType(detail.listingType, detail.auctionEndAt) !== "unknown"
+      ? 1
+      : 0,
+    [detail.titleRaw, detail.descriptionRaw, detail.conditionRaw].filter(
+      hasText,
+    ).length,
+    images,
+    hasMeaningfulPublicData(detail.sourceData) ? 1 : 0,
+    sellerFacts,
+    timeFacts,
+    otherFacts,
+    hasText(result.titleHint) ? 1 : 0,
+  ];
+}
+
+function isMoreCompleteSearchResult(
+  candidate: SearchResult,
+  existing: SearchResult,
+) {
+  const candidateFacts = searchResultCompleteness(candidate);
+  const existingFacts = searchResultCompleteness(existing);
+  for (let index = 0; index < candidateFacts.length; index += 1) {
+    const difference = candidateFacts[index]! - existingFacts[index]!;
+    if (difference !== 0) return difference > 0;
+  }
+  return false;
+}
+
+/**
+ * Marketplace adapters are not trusted to deduplicate or order candidates in
+ * the same way. Collapse duplicate IDs centrally, retain the richer row, then
+ * spend detail-fetch capacity on the candidates closest to the procurement
+ * objective. The original order remains the tie-breaker.
+ */
+export function prioritizeSearchResults(results: readonly SearchResult[]) {
+  const unique = new Map<string, SearchResult>();
+  for (const result of results) {
+    const existing = unique.get(result.sourceItemId);
+    if (!existing || isMoreCompleteSearchResult(result, existing))
+      unique.set(result.sourceItemId, result);
+  }
+  const rows = [...unique.values()].map((result) => ({
+    result,
+    ...searchProcurementCandidate(result),
+  }));
+  return rankProcurementCandidates(rows, procurementConfig).map(
+    ({ candidate }) => candidate.result,
+  );
+}
+
+export function sourceBaseUrl(adapterKey: string): string {
   if (adapterKey === "mandarake") return "https://order.mandarake.co.jp";
   if (adapterKey === "mercari") return "https://jp.mercari.com";
   if (adapterKey === "yahoo_auctions") return "https://auctions.yahoo.co.jp";
   if (adapterKey === "yahoo_fleamarket")
     return "https://paypayfleamarket.yahoo.co.jp";
+  if (adapterKey === "yahoo_shopping") return "https://shopping.yahoo.co.jp";
   if (adapterKey === "rakuma") return "https://fril.jp";
   if (adapterKey === "surugaya") return "https://www.suruga-ya.jp";
   if (adapterKey === "firecrawl_market") return "https://api.firecrawl.dev";
   if (adapterKey === "apify_ecommerce") return "https://api.apify.com";
   if (adapterKey === "public_page") return "https://public.example";
+  if (adapterKey === "playwright_page") return "https://public.example";
   return "https://example.com/mock";
 }
 
-async function resolveSearchQuery(adapterKey: string, query: SearchQuery) {
-  if (!query.rotatePages) return query;
-  const pages = Math.max(1, Math.min(query.pages ?? 1, 8));
+async function resolveSearchQuery(
+  adapterKey: string,
+  query: SearchQuery,
+  keywordRotation?: MarketKeywordRotation,
+  repeatCount?: number,
+) {
+  const keyword = marketKeywordForRotation(
+    query.keyword,
+    keywordRotation,
+    repeatCount,
+  );
+  const keywordQuery =
+    keyword === query.keyword ? query : { ...query, keyword };
+  if (!keywordQuery.rotatePages) return keywordQuery;
+  const pages = Math.max(1, Math.min(keywordQuery.pages ?? 1, 8));
   const maxPages = Math.max(
     pages,
     Number(process.env.MARKET_BACKFILL_MAX_PAGES ?? 80),
   );
   const digest = createHash("sha256")
-    .update(`${adapterKey}:${query.keyword}`)
+    .update(`${adapterKey}:${keywordQuery.keyword}`)
     .digest("hex")
     .slice(0, 20);
   const key = `market-backfill-cursor:${digest}`;
   const storedCursor = await connection.get(key);
-  const current = Number(storedCursor ?? query.pageStart ?? 0);
+  const current = Number(storedCursor ?? keywordQuery.pageStart ?? 0);
   const pageStart = Number.isFinite(current) ? current % maxPages : 0;
   await connection.set(key, String((pageStart + pages) % maxPages));
-  return { ...query, pageStart };
+  return { ...keywordQuery, pageStart };
 }
 
-export async function processSearch(
-  job: Job<{ adapterKey: string; query: SearchQuery }>,
+async function recordReverseSearchOpportunity(
+  itemId: string,
+  context: ArbitrageSearchContext | undefined,
+  metrics: SearchMetrics,
 ) {
+  if (!context) return;
+  const outcome = await refreshCrossMarketOpportunityForItem(
+    itemId,
+    context.comparisonId,
+    context.trigger,
+    context.productId,
+  );
+  if ("skipped" in outcome) metrics.arbitrageIdentityMisses += 1;
+  else if (outcome.status === "ready") metrics.arbitrageReady += 1;
+  else if (outcome.status === "rejected") metrics.arbitrageRejected += 1;
+  else metrics.arbitrageNeedsFacts += 1;
+}
+
+export function emptySearchIsFailure(
+  scanMode: "incremental" | "backfill",
+  arbitrageContext?: ArbitrageSearchContext,
+) {
+  return scanMode === "incremental" && !arbitrageContext;
+}
+
+type CrawlJobHeartbeatUpdate = {
+  where: { id: string; status: "running" };
+  data: { updatedAt: Date };
+};
+
+type CrawlJobHeartbeatOptions = {
+  intervalMs?: number;
+  store?: {
+    updateMany: (update: CrawlJobHeartbeatUpdate) => Promise<unknown>;
+  };
+};
+
+/**
+ * Keep the durable CrawlJob row fresh while a marketplace operation is still
+ * alive. Maintenance closes only rows that miss this heartbeat for thirty
+ * minutes, and the status predicate prevents a late tick from touching a run
+ * that has already reached a terminal state.
+ */
+export function startCrawlJobHeartbeat(
+  crawlJobId: string,
+  options: CrawlJobHeartbeatOptions = {},
+) {
+  const intervalMs = Math.max(1_000, options.intervalMs ?? 60_000);
+  const updateMany =
+    options.store?.updateMany ??
+    ((update: CrawlJobHeartbeatUpdate) => prisma.crawlJob.updateMany(update));
+  let stopped = false;
+  let pending: Promise<unknown> | undefined;
+  const heartbeat = () => {
+    if (stopped || pending) return;
+    pending = updateMany({
+      where: { id: crawlJobId, status: "running" },
+      data: { updatedAt: new Date() },
+    })
+      .catch((error) => {
+        console.warn(
+          JSON.stringify({
+            event: "crawl_job_heartbeat_failed",
+            crawlJobId,
+            error: String(error).slice(0, 240),
+          }),
+        );
+      })
+      .finally(() => {
+        pending = undefined;
+      });
+  };
+  const timer = setInterval(heartbeat, intervalMs);
+  timer.unref();
+
+  return async () => {
+    if (stopped) return;
+    stopped = true;
+    clearInterval(timer);
+    const inFlight = pending;
+    if (inFlight) await inFlight;
+  };
+}
+
+export async function processSearch(job: Job<SearchJobData>) {
+  let monitoringKeyword = job.data.monitoringKeywordId
+    ? await prisma.monitoringKeyword.findUnique({
+        where: { id: job.data.monitoringKeywordId },
+        include: { category: true },
+      })
+    : null;
+  if (job.data.monitoringKeywordId && !monitoringKeyword?.enabled)
+    return { skipped: "monitoring_keyword_disabled" as const };
+  const searchedKeyword = monitoringKeyword?.normalizedKeyword;
+  const refreshMonitoringRule = async () => {
+    if (!job.data.monitoringKeywordId) return true;
+    const latest = await prisma.monitoringKeyword.findUnique({
+      where: { id: job.data.monitoringKeywordId },
+      include: { category: true },
+    });
+    if (!latest?.enabled || latest.normalizedKeyword !== searchedKeyword)
+      return false;
+    monitoringKeyword = latest;
+    return true;
+  };
+  if (job.data.arbitrageContext && !xianyuReverseSearchEnabled(process.env))
+    return {
+      skipped: "cross_market_arbitrage_disabled" as const,
+      adapter: job.data.adapterKey,
+    };
   const adapter = adapters[job.data.adapterKey];
   if (!adapter) throw new Error(`Unknown adapter: ${job.data.adapterKey}`);
   const source = await prisma.source.upsert({
@@ -121,6 +794,7 @@ export async function processSearch(
         "mercari",
         "yahoo_auctions",
         "yahoo_fleamarket",
+        "yahoo_shopping",
         "rakuma",
         "surugaya",
         "firecrawl_market",
@@ -133,6 +807,13 @@ export async function processSearch(
     },
   });
   const circuitRetryAt = openCircuitRetryAt(source.circuitOpenAt);
+  if (
+    monitoringKeyword &&
+    (!source.enabled ||
+      (monitoringKeyword.sourceKeys.length &&
+        !monitoringKeyword.sourceKeys.includes(adapter.key)))
+  )
+    return { skipped: "monitoring_platform_disabled" as const };
   if (circuitRetryAt) {
     const skipped = {
       skipped: "circuit_open" as const,
@@ -145,10 +826,15 @@ export async function processSearch(
 
   const effectiveQuery = await resolveSearchQuery(
     job.data.adapterKey,
-    job.data.query,
+    monitoringKeyword
+      ? { ...job.data.query, keyword: monitoringKeyword.keyword }
+      : job.data.query,
+    job.data.keywordRotation,
+    job.opts.repeat?.count,
   );
   const metrics: SearchMetrics = {
     candidates: 0,
+    duplicatesDropped: 0,
     inserted: 0,
     skippedKnown: 0,
     imagesBackfilled: 0,
@@ -158,22 +844,41 @@ export async function processSearch(
     pages: effectiveQuery.pages ?? 1,
     scanMode: effectiveQuery.scanMode ?? "incremental",
     errors: [],
+    arbitrageReady: 0,
+    arbitrageRejected: 0,
+    arbitrageNeedsFacts: 0,
+    arbitrageIdentityMisses: 0,
+    qualityRejected: 0,
   };
   const crawlJob = await prisma.crawlJob.create({
     data: {
       sourceId: source.id,
       queueJobId: String(job.id),
       jobType: "search",
-      query: effectiveQuery as unknown as Prisma.InputJsonValue,
+      query: {
+        ...effectiveQuery,
+        ...(monitoringKeyword
+          ? { monitoringKeywordId: monitoringKeyword.id }
+          : {}),
+        ...(job.data.arbitrageContext
+          ? { arbitrageContext: job.data.arbitrageContext }
+          : {}),
+      } as unknown as Prisma.InputJsonValue,
       status: "running",
       startedAt: new Date(),
       attempt: job.attemptsMade + 1,
     },
   });
+  const stopHeartbeat = startCrawlJobHeartbeat(crawlJob.id);
   try {
-    const results = await adapter.search(effectiveQuery);
+    const rawResults = await adapter.search(effectiveQuery);
+    const results = prioritizeSearchResults(rawResults);
     metrics.candidates = results.length;
-    if (results.length === 0 && metrics.scanMode === "incremental") {
+    metrics.duplicatesDropped = rawResults.length - results.length;
+    if (
+      results.length === 0 &&
+      emptySearchIsFailure(metrics.scanMode, job.data.arbitrageContext)
+    ) {
       throw new Error(
         `${adapter.displayName} incremental search returned zero candidates`,
       );
@@ -186,12 +891,24 @@ export async function processSearch(
       select: {
         id: true,
         sourceItemId: true,
+        status: true,
+        archivedAt: true,
+        ignored: true,
+        purchaseRecord: { select: { id: true } },
         imageCount: true,
         sourceData: true,
         descriptionRaw: true,
         shippingFee: true,
         sellerId: true,
-        seller: { select: { name: true, profileUrl: true, sourceData: true } },
+        monitoringCategory: { select: { scope: true } },
+        seller: {
+          select: {
+            name: true,
+            sourceSellerId: true,
+            profileUrl: true,
+            sourceData: true,
+          },
+        },
       },
     });
     const existingBySourceId = new Map(
@@ -200,13 +917,6 @@ export async function processSearch(
     const existingIds = new Set(existingBySourceId.keys());
     metrics.skippedKnown = existingIds.size;
     if (existingIds.size > 0) {
-      await prisma.item.updateMany({
-        where: {
-          sourceId: source.id,
-          sourceItemId: { in: [...existingIds] },
-        },
-        data: { lastSeenAt: new Date() },
-      });
       const confirmedActiveIds = results
         .filter((result) => result.detailHint?.status === "active")
         .map((result) => result.sourceItemId)
@@ -215,26 +925,46 @@ export async function processSearch(
         // A marketplace search constrained to on-sale inventory is stronger
         // evidence than a stale page-shell status. Re-open only ordinary
         // listings; ignored and purchased records stay in their own areas.
-        await prisma.item.updateMany({
-          where: {
-            sourceId: source.id,
-            sourceItemId: { in: confirmedActiveIds },
-            ignored: false,
-            purchaseRecord: null,
-          },
-          data: {
-            status: "active",
-            archivedAt: null,
-            lastSeenAt: new Date(),
-          },
-        });
+        for (const sourceItemId of confirmedActiveIds) {
+          const known = existingBySourceId.get(sourceItemId)!;
+          if (known.status !== "unknown") continue;
+          await updateMarketWithAudit({
+            itemId: known.id,
+            where: {
+              archivedAt: null,
+              status: "unknown",
+              ignored: false,
+              purchaseRecord: null,
+            },
+            data: { status: "active" },
+            actor: "market-search",
+            reason: "search_confirmed_active",
+          });
+        }
       }
     }
-    let enrichmentBudget = 16;
+    let enrichmentBudget = job.data.arbitrageContext
+      ? Math.min(effectiveQuery.limit ?? 30, 50)
+      : 16;
     for (const result of results) {
+      if (!(await refreshMonitoringRule())) break;
       const known = existingBySourceId.get(result.sourceItemId);
       if (known) {
+        if (monitoringKeyword)
+          await recordMonitoringKeywordMatch(
+            known.id,
+            monitoringKeyword.id,
+            searchedKeyword,
+          );
+        if (
+          known.archivedAt ||
+          known.ignored ||
+          known.purchaseRecord ||
+          !isStatusRefreshEligible(known.status)
+        )
+          continue;
         const needsEnrichment =
+          Boolean(job.data.arbitrageContext) ||
           known.imageCount <= 1 ||
           known.sourceData == null ||
           known.descriptionRaw == null ||
@@ -249,16 +979,72 @@ export async function processSearch(
             },
             adapter.key,
           );
+        let hasFreshReverseEvidence = !job.data.arbitrageContext;
         if (needsEnrichment && enrichmentBudget > 0) {
           enrichmentBudget -= 1;
           try {
             const raw = await adapter.fetchDetail(result);
             const normalized = await adapter.normalize(raw);
-            if (isExcludedNormalizedItem(normalized)) {
-              await prisma.item.update({
-                where: { id: known.id },
-                data: { archivedAt: new Date(), lastSeenAt: new Date() },
+            if (!(await refreshMonitoringRule())) break;
+            if (normalized.status === "sold" || normalized.status === "ended") {
+              const checkedAt = new Date();
+              await updateMarketWithAudit({
+                itemId: known.id,
+                where: {
+                  archivedAt: null,
+                  ignored: false,
+                  purchaseRecord: null,
+                  status: { in: ["active", "unknown"] },
+                },
+                data: (before) => ({
+                  status: normalized.status,
+                  archivedAt: checkedAt,
+                  lastSeenAt: checkedAt,
+                  priceCurrent: normalized.priceCurrent,
+                  shippingFee: normalized.shippingFee,
+                  priceTotalEst:
+                    normalized.priceCurrent +
+                    (normalized.shippingFee ?? before.shippingFee ?? 0),
+                  ...resolvedMarketSaleMode(normalized, before),
+                  bidCount: safeBidCount(normalized.bidCount),
+                }),
+                actor: "market-search",
+                reason: "search_detail_confirmed_terminal",
               });
+              continue;
+            }
+            const scope =
+              monitoringKeyword?.category.scope ??
+              known.monitoringCategory?.scope;
+            const quality = assessInventoryQuality(normalized, {
+              scope: scope === "general" ? "general" : "toys",
+            });
+            if (!quality.eligible) {
+              const archivedAt = new Date();
+              const archived = await updateMarketWithAudit({
+                itemId: known.id,
+                where: {
+                  archivedAt: null,
+                  ignored: false,
+                  favorite: false,
+                  purchaseRecord: null,
+                  cartItems: { none: {} },
+                  negotiationCase: { is: null },
+                },
+                data: { archivedAt, lastSeenAt: archivedAt },
+                actor: "inventory-quality-gate",
+                reason: quality.reason ?? "quality_gate_rejected",
+              });
+              if (archived.count) {
+                metrics.qualityRejected += 1;
+                await prisma.itemImage.deleteMany({
+                  where: {
+                    itemId: known.id,
+                    item: { collaborationMessages: { none: {} } },
+                  },
+                });
+              }
+              hasFreshReverseEvidence = true;
             } else {
               const added = await enrichKnownItem(
                 source.id,
@@ -267,23 +1053,61 @@ export async function processSearch(
               );
               if (added > 0) metrics.imagesBackfilled += added;
               metrics.recordsEnriched += 1;
+              hasFreshReverseEvidence = true;
             }
           } catch (error) {
+            if (job.data.arbitrageContext) metrics.detailFailed += 1;
             if (metrics.errors.length < 8)
               metrics.errors.push(
                 `${result.sourceItemId}: image backfill ${String(error).slice(0, 260)}`,
               );
           }
         }
+        if (hasFreshReverseEvidence)
+          await recordReverseSearchOpportunity(
+            known.id,
+            job.data.arbitrageContext,
+            metrics,
+          );
         continue;
       }
       try {
         const raw = await adapter.fetchDetail(result);
         const normalized = await adapter.normalize(raw);
-        if (isExcludedNormalizedItem(normalized)) {
+        if (!(await refreshMonitoringRule())) break;
+        const quality = assessInventoryQuality(normalized, {
+          scope:
+            monitoringKeyword?.category.scope === "general"
+              ? "general"
+              : "toys",
+        });
+        if (!quality.eligible || isExcludedNormalizedItem(normalized)) {
+          metrics.qualityRejected += 1;
           continue;
         }
-        await persistNormalized(source.id, normalized);
+        const saved = await persistNormalized(
+          source.id,
+          normalized,
+          false,
+          "search",
+          monitoringKeyword
+            ? {
+                id: monitoringKeyword.categoryId,
+                scope: monitoringKeyword.category.scope,
+              }
+            : undefined,
+        );
+        if (monitoringKeyword)
+          await recordMonitoringKeywordMatch(
+            saved.id,
+            monitoringKeyword.id,
+            searchedKeyword,
+          );
+        await recordReverseSearchOpportunity(
+          saved.id,
+          job.data.arbitrageContext,
+          metrics,
+        );
         metrics.inserted += 1;
       } catch (error) {
         metrics.detailFailed += 1;
@@ -303,6 +1127,20 @@ export async function processSearch(
         `${adapter.displayName} found candidates but every detail failed`,
       );
     }
+    const arbitrageEvaluated =
+      metrics.arbitrageReady +
+      metrics.arbitrageRejected +
+      metrics.arbitrageNeedsFacts +
+      metrics.arbitrageIdentityMisses;
+    if (
+      job.data.arbitrageContext &&
+      results.length > 0 &&
+      arbitrageEvaluated === 0 &&
+      metrics.detailFailed > 0
+    )
+      throw new Error(
+        `${adapter.displayName} reverse search found candidates but no detail could be evaluated`,
+      );
     await prisma.$transaction([
       prisma.crawlJob.update({
         where: { id: crawlJob.id },
@@ -360,6 +1198,8 @@ export async function processSearch(
       }),
     );
     throw error;
+  } finally {
+    await stopHeartbeat();
   }
 }
 
@@ -529,7 +1369,7 @@ export function sellerMetadata(item: NormalizedItem) {
       typeof candidate === "string" && /^https?:\/\//i.test(candidate),
   );
   const sourceSellerId =
-    item.sourcePlatform === "yahoo_fleamarket"
+    item.sourcePlatform === "mercari"
       ? [value.sellerId, nestedSeller?.id, nestedSeller?.sellerId]
           .map((candidate) =>
             typeof candidate === "string" || typeof candidate === "number"
@@ -537,15 +1377,23 @@ export function sellerMetadata(item: NormalizedItem) {
               : "",
           )
           .find(Boolean)
-      : item.sourcePlatform === "yahoo_auctions"
-        ? [value.aucUserId, nestedSeller?.aucUserId, value.sellerId]
+      : item.sourcePlatform === "yahoo_fleamarket"
+        ? [value.sellerId, nestedSeller?.id, nestedSeller?.sellerId]
             .map((candidate) =>
               typeof candidate === "string" || typeof candidate === "number"
                 ? String(candidate).trim()
                 : "",
             )
             .find(Boolean)
-        : undefined;
+        : item.sourcePlatform === "yahoo_auctions"
+          ? [value.aucUserId, nestedSeller?.aucUserId, value.sellerId]
+              .map((candidate) =>
+                typeof candidate === "string" || typeof candidate === "number"
+                  ? String(candidate).trim()
+                  : "",
+              )
+              .find(Boolean)
+          : undefined;
   return {
     sourceData: sourceData as Prisma.InputJsonValue,
     profileUrl,
@@ -627,9 +1475,19 @@ async function enrichKnownItem(
   item: NormalizedItem,
 ) {
   const seller = await upsertPublicSeller(sourceId, item);
-  await prisma.item.update({
-    where: { id: itemId },
-    data: {
+  const shf = classifyShfListing(item);
+  const collectibleSeries = classifyCollectibleSeries(item);
+  const changed = await updateMarketWithAudit({
+    itemId,
+    where: {
+      archivedAt: null,
+      ignored: false,
+      purchaseRecord: null,
+      status: { in: ["active", "unknown"] },
+    },
+    actor: "market-detail",
+    reason: "public_detail_enriched",
+    data: (before) => ({
       sourceUrl: item.sourceUrl,
       titleRaw: item.titleRaw,
       descriptionRaw: item.descriptionRaw,
@@ -639,13 +1497,17 @@ async function enrichKnownItem(
       shippingFee: item.shippingFee,
       priceTotalEst: item.priceTotalEst,
       listedAt: item.listedAt,
-      lastSeenAt: new Date(),
-      auctionEndAt: item.auctionEndAt,
-      listingType: item.auctionEndAt ? "auction" : "direct",
+      ...(item.status !== "unknown" ? { lastSeenAt: new Date() } : {}),
+      ...resolvedMarketSaleMode(item, before),
       bidCount: safeBidCount(item.bidCount),
       conditionRaw: item.conditionRaw,
       categoryIp: item.categoryIp,
       categoryToyType: item.categoryToyType,
+      shfLine: shf?.line ?? null,
+      shfReleaseChannel: shf?.releaseChannel ?? null,
+      shfEdition: shf?.edition ?? null,
+      shfRegion: shf?.region ?? null,
+      collectibleSeries,
       manufacturer: item.manufacturer,
       conditionGrade: item.conditionGrade,
       channel: item.channel,
@@ -654,46 +1516,40 @@ async function enrichKnownItem(
       confidence: item.confidence,
       needsReview: item.needsReview,
       status: item.status,
+      ...(item.status === "sold" || item.status === "ended"
+        ? { archivedAt: new Date() }
+        : {}),
       sourceData: item.sourceData as Prisma.InputJsonValue | undefined,
       ...resetItemTranslation(),
-    },
+    }),
   });
-  await persistLogisticsHints(itemId, item.sourceData);
-  return appendItemImages(itemId, item.imageUrls);
-}
-
-function positiveNumber(value: unknown) {
-  const number = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(number) && number > 0 ? Math.round(number) : undefined;
+  if (!changed.count) return 0;
+  await persistLogisticsHints(itemId, item);
+  const appended = await appendItemImages(itemId, item.imageUrls);
+  await refreshReadyCrossMarketOpportunitiesForItem(itemId);
+  return appended;
 }
 
 /** Persist dimensions/weight discovered in public structured data without
  * overwriting operator-entered logistics values. */
-async function persistLogisticsHints(itemId: string, sourceData: unknown) {
-  if (!sourceData || typeof sourceData !== "object") return;
-  const root = sourceData as Record<string, unknown>;
-  const hints =
-    root.logisticsHints && typeof root.logisticsHints === "object"
-      ? (root.logisticsHints as Record<string, unknown>)
-      : null;
-  if (!hints) return;
-  const values = {
-    weightGrams: positiveNumber(hints.weightGrams),
-    lengthMm: positiveNumber(hints.lengthMm),
-    widthMm: positiveNumber(hints.widthMm),
-    heightMm: positiveNumber(hints.heightMm),
-  };
+async function persistLogisticsHints(itemId: string, item: NormalizedItem) {
+  const hints = extractLogisticsHints(item);
+  const values = logisticsColumnsForPersistence(hints);
   if (!Object.values(values).some((value) => value != null)) return;
   const existing = await prisma.itemLogistics.findUnique({ where: { itemId } });
   const dimensions = [values.lengthMm, values.widthMm, values.heightMm];
-  const volumeCm3 = dimensions.every((value) => value != null)
-    ? Math.round((dimensions[0]! * dimensions[1]! * dimensions[2]!) / 1000)
-    : undefined;
+  const volumeCm3 =
+    values.volumeCm3 ??
+    (dimensions.every((value) => value != null)
+      ? Math.round((dimensions[0]! * dimensions[1]! * dimensions[2]!) / 1000)
+      : undefined);
   await prisma.itemLogistics.upsert({
     where: { itemId },
     create: { itemId, ...values, volumeCm3 },
     update: {
       weightGrams: existing?.weightGrams ?? values.weightGrams,
+      packageWeightGrams:
+        existing?.packageWeightGrams ?? values.packageWeightGrams,
       lengthMm: existing?.lengthMm ?? values.lengthMm,
       widthMm: existing?.widthMm ?? values.widthMm,
       heightMm: existing?.heightMm ?? values.heightMm,
@@ -723,6 +1579,10 @@ export async function processUrlAnalysis(
         "mandarake",
         "mercari",
         "yahoo_auctions",
+        "yahoo_fleamarket",
+        "yahoo_shopping",
+        "rakuma",
+        "surugaya",
         "firecrawl_market",
         "apify_ecommerce",
         "public_page",
@@ -747,6 +1607,7 @@ export async function processUrlAnalysis(
       attempt: job.attemptsMade + 1,
     },
   });
+  const stopHeartbeat = startCrawlJobHeartbeat(crawlJob.id);
   if (job.data.importId) {
     await prisma.urlImport.update({
       where: { id: job.data.importId },
@@ -848,6 +1709,8 @@ export async function processUrlAnalysis(
         },
       });
     throw error;
+  } finally {
+    await stopHeartbeat();
   }
 }
 
@@ -857,6 +1720,7 @@ type EnrichmentCandidate = {
   sellerId?: string | null;
   seller?: {
     name: string;
+    sourceSellerId?: string | null;
     profileUrl?: string | null;
     sourceData?: unknown;
   } | null;
@@ -881,6 +1745,7 @@ export function needsCompleteEnrichment(
         (sellerData as Record<string, unknown>).provisional === true));
   const genericMarketplaceSeller =
     (adapterKey === "mercari" &&
+      !current.seller?.sourceSellerId &&
       !!current.seller?.name.match(/^Mercari 卖家(?: \d+)?$/)) ||
     (adapterKey === "yahoo_fleamarket" &&
       isYahooFleamarketPlaceholderSellerName(current.seller?.name)) ||
@@ -908,9 +1773,12 @@ async function persistNormalized(
   item: NormalizedItem,
   favorite = false,
   importOrigin: "search" | "url" | "purchase" = "search",
+  monitoringCategory?: { id: string; scope: string },
 ) {
   const imageUrls = sanitizeProductImageUrls(item.imageUrls);
   const seller = await upsertPublicSeller(sourceId, item);
+  const shf = classifyShfListing(item);
+  const collectibleSeries = classifyCollectibleSeries(item);
 
   const saved = await prisma.item.upsert({
     where: {
@@ -928,11 +1796,16 @@ async function persistNormalized(
       listedAt: item.listedAt,
       lastSeenAt: new Date(),
       auctionEndAt: item.auctionEndAt,
-      listingType: item.auctionEndAt ? "auction" : "direct",
+      listingType: resolveListingType(item.listingType, item.auctionEndAt),
       bidCount: safeBidCount(item.bidCount),
       conditionRaw: item.conditionRaw,
       categoryIp: item.categoryIp,
       categoryToyType: item.categoryToyType,
+      shfLine: shf?.line ?? null,
+      shfReleaseChannel: shf?.releaseChannel ?? null,
+      shfEdition: shf?.edition ?? null,
+      shfRegion: shf?.region ?? null,
+      collectibleSeries,
       manufacturer: item.manufacturer,
       conditionGrade: item.conditionGrade,
       channel: item.channel,
@@ -949,6 +1822,9 @@ async function persistNormalized(
     },
     create: {
       sourceId,
+      ...(monitoringCategory
+        ? { monitoringCategoryId: monitoringCategory.id }
+        : {}),
       sourceItemId: item.sourceItemId,
       sourceUrl: item.sourceUrl,
       titleRaw: item.titleRaw,
@@ -962,11 +1838,16 @@ async function persistNormalized(
       detectedAt: new Date(),
       lastSeenAt: new Date(),
       auctionEndAt: item.auctionEndAt,
-      listingType: item.auctionEndAt ? "auction" : "direct",
+      listingType: resolveListingType(item.listingType, item.auctionEndAt),
       bidCount: safeBidCount(item.bidCount),
       conditionRaw: item.conditionRaw,
       categoryIp: item.categoryIp,
       categoryToyType: item.categoryToyType,
+      shfLine: shf?.line ?? null,
+      shfReleaseChannel: shf?.releaseChannel ?? null,
+      shfEdition: shf?.edition ?? null,
+      shfRegion: shf?.region ?? null,
+      collectibleSeries,
       manufacturer: item.manufacturer,
       conditionGrade: item.conditionGrade,
       channel: item.channel,
@@ -981,7 +1862,7 @@ async function persistNormalized(
       importOrigin,
     },
   });
-  await persistLogisticsHints(saved.id, item.sourceData);
+  await persistLogisticsHints(saved.id, item);
   await prisma.itemImage.createMany({
     data: imageUrls.map((url, position) => ({
       itemId: saved.id,
@@ -1020,17 +1901,31 @@ async function persistNormalized(
     },
   });
   await matchOrCreateProduct(saved.id);
-  await classificationQueue.add(
-    "classify-images",
-    { itemId: saved.id },
-    {
-      jobId: `vision-${saved.id}-${saved.updatedAt.getTime()}`,
-      attempts: 3,
-      backoff: { type: "exponential", delay: 10_000 },
-      removeOnComplete: 100,
-      removeOnFail: 100,
-    },
-  );
+  await refreshReadyCrossMarketOpportunitiesForItem(saved.id);
+  if (
+    automaticPaidAiEnabled() &&
+    monitoringCategory?.scope !== "general" &&
+    importOrigin !== "purchase" &&
+    (saved.status === "active" || saved.status === "unknown") &&
+    imageUrls.length > 0 &&
+    shouldQueueAutomaticClassification({ ...item, imageUrls })
+  ) {
+    const version = automaticClassificationContentVersion({
+      ...item,
+      imageUrls,
+    });
+    await classificationQueue.add(
+      "classify-images",
+      { itemId: saved.id, version },
+      {
+        jobId: classificationJobId(saved.id, version),
+        attempts: 3,
+        backoff: { type: "exponential", delay: 30_000 },
+        removeOnComplete: 100,
+        removeOnFail: 100,
+      },
+    );
+  }
   await scheduleStatus(
     saved.id,
     saved.sourceItemId,
@@ -1088,60 +1983,133 @@ export async function scheduleStatus(
   );
 }
 
-export async function processClassification(job: Job<{ itemId: string }>) {
+export async function processClassification(
+  job: Job<{ itemId: string; version?: string }>,
+) {
+  if (!automaticPaidAiEnabled())
+    return { skipped: "paid_automation_not_authorized" } as const;
   const item = await prisma.item.findUnique({
     where: { id: job.data.itemId },
-    include: { images: { orderBy: { position: "asc" } } },
+    include: {
+      images: { orderBy: { position: "asc" } },
+      logistics: true,
+      monitoringCategory: { select: { scope: true } },
+      purchaseRecord: { select: { id: true } },
+      classifications: {
+        where: { classifierType: "vision_ai_gateway" },
+        orderBy: { createdAt: "desc" },
+        select: { result: true },
+      },
+    },
   });
   if (!item) return { skipped: "missing_item" };
-  const bulkFilter = await executeAiTask("bulk_filter", item.id, 1_200, [
-    {
-      role: "system",
-      content:
-        '你是特摄中古商品初筛员。仅依据输入判断是否属于假面骑士、奥特曼或其他特摄玩具，是否为批量出售、书籍、杂志、漫画、卡片或明显无关商品。不得猜测。只输出 JSON：{"relevant":true或false,"scope":"tokusatsu_toy|excluded_card_or_book|unrelated|unknown","bulkSale":true或false或null,"productType":"...或unknown","quantity":数字或null,"informationCompleteness":"complete|partial|poor","shouldAnalyze":true或false,"confidence":0到1,"evidence":["依据"]}。',
-    },
-    {
-      role: "user",
-      content: JSON.stringify({
-        title: item.titleRaw,
-        description: item.descriptionRaw,
-        priceJpy: item.priceCurrent,
-        imageCount: item.images.length,
-      }),
-    },
-  ]);
-  if (bulkFilter) {
+  if (item.monitoringCategory?.scope === "general")
+    return { skipped: "custom_general_category" };
+  if (
+    item.archivedAt ||
+    item.ignored ||
+    item.purchaseRecord ||
+    item.importOrigin === "purchase" ||
+    (item.status !== "active" && item.status !== "unknown") ||
+    item.categoryToyType === "card" ||
+    item.images.length === 0
+  )
+    return { skipped: "automatic_classification_not_applicable" };
+  const contentVersion = automaticClassificationContentVersion({
+    ...item,
+    imageUrls: item.images.map((image) => image.url),
+  });
+  if (job.data.version && job.data.version !== contentVersion)
+    return { skipped: "stale_content_version" };
+  const alreadyCompleted = item.classifications.some(({ result }) => {
+    if (!job.data.version) return true;
+    return (
+      result != null &&
+      typeof result === "object" &&
+      !Array.isArray(result) &&
+      (result as Record<string, unknown>).automaticContentVersion ===
+        contentVersion
+    );
+  });
+  if (alreadyCompleted)
+    return { skipped: "content_version_already_classified" };
+  if (
+    !shouldQueueAutomaticClassification({
+      ...item,
+      imageUrls: item.images.map((image) => image.url),
+    })
+  )
+    return { skipped: "deterministic_evidence_sufficient" };
+  let latestExtractionEvidence: unknown = item.extractionEvidence;
+  const procurementFacts = procurementFactsForClassification(item);
+  const bulkFilter = await executeProductOperation(
+    "procurement_filter",
+    PRODUCT_AI_RESPONSE_SCHEMAS.procurementReview,
+    item.id,
+    1_600,
+    [
+      {
+        role: "system",
+        content:
+          '你是采购证据复核器，不是数据估算器。deterministicAssessment 是规则引擎根据 knownFacts 得出的基线。只核验 listingEvidence 是否支持 knownFacts，并复核采购分类、紧凑度和缺失事实。复核结果不得优于规则基线，也不得删除规则已列出的 missingFacts。任何 null、unknown 或 missingFacts 都必须保持未知，不得补数量、价格、运费、交易方式、尺寸、体积或品相；不得用图片数量推断商品数量，也不得把商品本体尺寸当成包装尺寸。shouldAnalyze 仅在现有商品图片可能核验身份、件数、品相或包装证据时为 true，图片不能核验运费、交易方式或可靠包装体积。只输出 JSON：{"scope":"tokusatsu_toy|excluded_card_or_book|unrelated|unknown","procurementCategory":"preferred|promising|needs_facts|deprioritized","compactness":"compact|likely_compact|bulky|unknown","verifiedFacts":["字段"],"contradictedFacts":[{"field":"字段","evidence":"原文依据"}],"missingFacts":["price|shipping_fee|listing_type|quantity|volume|condition"],"shouldAnalyze":true或false,"confidence":0到1,"evidence":["原文依据"]}。',
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          knownFacts: procurementFacts.knownFacts,
+          deterministicAssessment: procurementFacts.deterministicAssessment,
+          listingEvidence: {
+            titleRaw: item.titleRaw,
+            descriptionRaw: item.descriptionRaw,
+            conditionRaw: item.conditionRaw,
+            platformFacts: item.sourceData,
+          },
+          imageCount: item.images.length,
+        }),
+      },
+    ],
+  );
+  const procurementReview = bulkFilter
+    ? normalizeProcurementAiReview(
+        bulkFilter.data,
+        procurementFacts.deterministicAssessment,
+      )
+    : null;
+  if (bulkFilter && procurementReview) {
     await prisma.itemClassification.create({
       data: {
         itemId: item.id,
         classifierType: "ai_bulk_filter",
         modelVersion: bulkFilter.model,
-        result: bulkFilter.data as Prisma.InputJsonValue,
-        confidence: numberConfidence(bulkFilter.data.confidence),
+        result: {
+          ...procurementFacts,
+          ...procurementReview,
+        } as unknown as Prisma.InputJsonValue,
+        confidence: procurementReview.confidence,
         conflict: false,
       },
     });
     if (
-      bulkFilter.data.scope === "excluded_card_or_book" &&
-      numberConfidence(bulkFilter.data.confidence) >= 0.9
-    ) {
-      await prisma.item.update({
-        where: { id: item.id },
-        data: { archivedAt: new Date(), needsReview: false },
-      });
-      return { skipped: "ai_out_of_scope", model: bulkFilter.model };
-    }
+      (procurementReview.scope === "excluded_card_or_book" ||
+        procurementReview.scope === "unrelated") &&
+      procurementReview.confidence >= 0.9
+    )
+      await upsertAiReview(
+        item,
+        `ai:采购范围待人工确认（${procurementReview.scope}）`,
+        bulkFilter.data,
+      );
   }
 
-  const textClassification = await executeAiTask(
-    "classification",
+  const textClassification = await executeProductOperation(
+    "automatic_classification",
+    PRODUCT_AI_RESPONSE_SCHEMAS.automaticClassification,
     item.id,
     3_000,
     [
       {
         role: "system",
-        content:
-          '你是日本特摄中古商品数据管理员。完整翻译并结构化输入，不得把不知道的内容补成事实。输出 titleZh、descriptionZh，以及 series、subSeries、productType、brand、condition、bulkSale、quantity、needsImageAnalysis；结构字段必须为 {"value":值或null,"confidence":0到1,"evidence":["原文依据"]}。quantity 若为估算必须另给 quantityEstimate {"exact":null,"estimatedRange":{"min":数字,"max":数字},"evidence":["依据"]}，不得把估算范围写成精确数量。还要输出 confidence（整体0到1）。书籍、杂志、漫画和卡片用 scope="excluded_card_or_book"。只输出 JSON。',
+        content: AUTOMATIC_CLASSIFICATION_SYSTEM_PROMPT,
       },
       {
         role: "user",
@@ -1164,7 +2132,25 @@ export async function processClassification(job: Job<{ itemId: string }>) {
   const textConfidence = textClassification
     ? numberConfidence(textClassification.data.confidence)
     : item.confidence;
+  const classificationPatch = textClassification
+    ? automaticClassificationPatch(item, textClassification.data)
+    : { data: {}, fieldConfidences: {}, conflicts: [] };
+  const shf = classifyShfListing({
+    titleRaw: item.titleRaw,
+    descriptionRaw: item.descriptionRaw,
+    categoryIp: classificationPatch.data.categoryIp ?? item.categoryIp,
+  });
+  const collectibleSeries = classifyCollectibleSeries({
+    titleRaw: item.titleRaw,
+    descriptionRaw: item.descriptionRaw,
+    categoryIp: classificationPatch.data.categoryIp ?? item.categoryIp,
+  });
   if (textClassification) {
+    const textEvidence = mergeExtractionEvidence(latestExtractionEvidence, {
+      text: textClassification.data,
+    });
+    const hasVerifiedPatch =
+      Object.keys(classificationPatch.fieldConfidences).length > 0;
     await prisma.$transaction([
       prisma.itemClassification.create({
         data: {
@@ -1173,58 +2159,78 @@ export async function processClassification(job: Job<{ itemId: string }>) {
           modelVersion: textClassification.model,
           result: textClassification.data as Prisma.InputJsonValue,
           confidence: textConfidence,
-          conflict: false,
+          conflict: classificationPatch.conflicts.length > 0,
         },
       }),
       prisma.item.update({
         where: { id: item.id },
         data: {
-          titleZh:
-            typeof textClassification.data.titleZh === "string" &&
-            textClassification.data.titleZh.trim()
-              ? textClassification.data.titleZh.trim()
-              : item.titleZh,
-          descriptionZh:
-            typeof textClassification.data.descriptionZh === "string" &&
-            textClassification.data.descriptionZh.trim()
-              ? textClassification.data.descriptionZh.trim()
-              : item.descriptionZh,
-          fieldConfidences: textFieldConfidences(textClassification.data),
-          extractionEvidence: {
-            text: textClassification.data,
-            previous: item.extractionEvidence ?? null,
-          } as Prisma.InputJsonValue,
-          needsReview: item.needsReview || textConfidence < 0.9,
+          ...classificationPatch.data,
+          shfLine: shf?.line ?? null,
+          shfReleaseChannel: shf?.releaseChannel ?? null,
+          shfEdition: shf?.edition ?? null,
+          shfRegion: shf?.region ?? null,
+          collectibleSeries,
+          ...(hasVerifiedPatch
+            ? {
+                confidence: verifiedClassificationConfidence(
+                  item.confidence,
+                  textConfidence,
+                  classificationPatch.fieldConfidences,
+                ),
+              }
+            : {}),
+          fieldConfidences:
+            classificationPatch.fieldConfidences as Prisma.InputJsonValue,
+          extractionEvidence: textEvidence as Prisma.InputJsonValue,
+          needsReview:
+            item.needsReview ||
+            textConfidence < 0.9 ||
+            classificationPatch.conflicts.length > 0,
         },
       }),
     ]);
+    latestExtractionEvidence = textEvidence;
+    if (Object.keys(classificationPatch.data).length) {
+      const productMatch = await matchOrCreateProduct(item.id);
+      latestExtractionEvidence = productMatch.extractionEvidence;
+    }
+    if (classificationPatch.conflicts.length)
+      await upsertAiReview(
+        item,
+        `ai:自动分类与已知字段冲突（${classificationPatch.conflicts.join("、")}）`,
+        textClassification.data,
+      );
   }
   const descriptiveText = `${item.titleRaw} ${item.descriptionRaw ?? ""}`;
   const highValueThreshold = Number(
     process.env.AI_IMAGE_HIGH_VALUE_THRESHOLD_JPY ?? 20_000,
   );
-  const requiresImageAnalysis =
-    item.images.length > 0 &&
-    (item.titleRaw.trim().length < 24 ||
-      /写真参照|画像参照|まとめ売り|大量|セット|一式|詳細不明/i.test(
-        descriptiveText,
-      ) ||
-      (item.quantityEst ?? 0) >= 5 ||
-      item.categoryToyType === "unknown" ||
-      item.confidence < 0.7 ||
-      textConfidence < 0.7 ||
-      evidenceBoolean(textClassification?.data.needsImageAnalysis) ||
-      item.priceCurrent >= highValueThreshold);
-  if (
-    textClassification?.data.scope === "excluded_card_or_book" &&
-    textConfidence >= 0.9
-  ) {
-    await prisma.item.update({
-      where: { id: item.id },
-      data: { archivedAt: new Date(), needsReview: false },
-    });
-    return { skipped: "ai_out_of_scope", model: textClassification.model };
-  }
+  const effectiveQuantity =
+    classificationPatch.data.quantityEst ?? item.quantityEst;
+  const effectiveToyType =
+    classificationPatch.data.categoryToyType ?? item.categoryToyType;
+  const effectiveConfidence = verifiedClassificationConfidence(
+    item.confidence,
+    textConfidence,
+    classificationPatch.fieldConfidences,
+  );
+  const fallbackImageDecision =
+    item.titleRaw.trim().length < 24 ||
+    /写真参照|画像参照|まとめ売り|大量|セット|一式|詳細不明/i.test(
+      descriptiveText,
+    ) ||
+    (effectiveQuantity ?? 0) >= 5 ||
+    effectiveToyType === "unknown" ||
+    effectiveConfidence < 0.7 ||
+    textConfidence < 0.7 ||
+    evidenceBoolean(textClassification?.data.needsImageAnalysis) ||
+    item.priceCurrent >= highValueThreshold;
+  const requiresImageAnalysis = shouldAnalyzeProcurementImages(
+    item.images.length,
+    procurementReview,
+    fallbackImageDecision,
+  );
   if (textConfidence < 0.7) {
     await upsertAiReview(
       item,
@@ -1241,6 +2247,7 @@ export async function processClassification(job: Job<{ itemId: string }>) {
         result: {
           skipped: "text_evidence_sufficient",
           imageCount: item.images.length,
+          automaticContentVersion: contentVersion,
         },
         confidence: item.confidence,
         conflict: false,
@@ -1248,12 +2255,19 @@ export async function processClassification(job: Job<{ itemId: string }>) {
     });
     return { skipped: "text_evidence_sufficient" };
   }
-  const { provider, result } = await classifyImages({
-    title: item.titleRaw,
-    description: item.descriptionRaw,
-    imageUrls: item.images.map((image) => image.url),
-    itemId: item.id,
-  });
+  const { provider, result } = await runAutomaticAiTask(
+    `vision:${item.id}:${automaticClassificationContentVersion({
+      ...item,
+      imageUrls: item.images.map((image) => image.url),
+    })}`,
+    () =>
+      classifyImages({
+        title: item.titleRaw,
+        description: item.descriptionRaw,
+        imageUrls: item.images.map((image) => image.url),
+        itemId: item.id,
+      }),
+  );
   const visionIps = result.franchise.value ?? [];
   const visionCondition = result.condition.value;
   const conflict =
@@ -1271,13 +2285,19 @@ export async function processClassification(job: Job<{ itemId: string }>) {
   const needsReview =
     conflict ||
     Object.values(fieldConfidences).some((confidence) => confidence < 0.9);
+  const visionEvidence = mergeExtractionEvidence(latestExtractionEvidence, {
+    vision: result,
+  });
   await prisma.$transaction([
     prisma.itemClassification.create({
       data: {
         itemId: item.id,
         classifierType: "vision_ai_gateway",
         modelVersion: provider,
-        result: result as unknown as Prisma.InputJsonValue,
+        result: {
+          ...result,
+          automaticContentVersion: contentVersion,
+        } as unknown as Prisma.InputJsonValue,
         confidence: result.confidence,
         conflict,
       },
@@ -1286,10 +2306,7 @@ export async function processClassification(job: Job<{ itemId: string }>) {
       where: { id: item.id },
       data: {
         needsReview: item.needsReview || needsReview,
-        extractionEvidence: {
-          text: item.extractionEvidence ?? null,
-          vision: result,
-        } as unknown as Prisma.InputJsonValue,
+        extractionEvidence: visionEvidence as Prisma.InputJsonValue,
       },
     }),
   ]);
@@ -1329,8 +2346,9 @@ export async function processClassification(job: Job<{ itemId: string }>) {
     });
   }
   if (conflict || item.priceCurrent >= highValueThreshold) {
-    const advanced = await executeAiTask(
-      conflict ? "cross_validation" : "complex_analysis",
+    const advanced = await executeProductOperation(
+      "automatic_classification",
+      PRODUCT_AI_RESPONSE_SCHEMAS.advancedClassification,
       item.id,
       4_000,
       [
@@ -1382,52 +2400,22 @@ export async function processClassification(job: Job<{ itemId: string }>) {
   return { provider, confidence: result.confidence, conflict, needsReview };
 }
 
-type AiTaskName =
-  | "bulk_filter"
-  | "classification"
-  | "complex_analysis"
-  | "cross_validation";
+type ClassificationProductOperation =
+  | "product_identification"
+  | "procurement_filter"
+  | "automatic_classification";
 
-async function executeAiTask(
-  task: AiTaskName,
+async function executeProductOperation(
+  operation: ClassificationProductOperation,
+  responseSchema: ProductAiResponseSchemaReference,
   itemId: string,
   maxTokens: number,
   messages: Array<{ role: "system" | "user"; content: string }>,
 ) {
-  const token = process.env.AI_INTERNAL_TOKEN?.trim();
-  if (!token) return null;
-  const apiBase = (
-    process.env.API_INTERNAL_URL ?? "http://localhost:3001"
-  ).replace(/\/$/, "");
-  const response = await fetch(`${apiBase}/ai/internal/execute`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-ai-internal-token": token,
-    },
-    body: JSON.stringify({
-      task,
-      dataClass: "public_market",
-      costPolicy: "free_first",
-      itemId,
-      maxTokens,
-      messages,
-    }),
-    signal: AbortSignal.timeout(
-      Math.max(
-        250_000,
-        Math.min(
-          Number(process.env.AI_GATEWAY_CLIENT_TIMEOUT_MS ?? 270_000),
-          300_000,
-        ),
-      ),
-    ),
-  });
-  if (!response.ok) return null;
-  return (await response.json()) as {
-    data: Record<string, unknown>;
-    model: string;
-  };
+  return executeProductAi<Record<string, unknown>>(
+    { operation, ...responseSchema, itemId, maxTokens, messages },
+    { softHttpFailure: true },
+  );
 }
 
 function numberConfidence(value: unknown) {
@@ -1441,26 +2429,157 @@ function evidenceBoolean(value: unknown) {
   return (value as Record<string, unknown>).value === true;
 }
 
-function textFieldConfidences(value: Record<string, unknown>) {
-  return Object.fromEntries(
-    [
-      "series",
-      "subSeries",
-      "productType",
-      "brand",
-      "condition",
-      "bulkSale",
-      "quantity",
-      "needsImageAnalysis",
-    ].map((field) => {
-      const raw = value[field];
-      const confidence =
-        raw && typeof raw === "object" && !Array.isArray(raw)
-          ? numberConfidence((raw as Record<string, unknown>).confidence)
-          : 0;
-      return [field, confidence];
-    }),
-  ) as Prisma.InputJsonValue;
+type AutomaticClassificationItem = {
+  titleRaw: string;
+  descriptionRaw: string | null;
+  conditionRaw: string | null;
+  categoryIp: CategoryIp;
+  categoryToyType: ToyType;
+  manufacturer: Manufacturer;
+  conditionGrade: ConditionGrade;
+  quantityEst: number | null;
+  listingType: ListingType;
+  priceCurrent: number;
+  shippingFee: number | null;
+};
+
+function normalizedEvidenceText(value: string) {
+  return value.replace(/\s+/g, " ").trim().toLocaleLowerCase("ja-JP");
+}
+
+function verifiedSourceEvidence(
+  record: Record<string, unknown>,
+  sourceText: string,
+) {
+  const normalizedSource = normalizedEvidenceText(sourceText);
+  return evidenceStrings(record.evidence).filter((entry) => {
+    const normalized = normalizedEvidenceText(entry);
+    return normalized.length >= 2 && normalizedSource.includes(normalized);
+  });
+}
+
+function evidenceSuggestion<T extends string>(
+  value: Record<string, unknown>,
+  field: "categoryIp" | "categoryToyType" | "manufacturer" | "conditionGrade",
+  allowed: readonly T[],
+  sourceText: string,
+) {
+  const evidence = value[field];
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence))
+    return undefined;
+  const record = evidence as Record<string, unknown>;
+  const candidate = record.value;
+  const confidence = numberConfidence(record.confidence);
+  const verifiedEvidence = verifiedSourceEvidence(record, sourceText);
+  const semanticallySupported =
+    typeof candidate === "string" &&
+    verifiedEvidence.some((entry) => classifyText(entry)[field] === candidate);
+  return typeof candidate === "string" &&
+    allowed.includes(candidate as T) &&
+    candidate !== "unknown" &&
+    confidence >= 0.9 &&
+    semanticallySupported
+    ? { value: candidate as T, confidence }
+    : undefined;
+}
+
+export function automaticClassificationPatch(
+  item: AutomaticClassificationItem,
+  result: Record<string, unknown>,
+) {
+  const sourceText = [item.titleRaw, item.descriptionRaw, item.conditionRaw]
+    .filter((value): value is string => typeof value === "string")
+    .join("\n");
+  const data: {
+    categoryIp?: CategoryIp;
+    categoryToyType?: ToyType;
+    manufacturer?: Manufacturer;
+    conditionGrade?: ConditionGrade;
+    quantityEst?: number;
+    unitCostEst?: number;
+  } = {};
+  const fieldConfidences: Record<string, number> = {};
+  const conflicts: string[] = [];
+  const applyEnum = <T extends string>(
+    field: "categoryIp" | "categoryToyType" | "manufacturer" | "conditionGrade",
+    current: T,
+    suggestion: { value: T; confidence: number } | undefined,
+  ) => {
+    if (!suggestion) return;
+    if (current === "unknown") {
+      data[field] = suggestion.value as never;
+      fieldConfidences[field] = suggestion.confidence;
+    } else if (current !== suggestion.value) conflicts.push(field);
+  };
+  applyEnum(
+    "categoryIp",
+    item.categoryIp,
+    evidenceSuggestion(result, "categoryIp", categoryIps, sourceText),
+  );
+  applyEnum(
+    "categoryToyType",
+    item.categoryToyType,
+    evidenceSuggestion(result, "categoryToyType", toyTypes, sourceText),
+  );
+  applyEnum(
+    "manufacturer",
+    item.manufacturer,
+    evidenceSuggestion(result, "manufacturer", manufacturers, sourceText),
+  );
+  applyEnum(
+    "conditionGrade",
+    item.conditionGrade,
+    evidenceSuggestion(result, "conditionGrade", conditionGrades, sourceText),
+  );
+  const quantity = result.quantity;
+  if (quantity && typeof quantity === "object" && !Array.isArray(quantity)) {
+    const record = quantity as Record<string, unknown>;
+    const candidate = Number(record.value);
+    const evidence = verifiedSourceEvidence(record, sourceText);
+    const sourceQuantity = extractQuantityEst(sourceText);
+    const quantityIsVerified =
+      Number.isInteger(candidate) &&
+      candidate > 0 &&
+      candidate <= 500 &&
+      numberConfidence(record.confidence) >= 0.9 &&
+      sourceQuantity === candidate &&
+      evidence.some((entry) => extractQuantityEst(entry) === candidate);
+    if (item.quantityEst == null && quantityIsVerified) {
+      data.quantityEst = candidate;
+      fieldConfidences.quantityEst = numberConfidence(record.confidence);
+      if (
+        Number.isFinite(item.priceCurrent) &&
+        item.priceCurrent >= 0 &&
+        item.shippingFee != null &&
+        Number.isFinite(item.shippingFee) &&
+        item.shippingFee >= 0 &&
+        item.listingType === "direct"
+      )
+        data.unitCostEst = Math.round(
+          (item.priceCurrent + item.shippingFee) / candidate,
+        );
+    } else if (
+      item.quantityEst != null &&
+      quantityIsVerified &&
+      candidate !== item.quantityEst &&
+      Number.isInteger(candidate)
+    ) {
+      conflicts.push("quantityEst");
+    }
+  }
+  return { data, fieldConfidences, conflicts };
+}
+
+export function verifiedClassificationConfidence(
+  currentConfidence: number,
+  modelConfidence: number,
+  fieldConfidences: Record<string, number>,
+) {
+  const verified = Object.values(fieldConfidences).filter(
+    (value) => Number.isFinite(value) && value >= 0 && value <= 1,
+  );
+  if (verified.length === 0) return currentConfidence;
+  return Math.max(currentConfidence, Math.min(modelConfidence, ...verified));
 }
 
 async function upsertAiReview(
@@ -1502,17 +2621,43 @@ export async function processStatus(
   const current = await prisma.item.findUnique({
     where: { id: job.data.itemId },
     include: {
-      seller: { select: { name: true, profileUrl: true, sourceData: true } },
+      purchaseRecord: { select: { id: true } },
+      seller: {
+        select: {
+          name: true,
+          sourceSellerId: true,
+          profileUrl: true,
+          sourceData: true,
+        },
+      },
     },
   });
   if (!current) return { skipped: "missing_item" };
-  const shouldEnrich = needsCompleteEnrichment(current, job.data.adapterKey);
-  let update;
+  if (
+    current.archivedAt ||
+    current.ignored ||
+    current.purchaseRecord ||
+    !isStatusRefreshEligible(current.status)
+  )
+    return { skipped: "inactive_item" };
+  // Availability must come from a fresh marketplace probe, not the search
+  // cache used for historical seller/detail enrichment.
+  let update = await adapter.refreshStatus({
+    sourceItemId: current.sourceItemId,
+    sourceUrl: current.sourceUrl,
+    status: current.status,
+    listingType: current.listingType,
+    auctionEndAt: current.auctionEndAt,
+  });
+  const shouldEnrich =
+    job.name === "backfill-public-seller-profile" &&
+    update.status === "active" &&
+    needsCompleteEnrichment(current, job.data.adapterKey);
   if (shouldEnrich) {
     try {
       let detailCandidate: SearchResult = {
-        sourceItemId: job.data.sourceItemId,
-        sourceUrl: job.data.sourceUrl,
+        sourceItemId: current.sourceItemId,
+        sourceUrl: current.sourceUrl,
       };
       if (
         job.data.adapterKey === "mercari" &&
@@ -1527,93 +2672,274 @@ export async function processStatus(
           scanMode: "incremental",
         });
         detailCandidate =
-          pickExactMercariBackfillResult(job.data.sourceItemId, results) ??
+          pickExactMercariBackfillResult(current.sourceItemId, results) ??
           detailCandidate;
       }
       const normalized = await adapter.normalize(
         await adapter.fetchDetail(detailCandidate),
       );
       if (isExcludedNormalizedItem(normalized)) {
-        await prisma.item.update({
-          where: { id: current.id },
+        await updateMarketWithAudit({
+          itemId: current.id,
+          where: { archivedAt: null, ignored: false, purchaseRecord: null },
           data: { archivedAt: new Date(), lastSeenAt: new Date() },
+          actor: "inventory-maintenance",
+          reason: "excluded_collectible_archived",
         });
         return { skipped: "out_of_scope" };
       }
-      await enrichKnownItem(current.sourceId, current.id, normalized);
-      update = {
-        status: normalized.status,
-        priceCurrent: normalized.priceCurrent,
-        shippingFee: normalized.shippingFee,
-        auctionEndAt: normalized.auctionEndAt,
-        bidCount: safeBidCount(normalized.bidCount),
-      };
+      if (normalized.status === "sold" || normalized.status === "ended") {
+        update = {
+          status: normalized.status,
+          listingType: normalized.listingType,
+          priceCurrent: normalized.priceCurrent,
+          shippingFee: normalized.shippingFee,
+          auctionEndAt: normalized.auctionEndAt,
+          bidCount: safeBidCount(normalized.bidCount),
+        };
+      } else {
+        // Seller-detail fallback is not an availability probe. Preserve the
+        // fresh result when an enrichment payload has no authoritative status.
+        await enrichKnownItem(current.sourceId, current.id, {
+          ...normalized,
+          status: update.status,
+        });
+        update = {
+          ...update,
+          priceCurrent: normalized.priceCurrent,
+          shippingFee: normalized.shippingFee,
+        };
+      }
     } catch {
-      // Terminal detail pages often no longer contain enough data for a full
-      // enrichment. Let the adapter's status contract turn public 404/410 or
-      // missing-price pages into sold/ended instead of retrying forever.
-      update = await adapter.refreshStatus({
-        sourceItemId: job.data.sourceItemId,
-        sourceUrl: job.data.sourceUrl,
-        status: job.data.status as "active",
-        auctionEndAt: job.data.auctionEndAt
-          ? new Date(job.data.auctionEndAt)
-          : null,
-      });
+      // Seller backfill failure cannot discard the fresh availability result.
     }
-  } else {
-    update = await adapter.refreshStatus({
-      sourceItemId: job.data.sourceItemId,
-      sourceUrl: job.data.sourceUrl,
-      status: job.data.status as "active",
-      auctionEndAt: job.data.auctionEndAt
-        ? new Date(job.data.auctionEndAt)
-        : null,
-    });
   }
-  const priceCurrent = update.priceCurrent ?? current.priceCurrent;
-  const shippingFee = update.shippingFee ?? current.shippingFee;
-  const auctionEndAt = update.auctionEndAt ?? current.auctionEndAt;
-  await prisma.item.update({
-    where: { id: current.id },
-    data: {
-      status: update.status,
-      priceCurrent,
-      shippingFee,
-      priceTotalEst: priceCurrent + (shippingFee ?? 0),
-      auctionEndAt,
-      bidCount: safeBidCount(update.bidCount) ?? current.bidCount,
-      lastSeenAt: new Date(),
+  let priceCurrent = update.priceCurrent ?? current.priceCurrent;
+  let shippingFee = update.shippingFee ?? current.shippingFee;
+  let { auctionEndAt, listingType } = resolvedMarketSaleMode(update, current);
+  let bidCount = safeBidCount(update.bidCount) ?? current.bidCount;
+  let previousPrice = current.priceCurrent;
+  let previousShipping = current.shippingFee;
+  let previousBids = current.bidCount;
+  const checkedAt = new Date();
+  const changed = await updateMarketWithAudit({
+    itemId: current.id,
+    where: {
+      archivedAt: null,
+      ignored: false,
+      purchaseRecord: null,
+      status: { in: ["active", "unknown"] },
+    },
+    actor: "market-status",
+    reason: "availability_refreshed",
+    data: (before) => {
+      previousPrice = before.priceCurrent;
+      previousShipping = before.shippingFee;
+      previousBids = before.bidCount;
+      priceCurrent = update.priceCurrent ?? before.priceCurrent;
+      shippingFee = update.shippingFee ?? before.shippingFee;
+      ({ auctionEndAt, listingType } = resolvedMarketSaleMode(update, before));
+      bidCount = safeBidCount(update.bidCount) ?? before.bidCount;
+      return {
+        status: update.status,
+        priceCurrent,
+        shippingFee,
+        priceTotalEst: priceCurrent + (shippingFee ?? 0),
+        auctionEndAt,
+        listingType,
+        bidCount,
+        ...(update.status !== "unknown" ? { lastSeenAt: checkedAt } : {}),
+        ...(update.status === "sold" || update.status === "ended"
+          ? { archivedAt: checkedAt }
+          : {}),
+      };
     },
   });
+  if (!changed.count) return { skipped: "item_changed" };
   if (
-    priceCurrent !== current.priceCurrent ||
-    shippingFee !== current.shippingFee ||
-    update.bidCount !== current.bidCount
+    priceCurrent !== previousPrice ||
+    shippingFee !== previousShipping ||
+    bidCount !== previousBids
   ) {
     await prisma.itemPriceHistory.create({
       data: {
         itemId: current.id,
         priceCurrent,
         shippingFee,
-        bidCount: safeBidCount(update.bidCount) ?? current.bidCount,
+        bidCount,
       },
     });
   }
-  return update;
+  await refreshReadyCrossMarketOpportunitiesForItem(current.id);
+  return { ...update, auctionEndAt, listingType };
 }
 
 /** Archives terminal listings every two hours while keeping purchase history intact. */
+export async function archiveExcludedCollectibles(now = new Date()) {
+  let archived = 0;
+  let cursor: string | undefined;
+  for (;;) {
+    const candidates = await prisma.item.findMany({
+      where: {
+        archivedAt: null,
+        purchaseRecord: null,
+        ...(cursor ? { id: { gt: cursor } } : {}),
+      },
+      select: {
+        id: true,
+        titleRaw: true,
+        descriptionRaw: true,
+        categoryToyType: true,
+        favorite: true,
+        ignored: true,
+        ignoredAt: true,
+        archivedAt: true,
+      },
+      orderBy: { id: "asc" },
+      take: 5000,
+    });
+    if (!candidates.length) break;
+    cursor = candidates.at(-1)?.id;
+    const excluded = candidates.filter((item) =>
+      isExcludedNormalizedItem({
+        ...item,
+        descriptionRaw: item.descriptionRaw ?? undefined,
+      }),
+    );
+    if (!excluded.length) continue;
+    archived += await prisma.$transaction(async (tx) => {
+      let batchArchived = 0;
+      for (const item of excluded) {
+        // Re-check the purchase relation in the write predicate. A purchase can
+        // be recorded between the scan and this transaction and must always win.
+        const updated = await tx.item.updateMany({
+          where: {
+            id: item.id,
+            archivedAt: null,
+            purchaseRecord: null,
+          },
+          data: { archivedAt: now },
+        });
+        if (!updated.count) continue;
+        await tx.manualReview.create({
+          data: {
+            itemId: item.id,
+            actor: "inventory-maintenance",
+            reason: "excluded_collectible_archived",
+            beforeData: { archivedAt: null },
+            afterData: { archivedAt: now.toISOString() },
+          },
+        });
+        batchArchived += 1;
+      }
+      return batchArchived;
+    });
+  }
+  return archived;
+}
+
+/** Re-evaluate historical search inventory with the same deterministic gate
+ * used at ingestion. Explicit link imports, favorites, purchases, carts and
+ * active negotiation cases stay intact; archived rows keep their audit trail. */
+export async function archiveLowQualitySearchInventory(now = new Date()) {
+  let archived = 0;
+  let cursor: string | undefined;
+  for (;;) {
+    const candidates = await prisma.item.findMany({
+      where: {
+        importOrigin: "search",
+        archivedAt: null,
+        ignored: false,
+        favorite: false,
+        purchaseRecord: null,
+        cartItems: { none: {} },
+        negotiationCase: { is: null },
+        ...(cursor ? { id: { gt: cursor } } : {}),
+      },
+      select: {
+        id: true,
+        titleRaw: true,
+        descriptionRaw: true,
+        sourceUrl: true,
+        priceCurrent: true,
+        shippingFee: true,
+        categoryIp: true,
+        categoryToyType: true,
+        manufacturer: true,
+        conditionGrade: true,
+        quantityEst: true,
+        imageCount: true,
+        status: true,
+        channel: true,
+        collectibleSeries: true,
+        monitoringCategoryId: true,
+        monitoringCategory: { select: { scope: true } },
+        collaborationMessages: { select: { id: true }, take: 1 },
+      },
+      orderBy: { id: "asc" },
+      take: 2_000,
+    });
+    if (!candidates.length) break;
+    cursor = candidates.at(-1)?.id;
+    for (const item of candidates) {
+      const quality = assessInventoryQuality(item, {
+        scope:
+          item.monitoringCategory?.scope === "general" ? "general" : "toys",
+      });
+      if (quality.eligible) continue;
+      const changed = await prisma.$transaction(async (tx) => {
+        const result = await tx.item.updateMany({
+          where: {
+            id: item.id,
+            importOrigin: "search",
+            monitoringCategoryId: item.monitoringCategoryId,
+            archivedAt: null,
+            ignored: false,
+            favorite: false,
+            purchaseRecord: null,
+            cartItems: { none: {} },
+            negotiationCase: { is: null },
+          },
+          data: { archivedAt: now },
+        });
+        if (!result.count) return 0;
+        await tx.manualReview.create({
+          data: {
+            itemId: item.id,
+            actor: "inventory-quality-maintenance",
+            reason: quality.reason ?? "quality_gate_rejected",
+            beforeData: {
+              archivedAt: null,
+              qualityEvidenceCount: quality.evidenceCount,
+            },
+            afterData: {
+              archivedAt: now.toISOString(),
+              qualityReason: quality.reason,
+              qualityEvidenceCount: quality.evidenceCount,
+            },
+          },
+        });
+        // Product references in chat keep their thumbnail. Unreferenced stale
+        // inventory releases image rows while the canonical item and audit stay.
+        if (!item.collaborationMessages.length)
+          await tx.itemImage.deleteMany({ where: { itemId: item.id } });
+        return 1;
+      });
+      archived += changed;
+    }
+  }
+  return archived;
+}
+
 export async function processCleanup() {
   const now = new Date();
   // A process/container restart can leave the historical CrawlJob row in
-  // `running` forever.  No supported crawl should run for multiple hours;
-  // close only clearly stale rows so the monitoring dashboard reflects the
-  // actual worker state without touching a legitimate long backfill.
+  // `running` forever. updatedAt is the durable heartbeat, so a job with no
+  // write activity for thirty minutes is no longer represented by a live run.
   const staleRunning = await prisma.crawlJob.updateMany({
     where: {
       status: "running",
-      startedAt: { lt: new Date(now.getTime() - 2 * 60 * 60 * 1000) },
+      updatedAt: { lt: new Date(now.getTime() - 30 * 60_000) },
     },
     data: {
       status: "failed",
@@ -1626,63 +2952,57 @@ export async function processCleanup() {
     const terminal = await prisma.item.findMany({
       where: {
         archivedAt: null,
+        purchaseRecord: null,
         OR: [
           { status: { in: ["sold", "ended"] } },
           {
-            auctionEndAt: { lt: new Date(now.getTime() - 2 * 60 * 60 * 1000) },
+            listingType: "auction",
+            auctionEndAt: { lte: now },
           },
         ],
       },
       select: { id: true },
-      take: 5000,
+      take: 500,
     });
     if (!terminal.length) break;
-    const ids = terminal.map((item) => item.id);
-    await prisma.$transaction([
-      prisma.item.updateMany({
-        where: { id: { in: ids } },
-        data: { archivedAt: now },
-      }),
-      prisma.itemImage.deleteMany({
-        where: { itemId: { in: ids }, item: { purchaseRecord: null } },
-      }),
-    ]);
-    archived += ids.length;
-  }
-  let removedExcluded = 0;
-  let exclusionCursor: string | undefined;
-  for (;;) {
-    const exclusionCandidates = await prisma.item.findMany({
-      where: {
-        purchaseRecord: null,
-        ...(exclusionCursor ? { id: { gt: exclusionCursor } } : {}),
+    archived += await prisma.$transaction(
+      async (tx) => {
+        const ids: string[] = [];
+        for (const item of terminal) {
+          const changed = await writeMarketUpdateWithAudit(tx, {
+            itemId: item.id,
+            where: {
+              archivedAt: null,
+              purchaseRecord: null,
+              OR: [
+                { status: { in: ["sold", "ended"] } },
+                { listingType: "auction", auctionEndAt: { lte: now } },
+              ],
+            },
+            data: { archivedAt: now },
+            actor: "inventory-maintenance",
+            reason: "terminal_or_expired_listing_archived",
+          });
+          if (changed.count) ids.push(item.id);
+        }
+        if (ids.length)
+          await tx.itemImage.deleteMany({
+            where: {
+              itemId: { in: ids },
+              item: {
+                purchaseRecord: null,
+                favorite: false,
+                collaborationMessages: { none: {} },
+              },
+            },
+          });
+        return ids.length;
       },
-      select: {
-        id: true,
-        titleRaw: true,
-        descriptionRaw: true,
-        categoryToyType: true,
-      },
-      orderBy: { id: "asc" },
-      take: 5000,
-    });
-    if (!exclusionCandidates.length) break;
-    exclusionCursor = exclusionCandidates.at(-1)?.id;
-    const excludedIds = exclusionCandidates
-      .filter((item) =>
-        isExcludedNormalizedItem({
-          ...item,
-          descriptionRaw: item.descriptionRaw ?? undefined,
-        }),
-      )
-      .map((item) => item.id);
-    if (excludedIds.length) {
-      const result = await prisma.item.deleteMany({
-        where: { id: { in: excludedIds } },
-      });
-      removedExcluded += result.count;
-    }
+      { timeout: 60_000 },
+    );
   }
+  const archivedExcluded = await archiveExcludedCollectibles(now);
+  const archivedLowQuality = await archiveLowQualitySearchInventory(now);
   const orphanProducts = await prisma.product.deleteMany({
     where: { listings: { none: {} }, inventory: null },
   });
@@ -1691,7 +3011,8 @@ export async function processCleanup() {
   return {
     staleRunsClosed: staleRunning.count,
     archived,
-    removedExcluded,
+    archivedExcluded,
+    archivedLowQuality,
     removedOrphanProducts: orphanProducts.count,
     imagesBackfilled: images.recovered,
     imageRowsCorrected: images.correctedEmpty,
@@ -1700,16 +3021,63 @@ export async function processCleanup() {
   };
 }
 
-/** Permanently removes the separate not-interested warehouse after one day. */
+/**
+ * Removes stale entries from the visible not-interested warehouse after one
+ * day without deleting their durable discovery history. DiscoveryFeedback
+ * intentionally retains its required listingId relation, so the owning Item
+ * is archived instead of deleted.
+ */
 export async function processDislikedCleanup() {
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  let removed = 0;
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const failedNegotiations = await prisma.negotiationCase.findMany({
+    where: {
+      status: "failed",
+      statusChangedAt: { lt: cutoff },
+      item: {
+        archivedAt: null,
+        ignored: false,
+        purchaseRecord: null,
+      },
+    },
+    select: { itemId: true },
+    take: 5000,
+  });
+  if (failedNegotiations.length) {
+    const itemIds = failedNegotiations.map((entry) => entry.itemId);
+    await prisma.$transaction([
+      prisma.item.updateMany({
+        where: {
+          id: { in: itemIds },
+          archivedAt: null,
+          ignored: false,
+          purchaseRecord: null,
+        },
+        data: {
+          favorite: false,
+          ignored: true,
+          ignoredAt: now,
+          ignoredReason: "negotiation_failed",
+        },
+      }),
+      prisma.negotiationCase.updateMany({
+        where: {
+          itemId: { in: itemIds },
+          status: "failed",
+          statusChangedAt: { lt: cutoff },
+        },
+        data: { status: "moved_to_disliked", statusChangedAt: now },
+      }),
+    ]);
+  }
+  let archived = 0;
   let cursor: string | undefined;
   for (;;) {
     const stale = await prisma.item.findMany({
       where: {
         ignored: true,
         ignoredAt: { lt: cutoff },
+        archivedAt: null,
         purchaseRecord: null,
         ...(cursor ? { id: { gt: cursor } } : {}),
       },
@@ -1719,10 +3087,24 @@ export async function processDislikedCleanup() {
     });
     if (!stale.length) break;
     cursor = stale.at(-1)?.id;
-    const result = await prisma.item.deleteMany({
-      where: { id: { in: stale.map((item) => item.id) } },
+    const result = await prisma.item.updateMany({
+      where: {
+        id: { in: stale.map((item) => item.id) },
+        ignored: true,
+        ignoredAt: { lt: cutoff },
+        archivedAt: null,
+        purchaseRecord: null,
+      },
+      data: { archivedAt: now },
     });
-    removed += result.count;
+    archived += result.count;
   }
-  return { removed, cleanedAt: new Date().toISOString() };
+  return {
+    failedNegotiationsMoved: failedNegotiations.length,
+    // Keep the existing metric for queue consumers: these rows were removed
+    // from the user-visible warehouse, even though their audit owner remains.
+    removed: archived,
+    archived,
+    cleanedAt: now.toISOString(),
+  };
 }

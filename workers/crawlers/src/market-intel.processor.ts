@@ -2,6 +2,12 @@ import { MarketIntelKind, Prisma, prisma } from "@tokusatsu/db";
 import { Firecrawl, type Document, type SearchResultWeb } from "firecrawl";
 import * as cheerio from "cheerio";
 import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
+import { normalizeHttpBaseUrl } from "@tokusatsu/shared";
+import {
+  backgroundAiFetch,
+  isAutomaticAiUnavailable,
+} from "./background-ai-guard.js";
 
 type RobotPolicy = {
   isAllowed(url: string, userAgent?: string): boolean | undefined;
@@ -31,7 +37,7 @@ const RELEVANT =
 const COMMERCE =
   /販売|売ります|売却|出品|入荷|在庫|買取|オークション|二手|譲り|譲ります|for sale|marketplace/i;
 const EXCLUDED =
-  /カード|トレカ|書籍|雑誌|漫画|コミック|小説|図鑑|写真集|大百科|帯付き|帯付|古本|永久保存版/i;
+  /カード|トレカ|ガンバライド|ガンバライジング|ガンバレジェンズ|書籍|雑誌|漫画|コミック|小説|図鑑|写真集|大百科|帯付き|帯付|古本|永久保存版/i;
 const FORUM_HOST =
   /reddit\.com|5ch\.net|2ch\.sc|chiebukuro\.yahoo\.co\.jp|note\.com|ameblo\.jp|b\.hatena\.ne\.jp/i;
 const SOCIAL_HOST =
@@ -55,6 +61,61 @@ type IntelCandidate = {
   publishedAt?: Date;
   client?: Firecrawl;
 };
+
+type PersistedMarketIntelRecord = {
+  inserted: boolean;
+};
+
+export async function runMarketIntelTwoPhase<
+  Candidate,
+  Persisted extends PersistedMarketIntelRecord,
+>(
+  candidates: readonly Candidate[],
+  persistOriginal: (candidate: Candidate) => Promise<Persisted | null>,
+  translatePersisted: (record: Persisted) => Promise<void>,
+  automaticAiUnavailable: (error: unknown) => boolean,
+  onFailure?: (
+    phase: "persistence" | "translation",
+    error: unknown,
+    value: Candidate | Persisted,
+  ) => void,
+) {
+  const persisted: Persisted[] = [];
+  let inserted = 0;
+  let translated = 0;
+  let failed = 0;
+  let deferred = false;
+
+  // Complete the non-AI ingestion phase first. A provider outage must never
+  // prevent later public candidates from being stored in their original text.
+  for (const candidate of candidates) {
+    try {
+      const record = await persistOriginal(candidate);
+      if (!record) continue;
+      persisted.push(record);
+      if (record.inserted) inserted += 1;
+    } catch (error) {
+      failed += 1;
+      onFailure?.("persistence", error, candidate);
+    }
+  }
+
+  for (const record of persisted) {
+    try {
+      await translatePersisted(record);
+      translated += 1;
+    } catch (error) {
+      failed += 1;
+      onFailure?.("translation", error, record);
+      if (automaticAiUnavailable(error)) {
+        deferred = true;
+        break;
+      }
+    }
+  }
+
+  return { inserted, translated, failed, deferred };
+}
 
 type MastodonStatus = {
   url?: string;
@@ -102,33 +163,42 @@ async function gatewayJson<T>(
 ) {
   const token = process.env.AI_INTERNAL_TOKEN?.trim();
   if (!token) throw new Error("AI Gateway 内部令牌未配置");
-  const apiBase = (
-    process.env.API_INTERNAL_URL ?? "http://localhost:3001"
-  ).replace(/\/$/, "");
-  const response = await fetch(`${apiBase}/ai/internal/execute`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-ai-internal-token": token,
-    },
-    body: JSON.stringify({
-      task: "translation",
-      dataClass: "public_market",
-      costPolicy: "free_first",
-      temperature: 0.1,
-      maxTokens,
-      messages,
-    }),
-    signal: AbortSignal.timeout(
-      Math.max(
-        250_000,
-        Math.min(
-          Number(process.env.AI_GATEWAY_CLIENT_TIMEOUT_MS ?? 270_000),
-          300_000,
+  const apiBase = normalizeHttpBaseUrl(process.env.API_INTERNAL_URL);
+  const body = JSON.stringify({
+    task: "translation",
+    responseSchemaId: "internal.market-intel-translation",
+    responseSchemaVersion: 1,
+    dataClass: "public_market",
+    costPolicy: "free_first",
+    temperature: 0.1,
+    maxTokens,
+    messages,
+  });
+  const requestKey = createHash("sha256")
+    .update(body)
+    .digest("hex")
+    .slice(0, 20);
+  const response = await backgroundAiFetch(
+    `market-intel:${requestKey}`,
+    `${apiBase}/ai/internal/execute`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-ai-internal-token": token,
+      },
+      body,
+      signal: AbortSignal.timeout(
+        Math.max(
+          250_000,
+          Math.min(
+            Number(process.env.AI_GATEWAY_CLIENT_TIMEOUT_MS ?? 270_000),
+            300_000,
+          ),
         ),
       ),
-    ),
-  });
+    },
+  );
   if (!response.ok) throw new Error(`AI Gateway ${response.status}`);
   const payload = (await response.json()) as { data?: T };
   if (!payload.data) throw new Error("AI Gateway 返回为空");
@@ -236,6 +306,7 @@ async function firecrawlCandidates() {
         sourceName: hostname,
         ingestion: "firecrawl",
         completeBody: true,
+        bodyHint: web.description?.trim() || undefined,
         client,
       });
     }
@@ -566,57 +637,81 @@ export async function processMarketIntel() {
       return true;
     })
     .slice(0, 48);
-  let inserted = 0;
-  let translated = 0;
-  let failed = 0;
-  for (const candidate of candidates) {
-    const existing = await prisma.marketIntel.findUnique({
-      where: { sourceUrl: candidate.url },
-      select: {
-        id: true,
-        titleRaw: true,
-        bodyRaw: true,
-        translationStatus: true,
-      },
-    });
-    const kind = candidateKind(candidate);
-    if (existing?.translationStatus === "completed") {
-      await prisma.marketIntel.update({
-        where: { id: existing.id },
-        data: { kind, sourceName: candidate.sourceName },
+  type PreparedTranslation = {
+    inserted: boolean;
+    candidate: IntelCandidate;
+    recordId: string;
+    titleRaw: string;
+    bodyRaw: string;
+  };
+  const result = await runMarketIntelTwoPhase<
+    IntelCandidate,
+    PreparedTranslation
+  >(
+    candidates,
+    async (candidate) => {
+      const existing = await prisma.marketIntel.findUnique({
+        where: { sourceUrl: candidate.url },
+        select: {
+          id: true,
+          titleRaw: true,
+          bodyRaw: true,
+          translationStatus: true,
+          sourceData: true,
+        },
       });
-      continue;
-    }
-    let recordId = existing?.id;
-    try {
+      const kind = candidateKind(candidate);
+      if (existing?.translationStatus === "completed") {
+        await prisma.marketIntel.update({
+          where: { id: existing.id },
+          data: { kind, sourceName: candidate.sourceName },
+        });
+        return null;
+      }
+
       let titleRaw = existing?.titleRaw ?? candidate.title;
       let bodyRaw = existing?.bodyRaw ?? candidate.bodyHint ?? "";
       let author = candidate.author;
       let publishedAt = candidate.publishedAt;
-      if (!existing && candidate.client) {
-        await assertRobotsAllowed(candidate.url);
-        const document = await candidate.client.scrape(candidate.url, {
-          formats: ["markdown"],
-          onlyMainContent: true,
-          timeout: 30_000,
-          proxy: "basic",
-          removeBase64Images: true,
-        });
-        bodyRaw = documentBody(document);
-        const metadata = (document.metadata ?? {}) as Record<string, unknown>;
-        const metadataAuthor = metadata.author;
-        if (typeof metadataAuthor === "string" && metadataAuthor.trim())
-          author = metadataAuthor.trim();
-        const metadataDate =
-          metadata.publishedTime ?? metadata.date ?? metadata.modifiedTime;
-        if (typeof metadataDate === "string") {
-          const parsed = new Date(metadataDate);
-          if (!Number.isNaN(parsed.getTime())) publishedAt = parsed;
+      const existingComplete = Boolean(
+        existing?.sourceData &&
+          typeof existing.sourceData === "object" &&
+          !Array.isArray(existing.sourceData) &&
+          (existing.sourceData as Record<string, unknown>).completeBody ===
+            true,
+      );
+      if (candidate.client && !existingComplete) {
+        try {
+          await assertRobotsAllowed(candidate.url);
+          const document = await candidate.client.scrape(candidate.url, {
+            formats: ["markdown"],
+            onlyMainContent: true,
+            timeout: 30_000,
+            proxy: "basic",
+            removeBase64Images: true,
+          });
+          const scrapedBody = documentBody(document);
+          if (scrapedBody) {
+            bodyRaw = scrapedBody;
+            candidate.completeBody = true;
+          }
+          const metadata = (document.metadata ?? {}) as Record<string, unknown>;
+          const metadataAuthor = metadata.author;
+          if (typeof metadataAuthor === "string" && metadataAuthor.trim())
+            author = metadataAuthor.trim();
+          const metadataDate =
+            metadata.publishedTime ?? metadata.date ?? metadata.modifiedTime;
+          if (typeof metadataDate === "string") {
+            const parsed = new Date(metadataDate);
+            if (!Number.isNaN(parsed.getTime())) publishedAt = parsed;
+          }
+        } catch (error) {
+          candidate.completeBody = existingComplete;
+          if (!bodyRaw) throw error;
         }
-      } else if (!existing && candidate.ingestion === "rss") {
-        // Google News and Reddit RSS entries are only discovery indexes. When
-        // the public destination permits it, replace the short feed excerpt
-        // with the article/post body before translating and storing it.
+      } else if (candidate.ingestion === "rss" && !existingComplete) {
+        // RSS is discovery evidence. Upgrade its excerpt when the destination
+        // publicly permits crawling, but retain the excerpt when it does not.
         try {
           const fullBody = await publicArticleBody(candidate.url);
           if (fullBody.length >= Math.max(160, bodyRaw.length)) {
@@ -624,13 +719,22 @@ export async function processMarketIntel() {
             candidate.completeBody = true;
           }
         } catch {
-          // Keep the feed's public summary when the destination blocks robots
-          // or requires login; never bypass those restrictions.
+          candidate.completeBody = existingComplete;
         }
       }
+      titleRaw = titleRaw.trim();
+      bodyRaw = bodyRaw.trim();
       if (!bodyRaw) throw new Error("资讯正文为空");
-      const url = new URL(candidate.url);
-      if (!recordId) {
+      const productLinks = [...bodyRaw.matchAll(/https?:\/\/[^\s)\]]+/g)]
+        .map((match) => match[0])
+        .slice(0, 30);
+      const sourceData = {
+        ingestion: candidate.ingestion,
+        completeBody: candidate.completeBody,
+      } as Prisma.InputJsonValue;
+
+      if (!existing) {
+        const url = new URL(candidate.url);
         const created = await prisma.marketIntel.create({
           data: {
             sourceUrl: candidate.url,
@@ -640,61 +744,95 @@ export async function processMarketIntel() {
             author,
             titleRaw,
             bodyRaw,
-            translationStatus: "processing",
+            translationStatus: "pending",
             publishedAt,
-            productLinks: [...bodyRaw.matchAll(/https?:\/\/[^\s)\]]+/g)]
-              .map((match) => match[0])
-              .slice(0, 30),
-            sourceData: {
-              ingestion: candidate.ingestion,
-              completeBody: candidate.completeBody,
-            } as Prisma.InputJsonValue,
+            productLinks,
+            sourceData,
           },
           select: { id: true },
         });
-        recordId = created.id;
-        inserted += 1;
-      } else {
-        await prisma.marketIntel.update({
-          where: { id: recordId },
-          data: { translationStatus: "processing" },
-        });
+        return {
+          inserted: true,
+          candidate,
+          recordId: created.id,
+          titleRaw,
+          bodyRaw,
+        };
       }
-      const translation = await translateComplete(titleRaw, bodyRaw);
+
       await prisma.marketIntel.update({
-        where: { id: recordId },
+        where: { id: existing.id },
         data: {
-          titleZh: translation.titleZh,
-          bodyZh: translation.bodyZh,
-          translationStatus: "completed",
-          translatedAt: new Date(),
+          sourceName: candidate.sourceName,
+          kind,
+          author,
+          titleRaw,
+          bodyRaw,
+          translationStatus: "pending",
+          publishedAt,
+          productLinks,
+          sourceData,
         },
       });
-      translated += 1;
-    } catch (error) {
-      if (recordId) {
+      return {
+        inserted: false,
+        candidate,
+        recordId: existing.id,
+        titleRaw,
+        bodyRaw,
+      };
+    },
+    async (record) => {
+      await prisma.marketIntel.update({
+        where: { id: record.recordId },
+        data: { translationStatus: "processing" },
+      });
+      try {
+        const translation = await translateComplete(
+          record.titleRaw,
+          record.bodyRaw,
+        );
+        await prisma.marketIntel.update({
+          where: { id: record.recordId },
+          data: {
+            titleZh: translation.titleZh,
+            bodyZh: translation.bodyZh,
+            translationStatus: "completed",
+            translatedAt: new Date(),
+          },
+        });
+      } catch (error) {
         await prisma.marketIntel
           .update({
-            where: { id: recordId },
+            where: { id: record.recordId },
             data: { translationStatus: "failed" },
           })
           .catch(() => undefined);
+        throw error;
       }
+    },
+    isAutomaticAiUnavailable,
+    (phase, error, value) => {
+      const candidate =
+        phase === "translation"
+          ? (value as PreparedTranslation).candidate
+          : (value as IntelCandidate);
       console.warn(
         JSON.stringify({
           event: "market_intel_candidate_failed",
+          phase,
           sourceUrl: candidate.url,
           error: String(error).slice(0, 300),
         }),
       );
-      failed += 1;
-    }
-  }
+    },
+  );
   return {
     candidates: candidates.length,
-    inserted,
-    translated,
-    failed,
+    inserted: result.inserted,
+    translated: result.translated,
+    failed: result.failed,
+    ...(result.deferred ? { deferred: true } : {}),
     refreshedAt: new Date().toISOString(),
   };
 }

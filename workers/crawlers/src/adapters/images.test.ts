@@ -26,6 +26,23 @@ describe("sanitizeProductImageUrls", () => {
       "https://auctions.c.yimg.jp/images.auctions.yahoo.co.jp/image/a.jpg",
     ]);
   });
+
+  it("merges Mercari rendition variants while retaining each real gallery photo", () => {
+    expect(
+      sanitizeProductImageUrls([
+        "https://static.mercdn.net/item/detail/thumb/photos/m123456789_1.jpg?width=214&height=214",
+        "https://static.mercdn.net/item/detail/webp/photos/m123456789_1.webp",
+        "https://static.mercdn.net/item/detail/orig/photos/m123456789_1.jpg",
+        "https://static.mercdn.net/item/detail/thumb/photos/m123456789_2.jpg?width=214&height=214",
+        "https://static.mercdn.net/item/detail/orig/photos/m123456789_2.jpg",
+        "https://static.mercdn.net/item/detail/orig/photos/m123456789_3.jpg",
+      ]),
+    ).toEqual([
+      "https://static.mercdn.net/item/detail/orig/photos/m123456789_1.jpg",
+      "https://static.mercdn.net/item/detail/orig/photos/m123456789_2.jpg",
+      "https://static.mercdn.net/item/detail/orig/photos/m123456789_3.jpg",
+    ]);
+  });
 });
 
 describe("extractProductImageUrls", () => {

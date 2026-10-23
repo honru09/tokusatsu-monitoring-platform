@@ -89,6 +89,11 @@ export const catalogEntries: CatalogEntry[] = [
     "幪面超人",
   ]),
   franchise("ULTRAMAN", "ウルトラマン", "奥特曼", "Ultraman", ["超人力霸王"]),
+  franchise("SUPER_SENTAI", "スーパー戦隊", "超级战队", "Super Sentai", [
+    "超級戰隊",
+    "戦隊シリーズ",
+  ]),
+  franchise("GODZILLA", "ゴジラ", "哥斯拉", "Godzilla", ["哥吉拉"]),
 
   series(
     "KAMEN_RIDER_KUUGA",
@@ -329,7 +334,9 @@ export const catalogEntries: CatalogEntry[] = [
     "赛罗奥特曼",
     "Ultraman Zero",
     "ULTRAMAN",
-    ["ゼロ", "赛罗", "zero"],
+    // "ゼロ" / "zero" are intentionally not aliases: substring matching
+    // would turn 仮面ライダーゼロノス and ゼロワン into Ultraman Zero.
+    ["赛罗", "賽羅"],
   ),
   series(
     "ULTRAMAN_Z",

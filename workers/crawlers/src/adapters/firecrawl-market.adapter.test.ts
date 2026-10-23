@@ -42,4 +42,40 @@ describe("Firecrawl marketplace adapter", () => {
     expect(item.listedAt).toBeUndefined();
     expect(item.imageUrls).toEqual(["https://img.example/a.jpg"]);
   });
+
+  it("does not treat foreign or unknown eBay currency as JPY", () => {
+    const document = (currency?: string) => ({
+      metadata: { title: "Kamen Rider figure lot" },
+      product: {
+        title: "Kamen Rider figure lot",
+        url: "https://www.ebay.com/itm/1234567890",
+        variants: [
+          {
+            price: { amount: 20, currency },
+            availability: { inStock: true },
+            images: [],
+          },
+        ],
+      },
+    });
+
+    expect(() =>
+      parseFirecrawlMarketplaceDocument(
+        document("USD"),
+        "https://www.ebay.com/itm/1234567890",
+      ),
+    ).toThrow(/not priced in JPY/);
+    expect(() =>
+      parseFirecrawlMarketplaceDocument(
+        document(),
+        "https://www.ebay.com/itm/1234567890",
+      ),
+    ).toThrow(/no verifiable JPY currency/);
+    expect(
+      parseFirecrawlMarketplaceDocument(
+        document("JPY"),
+        "https://www.ebay.com/itm/1234567890",
+      ).priceCurrent,
+    ).toBe(20);
+  });
 });

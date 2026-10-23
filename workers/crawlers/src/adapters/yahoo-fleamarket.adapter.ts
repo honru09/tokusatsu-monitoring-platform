@@ -12,9 +12,96 @@ import type {
 } from "@tokusatsu/shared";
 import { sanitizeProductImageUrls } from "./images.js";
 import { shippingEvidence } from "./shipping.js";
+import {
+  ListingUnavailableError,
+  publicListingUiStatus,
+} from "./public-listing-status.js";
 
 const ORIGIN = "https://paypayfleamarket.yahoo.co.jp";
 const ROBOTS_URL = `${ORIGIN}/robots.txt`;
+const MINIMUM_RATE_LIMIT_COOLDOWN_MS = 30_000;
+const MAXIMUM_RATE_LIMIT_COOLDOWN_MS = 6 * 60 * 60_000;
+
+type YahooFleamarketRequestGateOptions = {
+  now?: () => number;
+  wait?: (milliseconds: number) => Promise<void>;
+};
+
+/**
+ * One process-wide platform lane shared by discovery, status refresh and
+ * seller backfill. Serializing the actual HTTP boundary makes the crawl delay
+ * atomic: concurrent BullMQ workers cannot all observe the same stale
+ * `lastRequestAt` value and burst at Yahoo together.
+ */
+export class YahooFleamarketRequestGate {
+  private tail: Promise<void> = Promise.resolve();
+  private nextAllowedAt = 0;
+  private readonly now: () => number;
+  private readonly wait: (milliseconds: number) => Promise<void>;
+
+  constructor(options: YahooFleamarketRequestGateOptions = {}) {
+    this.now = options.now ?? Date.now;
+    this.wait =
+      options.wait ??
+      ((milliseconds) =>
+        new Promise((resolve) => setTimeout(resolve, milliseconds)));
+  }
+
+  run<T>(minimumDelayMs: number, operation: () => Promise<T>): Promise<T> {
+    const boundedDelay = Number.isFinite(minimumDelayMs)
+      ? Math.max(0, Math.floor(minimumDelayMs))
+      : 0;
+    const execute = async () => {
+      const waitMs = Math.max(0, this.nextAllowedAt - this.now());
+      if (waitMs > 0) await this.wait(waitMs);
+      this.nextAllowedAt = Math.max(
+        this.nextAllowedAt,
+        this.now() + boundedDelay,
+      );
+      return operation();
+    };
+    const pending = this.tail.then(execute, execute);
+    this.tail = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
+  }
+
+  defer(milliseconds: number) {
+    if (!Number.isFinite(milliseconds) || milliseconds <= 0) return;
+    this.nextAllowedAt = Math.max(
+      this.nextAllowedAt,
+      this.now() + Math.floor(milliseconds),
+    );
+  }
+}
+
+export function yahooFleamarketRetryAfterMs(
+  value: string | null,
+  attempt: number,
+  now = Date.now(),
+) {
+  const normalizedAttempt = Number.isFinite(attempt)
+    ? Math.max(0, Math.min(Math.floor(attempt), 5))
+    : 0;
+  const fallback = 60_000 * 2 ** normalizedAttempt;
+  const trimmed = value?.trim();
+  let requested: number | undefined;
+  if (trimmed && /^\d+(?:\.\d+)?$/.test(trimmed)) {
+    requested = Number(trimmed) * 1_000;
+  } else if (trimmed) {
+    const retryAt = Date.parse(trimmed);
+    if (Number.isFinite(retryAt)) requested = retryAt - now;
+  }
+  const cooldown = Number.isFinite(requested) ? requested! : fallback;
+  return Math.max(
+    MINIMUM_RATE_LIMIT_COOLDOWN_MS,
+    Math.min(Math.ceil(cooldown), MAXIMUM_RATE_LIMIT_COOLDOWN_MS),
+  );
+}
+
+const sharedYahooFleamarketRequestGate = new YahooFleamarketRequestGate();
 
 type RobotPolicy = {
   isAllowed(url: string, userAgent?: string): boolean | undefined;
@@ -90,6 +177,20 @@ function conditionText(value: unknown) {
   return labels[key] ?? (key || undefined);
 }
 
+function itemAvailability(value: unknown, isPurchased: unknown): ItemStatus {
+  if (isPurchased === true) return "sold";
+  const status = String(value ?? "").toUpperCase();
+  if (status === "OPEN") return "active";
+  if (
+    ["SOLD", "SOLD_OUT", "PURCHASED", "TRADING", "COMPLETED"].includes(status)
+  )
+    return "sold";
+  if (["CLOSE", "CLOSED", "DELETED", "REMOVED", "STOPPED"].includes(status))
+    return "ended";
+  if (status === "RESERVED") return "reserved";
+  return "unknown";
+}
+
 export function parseYahooFleamarketSearchHtml(
   html: string,
   limit = 100,
@@ -130,8 +231,10 @@ export function parseYahooFleamarketSearchHtml(
       seller.name,
       seller.displayName,
     );
-    const status: ItemStatus =
-      String(row.itemStatus ?? "").toUpperCase() === "OPEN" ? "active" : "sold";
+    const status = itemAvailability(
+      row.itemStatus ?? row.status,
+      row.isPurchased,
+    );
     const imageUrls = sanitizeProductImageUrls(
       [text(row.thumbnailImageUrl)].filter((value): value is string =>
         Boolean(value),
@@ -139,6 +242,7 @@ export function parseYahooFleamarketSearchHtml(
     );
     const detailHint: RawItemDetail = {
       sourcePlatform: "yahoo_fleamarket",
+      listingType: "direct",
       sourceItemId,
       sourceUrl,
       titleRaw,
@@ -175,10 +279,14 @@ export function parseYahooFleamarketDetailHtml(
   sourceUrl: string,
   sourceItemId: string,
 ): RawItemDetail {
+  const uiStatus = publicListingUiStatus(cheerio.load(html));
   const state = nextState(html);
   const item = record(record(record(state.itemsState).items).item);
-  if (text(item.id) !== sourceItemId)
+  if (text(item.id) !== sourceItemId) {
+    if (uiStatus === "sold" || uiStatus === "ended")
+      throw new ListingUnavailableError(uiStatus);
     throw new Error("Yahoo! Fleamarket detail state did not match the item");
+  }
   const titleRaw = text(item.title);
   const priceCurrent = number(item.price);
   if (!titleRaw || priceCurrent == null)
@@ -213,8 +321,9 @@ export function parseYahooFleamarketDetailHtml(
   const categoryList = array(item.categoryList).map(record);
   const brandList = array(item.brandList).map(record);
   const statusText = String(item.status ?? "").toUpperCase();
-  const status: ItemStatus =
-    statusText === "OPEN" && item.isPurchased !== true ? "active" : "sold";
+  const status =
+    uiStatus ??
+    itemAvailability(item.status ?? item.itemStatus, item.isPurchased);
   const relevantItemData = {
     pvCount: number(item.pvCount),
     likeCount: number(item.likeCount),
@@ -237,6 +346,7 @@ export function parseYahooFleamarketDetailHtml(
   };
   return {
     sourcePlatform: "yahoo_fleamarket",
+    listingType: "direct",
     sourceItemId,
     sourceUrl,
     titleRaw,
@@ -291,10 +401,22 @@ export function parseYahooFleamarketDetailHtml(
 export class YahooFleamarketAdapter implements SourceAdapter {
   readonly key = "yahoo_fleamarket";
   readonly displayName = "Yahoo!フリマ";
-  private lastRequestAt = 0;
   private robots?: RobotPolicy;
+  private robotsPromise?: Promise<RobotPolicy>;
+  private readonly fetchImpl: typeof fetch;
+  private readonly requestGate: YahooFleamarketRequestGate;
   private readonly userAgent =
     process.env.CRAWLER_USER_AGENT ?? "TokusatsuMonitor/1.0";
+
+  constructor(
+    options: {
+      fetchImpl?: typeof fetch;
+      requestGate?: YahooFleamarketRequestGate;
+    } = {},
+  ) {
+    this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
+    this.requestGate = options.requestGate ?? sharedYahooFleamarketRequestGate;
+  }
 
   async search(query: SearchQuery): Promise<SearchResult[]> {
     const pages = Math.max(1, Math.min(query.pages ?? 1, 4));
@@ -335,12 +457,15 @@ export class YahooFleamarketAdapter implements SourceAdapter {
       });
       return {
         status: detail.status,
+        listingType: "direct",
         priceCurrent: detail.priceCurrent,
         shippingFee: detail.shippingFee,
       };
     } catch (error) {
+      if (error instanceof ListingUnavailableError)
+        return { status: error.status, listingType: "direct" };
       if (/Yahoo! Fleamarket returned (?:404|410)/i.test(String(error)))
-        return { status: "sold" };
+        return { status: "sold", listingType: "direct" };
       throw error;
     }
   }
@@ -356,36 +481,36 @@ export class YahooFleamarketAdapter implements SourceAdapter {
     const robots = await this.getRobots();
     if (!robots.isAllowed(url, this.userAgent))
       throw new Error(`robots.txt disallows ${url}`);
-    const delay = Math.max(
-      5_000,
-      Number(process.env.YAHOO_FLEAMARKET_CRAWL_DELAY_MS ?? 5_000),
+    const configuredDelay = Number(
+      process.env.YAHOO_FLEAMARKET_CRAWL_DELAY_MS ?? 5_000,
     );
+    const delay = Number.isFinite(configuredDelay)
+      ? Math.max(5_000, configuredDelay)
+      : 5_000;
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const elapsed = Date.now() - this.lastRequestAt;
-      if (elapsed < delay)
-        await new Promise((resolve) => setTimeout(resolve, delay - elapsed));
-      const response = await fetch(url, {
-        headers: {
-          "user-agent": this.userAgent,
-          accept: "text/html,application/xhtml+xml",
-          "accept-language": "ja,en;q=0.8",
-        },
-        signal: AbortSignal.timeout(30_000),
-        redirect: "follow",
+      const response = await this.requestGate.run(delay, async () => {
+        const result = await this.fetchImpl(url, {
+          headers: {
+            "user-agent": this.userAgent,
+            accept: "text/html,application/xhtml+xml",
+            "accept-language": "ja,en;q=0.8",
+          },
+          signal: AbortSignal.timeout(30_000),
+          redirect: "follow",
+        });
+        if (result.status === 429) {
+          this.requestGate.defer(
+            yahooFleamarketRetryAfterMs(
+              result.headers.get("retry-after"),
+              attempt,
+            ),
+          );
+        }
+        return result;
       });
-      this.lastRequestAt = Date.now();
-      if (response.status === 429 && attempt < 2) {
-        const retryHeader = response.headers.get("retry-after");
-        const retrySeconds = Number(retryHeader);
-        const retryDate = retryHeader ? new Date(retryHeader) : undefined;
-        const retryMs = Number.isFinite(retrySeconds)
-          ? Math.max(5_000, retrySeconds * 1_000)
-          : retryDate && !Number.isNaN(retryDate.getTime())
-            ? Math.max(5_000, retryDate.getTime() - Date.now())
-            : 30_000 * (attempt + 1);
+      if (response.status === 429) {
         await response.arrayBuffer().catch(() => undefined);
-        await new Promise((resolve) => setTimeout(resolve, retryMs));
-        continue;
+        if (attempt < 2) continue;
       }
       if (!response.ok)
         throw new Error(`Yahoo! Fleamarket returned ${response.status}`);
@@ -400,15 +525,25 @@ export class YahooFleamarketAdapter implements SourceAdapter {
 
   private async getRobots() {
     if (this.robots) return this.robots;
-    const response = await fetch(ROBOTS_URL, {
-      headers: { "user-agent": this.userAgent },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok)
-      throw new Error(
-        `Cannot verify Yahoo! Fleamarket robots.txt (${response.status}); refusing crawl`,
-      );
-    this.robots = robotsParser(ROBOTS_URL, await response.text());
-    return this.robots;
+    if (this.robotsPromise) return this.robotsPromise;
+    const pending = (async () => {
+      const response = await this.fetchImpl(ROBOTS_URL, {
+        headers: { "user-agent": this.userAgent },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok)
+        throw new Error(
+          `Cannot verify Yahoo! Fleamarket robots.txt (${response.status}); refusing crawl`,
+        );
+      const policy = robotsParser(ROBOTS_URL, await response.text());
+      this.robots = policy;
+      return policy;
+    })();
+    this.robotsPromise = pending;
+    try {
+      return await pending;
+    } finally {
+      if (this.robotsPromise === pending) this.robotsPromise = undefined;
+    }
   }
 }

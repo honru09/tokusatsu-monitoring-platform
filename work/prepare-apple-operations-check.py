@@ -1,0 +1,11 @@
+from pathlib import Path
+source=Path('work/editorial-upgrade/operations-browser.cjs').read_text(encoding='utf-8')
+source=source.replace('work/editorial-upgrade/operations-browser','work/apple-upgrade/operations-browser')
+source=source.replace('  { width: 390, height: 568 },','  { width: 390, height: 568 },\n  { width: 390, height: 844, reducedMotion: "reduce" },')
+source=source.replace('        viewport,\n        reducedMotion: viewport.width === 1440 ? "reduce" : "no-preference",','        viewport: { width: viewport.width, height: viewport.height },\n        reducedMotion: viewport.reducedMotion || (viewport.width === 1440 ? "reduce" : "no-preference"),')
+source=source.replace('if (request.method() !== "GET") {','if (request.method() === "GET" && /^\\/analysis(?:\\/|$)/.test(suffix)) return json({ message: "界面测试拦截模型 GET" }, 403);\n          if (request.method() !== "GET") {')
+source=source.replace('`${key}-${viewport.width}x${viewport.height}.png`','`${key}-${viewport.width}x${viewport.height}${viewport.reducedMotion ? "-reduce" : ""}.png`')
+source=source.replace('if (viewport.width === 390 && viewport.height === 844) {','if (viewport.width === 390 && viewport.height === 844 && !viewport.reducedMotion) {')
+directory=Path('work/apple-upgrade')
+directory.mkdir(exist_ok=True)
+(directory/'operations-browser.cjs').write_text(source,encoding='utf-8')

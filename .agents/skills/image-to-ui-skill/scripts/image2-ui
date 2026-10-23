@@ -1,0 +1,122 @@
+#!/usr/bin/env node
+
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+
+const args = process.argv.slice(2);
+const command = args[0];
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+if (command === "--version" || command === "-v" || command === "version") {
+  printVersion();
+  process.exit(0);
+}
+
+if (!command || command === "--help" || command === "-h") {
+  printHelp();
+  process.exit(command ? 0 : 1);
+}
+
+if (command === "validate") {
+  const auditScript = path.join(__dirname, "ui_output_audit.mjs");
+  const result = spawnSync(process.execPath, [auditScript, ...args.slice(1)], { stdio: "inherit", cwd: process.cwd() });
+  process.exit(result.status ?? 1);
+}
+
+if (command === "compare") {
+  const compareScript = path.join(__dirname, "ui_compare.mjs");
+  const result = spawnSync(process.execPath, [compareScript, ...args.slice(1)], { stdio: "inherit", cwd: process.cwd() });
+  process.exit(result.status ?? 1);
+}
+
+if (command === "loop") {
+  const loopScript = path.join(__dirname, "ui_loop.mjs");
+  const result = spawnSync(process.execPath, [loopScript, ...args.slice(1)], { stdio: "inherit", cwd: process.cwd() });
+  process.exit(result.status ?? 1);
+}
+
+if (command === "orchestrate") {
+  const orchestratorScript = path.join(__dirname, "image2_orchestrate.mjs");
+  const result = spawnSync(process.execPath, [orchestratorScript, ...args.slice(1)], { stdio: "inherit", cwd: process.cwd() });
+  process.exit(result.status ?? 1);
+}
+
+if (command === "state") {
+  const stateScript = path.join(__dirname, "workflow_state_machine.mjs");
+  const result = spawnSync(process.execPath, [stateScript, ...args.slice(1)], { stdio: "inherit", cwd: process.cwd() });
+  process.exit(result.status ?? 1);
+}
+
+if (["run", "resume", "inspect"].includes(command)) {
+  const { runRuntimeCli } = await import("../runtime/cli.mjs");
+  process.exit(await runRuntimeCli(command, args.slice(1), { repoRoot: path.resolve(__dirname, "..") }));
+}
+
+if (command === "doctor") {
+  const image2Script = path.join(__dirname, "image2_asset.py");
+  const python = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
+  const result = spawnSync(python, [image2Script, "doctor"], { stdio: "pipe", cwd: process.cwd(), encoding: "utf8" });
+  const checks = spawnSync(process.execPath, [path.join(__dirname, "doctor.mjs")], { cwd: process.cwd(), encoding: "utf8" });
+  let imageReport;
+  try { imageReport = JSON.parse(result.stdout || "{}"); } catch { imageReport = { status: "unavailable", raw: result.stdout || "" }; }
+  let runtimeReport;
+  try { runtimeReport = JSON.parse(checks.stdout || "{}"); } catch { runtimeReport = { status: "unavailable", raw: checks.stdout || "" }; }
+  console.log(JSON.stringify({ ...runtimeReport, image2: imageReport, status: runtimeReport.status === "ready" && imageReport.status !== "unavailable" ? "ready" : "needs-attention" }, null, 2));
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (checks.stderr) process.stderr.write(checks.stderr);
+  process.exit(Math.max(result.status ?? 1, checks.status ?? 1));
+}
+
+console.error(`Unknown image2-ui command: ${command}`);
+printHelp();
+process.exit(1);
+
+function printHelp() {
+  console.log(`Usage:
+  image2-ui validate <demo-dir-or-html> [--reference reference.png] [--json] [--no-browser]
+  image2-ui compare --reference reference.png --actual output.png [--out comparison.png]
+  image2-ui loop <demo-dir-or-html> --reference reference.png [--build "npm run build"]
+  image2-ui run <project-dir> --mode recreate --task "..." --reference reference.png [--execution single-agent|multi-agent]
+  image2-ui run <project-dir> --mode redesign --task "..." --reference reference.png [--require-effect-review] [--execution single-agent|multi-agent]
+  image2-ui run <project-dir> --mode create --task "..." [--require-effect-review] [--execution single-agent|multi-agent]
+  image2-ui orchestrate <project-dir> --task "..." [--reference reference.png] [--workflow recreate|redesign|create] [--mode parallel|sequential]
+  image2-ui resume <project-dir> (--run RUN_ID | --latest) [--decision approved|rejected]
+  image2-ui inspect <project-dir> (--run RUN_ID | --latest) [--json]
+  image2-ui state <legacy-run.json> [--json]
+  image2-ui doctor
+  image2-ui version
+
+Workflow modes:
+  recreate   Screenshot/reference -> UI. Original reference is the source of truth and Effect Image is skipped by default.
+  redesign   Reference -> new design -> UI. Effect Image is generated before implementation.
+  create     Description -> new design -> UI. Effect Image is generated before implementation.
+
+Execution:
+  single-agent  Runtime invokes one implementation/fix agent at a time (default).
+  multi-agent   Runtime owns a subordinate DAG Scheduler for specialist analysis, implementation, review, QA, and release.
+
+Defaults:
+  With --reference and no --mode: recreate.
+  Without --reference and no --mode: create.
+  Redesign must be selected explicitly.
+  Multi-agent execution defaults to maxParallel=2.
+
+Commands:
+  validate    Audit a generated demo for broken assets, render issues, text overflow, contrast, and common visual anti-patterns.
+  compare     Build a reference/output comparison board.
+  loop        Run build, screenshot capture, validate, compare, and write a fix queue.
+  run         Start the durable UI Harness Runtime; add --execution multi-agent to activate the Runtime-owned DAG Scheduler.
+  orchestrate Compatibility entry that delegates to Runtime multi-agent execution; it no longer owns a separate run lifecycle.
+  resume      Resume a saved Runtime run with interruption reconciliation.
+  inspect     Inspect Runtime state and event history. Scheduler progress is stored under the same Runtime run directory.
+  state       Inspect old standalone orchestrator manifests created before Runtime-owned scheduling.
+  doctor      Show image channels, runtime versions, browser capture, fonts/media, and output permissions.`);
+}
+
+function printVersion() {
+  const packagePath = path.join(__dirname, "..", "package.json");
+  const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+  console.log(packageJson.version);
+}

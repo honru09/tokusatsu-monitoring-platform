@@ -8,8 +8,7 @@ import { PrismaService } from "../prisma.service.js";
 
 export function publicImportError(errorText: string | null) {
   if (!errorText) return null;
-  if (errorText.includes("42P10"))
-    return "旧任务受数据库升级影响，请重试。";
+  if (errorText.includes("42P10")) return "旧任务受数据库升级影响，请重试。";
   if (
     /PrismaClient|ConnectorError|Invalid `prisma\.|query execution/iu.test(
       errorText,
@@ -33,12 +32,15 @@ function importForClient<
 
 @Injectable()
 export class ImportsService {
+  private succeededImportErrorRepair?: Promise<void>;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly items: ItemsService,
   ) {}
 
   async list() {
+    await this.repairSucceededImportErrors();
     const imports = await this.prisma.urlImport.findMany({
       include: {
         item: { select: { id: true, titleRaw: true, priceCurrent: true } },
@@ -53,6 +55,7 @@ export class ImportsService {
   }
 
   async get(id: string) {
+    await this.repairSucceededImportErrors();
     const record = await this.prisma.urlImport.findUnique({
       where: { id },
       include: { item: true },
@@ -76,5 +79,23 @@ export class ImportsService {
       throw new BadRequestException("进行中的链接分析任务不能清除");
     await this.prisma.urlImport.delete({ where: { id } });
     return { removed: true, id };
+  }
+
+  private repairSucceededImportErrors() {
+    if (!this.succeededImportErrorRepair) {
+      this.succeededImportErrorRepair = Promise.resolve()
+        .then(() =>
+          this.prisma.urlImport.updateMany({
+            where: { status: "succeeded", errorText: { not: null } },
+            data: { errorText: null },
+          }),
+        )
+        .then(() => undefined)
+        .catch(() => {
+          // Keep imports readable and retry the idempotent repair next time.
+          this.succeededImportErrorRepair = undefined;
+        });
+    }
+    return this.succeededImportErrorRepair;
   }
 }

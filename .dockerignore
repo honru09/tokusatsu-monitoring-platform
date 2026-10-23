@@ -3,6 +3,9 @@ node_modules
 .git
 .cloudflared
 .local-backups
+.private-operations
+.private-entry
+data/operations
 .requirements-doc-render
 .impeccable/review
 .impeccable/review-public-final

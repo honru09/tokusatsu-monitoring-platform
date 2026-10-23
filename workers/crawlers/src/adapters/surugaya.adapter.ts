@@ -118,6 +118,7 @@ export function parseSurugayaSearchHtml(
       .join("\n");
     const detailHint: RawItemDetail = {
       sourcePlatform: "surugaya",
+      listingType: "direct",
       sourceItemId,
       sourceUrl,
       titleRaw,
@@ -219,11 +220,13 @@ export class SurugayaAdapter implements SourceAdapter {
       });
       return {
         status: detail.status,
+        listingType: "direct",
         priceCurrent: detail.priceCurrent,
         shippingFee: detail.shippingFee,
       };
     } catch (error) {
-      if (/not in stock/i.test(String(error))) return { status: "sold" };
+      if (/Surugaya returned (?:404|410)|not in stock/i.test(String(error)))
+        return { status: "sold", listingType: "direct" };
       throw error;
     }
   }

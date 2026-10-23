@@ -1,0 +1,90 @@
+{
+  "checkedAt": "2026-10-09T13:15:01.247Z",
+  "local": "http://localhost:3000",
+  "remote": "https://kamenradar.space",
+  "health": {
+    "status": "ok",
+    "api": 200
+  },
+  "assets": [
+    {
+      "path": "/_next/static/css/b8e283342c0ffce2.css",
+      "sha256": "59df15d2706c9074730f8fac1532e542b10cba59eec1b752846c803406d1578e",
+      "bytes": 169706,
+      "match": true
+    },
+    {
+      "path": "/_next/static/css/796897720a4d2c3c.css",
+      "sha256": "12146960ed89391249c1e1f557f4debf23b0f23c07e4e971eb81242dff0d1637",
+      "bytes": 81014,
+      "match": true
+    },
+    {
+      "path": "/_next/static/css/9c865c01b723737f.css",
+      "sha256": "d094379d64016a72f279b62e06cc00c96c38c30b22ddcfc708effad53bcf3eea",
+      "bytes": 87506,
+      "match": true
+    },
+    {
+      "path": "/_next/static/css/b25271871fdf4ec7.css",
+      "sha256": "656bb5a60b1ceccebc8cd50ebaa73c57db88428b91aa5652c3d467ae221b66bb",
+      "bytes": 52248,
+      "match": true
+    },
+    {
+      "path": "/_next/static/chunks/webpack-aadb6338cbb48a65.js",
+      "sha256": "e35b3903da936619d8aca7994a40871d6be2f589c03293648a30b6a89b89a4fe",
+      "bytes": 3473,
+      "match": true
+    },
+    {
+      "path": "/_next/static/chunks/88ca9541-3f71406fc1fd738b.js",
+      "sha256": "3eb311577415b5fb5ab954f18190a0a67bd9bd99367db79c023661316b4e1b44",
+      "bytes": 173018,
+      "match": true
+    },
+    {
+      "path": "/_next/static/chunks/15-f4f96e0f1bcea698.js",
+      "sha256": "34c944e9573e68cc5b894c11315c3acf01254a9925913b03f86c8c5bcbd98c14",
+      "bytes": 173463,
+      "match": true
+    },
+    {
+      "path": "/_next/static/chunks/main-app-ddf83fa3aa059e49.js",
+      "sha256": "3ef07d5ce5289eab625c48d9bb8efc0687baf8417cfa66d58232e7393a153262",
+      "bytes": 556,
+      "match": true
+    },
+    {
+      "path": "/_next/static/chunks/app/layout-7b13c42c79e7a198.js",
+      "sha256": "86c1788f83ee5ff67aecd6e7fddd624528025ee58daec2d9a669cc979aed90e2",
+      "bytes": 4778,
+      "match": true
+    },
+    {
+      "path": "/_next/static/chunks/e809d3ec-3a279f292aa0f4ce.js",
+      "sha256": "df4e297d8f877e2ff4ea3fdb98d6ef7dffbebd6c587e5df01b9d7d6538c77bfa",
+      "bytes": 51544,
+      "match": true
+    },
+    {
+      "path": "/_next/static/chunks/276-dfe027a8ae30f95a.js",
+      "sha256": "7524e1ad2c411fd26beed54767b3c7230e81f46c3e38a2c8dcd3a89b42eb458c",
+      "bytes": 214847,
+      "match": true
+    },
+    {
+      "path": "/_next/static/chunks/app/page-6d77ab48557014af.js",
+      "sha256": "ce200f75186125e6a7bfa15eae9a52d2c126a137043da698eba7caa70a879d7f",
+      "bytes": 461166,
+      "match": true
+    },
+    {
+      "path": "/_next/static/chunks/polyfills-42372ed130431b0a.js",
+      "sha256": "0973c1d64c88adc8e3c950410cb58b288f72118d5965b78049438deb8f2f9683",
+      "bytes": 112594,
+      "match": true
+    }
+  ],
+  "allMatch": true
+}

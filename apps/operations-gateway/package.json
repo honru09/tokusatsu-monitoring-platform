@@ -1,0 +1,9 @@
+{
+  "name": "@tokusatsu/operations-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"build": "esbuild client/main.js --bundle --minify --format=esm --outfile=public/client.js", "test": "node --test test/*.test.mjs", "start": "node server.mjs", "init": "node init-accounts.mjs"},
+  "dependencies": {"@novnc/novnc": "1.7.0", "ws": "8.21.3"},
+  "devDependencies": {"esbuild": "0.25.12"}
+}

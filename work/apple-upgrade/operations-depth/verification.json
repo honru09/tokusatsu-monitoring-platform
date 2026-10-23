@@ -1,0 +1,453 @@
+{
+  "checks": [
+    {
+      "name": "inventory failure retains draft then success returns receipt",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "logistics calculation has local saved receipt",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "logistics failure preserves edited parameter",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "logistics rapid repeat is deduped and stale result rejected",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "intel empty query recovers and returns input focus",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "text reply reference locates original with keyboard instant position",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "reply action puts focus in composer and removal preserves text",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "assistant result pending dedupes clicks and failure remains recoverable",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "assistant incoming answer preserves old reading and new answer action",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "AI purpose focus material is immediate and does not call model",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "operations reconnect acknowledgement preserves active frame",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "inventory failure retains draft then success returns receipt",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "logistics calculation has local saved receipt",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "logistics failure preserves edited parameter",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "logistics rapid repeat is deduped and stale result rejected",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "intel empty query recovers and returns input focus",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "text reply reference locates original with keyboard instant position",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "reply action puts focus in composer and removal preserves text",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "assistant result pending dedupes clicks and failure remains recoverable",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "assistant incoming answer preserves old reading and new answer action",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "AI purpose focus material is immediate and does not call model",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "operations reconnect acknowledgement preserves active frame",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      }
+    },
+    {
+      "name": "inventory failure retains draft then success returns receipt",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    },
+    {
+      "name": "logistics calculation has local saved receipt",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    },
+    {
+      "name": "logistics failure preserves edited parameter",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    },
+    {
+      "name": "logistics rapid repeat is deduped and stale result rejected",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    },
+    {
+      "name": "intel empty query recovers and returns input focus",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    },
+    {
+      "name": "text reply reference locates original with keyboard instant position",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    },
+    {
+      "name": "reply action puts focus in composer and removal preserves text",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    },
+    {
+      "name": "assistant result pending dedupes clicks and failure remains recoverable",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    },
+    {
+      "name": "assistant incoming answer preserves old reading and new answer action",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    },
+    {
+      "name": "AI purpose focus material is immediate and does not call model",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    },
+    {
+      "name": "operations reconnect acknowledgement preserves active frame",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      }
+    }
+  ],
+  "errors": [],
+  "intercepted": [
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/inventory-orders",
+      "method": "POST"
+    },
+    {
+      "suffix": "/inventory-orders",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/logistics/items/depth-product",
+      "method": "PATCH"
+    },
+    {
+      "suffix": "/logistics/optimize",
+      "method": "POST"
+    },
+    {
+      "suffix": "/logistics/items/depth-product",
+      "method": "PATCH"
+    },
+    {
+      "suffix": "/logistics/items/depth-product",
+      "method": "PATCH"
+    },
+    {
+      "suffix": "/logistics/optimize",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/ai/chat",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/inventory-orders",
+      "method": "POST"
+    },
+    {
+      "suffix": "/inventory-orders",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/logistics/items/depth-product",
+      "method": "PATCH"
+    },
+    {
+      "suffix": "/logistics/optimize",
+      "method": "POST"
+    },
+    {
+      "suffix": "/logistics/items/depth-product",
+      "method": "PATCH"
+    },
+    {
+      "suffix": "/logistics/items/depth-product",
+      "method": "PATCH"
+    },
+    {
+      "suffix": "/logistics/optimize",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/ai/chat",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/inventory-orders",
+      "method": "POST"
+    },
+    {
+      "suffix": "/inventory-orders",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/logistics/items/depth-product",
+      "method": "PATCH"
+    },
+    {
+      "suffix": "/logistics/optimize",
+      "method": "POST"
+    },
+    {
+      "suffix": "/logistics/items/depth-product",
+      "method": "PATCH"
+    },
+    {
+      "suffix": "/logistics/items/depth-product",
+      "method": "PATCH"
+    },
+    {
+      "suffix": "/logistics/optimize",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/ai/chat",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    },
+    {
+      "suffix": "/collaboration/presence",
+      "method": "POST"
+    }
+  ],
+  "forwardedMutations": 0,
+  "passed": true
+}

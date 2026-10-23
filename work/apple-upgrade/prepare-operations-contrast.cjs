@@ -1,0 +1,51 @@
+const fs = require('node:fs');
+const source = fs.readFileSync('work/apple-upgrade/operations-depth.cjs', 'utf8');
+const start = source.indexOf("   await page.goto(target+'/?workspace=orders'");
+const end = source.indexOf('   await context.close();', start);
+if (start < 0 || end < 0) throw Error('Source runner markers missing');
+const body = `
+   createFailure=false;
+   await page.goto(target+'/?workspace=orders',{waitUntil:'domcontentloaded'});
+   const inventory=page.locator('.inventory-orders-workspace');
+   await inventory.getByText('界面验收库存',{exact:true}).waitFor();
+   await inventory.getByRole('button',{name:'新建订单',exact:true}).click();
+   const dialog=page.getByRole('dialog');
+   await dialog.getByLabel('商品名称',{exact:true}).fill('新采购商品');
+   await dialog.getByLabel('总成本（日元）',{exact:true}).fill('9000');
+   await dialog.getByRole('button',{name:'创建订单',exact:true}).click();
+   await inventory.getByRole('status').getByText('已新建订单 · 新采购商品').waitFor();
+   await page.locator('.procurement-header .exchange-rate-inline').waitFor({state:'visible'});await frames(page);
+   report.contrast.push(...await recordContrast(page,out,\`orders-\${settings.width}-\${settings.motion}\`,settings,[{name:'Header brand',selector:'.procurement-header .brand-name'},{name:'Header exchange rate',selector:'.procurement-header .exchange-rate-inline'},{name:'Nav home',selector:'.primary-navigation [aria-label="首页"] .primary-navigation-label'},{name:'Nav AI',selector:'.primary-navigation [aria-label="AI"] .primary-navigation-label'},{name:'Nav messages',selector:'.primary-navigation [aria-label="消息"] .primary-navigation-label'},{name:'Nav active workbench',selector:'.primary-navigation [aria-label="工作台"] .primary-navigation-label'},{name:'Inventory success receipt',selector:'[class*="actionReceipt"]'}]));
+   const keyboardCheck=async (locator,name)=>{
+    await page.mouse.move(1,1);await locator.focus();await page.keyboard.press('Tab');await locator.focus();await frames(page);
+    await page.keyboard.down('Space');
+    try{
+     await frames(page);
+     const value=await locator.evaluate(el=>{const s=getComputedStyle(el),matrix=new DOMMatrixReadOnly(s.transform==='none'?undefined:s.transform);return {mode:document.documentElement.dataset.appleInput,transform:s.transform,transitionDuration:s.transitionDuration,owned:el.hasAttribute('data-apple-motion-owned'),active:el.matches(':active'),matrix:{a:matrix.a,b:matrix.b,c:matrix.c,d:matrix.d,e:matrix.e,f:matrix.f}};});
+     assert.equal(value.mode,'keyboard');
+     for(const key of ['a','b','c','d','e','f']) assert.ok(Math.abs(value.matrix[key]-({a:1,b:0,c:0,d:1,e:0,f:0})[key])<.0001,name+' transform '+JSON.stringify(value));
+     assert.ok(value.transitionDuration.split(',').every(part=>parseFloat(part)<=.00002),name+' keyboard transition '+JSON.stringify(value));
+     report.checks.push({name,settings,...value});
+    }finally{await page.keyboard.up('Space');}
+   };
+   await keyboardCheck(page.locator('.header-settings-button'),'shared header keyboard press is immediate without transform');
+   await page.keyboard.press('Escape');
+   await page.getByRole('dialog').waitFor({state:'detached'});
+   await keyboardCheck(inventory.getByRole('button',{name:'新建订单',exact:true}),'inventory native keyboard press is immediate without transform');
+   await page.keyboard.press('Escape');
+   await page.getByRole('dialog').waitFor({state:'detached'});
+   await keyboardCheck(page.locator('.primary-navigation [aria-label="工作台"]'),'Motion owned nav keyboard press has no transform competition');
+   await page.goto(target+'/?workspace=ai',{waitUntil:'domcontentloaded'});
+   const ai=page.locator('[aria-labelledby="ai-system-title"]');await ai.getByText('glm-5.3-flash',{exact:true}).waitFor();
+   const aiEntry=ai.getByRole('button',{name:'到商品库，从详情读取商品',exact:true});
+   await aiEntry.focus();await page.keyboard.press('Tab');await aiEntry.focus();
+   await ai.locator('summary').click();await ai.getByText('只使用 GLM-5.3-Flash，没有付费模型回退。',{exact:true}).waitFor();
+   await aiEntry.evaluate(el=>el.closest('article').scrollIntoView({block:'center',behavior:'instant'}));await aiEntry.focus();await frames(page);
+   report.contrast.push(...await recordContrast(page,out,\`ai-entry-\${settings.width}-\${settings.motion}\`,settings,[{name:'AI product entry on focused pale blue',selector:'[aria-label="到商品库，从详情读取商品"]'},{name:'AI purpose heading',selector:'[data-ai-purpose="product_reading"] h4'}]));
+   await keyboardCheck(aiEntry,'AI product entry keyboard press is immediate without transform');
+`;
+let narrow=source.slice(0,start)+body+source.slice(end);
+narrow=narrow.replace("'work/apple-upgrade/operations-depth'","'work/deep-apple/operations-contrast'");
+narrow=narrow.replace('verification.json','contrast-keyboard-verification.json');
+fs.writeFileSync('work/apple-upgrade/operations-contrast.cjs',narrow);
+console.log('Prepared narrow contrast and shared keyboard runner.');

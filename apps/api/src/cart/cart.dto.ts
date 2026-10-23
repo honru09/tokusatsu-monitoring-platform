@@ -17,4 +17,8 @@ export class CreateCartShareDto {
   @ArrayMaxSize(100)
   @IsString({ each: true })
   itemIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  accountId?: string;
 }

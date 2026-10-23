@@ -18,7 +18,7 @@ export class CartController {
 
   @Post("share")
   share(@Body() body: CreateCartShareDto) {
-    return this.cart.createShare(body.itemIds);
+    return this.cart.createShare(body.itemIds, body.accountId);
   }
 
   @Get("share/:token")

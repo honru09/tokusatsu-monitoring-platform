@@ -1,0 +1,2610 @@
+[
+  {
+    "width": 320,
+    "height": 780,
+    "reducedMotion": "no-preference",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 59.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 318,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 246,
+            "height": 46
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 716,
+          "top": 0,
+          "right": 320,
+          "bottom": 716,
+          "left": 0
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核",
+            "width": 296,
+            "height": 110
+          },
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari约 ¥525",
+            "width": 296,
+            "height": 90
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 68,
+          "width": 296,
+          "height": 648,
+          "top": 68,
+          "right": 308,
+          "bottom": 716,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 71.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 296,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 1498.203125,
+          "top": 84,
+          "right": 308,
+          "bottom": 1582.203125,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 466.546875,
+          "top": 84,
+          "right": 308,
+          "bottom": 550.546875,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 69.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 622,
+          "top": 84,
+          "right": 308,
+          "bottom": 706,
+          "left": 12
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0
+  },
+  {
+    "width": 320,
+    "height": 780,
+    "reducedMotion": "reduce",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 59.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 318,
+            "height": 44
+          },
+          {
+            "label": "打开商品：S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核对（长中日文标题排版验收）",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 246,
+            "height": 46
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 716,
+          "top": 0,
+          "right": 320,
+          "bottom": 716,
+          "left": 0
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核",
+            "width": 296,
+            "height": 110
+          },
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari约 ¥525",
+            "width": 296,
+            "height": 90
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 68,
+          "width": 296,
+          "height": 648,
+          "top": 68,
+          "right": 308,
+          "bottom": 716,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 71.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 296,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 1498.203125,
+          "top": 84,
+          "right": 308,
+          "bottom": 1582.203125,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 466.546875,
+          "top": 84,
+          "right": 308,
+          "bottom": 550.546875,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 69.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 622,
+          "top": 84,
+          "right": 308,
+          "bottom": 706,
+          "left": 12
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "reducedMotion": "no-preference",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 59.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 388,
+            "height": 44
+          },
+          {
+            "label": "打开商品：S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核对（长中日文标题排版验收）",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 316,
+            "height": 46
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 780,
+          "top": 0,
+          "right": 390,
+          "bottom": 780,
+          "left": 0
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核",
+            "width": 366,
+            "height": 110
+          },
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari约 ¥525",
+            "width": 366,
+            "height": 90
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 296,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 68,
+          "width": 366,
+          "height": 712,
+          "top": 68,
+          "right": 378,
+          "bottom": 780,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 73.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 358,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 16,
+          "y": 84,
+          "width": 358,
+          "height": 1420.421875,
+          "top": 84,
+          "right": 374,
+          "bottom": 1504.421875,
+          "left": 16
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 16,
+          "y": 84,
+          "width": 358,
+          "height": 473.546875,
+          "top": 84,
+          "right": 374,
+          "bottom": 557.546875,
+          "left": 16
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 69.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 16,
+          "y": 84,
+          "width": 358,
+          "height": 686,
+          "top": 84,
+          "right": 374,
+          "bottom": 770,
+          "left": 16
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0,
+    "interactions": [
+      "ai-to-product-library-without-reload",
+      "ai-to-chat-without-reload",
+      "no-model-on-navigation",
+      "new-reply-preserves-old-reading-position",
+      "empty-conversation",
+      "empty-assistant",
+      "resource-error-retry",
+      "resource-loading-completion"
+    ]
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "reducedMotion": "reduce",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 59.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 388,
+            "height": 44
+          },
+          {
+            "label": "打开商品：S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核对（长中日文标题排版验收）",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 316,
+            "height": 46
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 780,
+          "top": 0,
+          "right": 390,
+          "bottom": 780,
+          "left": 0
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核",
+            "width": 366,
+            "height": 90
+          },
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari",
+            "width": 366,
+            "height": 90
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 296,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 68,
+          "width": 366,
+          "height": 712,
+          "top": 68,
+          "right": 378,
+          "bottom": 780,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 73.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 358,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 16,
+          "y": 84,
+          "width": 358,
+          "height": 1420.421875,
+          "top": 84,
+          "right": 374,
+          "bottom": 1504.421875,
+          "left": 16
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 16,
+          "y": 84,
+          "width": 358,
+          "height": 473.546875,
+          "top": 84,
+          "right": 374,
+          "bottom": 557.546875,
+          "left": 16
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 69.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 16,
+          "y": 84,
+          "width": 358,
+          "height": 686,
+          "top": 84,
+          "right": 374,
+          "bottom": 770,
+          "left": 16
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0,
+    "interactions": [
+      "ai-to-product-library-without-reload",
+      "ai-to-chat-without-reload",
+      "no-model-on-navigation",
+      "new-reply-preserves-old-reading-position",
+      "empty-conversation",
+      "empty-assistant",
+      "resource-error-retry",
+      "resource-loading-completion"
+    ]
+  },
+  {
+    "width": 768,
+    "height": 960,
+    "reducedMotion": "no-preference",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 67.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 70.75,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 687,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 583,
+            "height": 44
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 689,
+          "height": 860,
+          "top": 100,
+          "right": 721,
+          "bottom": 960,
+          "left": 32
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核",
+            "width": 333,
+            "height": 110
+          },
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari约 ¥525",
+            "width": 333,
+            "height": 110
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 611,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 689,
+          "height": 860,
+          "top": 100,
+          "right": 721,
+          "bottom": 960,
+          "left": 32
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 87.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 147.453125,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情读取商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情翻译商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "开始聊天→",
+            "width": 109.5625,
+            "height": 44
+          },
+          {
+            "label": "调用规则与资源口径+",
+            "width": 704,
+            "height": 48
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 704,
+          "height": 1034.328125,
+          "top": 100,
+          "right": 736,
+          "bottom": 1134.328125,
+          "left": 32
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 704,
+          "height": 537.0625,
+          "top": 100,
+          "right": 736,
+          "bottom": 637.0625,
+          "left": 32
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 77.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 77.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 704,
+          "height": 760,
+          "top": 100,
+          "right": 736,
+          "bottom": 860,
+          "left": 32
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0
+  },
+  {
+    "width": 768,
+    "height": 960,
+    "reducedMotion": "reduce",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 67.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 70.75,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 687,
+            "height": 44
+          },
+          {
+            "label": "打开商品：S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核对（长中日文标题排版验收）",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 583,
+            "height": 44
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 689,
+          "height": 860,
+          "top": 100,
+          "right": 721,
+          "bottom": 960,
+          "left": 32
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核",
+            "width": 333,
+            "height": 110
+          },
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari约 ¥525",
+            "width": 333,
+            "height": 110
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 611,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 689,
+          "height": 860,
+          "top": 100,
+          "right": 721,
+          "bottom": 960,
+          "left": 32
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 87.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 147.453125,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情读取商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情翻译商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "开始聊天→",
+            "width": 109.5625,
+            "height": 44
+          },
+          {
+            "label": "调用规则与资源口径+",
+            "width": 704,
+            "height": 48
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 704,
+          "height": 1034.328125,
+          "top": 100,
+          "right": 736,
+          "bottom": 1134.328125,
+          "left": 32
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 704,
+          "height": 537.0625,
+          "top": 100,
+          "right": 736,
+          "bottom": 637.0625,
+          "left": 32
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 77.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 77.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 704,
+          "height": 760,
+          "top": 100,
+          "right": 736,
+          "bottom": 860,
+          "left": 32
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0
+  },
+  {
+    "width": 1280,
+    "height": 900,
+    "reducedMotion": "no-preference",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 67.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 70.75,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 1118,
+            "height": 44
+          },
+          {
+            "label": "打开商品：S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核对（长中日文标题排版验收）",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 1014,
+            "height": 44
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 72.5,
+          "y": 100,
+          "width": 1120,
+          "height": 768,
+          "top": 100,
+          "right": 1192.5,
+          "bottom": 868,
+          "left": 72.5
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核",
+            "width": 376,
+            "height": 110
+          },
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari约 ¥525",
+            "width": 376,
+            "height": 110
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 962,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 112.5,
+          "y": 100,
+          "width": 1040,
+          "height": 768,
+          "top": 100,
+          "right": 1152.5,
+          "bottom": 868,
+          "left": 112.5
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 87.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 147.453125,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情读取商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情翻译商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "开始聊天→",
+            "width": 109.5625,
+            "height": 44
+          },
+          {
+            "label": "调用规则与资源口径+",
+            "width": 1120,
+            "height": 48
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 72.5,
+          "y": -44,
+          "width": 1120,
+          "height": 1060.796875,
+          "top": -44,
+          "right": 1192.5,
+          "bottom": 1016.796875,
+          "left": 72.5
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 192.5,
+          "y": 100,
+          "width": 880,
+          "height": 537.0625,
+          "top": 100,
+          "right": 1072.5,
+          "bottom": 637.0625,
+          "left": 192.5
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 77.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 77.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 1201,
+          "height": 700,
+          "top": 100,
+          "right": 1233,
+          "bottom": 800,
+          "left": 32
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0
+  },
+  {
+    "width": 1280,
+    "height": 900,
+    "reducedMotion": "reduce",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 67.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 70.75,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 1118,
+            "height": 44
+          },
+          {
+            "label": "打开商品：S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核对（长中日文标题排版验收）",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 1014,
+            "height": 44
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 72.5,
+          "y": 100,
+          "width": 1120,
+          "height": 768,
+          "top": 100,
+          "right": 1192.5,
+          "bottom": 868,
+          "left": 72.5
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核",
+            "width": 376,
+            "height": 110
+          },
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari约 ¥525",
+            "width": 376,
+            "height": 110
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 962,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 112.5,
+          "y": 100,
+          "width": 1040,
+          "height": 768,
+          "top": 100,
+          "right": 1152.5,
+          "bottom": 868,
+          "left": 112.5
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 87.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 147.453125,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情读取商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情翻译商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "开始聊天→",
+            "width": 109.5625,
+            "height": 44
+          },
+          {
+            "label": "调用规则与资源口径+",
+            "width": 1120,
+            "height": 48
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 72.5,
+          "y": -44,
+          "width": 1120,
+          "height": 1060.796875,
+          "top": -44,
+          "right": 1192.5,
+          "bottom": 1016.796875,
+          "left": 72.5
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 56
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 192.5,
+          "y": 100,
+          "width": 880,
+          "height": 537.0625,
+          "top": 100,
+          "right": 1072.5,
+          "bottom": 637.0625,
+          "left": 192.5
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 77.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 77.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 1201,
+          "height": 700,
+          "top": 100,
+          "right": 1233,
+          "bottom": 800,
+          "left": 32
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0
+  },
+  {
+    "width": 1440,
+    "height": 960,
+    "reducedMotion": "no-preference",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 67.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 70.75,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 1118,
+            "height": 44
+          },
+          {
+            "label": "打开商品：S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核对（长中日文标题排版验收）",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 1014,
+            "height": 44
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 152.5,
+          "y": 100,
+          "width": 1120,
+          "height": 828,
+          "top": 100,
+          "right": 1272.5,
+          "bottom": 928,
+          "left": 152.5
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核",
+            "width": 376,
+            "height": 90
+          },
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari",
+            "width": 376,
+            "height": 90
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 962,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 192.5,
+          "y": 100,
+          "width": 1040,
+          "height": 828,
+          "top": 100,
+          "right": 1232.5,
+          "bottom": 928,
+          "left": 192.5
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 89.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 147.453125,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情读取商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情翻译商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "开始聊天→",
+            "width": 109.5625,
+            "height": 44
+          },
+          {
+            "label": "调用规则与资源口径+",
+            "width": 1120,
+            "height": 48
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 152.5,
+          "y": 78,
+          "width": 1120,
+          "height": 1064.328125,
+          "top": 78,
+          "right": 1272.5,
+          "bottom": 1142.328125,
+          "left": 152.5
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 272.5,
+          "y": 100,
+          "width": 880,
+          "height": 546.0625,
+          "top": 100,
+          "right": 1152.5,
+          "bottom": 646.0625,
+          "left": 272.5
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 77.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 77.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 1361,
+          "height": 760,
+          "top": 100,
+          "right": 1393,
+          "bottom": 860,
+          "left": 32
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0,
+    "interactions": [
+      "ai-to-product-library-without-reload",
+      "ai-to-chat-without-reload",
+      "no-model-on-navigation",
+      "new-reply-preserves-old-reading-position",
+      "empty-conversation",
+      "empty-assistant",
+      "resource-error-retry",
+      "resource-loading-completion"
+    ]
+  },
+  {
+    "width": 1440,
+    "height": 960,
+    "reducedMotion": "reduce",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 67.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 70.75,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 1118,
+            "height": 44
+          },
+          {
+            "label": "打开商品：S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核对（长中日文标题排版验收）",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 1014,
+            "height": 44
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 152.5,
+          "y": 100,
+          "width": 1120,
+          "height": 828,
+          "top": 100,
+          "right": 1272.5,
+          "bottom": 928,
+          "left": 152.5
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核",
+            "width": 376,
+            "height": 110
+          },
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari约 ¥525",
+            "width": 376,
+            "height": 110
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 962,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 192.5,
+          "y": 100,
+          "width": 1040,
+          "height": 828,
+          "top": 100,
+          "right": 1232.5,
+          "bottom": 928,
+          "left": 192.5
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 89.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 147.453125,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情读取商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "到商品库，从详情翻译商品",
+            "width": 95.65625,
+            "height": 44
+          },
+          {
+            "label": "开始聊天→",
+            "width": 109.5625,
+            "height": 44
+          },
+          {
+            "label": "调用规则与资源口径+",
+            "width": 1120,
+            "height": 48
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 152.5,
+          "y": 78,
+          "width": 1120,
+          "height": 1064.328125,
+          "top": 78,
+          "right": 1272.5,
+          "bottom": 1142.328125,
+          "left": 152.5
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 272.5,
+          "y": 100,
+          "width": 880,
+          "height": 546.0625,
+          "top": 100,
+          "right": 1152.5,
+          "bottom": 646.0625,
+          "left": 272.5
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 77.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 51.828125,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 77.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 32,
+          "y": 100,
+          "width": 1361,
+          "height": 760,
+          "top": 100,
+          "right": 1393,
+          "bottom": 860,
+          "left": 32
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0,
+    "interactions": [
+      "ai-to-product-library-without-reload",
+      "ai-to-chat-without-reload",
+      "no-model-on-navigation",
+      "new-reply-preserves-old-reading-position",
+      "empty-conversation",
+      "empty-assistant",
+      "resource-error-retry",
+      "resource-loading-completion"
+    ]
+  },
+  {
+    "width": 320,
+    "height": 568,
+    "reducedMotion": "no-preference",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 59.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 318,
+            "height": 44
+          },
+          {
+            "label": "打开商品：S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核对（长中日文标题排版验收）",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 246,
+            "height": 46
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 504,
+          "top": 0,
+          "right": 320,
+          "bottom": 504,
+          "left": 0
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari约 ¥525",
+            "width": 296,
+            "height": 90
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 68,
+          "width": 296,
+          "height": 436,
+          "top": 68,
+          "right": 308,
+          "bottom": 504,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 73.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 296,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 1595.703125,
+          "top": 84,
+          "right": 308,
+          "bottom": 1679.703125,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 473.546875,
+          "top": 84,
+          "right": 308,
+          "bottom": 557.546875,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 69.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 410,
+          "top": 84,
+          "right": 308,
+          "bottom": 494,
+          "left": 12
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0,
+    "interactions": [
+      "ai-to-product-library-without-reload",
+      "ai-to-chat-without-reload",
+      "no-model-on-navigation",
+      "new-reply-preserves-old-reading-position",
+      "empty-conversation",
+      "empty-assistant",
+      "resource-error-retry",
+      "resource-loading-completion"
+    ]
+  },
+  {
+    "width": 320,
+    "height": 568,
+    "reducedMotion": "reduce",
+    "pages": [
+      {
+        "workspace": "collaboration",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "运营台",
+            "width": 59.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号，当前为龙",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "协作数据分享 · 收藏 · 不感兴趣",
+            "width": 318,
+            "height": 44
+          },
+          {
+            "label": "打开商品：S.H.Figuarts 仮面ライダー / 假面骑士限定套装，附属配件与原盒需核对（长中日文标题排版验收）",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "消息内容",
+            "width": 246,
+            "height": 46
+          },
+          {
+            "label": "发送消息",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 504,
+          "top": 0,
+          "right": 320,
+          "bottom": 504,
+          "left": 0
+        }
+      },
+      {
+        "workspace": "assistant",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "附属配件待确认的商品¥12,400 · Mercari约 ¥525",
+            "width": 296,
+            "height": 90
+          },
+          {
+            "label": "哪些字段还需要确认？",
+            "width": 155.109375,
+            "height": 44
+          },
+          {
+            "label": "输入商品、采购或库存问题…",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "label": "发送",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 68,
+          "width": 296,
+          "height": 436,
+          "top": 68,
+          "right": 308,
+          "bottom": 504,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "ai",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "刷新状态",
+            "width": 73.640625,
+            "height": 44
+          },
+          {
+            "label": "打开 AI 聊天↗",
+            "width": 296,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 1595.703125,
+          "top": 84,
+          "right": 308,
+          "bottom": 1679.703125,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "profile",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "龙",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "润",
+            "width": 80,
+            "height": 44
+          },
+          {
+            "label": "发消息",
+            "width": 81.734375,
+            "height": 44
+          },
+          {
+            "label": "切换账号",
+            "width": 95.640625,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 473.546875,
+          "top": 84,
+          "right": 308,
+          "bottom": 557.546875,
+          "left": 12
+        }
+      },
+      {
+        "workspace": "operations",
+        "pageOverflow": false,
+        "controls": [
+          {
+            "label": "重新连接",
+            "width": 69.640625,
+            "height": 44
+          },
+          {
+            "label": "消息",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "展开",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "打开独立运营窗口",
+            "width": 44,
+            "height": 44
+          }
+        ],
+        "smallControls": [],
+        "overflow": [],
+        "root": {
+          "x": 12,
+          "y": 84,
+          "width": 296,
+          "height": 410,
+          "top": 84,
+          "right": 308,
+          "bottom": 494,
+          "left": 12
+        }
+      }
+    ],
+    "errors": [],
+    "modelRequests": 0,
+    "interactions": [
+      "ai-to-product-library-without-reload",
+      "ai-to-chat-without-reload",
+      "no-model-on-navigation",
+      "new-reply-preserves-old-reading-position",
+      "empty-conversation",
+      "empty-assistant",
+      "resource-error-retry",
+      "resource-loading-completion"
+    ]
+  }
+]

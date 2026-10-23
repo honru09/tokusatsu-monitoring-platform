@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>运营台 · 假面采购</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./client.js"></script>
+  </head>
+  <body>
+    <main id="login-view" class="login-view">
+      <form id="login-form" class="login-panel">
+        <div class="lock-mark" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+          >
+            <rect x="5" y="10" width="14" height="10" rx="4" />
+            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+          </svg>
+        </div>
+        <h1>运营台</h1>
+        <p class="secondary">官方账号，独立工作空间。</p>
+        <label
+          >运营人员<select id="username" autocomplete="username">
+            <option value="long">龙</option>
+            <option value="run">润</option>
+          </select></label
+        >
+        <label
+          >运营密码<input
+            id="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            maxlength="256"
+            placeholder="输入专用访问密码"
+        /></label>
+        <p id="login-error" class="error" role="alert"></p>
+        <button id="login-button" class="primary" type="submit" disabled>
+          正在连接…
+        </button>
+        <small>与平台登录分开保护。首次访问使用本机生成的运营密码。</small>
+      </form>
+    </main>
+    <main id="workspace" class="workspace" hidden>
+      <header class="toolbar">
+        <div class="brand">
+          <h1>运营台</h1>
+          <span class="network-label">本机托管</span>
+        </div>
+        <div class="platform-tabs" role="group" aria-label="运营平台">
+          <button data-platform="xiaohongshu" aria-pressed="true">
+            <span class="platform-dot red"></span>小红书</button
+          ><button data-platform="douyin" aria-pressed="false">
+            <span class="platform-dot ink"></span>抖音
+          </button>
+        </div>
+        <div class="toolbar-actions">
+          <span id="operator-name"></span
+          ><button id="chat-shortcut" hidden>消息</button
+          ><button
+            id="materials-toggle"
+            aria-expanded="false"
+            aria-controls="materials"
+            title="素材与输入"
+          >
+            素材</button
+          ><details class="toolbar-more"><summary aria-label="更多运营操作">更多</summary><div>
+            <button id="fullscreen" title="全屏操作">全屏</button>
+            <button id="logout" title="退出运营台">退出</button>
+          </div></details>
+        </div>
+      </header>
+      <div class="workspace-body">
+        <section class="browser-panel" aria-label="远程运营浏览器">
+          <div class="browser-toolbar">
+            <span class="connection"
+              ><i id="connection-dot"></i
+              ><span id="connection-status" role="status">准备连接</span></span
+            >
+            <div>
+              <button id="restore-window" disabled title="还原浏览器窗口">还原</button>
+              <button id="disconnect" disabled>断开</button
+              ><button id="connect" class="primary compact">连接浏览器</button>
+            </div>
+          </div>
+          <div class="session-toolbar">
+            <div class="role-switch" role="group" aria-label="协作角色">
+              <button id="role-observer" aria-pressed="true">观察员</button>
+              <button id="role-operator" aria-pressed="false">操作员</button>
+            </div>
+            <span id="control-owner" role="status">暂无操作员</span>
+            <label class="quality-control">画质<select id="picture-quality"><option value="smooth">流畅</option><option value="sharp">清晰</option><option value="low">省流</option></select></label>
+          </div>
+          <div class="remote-stage">
+            <div id="screen" tabindex="-1"></div>
+            <canvas id="screen-preview" hidden aria-hidden="true"></canvas>
+            <div id="screen-empty" class="screen-empty">
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 48 48"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+              >
+                <rect x="5" y="8" width="38" height="28" rx="6" />
+                <path d="M17 42h14M24 36v6M5 16h38" />
+              </svg>
+              <h2 id="empty-title">小红书工作空间</h2>
+              <p id="empty-copy">连接后可观看，切换操作员可控制。</p>
+              <button id="start-control" class="primary">连接浏览器</button>
+            </div>
+          </div>
+          <div class="view-tools" role="toolbar" aria-label="画面与输入辅助">
+            <button id="zoom-toggle" aria-pressed="false" disabled>放大</button>
+            <button id="pan-toggle" aria-pressed="true" hidden disabled>拖动</button>
+            <button id="quick-input" disabled>输入</button>
+            <button id="editor-open" disabled>发布辅助</button>
+            <button id="quick-tab" disabled aria-label="跳到下一输入项">Tab</button>
+            <button id="quick-enter" disabled>回车</button>
+            <button id="quick-backspace" disabled aria-label="删除前一个字符">⌫</button>
+            <button id="expand-view" aria-pressed="false">展开</button>
+            <button id="page-controls-toggle" aria-expanded="false" aria-controls="page-controls">翻页</button>
+          </div>
+          <div id="page-controls" class="page-controls" role="toolbar" aria-label="远程页面翻动和缩放" hidden>
+            <button data-page-command="top" aria-label="回到远程页面顶部" title="顶部">⇡</button>
+            <button data-page-command="up" aria-label="远程页面向上翻动">上翻</button><button data-page-command="down" aria-label="远程页面向下翻动">下翻</button>
+            <span class="tool-separator" aria-hidden="true"></span>
+            <button data-page-command="zoom-out" aria-label="缩小远程页面">−</button><button data-page-command="zoom-reset" id="page-zoom-value" aria-label="还原远程页面大小">100%</button><button data-page-command="zoom-in" aria-label="放大远程页面">＋</button>
+          </div>
+          <footer class="browser-foot">
+            <span id="viewer-count">0 人观看</span>
+            <details>
+              <summary>连接说明</summary>
+              <div>
+                使用当前电脑网络，不保证东京或固定
+                IP。关闭页面不会清除平台登录状态；平台仍可要求再次验证。多人可同时观看，同一时间只有一名操作员。切离后暂留30秒操作权，断线后自动释放。
+              </div>
+            </details>
+          </footer>
+        </section>
+        <button id="materials-scrim" class="materials-scrim" aria-label="关闭操作面板" tabindex="-1" hidden></button>
+        <aside id="materials" class="materials" aria-label="操作辅助" hidden>
+          <div class="section-heading">
+            <h2 id="materials-title">素材与输入</h2>
+            <button id="materials-close" aria-label="关闭素材面板">完成</button>
+          </div>
+          <section class="material-upload-section">
+            <div id="media-dropzone" class="media-dropzone">
+            <label class="upload-zone" for="files"
+              ><svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+              >
+                <path
+                  d="M12 16V4m-4 4 4-4 4 4M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"
+                /></svg
+              ><b>添加照片</b><span>可多选，也可继续追加</span></label
+            ><input
+              id="files"
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+            />
+            <label class="video-picker" for="videos">添加视频</label><input id="videos" type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" multiple hidden />
+            </div>
+            <p id="upload-status" class="secondary" role="status"></p>
+            <ul id="upload-queue" class="upload-queue" hidden></ul><button id="upload-clear" class="text-button" hidden>收起已完成</button>
+            <div class="media-list-toolbar"><h3>素材库</h3><div><button id="media-select-all">全选</button><button id="media-refresh" aria-label="刷新素材库">刷新</button></div></div>
+            <p id="media-empty" class="secondary">尚无素材</p>
+            <ul id="file-list" class="file-list"></ul>
+            <div class="media-attachment-controls">
+              <div class="media-selection-header"><span id="media-selected-count">已选 0 项</span><button id="media-scan">识别上传位置</button></div>
+              <label class="media-target-label" for="media-target">平台上传位置</label><select id="media-target"><option value="">先识别当前平台页面</option></select>
+              <button id="media-attach" class="primary" disabled>添加到页面</button>
+              <p id="media-status" role="status" class="secondary"></p>
+            </div>
+          </section>
+          <section class="material-input-section">
+            <h3>中文输入</h3>
+            <textarea
+              id="paste-content"
+              rows="4"
+              maxlength="3000"
+              placeholder="第一行是标题，其余是正文"
+            ></textarea>
+            <div class="text-actions">
+              <button id="paste" disabled>一键导入</button
+              ><button id="type-text" disabled>逐字输入</button>
+            </div>
+            <p id="paste-status" class="secondary" role="status"></p>
+          </section>
+          <section class="editor-section">
+            <label class="editor-source-label" for="editor-source">粘贴文案</label>
+            <textarea id="editor-source" rows="4" maxlength="40000" placeholder="第一行是标题，其余是正文"></textarea>
+            <div class="editor-actions">
+              <button id="editor-import" class="primary" disabled>一键导入</button>
+              <button id="editor-scan">识别其他项</button>
+            </div>
+            <p id="editor-status" class="secondary" role="status">先进入平台编辑页</p>
+            <div id="editor-fields"></div>
+            <button id="editor-apply" disabled>填入修改</button>
+            <div id="editor-location-actions"></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>

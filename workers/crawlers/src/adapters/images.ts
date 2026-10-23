@@ -44,17 +44,71 @@ function canonicalImageUrl(raw: string): string | undefined {
   }
 }
 
+type ImageCandidate = {
+  identity: string;
+  quality: number;
+  url: string;
+};
+
+/**
+ * Mercari publishes one gallery photo through several rendition paths (thumb,
+ * webp and orig).  Their paths differ, but the product photo identifier after
+ * `/photos/` does not.  Use that stable identifier only for Mercari hosts so
+ * unrelated marketplace images with similar filenames remain independent.
+ */
+function mercariPhotoIdentity(parsed: URL): string | undefined {
+  if (!/(?:^|\.)mercdn\.net$/i.test(parsed.hostname)) return undefined;
+
+  const path = decodeURIComponent(parsed.pathname);
+  const photosIndex = path.toLowerCase().lastIndexOf("/photos/");
+  if (photosIndex === -1) return undefined;
+
+  const photoPath = path.slice(photosIndex + "/photos/".length);
+  if (!photoPath || photoPath.includes("/")) return undefined;
+  const photoId = photoPath.replace(/\.(?:avif|jpe?g|png|webp)$/i, "");
+  if (!photoId) return undefined;
+
+  return `mercari:${parsed.hostname.toLowerCase()}:${photoId.toLowerCase()}`;
+}
+
+function mercariImageQuality(parsed: URL): number {
+  const path = decodeURIComponent(parsed.pathname).toLowerCase();
+  if (/(?:^|\/)(?:orig|original)(?:\/|$)/.test(path)) return 400;
+  if (/(?:^|\/)(?:large|highres|high-res)(?:\/|$)/.test(path)) return 300;
+  if (/(?:^|\/)(?:medium|detail)(?:\/|$)/.test(path)) return 200;
+  if (/(?:^|\/)(?:thumb|thumbnail|small)(?:\/|$)/.test(path)) return 100;
+  return 150;
+}
+
+function imageCandidate(url: string): ImageCandidate {
+  const parsed = new URL(url);
+  return {
+    identity: mercariPhotoIdentity(parsed) ?? url,
+    quality: mercariImageQuality(parsed),
+    url,
+  };
+}
+
 /** Keep public product-gallery images, preserving first-seen order. */
 export function sanitizeProductImageUrls(values: Iterable<string>): string[] {
-  const result: string[] = [];
-  const seen = new Set<string>();
+  const result: ImageCandidate[] = [];
+  const indexByIdentity = new Map<string, number>();
   for (const value of values) {
     const normalized = canonicalImageUrl(value);
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    result.push(normalized);
+    if (!normalized) continue;
+
+    const candidate = imageCandidate(normalized);
+    const existingIndex = indexByIdentity.get(candidate.identity);
+    if (existingIndex === undefined) {
+      indexByIdentity.set(candidate.identity, result.length);
+      result.push(candidate);
+    } else if (candidate.quality > result[existingIndex].quality) {
+      // Preserve the source-gallery position while upgrading to the best
+      // available rendition of that same photo.
+      result[existingIndex] = candidate;
+    }
   }
-  return result;
+  return result.map((candidate) => candidate.url);
 }
 
 /**

@@ -2,9 +2,48 @@ import { describe, expect, it, vi } from "vitest";
 import { ImportsService, publicImportError } from "./imports.service.js";
 
 describe("ImportsService failure handling", () => {
+  it("repairs stale persisted errors on successful imports once before listing them", async () => {
+    const stored: {
+      id: string;
+      status: string;
+      errorText: string | null;
+    } = {
+      id: "eventually-succeeded",
+      status: "succeeded",
+      errorText: "Error: first attempt failed",
+    };
+    const updateMany = vi.fn().mockImplementation(async () => {
+      stored.errorText = null;
+      return { count: 1 };
+    });
+    const prisma = {
+      urlImport: {
+        updateMany,
+        findMany: vi.fn().mockImplementation(async () => [{ ...stored }]),
+      },
+    };
+    const service = new ImportsService(prisma as never, {} as never);
+
+    const first = await service.list();
+    const second = await service.list();
+
+    expect(first.imports[0]).toMatchObject({
+      status: "succeeded",
+      errorText: null,
+    });
+    expect(second.imports[0].errorText).toBeNull();
+    expect(stored.errorText).toBeNull();
+    expect(updateMany).toHaveBeenCalledTimes(1);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { status: "succeeded", errorText: { not: null } },
+      data: { errorText: null },
+    });
+  });
+
   it("does not expose a raw Prisma database error to the workspace", async () => {
     const prisma = {
       urlImport: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         findMany: vi.fn().mockResolvedValue([
           {
             id: "old-failure",
@@ -27,6 +66,7 @@ describe("ImportsService failure handling", () => {
   it("suppresses a stale error left by an earlier queue attempt after success", async () => {
     const prisma = {
       urlImport: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         findMany: vi.fn().mockResolvedValue([
           {
             id: "eventually-succeeded",
@@ -51,9 +91,12 @@ describe("ImportsService failure handling", () => {
       accepted: true,
       importId: "failed-import",
     });
-    const service = new ImportsService({} as never, {
-      retryUrlImport,
-    } as never);
+    const service = new ImportsService(
+      {} as never,
+      {
+        retryUrlImport,
+      } as never,
+    );
 
     await expect(service.retry("failed-import")).resolves.toMatchObject({
       accepted: true,

@@ -1,0 +1,1457 @@
+"use client";
+import { YahooDiscount } from "./yahoo-discount";
+import { useFloatingControl } from "../lib/use-floating-control";
+
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import { motion, useReducedMotion } from "motion/react";
+import { motionTokens, springs } from "../lib/motion-tokens";
+import styles from "./editorial-communications.module.css";
+import { readJsonResponse } from "../lib/http-json";
+import { getShellOverlayRoot } from "../lib/shell-overlay";
+import {
+  createVisibilityPoller,
+  type VisibilityPoller,
+} from "../lib/visibility-poller";
+import type { ManagerAccount } from "./manager-account-gate";
+
+export type CollaborationItem = {
+  id: string;
+  titleRaw: string;
+  titleZh?: string | null;
+  sourceUrl: string;
+  priceCurrent: number;
+  source: { key: string; displayName: string };
+  images: { url: string; position: number }[];
+  product?: { titleZh?: string | null } | null;
+};
+
+type MessageReaction = {
+  id: string;
+  accountId: string;
+  reaction:
+    | "heart"
+    | "agree"
+    | "check"
+    | "knife"
+    | "like"
+    | "negotiation_success"
+    | "negotiation_failed";
+  account: ManagerAccount;
+};
+
+type ConversationSnapshot = {
+  messages: DirectMessage[];
+  nextAfter: string | null;
+};
+
+const CONVERSATION_CACHE_PREFIX = "kamen-chat-conversation-v1";
+
+function conversationCacheKey(apiBaseUrl: string, accountId: string) {
+  return `${CONVERSATION_CACHE_PREFIX}:${apiBaseUrl}:${accountId}`;
+}
+
+function readConversationSnapshot(key: string): ConversationSnapshot | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(
+      window.sessionStorage.getItem(key) ?? "null",
+    ) as Partial<ConversationSnapshot> | null;
+    if (
+      !parsed ||
+      !Array.isArray(parsed.messages) ||
+      (parsed.nextAfter !== null && typeof parsed.nextAfter !== "string")
+    )
+      return null;
+    return {
+      messages: parsed.messages as DirectMessage[],
+      nextAfter: parsed.nextAfter ?? null,
+    };
+  } catch {
+    window.sessionStorage.removeItem(key);
+    return null;
+  }
+}
+
+function writeConversationSnapshot(
+  key: string,
+  snapshot: ConversationSnapshot,
+) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(snapshot));
+  } catch {
+    // Live collaboration remains available when browser storage is restricted.
+  }
+}
+
+type DirectMessage = {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  text?: string | null;
+  itemId?: string | null;
+  replyToId?: string | null;
+  forwardedFromId?: string | null;
+  readAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sender: ManagerAccount;
+  recipient: ManagerAccount;
+  item?: CollaborationItem | null;
+  replyTo?: Pick<DirectMessage, "id" | "text" | "sender" | "item"> | null;
+  reactions: MessageReaction[];
+  optimistic?: boolean;
+};
+
+type MessageListResponse = {
+  messages: DirectMessage[];
+  nextAfter: string | null;
+};
+
+type NegotiationStatus = "in_progress" | "success" | "failed";
+type NegotiationCase = {
+  id: string;
+  status: NegotiationStatus;
+  statusChangedAt: string;
+  item: CollaborationItem;
+  initiatedBy: ManagerAccount;
+};
+
+const reactionMeta = {
+  knife: { glyph: "🔪", label: "砍价" },
+  like: { glyph: "👍", label: "点赞" },
+  negotiation_success: { glyph: "✅", label: "砍价成功" },
+  negotiation_failed: { glyph: "❌", label: "砍价失败" },
+} as const;
+
+function isMessageInteractiveTarget(target: EventTarget | null) {
+  return (
+    target instanceof Element &&
+    Boolean(target.closest("button, a, input, textarea, select"))
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m4 11.5 16-7-6.8 15.2-2.2-6-7-2.2Z" />
+      <path d="m11 13.7 9-9.2" />
+    </svg>
+  );
+}
+
+function ReplyIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9 8-5 4 5 4" />
+      <path d="M5 12h8a6 6 0 0 1 6 6" />
+    </svg>
+  );
+}
+
+function ForwardIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m15 8 5 4-5 4" />
+      <path d="M19 12h-8a6 6 0 0 0-6 6" />
+    </svg>
+  );
+}
+
+function ProductGlyph() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 8.5 12 5l7 3.5v8L12 20l-7-3.5v-8Z" />
+      <path d="m5 8.5 7 3.5 7-3.5M12 12v8" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <path d="m7 7 10 10M17 7 7 17" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+function ActivityIcon({ kind }: { kind: "share" | "favorite" | "dislike" }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.65"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {kind === "share" ? (
+        <>
+          <path d="m12.5 5 3 3-3 3" />
+          <path d="M15 8H9.5A4.5 4.5 0 0 0 5 12.5V15" />
+        </>
+      ) : kind === "favorite" ? (
+        <path d="M16.2 7.5c0 3.4-6.2 7.2-6.2 7.2S3.8 10.9 3.8 7.5A3.3 3.3 0 0 1 10 5.9a3.3 3.3 0 0 1 6.2 1.6Z" />
+      ) : (
+        <>
+          <path d="M4.2 10s2-3.4 5.8-3.4 5.8 3.4 5.8 3.4-2 3.4-5.8 3.4S4.2 10 4.2 10Z" />
+          <path d="m4 4 12 12" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function ManagerActivitySummary({ account }: { account: ManagerAccount }) {
+  const stats = account.stats ?? { shares: 0, favorites: 0, dislikes: 0 };
+  return (
+    <article className="collaboration-manager-summary">
+      <span className="collaboration-manager-summary-avatar" aria-hidden="true">
+        {account.avatarInitial}
+        <i className={account.online ? "is-online" : ""} />
+      </span>
+      <div className="collaboration-manager-summary-body">
+        <strong>{account.displayName}</strong>
+        <div className="collaboration-manager-stats">
+          <span aria-label={`转发 ${stats.shares} 次`} title="转发">
+            <ActivityIcon kind="share" />
+            <b>{stats.shares}</b>
+          </span>
+          <span aria-label={`收藏 ${stats.favorites} 次`} title="收藏">
+            <ActivityIcon kind="favorite" />
+            <b>{stats.favorites}</b>
+          </span>
+          <span aria-label={`不感兴趣 ${stats.dislikes} 次`} title="不感兴趣">
+            <ActivityIcon kind="dislike" />
+            <b>{stats.dislikes}</b>
+          </span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function itemTitle(item: CollaborationItem) {
+  return item.titleZh?.trim() || item.product?.titleZh?.trim() || item.titleRaw;
+}
+
+function yen(value: number) {
+  return `¥${new Intl.NumberFormat("ja-JP").format(value)}`;
+}
+
+function messageTime(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function mergeMessages(current: DirectMessage[], incoming: DirectMessage[]) {
+  const map = new Map(current.map((message) => [message.id, message]));
+  for (const message of incoming) map.set(message.id, message);
+  return [...map.values()].sort((left, right) =>
+    left.createdAt === right.createdAt
+      ? left.id.localeCompare(right.id)
+      : left.createdAt.localeCompare(right.createdAt),
+  );
+}
+
+function ProductReference({
+  item,
+  onOpen,
+}: {
+  item: CollaborationItem;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="collaboration-product">
+      <span className="collaboration-product-image">
+        {item.images[0]?.url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.images[0].url} alt="" loading="lazy" />
+        ) : (
+          <ProductGlyph />
+        )}
+      </span>
+      <span className="collaboration-product-copy">
+        <strong>{itemTitle(item)}</strong>
+        <span>
+          {yen(item.priceCurrent)} · {item.source.displayName}
+        </span>
+        <YahooDiscount
+          sourceKey={item.source.key}
+          priceYen={item.priceCurrent}
+        />
+      </span>
+      <button
+        type="button"
+        className="collaboration-product-open"
+        aria-label={`打开商品：${itemTitle(item)}`}
+        onClick={onOpen}
+      >
+        <ChevronRightIcon />
+      </button>
+    </div>
+  );
+}
+
+export function CollaborationChatWorkspace({
+  apiBaseUrl,
+  account,
+  accounts,
+  pendingItem,
+  onPendingItemConsumed,
+  onOpenItem,
+  onSwitchAccount,
+  cartCount,
+  onCartMigrated,
+  onUnreadCleared,
+  onActivityChanged,
+  active = true,
+  onOpenOperations,
+}: {
+  apiBaseUrl: string;
+  account: ManagerAccount;
+  accounts: ManagerAccount[];
+  pendingItem: CollaborationItem | null;
+  onPendingItemConsumed: () => void;
+  onOpenItem: (id: string) => Promise<boolean>;
+  onSwitchAccount: () => void;
+  cartCount: number;
+  onCartMigrated: () => void;
+  onUnreadCleared: () => void;
+  onActivityChanged: () => void;
+  active?: boolean;
+  onOpenOperations?: () => void;
+}) {
+  const other = accounts.find((entry) => entry.id !== account.id) ?? null;
+  const reduceMotion = useReducedMotion();
+  const pointerInputRef = useRef(false);
+  const chatCacheKey = conversationCacheKey(apiBaseUrl, account.id);
+  const initialSnapshotRef = useRef<ConversationSnapshot | null>(null);
+  if (initialSnapshotRef.current === null)
+    initialSnapshotRef.current = readConversationSnapshot(chatCacheKey);
+  const [messages, setMessages] = useState<DirectMessage[]>(
+    () => initialSnapshotRef.current?.messages ?? [],
+  );
+  const [input, setInput] = useState("");
+  const [replyTo, setReplyTo] = useState<DirectMessage | null>(null);
+  const [forwardedFrom, setForwardedFrom] = useState<DirectMessage | null>(
+    null,
+  );
+  const [attachedItem, setAttachedItem] = useState<CollaborationItem | null>(
+    pendingItem,
+  );
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  const [loading, setLoading] = useState(
+    () => initialSnapshotRef.current === null,
+  );
+  const [error, setError] = useState("");
+  const [reactionError, setReactionError] = useState("");
+  const [negotiations, setNegotiations] = useState<NegotiationCase[]>([]);
+  const [negotiationFilter, setNegotiationFilter] =
+    useState<NegotiationStatus | null>(null);
+  const [negotiationRailOpen, setNegotiationRailOpen] = useState(false);
+  const negotiationFloat = useFloatingControl(
+    `kamen-negotiation-position:${account.id}`,
+    "right",
+    () => setNegotiationRailOpen(false),
+    52,
+  );
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const inputNode = composerInputRef.current;
+    if (!inputNode) return;
+    inputNode.style.height = "auto";
+    inputNode.style.height = `${Math.min(126, Math.max(44, inputNode.scrollHeight))}px`;
+  }, [input]);
+  const [negotiationBusy, setNegotiationBusy] = useState(false);
+  const [activeActionMessageId, setActiveActionMessageId] = useState<
+    string | null
+  >(null);
+  const [quotedMessageId, setQuotedMessageId] = useState<string | null>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
+  const pollerRef = useRef<VisibilityPoller | null>(null);
+  const afterRef = useRef<string | null>(
+    initialSnapshotRef.current?.nextAfter ?? null,
+  );
+  const reactionMutationsRef = useRef(new Set<string>());
+  const stickToBottomRef = useRef(true);
+  const initialScrollRestoredRef = useRef(false);
+  const onUnreadClearedRef = useRef(onUnreadCleared);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const chatScrollStorageKey = `kamen-chat-scroll-v1:${account.id}`;
+
+  useEffect(() => {
+    onUnreadClearedRef.current = onUnreadCleared;
+  }, [onUnreadCleared]);
+
+  useEffect(() => {
+    if (!pendingItem) return;
+    setAttachedItem(pendingItem);
+    setForwardedFrom(null);
+  }, [pendingItem]);
+
+  const markRead = useCallback(
+    async (incoming: DirectMessage[]) => {
+      if (!activeRef.current || document.hidden) return;
+      const unreadIds = incoming
+        .filter(
+          (message) => message.recipientId === account.id && !message.readAt,
+        )
+        .map((message) => message.id);
+      if (!unreadIds.length) return;
+      const response = await fetch(
+        `${apiBaseUrl}/collaboration/messages/read`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            accountId: account.id,
+            messageIds: unreadIds,
+          }),
+        },
+      );
+      if (response.ok) onUnreadClearedRef.current();
+    },
+    [account.id, apiBaseUrl],
+  );
+
+  const loadNegotiations = useCallback(
+    async (signal?: AbortSignal) => {
+      const response = await fetch(
+        `${apiBaseUrl}/collaboration/negotiations?accountId=${encodeURIComponent(account.id)}`,
+        { cache: "no-store", signal },
+      );
+      const data = await readJsonResponse<{ cases?: NegotiationCase[] }>(
+        response,
+        "砍价进度同步失败",
+      );
+      setNegotiations(data.cases ?? []);
+    },
+    [account.id, apiBaseUrl],
+  );
+
+  const loadMessages = useCallback(
+    async (signal?: AbortSignal) => {
+      const query = new URLSearchParams({ accountId: account.id });
+      if (afterRef.current) query.set("after", afterRef.current);
+      const [response] = await Promise.all([
+        fetch(`${apiBaseUrl}/collaboration/messages?${query}`, {
+          cache: "no-store",
+          signal,
+        }),
+        loadNegotiations(signal),
+      ]);
+      const data = await readJsonResponse<MessageListResponse>(
+        response,
+        "消息同步失败",
+      );
+      setMessages((current) => {
+        const localById = new Map(
+          current.map((message) => [message.id, message]),
+        );
+        const protectedIncoming = data.messages.map((message) => {
+          if (!reactionMutationsRef.current.has(message.id)) return message;
+          const local = localById.get(message.id);
+          return local ? { ...message, reactions: local.reactions } : message;
+        });
+        const next = mergeMessages(current, protectedIncoming);
+        writeConversationSnapshot(chatCacheKey, {
+          messages: next,
+          nextAfter: data.nextAfter,
+        });
+        return next;
+      });
+      afterRef.current = data.nextAfter;
+      setError("");
+      setLoading(false);
+      void markRead(data.messages).catch(() => undefined);
+    },
+    [account.id, apiBaseUrl, chatCacheKey, loadNegotiations, markRead],
+  );
+
+  useEffect(() => {
+    const snapshot = readConversationSnapshot(chatCacheKey);
+    setMessages(snapshot?.messages ?? []);
+    setLoading(!snapshot);
+    setError("");
+    setReactionError("");
+    afterRef.current = snapshot?.nextAfter ?? null;
+    initialScrollRestoredRef.current = false;
+  }, [chatCacheKey]);
+
+  useEffect(() => {
+    const poller = createVisibilityPoller({
+      task: (signal) => loadMessages(signal),
+      intervalMs: 1_800,
+      maxBackoffMs: 30_000,
+      isPaused: () => !active || document.hidden,
+      onError: (reason) => {
+        setLoading(false);
+        setError(reason instanceof Error ? reason.message : "消息同步失败");
+      },
+    });
+    pollerRef.current = poller;
+    const onVisibility = () =>
+      document.hidden ? poller.pause() : poller.resume();
+    poller.start();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", poller.resume);
+    return () => {
+      poller.stop();
+      pollerRef.current = null;
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", poller.resume);
+    };
+  }, [active, loadMessages]);
+
+  useEffect(() => {
+    if (loading) return;
+    writeConversationSnapshot(chatCacheKey, {
+      messages,
+      nextAfter: afterRef.current,
+    });
+  }, [chatCacheKey, loading, messages]);
+
+  useEffect(() => {
+    if (!activeActionMessageId) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest(".collaboration-message.is-actions-open")
+      )
+        return;
+      setActiveActionMessageId(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveActionMessageId(null);
+    };
+    document.addEventListener("pointerdown", closeOutside, true);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside, true);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [activeActionMessageId]);
+
+  useEffect(() => {
+    if (!negotiationFilter && !negotiationRailOpen) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (negotiationFilter) setNegotiationFilter(null);
+      else setNegotiationRailOpen(false);
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [negotiationFilter, negotiationRailOpen]);
+
+  useLayoutEffect(() => {
+    const feed = feedRef.current;
+    if (!feed || loading || !active) return;
+    if (!initialScrollRestoredRef.current) {
+      const stored = Number(
+        window.sessionStorage.getItem(chatScrollStorageKey),
+      );
+      feed.scrollTop =
+        Number.isFinite(stored) && stored > 0 ? stored : feed.scrollHeight;
+      stickToBottomRef.current = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 72;
+      initialScrollRestoredRef.current = true;
+      return;
+    }
+    if (stickToBottomRef.current) feed.scrollTop = feed.scrollHeight;
+  }, [active, chatScrollStorageKey, loading, messages]);
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (!feed || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (activeRef.current && stickToBottomRef.current) feed.scrollTop = feed.scrollHeight;
+    });
+    observer.observe(feed);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!active) {
+      setActiveActionMessageId(null);
+      setNegotiationFilter(null);
+      setNegotiationRailOpen(false);
+    }
+  }, [active]);
+
+  useEffect(
+    () => () => {
+      const feed = feedRef.current;
+      if (feed)
+        window.sessionStorage.setItem(
+          chatScrollStorageKey,
+          String(feed.scrollTop),
+        );
+    },
+    [chatScrollStorageKey],
+  );
+
+  const grouped = useMemo(() => messages, [messages]);
+
+  function locateReply(id: string) {
+    const feed = feedRef.current;
+    const target = document.getElementById(`collaboration-message-${id}`);
+    if (!feed || !target || !feed.contains(target)) return;
+    stickToBottomRef.current = false;
+    setQuotedMessageId(id);
+    setActiveActionMessageId(null);
+    const top = feed.scrollTop + target.getBoundingClientRect().top - feed.getBoundingClientRect().top - 20;
+    target.focus({ preventScroll: true });
+    feed.scrollTo({ top: Math.max(0, top), behavior: reduceMotion || !pointerInputRef.current ? "instant" : "smooth" });
+  }
+
+  async function send(event: FormEvent) {
+    event.preventDefault();
+    const text = input.trim();
+    if ((!text && !attachedItem) || !other || sendingRef.current) return;
+    sendingRef.current = true;
+    stickToBottomRef.current = true;
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimistic: DirectMessage = {
+      id: optimisticId,
+      senderId: account.id,
+      recipientId: other.id,
+      text: text || null,
+      itemId: attachedItem?.id,
+      replyToId: replyTo?.id,
+      forwardedFromId: forwardedFrom?.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      sender: account,
+      recipient: other,
+      item: attachedItem,
+      replyTo: replyTo,
+      reactions: [],
+      optimistic: true,
+    };
+    setMessages((current) => [...current, optimistic]);
+    setInput("");
+    setReplyTo(null);
+    setForwardedFrom(null);
+    setAttachedItem(null);
+    onPendingItemConsumed();
+    setSending(true);
+    setError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/collaboration/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          senderId: account.id,
+          recipientId: other.id,
+          text: text || undefined,
+          itemId: optimistic.itemId,
+          replyToId: optimistic.replyToId,
+          forwardedFromId: optimistic.forwardedFromId,
+        }),
+      });
+      const saved = await readJsonResponse<DirectMessage>(
+        response,
+        "消息发送失败",
+      );
+      setMessages((current) =>
+        mergeMessages(
+          current.filter((message) => message.id !== optimisticId),
+          [saved],
+        ),
+      );
+      afterRef.current = saved.updatedAt;
+      if (optimistic.itemId) onActivityChanged();
+      void pollerRef.current?.runNow();
+    } catch (reason) {
+      setMessages((current) =>
+        current.filter((message) => message.id !== optimisticId),
+      );
+      setInput(text);
+      setAttachedItem(optimistic.item ?? null);
+      setReplyTo(replyTo);
+      setForwardedFrom(forwardedFrom);
+      setError(reason instanceof Error ? reason.message : "消息发送失败");
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
+  }
+
+  async function toggleReaction(
+    message: DirectMessage,
+    reaction: keyof typeof reactionMeta,
+  ) {
+    const present = message.reactions.some(
+      (entry) => entry.accountId === account.id && entry.reaction === reaction,
+    );
+    const optimisticId = `optimistic-reaction-${message.id}-${reaction}`;
+    const previousReaction = message.reactions.find(
+      (entry) => entry.accountId === account.id && entry.reaction === reaction,
+    );
+    reactionMutationsRef.current.add(message.id);
+    setMessages((current) =>
+      current.map((entry) =>
+        entry.id !== message.id
+          ? entry
+          : {
+              ...entry,
+              reactions: present
+                ? entry.reactions.filter(
+                    (candidate) =>
+                      candidate.accountId !== account.id ||
+                      candidate.reaction !== reaction,
+                  )
+                : [
+                    ...entry.reactions,
+                    {
+                      id: optimisticId,
+                      accountId: account.id,
+                      reaction,
+                      account,
+                    },
+                  ],
+            },
+      ),
+    );
+    setActiveActionMessageId(null);
+    setReactionError("");
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/collaboration/messages/${message.id}/reactions`,
+        {
+          method: present ? "DELETE" : "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ accountId: account.id, reaction }),
+        },
+      );
+      const saved = await readJsonResponse<Partial<MessageReaction>>(
+        response,
+        "互动保存失败",
+      );
+      if (!present && saved.id) {
+        setMessages((current) =>
+          current.map((entry) =>
+            entry.id !== message.id
+              ? entry
+              : {
+                  ...entry,
+                  reactions: entry.reactions.map((candidate) =>
+                    candidate.id === optimisticId
+                      ? { ...candidate, id: saved.id! }
+                      : candidate,
+                  ),
+                },
+          ),
+        );
+      }
+    } catch (reason) {
+      setMessages((current) =>
+        current.map((entry) => {
+          if (entry.id !== message.id) return entry;
+          const withoutMutation = entry.reactions.filter(
+            (candidate) =>
+              !(
+                candidate.accountId === account.id &&
+                candidate.reaction === reaction
+              ),
+          );
+          return {
+            ...entry,
+            reactions:
+              present && previousReaction
+                ? [...withoutMutation, previousReaction]
+                : withoutMutation,
+          };
+        }),
+      );
+      setReactionError(
+        reason instanceof Error ? reason.message : "互动保存失败",
+      );
+    } finally {
+      reactionMutationsRef.current.delete(message.id);
+    }
+  }
+
+  async function startCartNegotiations() {
+    if (!cartCount || negotiationBusy) return;
+    setNegotiationBusy(true);
+    setReactionError("");
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/collaboration/negotiations/from-cart`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ accountId: account.id }),
+        },
+      );
+      await readJsonResponse(response, "购物车迁移失败");
+      onCartMigrated();
+      setNegotiationFilter("in_progress");
+      await Promise.all([loadNegotiations(), pollerRef.current?.runNow()]);
+    } catch (reason) {
+      setReactionError(
+        reason instanceof Error ? reason.message : "购物车迁移失败",
+      );
+    } finally {
+      setNegotiationBusy(false);
+    }
+  }
+
+  async function setNegotiationStatus(
+    entry: NegotiationCase,
+    status: NegotiationStatus,
+  ) {
+    if (negotiationBusy) return;
+    setNegotiationBusy(true);
+    setNegotiations((current) =>
+      current.map((candidate) =>
+        candidate.id === entry.id ? { ...candidate, status } : candidate,
+      ),
+    );
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/collaboration/negotiations/${entry.id}/status`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ accountId: account.id, status }),
+        },
+      );
+      await readJsonResponse(response, "砍价状态保存失败");
+      await Promise.all([loadNegotiations(), pollerRef.current?.runNow()]);
+    } catch (reason) {
+      setReactionError(
+        reason instanceof Error ? reason.message : "砍价状态保存失败",
+      );
+      await loadNegotiations().catch(() => undefined);
+    } finally {
+      setNegotiationBusy(false);
+    }
+  }
+
+  async function clearFailedNegotiations() {
+    if (negotiationBusy) return;
+    setNegotiationBusy(true);
+    setReactionError("");
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/collaboration/negotiations/failed/dislike`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ accountId: account.id }),
+        },
+      );
+      await readJsonResponse(response, "迁移失败");
+      await loadNegotiations();
+      onActivityChanged();
+      setNegotiationFilter(null);
+    } catch (reason) {
+      setReactionError(reason instanceof Error ? reason.message : "迁移失败");
+    } finally {
+      setNegotiationBusy(false);
+    }
+  }
+
+  const negotiationCounts = {
+    in_progress: negotiations.filter((entry) => entry.status === "in_progress")
+      .length,
+    success: negotiations.filter((entry) => entry.status === "success").length,
+    failed: negotiations.filter((entry) => entry.status === "failed").length,
+  };
+  const visibleNegotiations = negotiationFilter
+    ? negotiations.filter((entry) => entry.status === negotiationFilter)
+    : [];
+
+  return (
+    <section className={`collaboration-chat ${styles.chat}`} aria-label="管理者协作消息" onPointerDownCapture={() => { pointerInputRef.current = true; }} onKeyDownCapture={() => { pointerInputRef.current = false; }}>
+      <header className="collaboration-heading">
+        <div className="min-w-0 flex-1">
+          <h2>{other ? `与${other.displayName}的对话` : "管理者对话"}</h2>
+          <p>{other?.online ? "对方在线" : "商品与采购，在这里一起确认"}</p>
+        </div>
+        {onOpenOperations && (
+          <button
+            type="button"
+            className="collaboration-account-button"
+            onClick={onOpenOperations}
+          >
+            运营台
+          </button>
+        )}
+        <button
+          type="button"
+          className="collaboration-account-button"
+          onClick={onSwitchAccount}
+          aria-label={`切换账号，当前为${account.displayName}`}
+        >
+          <small>{account.displayName}</small>
+          <span>切换</span>
+        </button>
+      </header>
+
+      <details className={styles.activityDetails}>
+        <summary>协作数据<span>分享 · 收藏 · 不感兴趣</span></summary>
+        <section className="collaboration-activity-strip" aria-label="管理者协作数据">
+        {accounts.map((entry) => (
+          <ManagerActivitySummary key={entry.id} account={entry} />
+        ))}
+        </section>
+      </details>
+
+      {active &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <aside
+            ref={negotiationFloat.rootRef}
+            style={negotiationFloat.style}
+            data-edge={negotiationFloat.edge}
+            data-rail-direction={negotiationFloat.down ? "down" : "up"}
+            className={`collaboration-negotiation-float floating-control ${negotiationRailOpen ? "is-open" : ""} ${negotiationFloat.dragging ? "is-dragging" : ""}`}
+            aria-label="砍价进度"
+          >
+            <button
+              type="button"
+              className={`negotiation-float-button ${negotiationCounts.in_progress ? "has-active" : ""}`}
+              aria-expanded={negotiationRailOpen}
+              aria-controls="negotiation-status-rail"
+              aria-label="砍价进度"
+              {...negotiationFloat.handlers}
+              onClick={() => {
+                if (negotiationFloat.allowClick())
+                  setNegotiationRailOpen((open) => !open);
+              }}
+            >
+              <span aria-hidden="true">🔪</span>
+              {negotiationCounts.in_progress > 0 && (
+                <small>{negotiationCounts.in_progress}</small>
+              )}
+            </button>
+            <div
+              id="negotiation-status-rail"
+              className="negotiation-status-rail"
+              aria-hidden={!negotiationRailOpen}
+              inert={!negotiationRailOpen}
+            >
+              {cartCount > 0 && (
+                <button
+                  type="button"
+                  disabled={negotiationBusy}
+                  onClick={() => void startCartNegotiations()}
+                  aria-label={`将购物车的 ${cartCount} 件商品移入砍价`}
+                >
+                  <span>加入</span>
+                  <strong>{cartCount}</strong>
+                </button>
+              )}
+              {(["in_progress", "success", "failed"] as const).map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => {
+                    setNegotiationFilter(status);
+                    setNegotiationRailOpen(false);
+                  }}
+                >
+                  <span>
+                    {status === "in_progress"
+                      ? "进行中"
+                      : status === "success"
+                        ? "成功"
+                        : "失败"}
+                  </span>
+                  <strong>{negotiationCounts[status]}</strong>
+                </button>
+              ))}
+            </div>
+          </aside>,
+          document.getElementById("floating-controls-root") ?? document.body,
+        )}
+
+      <div
+        ref={feedRef}
+        className="collaboration-feed"
+        role="log"
+        aria-live="polite"
+        onScroll={(event) => {
+          const node = event.currentTarget;
+          stickToBottomRef.current =
+            node.scrollHeight - node.scrollTop - node.clientHeight < 72;
+          window.sessionStorage.setItem(
+            chatScrollStorageKey,
+            String(node.scrollTop),
+          );
+        }}
+      >
+        {loading && !grouped.length ? (
+          <div className="collaboration-empty" role="status">
+            <span className="collaboration-loader" />
+            正在同步对话
+          </div>
+        ) : !grouped.length ? (
+          <div className="collaboration-empty">
+            <div className="collaboration-empty-mark">
+              <ProductGlyph />
+            </div>
+            <strong>从第一件商品开始讨论</strong>
+            <p>商品卡可直接发送到这里，也可以先发一条消息。</p>
+          </div>
+        ) : (
+          grouped.map((message) => {
+            const own = message.senderId === account.id;
+            const actionsOpen = activeActionMessageId === message.id;
+            return (
+              <motion.article
+                key={message.id}
+                id={`collaboration-message-${message.id}`}
+                data-quoted={quotedMessageId === message.id}
+                data-apple-motion-owned="true"
+                className={`collaboration-message ${own ? "is-own" : "is-peer"} ${message.optimistic ? "is-sending" : ""} ${actionsOpen ? "is-actions-open" : ""}`}
+                data-actions-open={actionsOpen}
+                aria-label="打开消息操作"
+                aria-expanded={actionsOpen}
+                aria-controls={
+                  actionsOpen ? `message-actions-${message.id}` : undefined
+                }
+                tabIndex={0}
+                initial={message.optimistic && !reduceMotion && pointerInputRef.current ? { opacity: 0 } : false}
+                animate={{ opacity: message.optimistic ? 0.62 : 1 }}
+                transition={reduceMotion || !pointerInputRef.current ? { duration: 0 } : springs.appleSpatial}
+                onClick={(event) => {
+                  if (isMessageInteractiveTarget(event.target)) return;
+                  setActiveActionMessageId((current) =>
+                    current === message.id ? null : message.id,
+                  );
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  if (isMessageInteractiveTarget(event.target)) return;
+                  event.preventDefault();
+                  setActiveActionMessageId((current) =>
+                    current === message.id ? null : message.id,
+                  );
+                }}
+                onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setQuotedMessageId(current => current === message.id ? null : current); }}
+              >
+                <div className="collaboration-message-stack">
+                  {message.replyTo && (
+                    <button
+                      type="button"
+                      className="collaboration-reply-quote"
+                      disabled={!message.replyTo.item && !messages.some(entry => entry.id === message.replyTo!.id)}
+                      aria-label={message.replyTo.item ? `打开引用商品：${itemTitle(message.replyTo.item)}` : `定位 ${message.replyTo.sender.displayName} 的原消息`}
+                      onClick={() => { if (message.replyTo?.item) void onOpenItem(message.replyTo.item.id); else if (message.replyTo) locateReply(message.replyTo.id); }}
+                    >
+                      <strong>{message.replyTo.sender.displayName}</strong>
+                      <span>
+                        {message.replyTo.item
+                          ? itemTitle(message.replyTo.item)
+                          : message.replyTo.text}
+                      </span>
+                    </button>
+                  )}
+                  {message.forwardedFromId && (
+                    <span className="collaboration-forward-label">
+                      <ForwardIcon /> 已转发商品
+                    </span>
+                  )}
+                  <div className="collaboration-bubble">
+                    {message.text && <p>{message.text}</p>}
+                    {message.item && (
+                      <ProductReference
+                        item={message.item}
+                        onOpen={() => void onOpenItem(message.item!.id)}
+                      />
+                    )}
+                  </div>
+                  <div className="collaboration-message-meta">
+                    <time dateTime={message.createdAt}>{messageTime(message.createdAt)}</time>
+                    {own && (
+                      <span>
+                        {message.optimistic
+                          ? "发送中"
+                          : message.readAt
+                            ? "已读"
+                            : "已送达"}
+                      </span>
+                    )}
+                  </div>
+                  {Object.keys(reactionMeta).some((reaction) =>
+                    message.reactions.some(
+                      (entry) => entry.reaction === reaction,
+                    ),
+                  ) && (
+                    <div
+                      className="collaboration-reaction-summary"
+                      aria-label="消息互动"
+                    >
+                      {(
+                        Object.keys(reactionMeta) as Array<
+                          keyof typeof reactionMeta
+                        >
+                      ).map((reaction) => {
+                        const count = message.reactions.filter(
+                          (entry) => entry.reaction === reaction,
+                        ).length;
+                        if (!count) return null;
+                        return (
+                          <span key={reaction}>
+                            {reactionMeta[reaction].glyph}
+                            {count > 1 ? <small>{count}</small> : null}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {actionsOpen && (
+                    <motion.div
+                      id={`message-actions-${message.id}`}
+                      className="collaboration-message-actions"
+                      role="toolbar"
+                      aria-label="消息操作"
+                      data-apple-motion-owned="true"
+                      initial={reduceMotion || !pointerInputRef.current ? false : { opacity: 0, transform: "translateY(8px) scale(.94)" }}
+                      animate={{ opacity: 1, transform: reduceMotion || !pointerInputRef.current ? "none" : "translateY(0px) scale(1)" }}
+                      transition={reduceMotion || !pointerInputRef.current ? { duration: 0 } : springs.appleSpatial}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyTo(message);
+                          setActiveActionMessageId(null);
+                          composerInputRef.current?.focus({ preventScroll: true });
+                        }}
+                        aria-label="回复消息"
+                        title="回复"
+                      >
+                        <ReplyIcon />
+                      </button>
+                      {message.item && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAttachedItem(message.item!);
+                            setForwardedFrom(message);
+                            setActiveActionMessageId(null);
+                            composerInputRef.current?.focus({ preventScroll: true });
+                          }}
+                          aria-label="转发商品"
+                          title="转发商品"
+                        >
+                          <ForwardIcon />
+                        </button>
+                      )}
+                      {(
+                        Object.keys(reactionMeta) as Array<
+                          keyof typeof reactionMeta
+                        >
+                      ).map((reaction) => {
+                        const count = message.reactions.filter(
+                          (entry) => entry.reaction === reaction,
+                        ).length;
+                        const active = message.reactions.some(
+                          (entry) =>
+                            entry.reaction === reaction &&
+                            entry.accountId === account.id,
+                        );
+                        return (
+                          <button
+                            key={reaction}
+                            type="button"
+                            aria-pressed={active}
+                            aria-label={reactionMeta[reaction].label}
+                            title={reactionMeta[reaction].label}
+                            onClick={() =>
+                              void toggleReaction(message, reaction)
+                            }
+                          >
+                            {reactionMeta[reaction].glyph}
+                            {count ? <span>{count}</span> : null}
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </div>
+              </motion.article>
+            );
+          })
+        )}
+      </div>
+
+      <form className="collaboration-composer" onSubmit={send}>
+        {(error || reactionError) && (
+          <div className="collaboration-error" role="alert">
+            {reactionError || error}
+          </div>
+        )}
+        {(replyTo || attachedItem) && (
+          <motion.div key="composer-context" className="collaboration-composer-context"
+            data-apple-motion-owned="true"
+            initial={reduceMotion || !pointerInputRef.current ? false : { opacity: 0, transform: "translateY(8px)" }} animate={{ opacity: 1, transform: reduceMotion || !pointerInputRef.current ? "none" : "translateY(0px)" }} transition={reduceMotion || !pointerInputRef.current ? { duration: 0 } : springs.appleSpatial}>
+            <span className="collaboration-composer-context-icon">
+              {attachedItem ? <ProductGlyph /> : <ReplyIcon />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <small>
+                {forwardedFrom
+                  ? "转发商品"
+                  : attachedItem
+                    ? "引用商品"
+                    : `回复 ${replyTo?.sender.displayName}`}
+              </small>
+              <strong>
+                {attachedItem ? itemTitle(attachedItem) : replyTo?.text}
+              </strong>
+            </span>
+            <button
+              type="button"
+              aria-label="移除引用"
+              onClick={() => {
+                setReplyTo(null);
+                setAttachedItem(null);
+                setForwardedFrom(null);
+                onPendingItemConsumed();
+                composerInputRef.current?.focus({ preventScroll: true });
+              }}
+            >
+              <CloseIcon />
+            </button>
+          </motion.div>
+        )}
+        <div className="collaboration-composer-row">
+          <textarea
+            ref={composerInputRef}
+            enterKeyHint="enter"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            rows={1}
+            maxLength={1200}
+            placeholder={
+              attachedItem
+                ? "补充一句…"
+                : `发消息给${other?.displayName ?? "对方"}`
+            }
+            aria-label="消息内容"
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing &&
+                !window.matchMedia("(pointer: coarse)").matches
+              ) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
+          />
+          <button
+            type="submit"
+            onPointerDown={(event) => {
+              if (event.pointerType === "touch") event.preventDefault();
+            }}
+            disabled={sending || (!input.trim() && !attachedItem)}
+            aria-label="发送消息"
+          >
+            <SendIcon />
+          </button>
+        </div>
+      </form>
+
+      {active && negotiationFilter && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="negotiation-dialog-backdrop"
+              role="presentation"
+              onPointerDown={(event) => {
+                if (event.target === event.currentTarget)
+                  setNegotiationFilter(null);
+              }}
+            >
+              <section
+                className="negotiation-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="negotiation-dialog-title"
+              >
+                <header>
+                  <div>
+                    <p>
+                      {negotiationFilter === "in_progress"
+                        ? "进行中"
+                        : negotiationFilter === "success"
+                          ? "成功"
+                          : "失败"}
+                    </p>
+                    <h2 id="negotiation-dialog-title">
+                      {visibleNegotiations.length} 件商品
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    autoFocus
+                    aria-label="关闭"
+                    onClick={() => setNegotiationFilter(null)}
+                  >
+                    <CloseIcon />
+                  </button>
+                </header>
+                {negotiationFilter === "failed" &&
+                  visibleNegotiations.length > 0 && (
+                    <button
+                      type="button"
+                      className="negotiation-clear-failed"
+                      disabled={negotiationBusy}
+                      onClick={() => void clearFailedNegotiations()}
+                    >
+                      全部移入不感兴趣
+                    </button>
+                  )}
+                <div className="negotiation-dialog-list">
+                  {visibleNegotiations.length ? (
+                    visibleNegotiations.map((entry) => (
+                      <article key={entry.id}>
+                        <button
+                          type="button"
+                          className="negotiation-item-main"
+                          onClick={() => void onOpenItem(entry.item.id)}
+                        >
+                          {entry.item.images[0]?.url ? (
+                            <img src={entry.item.images[0].url} alt="" />
+                          ) : (
+                            <span className="negotiation-item-placeholder">
+                              <ProductGlyph />
+                            </span>
+                          )}
+                          <span>
+                            <strong>{itemTitle(entry.item)}</strong>
+                            <small>
+                              {yen(entry.item.priceCurrent)} ·{" "}
+                              {entry.item.source.displayName}
+                            </small>
+                            <YahooDiscount
+                              sourceKey={entry.item.source.key}
+                              priceYen={entry.item.priceCurrent}
+                            />
+                          </span>
+                        </button>
+                        <div className="negotiation-item-actions">
+                          {entry.status !== "in_progress" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void setNegotiationStatus(entry, "in_progress")
+                              }
+                            >
+                              继续
+                            </button>
+                          )}
+                          {entry.status !== "success" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void setNegotiationStatus(entry, "success")
+                              }
+                            >
+                              成功
+                            </button>
+                          )}
+                          {entry.status !== "failed" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void setNegotiationStatus(entry, "failed")
+                              }
+                            >
+                              失败
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="negotiation-dialog-empty">暂无商品</p>
+                  )}
+                </div>
+              </section>
+            </div>,
+            getShellOverlayRoot(),
+          )
+        : null}
+    </section>
+  );
+}

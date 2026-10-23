@@ -11,6 +11,7 @@ import type {
 const fixtures: RawItemDetail[] = [
   {
     sourcePlatform: "mock",
+    listingType: "auction",
     sourceItemId: "rider-belt-001",
     sourceUrl: "https://example.com/mock/rider-belt-001",
     titleRaw: "仮面ライダー DX変身ベルト まとめ売り 12点",
@@ -31,6 +32,7 @@ const fixtures: RawItemDetail[] = [
   },
   {
     sourcePlatform: "mock",
+    listingType: "direct",
     sourceItemId: "rider-gasha-003",
     sourceUrl: "https://example.com/mock/rider-gasha-003",
     titleRaw: "仮面ライダー ガシャポン 未開封 30個",
@@ -49,6 +51,7 @@ const fixtures: RawItemDetail[] = [
   },
   {
     sourcePlatform: "mock",
+    listingType: "direct",
     sourceItemId: "ultra-sofubi-002",
     sourceUrl: "https://example.com/mock/ultra-sofubi-002",
     titleRaw: "ウルトラマン ソフビ 20体 大量セット",
@@ -102,6 +105,7 @@ export class MockAdapter implements SourceAdapter {
         item.auctionEndAt && item.auctionEndAt < new Date()
           ? "ended"
           : item.status,
+      listingType: item.listingType ?? "unknown",
     };
   }
 

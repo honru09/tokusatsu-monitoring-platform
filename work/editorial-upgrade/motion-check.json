@@ -1,0 +1,838 @@
+{
+  "target": "http://127.0.0.1:3105",
+  "startedAt": "2026-10-09T11:04:33.098Z",
+  "runs": [
+    {
+      "name": "390-normal",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "reducedMotion": "no-preference",
+      "checks": [
+        {
+          "name": "real scroll increases reading progress",
+          "pass": true,
+          "before": {
+            "owner": "document",
+            "top": 0,
+            "length": 19148,
+            "progress": 0,
+            "visible": "visible",
+            "overflow": false
+          },
+          "after": {
+            "owner": "document",
+            "top": 500,
+            "length": 19148,
+            "progress": 0.0261124,
+            "visible": "visible",
+            "overflow": false
+          }
+        },
+        {
+          "name": "workspace round trip restores real scroll and progress",
+          "pass": true,
+          "before": {
+            "owner": "document",
+            "top": 700,
+            "length": 19148,
+            "progress": 0.0365573,
+            "visible": "visible",
+            "overflow": false
+          },
+          "after": {
+            "owner": "document",
+            "top": 700,
+            "length": 19148,
+            "progress": 0.0365573,
+            "visible": "visible",
+            "overflow": false
+          }
+        },
+        {
+          "name": "catalog toolbar remains visible during scroll",
+          "pass": true,
+          "position": "sticky",
+          "configuredTop": "76px",
+          "top": 76,
+          "bottom": 207,
+          "height": 131,
+          "origin": 0
+        },
+        {
+          "name": "filter Escape restores trigger focus",
+          "pass": true,
+          "initial": "关闭筛选器",
+          "restored": true
+        },
+        {
+          "name": "workbench staged entrance is once and reduced motion has no displacement",
+          "pass": true,
+          "initial": [
+            {
+              "heading": "选货",
+              "entered": "true",
+              "transform": "matrix(1, 0, 0, 1, 0, 0.359779)",
+              "opacity": "0.987408"
+            },
+            {
+              "heading": "采购",
+              "entered": "true",
+              "transform": "matrix(1, 0, 0, 1, 0, 0.359779)",
+              "opacity": "0.987408"
+            },
+            {
+              "heading": "售卖",
+              "entered": "false",
+              "transform": "matrix(1, 0, 0, 1, 0, 8)",
+              "opacity": "0.72"
+            }
+          ],
+          "triggerCount": 12,
+          "afterRevisit": 12
+        },
+        {
+          "name": "mobile workbench section heading is sticky",
+          "pass": true,
+          "position": "sticky",
+          "configuredTop": "68px",
+          "top": 68,
+          "height": 57
+        },
+        {
+          "name": "favorites Left Right Home End uses roving selection and focus",
+          "pass": true,
+          "sequence": [
+            {
+              "key": "ArrowRight",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "ArrowLeft",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            },
+            {
+              "key": "End",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "Home",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            },
+            {
+              "key": "ArrowLeft",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "ArrowRight",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "no horizontal overflow or uncaught browser errors",
+          "pass": true,
+          "errors": []
+        }
+      ],
+      "blocked": [
+        {
+          "method": "POST",
+          "path": "/collaboration/presence",
+          "reason": "write"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "390-reduce",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "reducedMotion": "reduce",
+      "checks": [
+        {
+          "name": "real scroll increases reading progress",
+          "pass": true,
+          "before": {
+            "owner": "document",
+            "top": 0,
+            "length": 19148,
+            "progress": 0,
+            "visible": "visible",
+            "overflow": false
+          },
+          "after": {
+            "owner": "document",
+            "top": 500,
+            "length": 19148,
+            "progress": 0.0261124,
+            "visible": "visible",
+            "overflow": false
+          }
+        },
+        {
+          "name": "workspace round trip restores real scroll and progress",
+          "pass": true,
+          "before": {
+            "owner": "document",
+            "top": 700,
+            "length": 19148,
+            "progress": 0.0365573,
+            "visible": "visible",
+            "overflow": false
+          },
+          "after": {
+            "owner": "document",
+            "top": 700,
+            "length": 19148,
+            "progress": 0.0365573,
+            "visible": "visible",
+            "overflow": false
+          }
+        },
+        {
+          "name": "catalog toolbar remains visible during scroll",
+          "pass": true,
+          "position": "sticky",
+          "configuredTop": "76px",
+          "top": 76,
+          "bottom": 207,
+          "height": 131,
+          "origin": 0
+        },
+        {
+          "name": "filter Escape restores trigger focus",
+          "pass": true,
+          "initial": "关闭筛选器",
+          "restored": true
+        },
+        {
+          "name": "workbench staged entrance is once and reduced motion has no displacement",
+          "pass": true,
+          "initial": [
+            {
+              "heading": "选货",
+              "transform": "none",
+              "opacity": "1"
+            },
+            {
+              "heading": "采购",
+              "transform": "none",
+              "opacity": "1"
+            },
+            {
+              "heading": "售卖",
+              "transform": "none",
+              "opacity": "1"
+            }
+          ],
+          "triggerCount": 0,
+          "afterRevisit": 0
+        },
+        {
+          "name": "mobile workbench section heading is sticky",
+          "pass": true,
+          "position": "sticky",
+          "configuredTop": "68px",
+          "top": 68,
+          "height": 57
+        },
+        {
+          "name": "favorites Left Right Home End uses roving selection and focus",
+          "pass": true,
+          "sequence": [
+            {
+              "key": "ArrowRight",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "ArrowLeft",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            },
+            {
+              "key": "End",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "Home",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            },
+            {
+              "key": "ArrowLeft",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "ArrowRight",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "no horizontal overflow or uncaught browser errors",
+          "pass": true,
+          "errors": []
+        }
+      ],
+      "blocked": [
+        {
+          "method": "POST",
+          "path": "/collaboration/presence",
+          "reason": "write"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "320-short",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "reducedMotion": "no-preference",
+      "checks": [
+        {
+          "name": "real scroll increases reading progress",
+          "pass": true,
+          "before": {
+            "owner": "document",
+            "top": 0,
+            "length": 19498,
+            "progress": 0,
+            "visible": "visible",
+            "overflow": false
+          },
+          "after": {
+            "owner": "document",
+            "top": 500,
+            "length": 19498,
+            "progress": 0.0256437,
+            "visible": "visible",
+            "overflow": false
+          }
+        },
+        {
+          "name": "workspace round trip restores real scroll and progress",
+          "pass": true,
+          "before": {
+            "owner": "document",
+            "top": 700,
+            "length": 19498,
+            "progress": 0.0359011,
+            "visible": "visible",
+            "overflow": false
+          },
+          "after": {
+            "owner": "document",
+            "top": 700,
+            "length": 19498,
+            "progress": 0.0359011,
+            "visible": "visible",
+            "overflow": false
+          }
+        },
+        {
+          "name": "catalog toolbar remains visible during scroll",
+          "pass": true,
+          "position": "sticky",
+          "configuredTop": "76px",
+          "top": 76,
+          "bottom": 207,
+          "height": 131,
+          "origin": 0
+        },
+        {
+          "name": "filter Escape restores trigger focus",
+          "pass": true,
+          "initial": "关闭筛选器",
+          "restored": true
+        },
+        {
+          "name": "workbench staged entrance is once and reduced motion has no displacement",
+          "pass": true,
+          "initial": [
+            {
+              "heading": "选货",
+              "entered": "true",
+              "transform": "matrix(1, 0, 0, 1, 0, 0.798653)",
+              "opacity": "0.972047"
+            },
+            {
+              "heading": "采购",
+              "entered": "false",
+              "transform": "matrix(1, 0, 0, 1, 0, 8)",
+              "opacity": "0.72"
+            },
+            {
+              "heading": "售卖",
+              "entered": "false",
+              "transform": "matrix(1, 0, 0, 1, 0, 8)",
+              "opacity": "0.72"
+            }
+          ],
+          "triggerCount": 11,
+          "afterRevisit": 11
+        },
+        {
+          "name": "mobile workbench section heading is sticky",
+          "pass": true,
+          "position": "sticky",
+          "configuredTop": "68px",
+          "top": 68,
+          "height": 57
+        },
+        {
+          "name": "favorites Left Right Home End uses roving selection and focus",
+          "pass": true,
+          "sequence": [
+            {
+              "key": "ArrowRight",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "ArrowLeft",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            },
+            {
+              "key": "End",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "Home",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            },
+            {
+              "key": "ArrowLeft",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "ArrowRight",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "no horizontal overflow or uncaught browser errors",
+          "pass": true,
+          "errors": []
+        }
+      ],
+      "blocked": [
+        {
+          "method": "POST",
+          "path": "/collaboration/presence",
+          "reason": "write"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "1440-long",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "reducedMotion": "no-preference",
+      "checks": [
+        {
+          "name": "real scroll increases reading progress",
+          "pass": true,
+          "before": {
+            "owner": "content",
+            "top": 0,
+            "length": 4930,
+            "progress": 0,
+            "visible": "hidden",
+            "overflow": false
+          },
+          "after": {
+            "owner": "content",
+            "top": 500,
+            "length": 4930,
+            "progress": 0.10142,
+            "visible": "visible",
+            "overflow": false
+          }
+        },
+        {
+          "name": "workspace round trip restores real scroll and progress",
+          "pass": true,
+          "before": {
+            "owner": "content",
+            "top": 700,
+            "length": 4930,
+            "progress": 0.141988,
+            "visible": "visible",
+            "overflow": false
+          },
+          "after": {
+            "owner": "content",
+            "top": 700,
+            "length": 4930,
+            "progress": 0.141988,
+            "visible": "visible",
+            "overflow": false
+          }
+        },
+        {
+          "name": "catalog toolbar remains visible during scroll",
+          "pass": true,
+          "position": "sticky",
+          "configuredTop": "8px",
+          "top": 108,
+          "bottom": 191,
+          "height": 83,
+          "origin": 100
+        },
+        {
+          "name": "filter Escape restores trigger focus",
+          "pass": true,
+          "initial": "关闭筛选器",
+          "restored": true
+        },
+        {
+          "name": "workbench staged entrance is once and reduced motion has no displacement",
+          "pass": true,
+          "initial": [
+            {
+              "heading": "选货",
+              "entered": "true",
+              "transform": "matrix(1, 0, 0, 1, 0, 1.67771)",
+              "opacity": "0.94128"
+            },
+            {
+              "heading": "采购",
+              "entered": "true",
+              "transform": "matrix(1, 0, 0, 1, 0, 1.67771)",
+              "opacity": "0.94128"
+            },
+            {
+              "heading": "售卖",
+              "entered": "true",
+              "transform": "matrix(1, 0, 0, 1, 0, 1.67771)",
+              "opacity": "0.94128"
+            }
+          ],
+          "triggerCount": 12,
+          "afterRevisit": 12
+        },
+        {
+          "name": "mobile workbench section heading is sticky",
+          "pass": true,
+          "applicable": false
+        },
+        {
+          "name": "favorites Left Right Home End uses roving selection and focus",
+          "pass": true,
+          "sequence": [
+            {
+              "key": "ArrowRight",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "ArrowLeft",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            },
+            {
+              "key": "End",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "Home",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            },
+            {
+              "key": "ArrowLeft",
+              "state": [
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                },
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                }
+              ]
+            },
+            {
+              "key": "ArrowRight",
+              "state": [
+                {
+                  "selected": "true",
+                  "tabIndex": 0,
+                  "focused": true
+                },
+                {
+                  "selected": "false",
+                  "tabIndex": -1,
+                  "focused": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "no horizontal overflow or uncaught browser errors",
+          "pass": true,
+          "errors": []
+        }
+      ],
+      "blocked": [
+        {
+          "method": "POST",
+          "path": "/collaboration/presence",
+          "reason": "write"
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "completedAt": "2026-10-09T11:04:58.252Z",
+  "passed": true
+}

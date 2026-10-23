@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { parseSurugayaSearchHtml } from "./surugaya.adapter.js";
+import { describe, expect, it, vi } from "vitest";
+import {
+  parseSurugayaSearchHtml,
+  SurugayaAdapter,
+} from "./surugaya.adapter.js";
 
 describe("parseSurugayaSearchHtml", () => {
   it("keeps in-stock toy cards with shipping evidence and excludes books/cards", () => {
@@ -22,6 +25,7 @@ describe("parseSurugayaSearchHtml", () => {
       sourceItemId: "607224616",
       detailHint: {
         sourcePlatform: "surugaya",
+        listingType: "direct",
         priceCurrent: 1100,
         shippingFee: 0,
         sellerName: "駿河屋",
@@ -29,5 +33,21 @@ describe("parseSurugayaSearchHtml", () => {
       },
     });
     expect(results[0].detailHint?.imageUrls).toHaveLength(1);
+  });
+
+  it("marks a catalogue item sold when the public lookup returns 404", async () => {
+    const adapter = new SurugayaAdapter();
+    vi.spyOn(adapter, "fetchDetail").mockRejectedValue(
+      new Error("Surugaya returned 404"),
+    );
+
+    await expect(
+      adapter.refreshStatus({
+        sourceItemId: "607224616",
+        sourceUrl: "https://www.suruga-ya.jp/product/detail/607224616",
+        listingType: "direct",
+        status: "active",
+      }),
+    ).resolves.toEqual({ status: "sold", listingType: "direct" });
   });
 });

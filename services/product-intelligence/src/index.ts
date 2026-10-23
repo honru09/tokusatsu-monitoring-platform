@@ -36,6 +36,19 @@ type FieldConfidenceMap = Record<
   number
 >;
 
+export function mergeExtractionEvidence(
+  current: unknown,
+  update: Record<string, unknown>,
+) {
+  const existing =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : current == null
+        ? {}
+        : { legacy: current };
+  return { ...existing, ...update };
+}
+
 function byKey(kind: CatalogKind, key: string | null | undefined) {
   return catalogEntries.find(
     (entry) => entry.kind === kind && entry.key === key,
@@ -85,7 +98,9 @@ async function ensureReferences(input: {
   const seriesFranchise = input.series?.franchiseKey
     ? byKey("franchise", input.series.franchiseKey)
     : undefined;
-  const franchise = await upsertFranchise(input.franchise ?? seriesFranchise);
+  // A Series owns its franchise relationship in the catalogue.  Never let
+  // noisy listing text re-parent a stable Series row to another franchise.
+  const franchise = await upsertFranchise(seriesFranchise ?? input.franchise);
   const series =
     input.series && franchise
       ? await prisma.series.upsert({
@@ -138,6 +153,59 @@ async function ensureReferences(input: {
       })
     : null;
   return { franchise, series, manufacturer, toyType };
+}
+
+export function resolveProductCatalogReferences(
+  titleRaw: string,
+  descriptionRaw?: string | null,
+) {
+  const titleFranchise = resolveCatalogEntry("franchise", titleRaw);
+  const titleSeries = resolveCatalogEntry("series", titleRaw);
+  const description = descriptionRaw ?? "";
+  const descriptionFranchise = description
+    ? resolveCatalogEntry("franchise", description)
+    : null;
+  const descriptionSeries = description
+    ? resolveCatalogEntry("series", description)
+    : null;
+
+  let franchise = titleFranchise ?? descriptionFranchise;
+  let series = titleSeries ?? descriptionSeries;
+  let conflict = false;
+
+  // A series found in the public title is stronger evidence than franchise
+  // names buried in seller boilerplate.  Derive its parent directly from the
+  // catalogue so cross-category descriptions cannot contaminate the product.
+  if (titleSeries?.value.franchiseKey) {
+    const parent = byKey("franchise", titleSeries.value.franchiseKey);
+    if (titleFranchise && parent && titleFranchise.value.key !== parent.key) {
+      conflict = true;
+      series = null;
+      franchise = titleFranchise;
+    } else if (parent) {
+      franchise = titleFranchise ?? {
+        value: parent,
+        confidence: titleSeries.confidence,
+        evidence: `由标题系列 ${titleSeries.value.nameJa} 确定作品大类`,
+        matchedAlias: titleSeries.matchedAlias,
+      };
+    }
+  } else if (series?.value.franchiseKey) {
+    const parent = byKey("franchise", series.value.franchiseKey);
+    if (franchise && parent && franchise.value.key !== parent.key) {
+      conflict = true;
+      series = null;
+    } else if (!franchise && parent) {
+      franchise = {
+        value: parent,
+        confidence: series.confidence,
+        evidence: `由系列 ${series.value.nameJa} 确定作品大类`,
+        matchedAlias: series.matchedAlias,
+      };
+    }
+  }
+
+  return { franchise, series, conflict };
 }
 
 export async function seedCatalogDictionary() {
@@ -241,8 +309,11 @@ export async function matchOrCreateProduct(itemId: string) {
   const item = await prisma.item.findUnique({ where: { id: itemId } });
   if (!item) return { skipped: "missing_listing" as const };
   const text = `${item.titleRaw}\n${item.descriptionRaw ?? ""}`;
-  const franchise = resolveCatalogEntry("franchise", text);
-  const series = resolveCatalogEntry("series", text);
+  const catalogReferences = resolveProductCatalogReferences(
+    item.titleRaw,
+    item.descriptionRaw,
+  );
+  const { franchise, series } = catalogReferences;
   const manufacturer =
     resolveCatalogEntry("manufacturer", text) ??
     resolutionFromEnum("manufacturer", item.manufacturer);
@@ -278,6 +349,7 @@ export async function matchOrCreateProduct(itemId: string) {
   let matchConfidence: number;
   let matchDecision: "auto_matched" | "review_required";
   const reasons = confidenceReasons(fieldConfidences);
+  if (catalogReferences.conflict) reasons.push("series:作品大类冲突");
 
   if (best?.result.decision === "auto_match") {
     productId = best.candidate.id;
@@ -330,20 +402,22 @@ export async function matchOrCreateProduct(itemId: string) {
     matchDecision = reasons.length ? "review_required" : "auto_matched";
   }
 
-  const evidence = {
+  const evidence = mergeExtractionEvidence(item.extractionEvidence, {
     franchise,
     series,
     manufacturer,
     toyType,
     productMatch: best?.result ?? null,
-  } as unknown as Prisma.InputJsonValue;
+    catalogConflict: catalogReferences.conflict,
+  });
+  const evidenceJson = evidence as unknown as Prisma.InputJsonValue;
   await prisma.item.update({
     where: { id: item.id },
     data: {
       productId,
       normalizedTitle: normalizedName,
       fieldConfidences: fieldConfidences as unknown as Prisma.InputJsonValue,
-      extractionEvidence: evidence,
+      extractionEvidence: evidenceJson,
       matchConfidence,
       matchDecision,
       needsReview: item.needsReview || matchDecision === "review_required",
@@ -357,18 +431,24 @@ export async function matchOrCreateProduct(itemId: string) {
         productId,
         reasons,
         fieldConfidences: fieldConfidences as unknown as Prisma.InputJsonValue,
-        suggestedChanges: evidence,
+        suggestedChanges: evidenceJson,
       },
       create: {
         itemId: item.id,
         productId,
         reasons,
         fieldConfidences: fieldConfidences as unknown as Prisma.InputJsonValue,
-        suggestedChanges: evidence,
+        suggestedChanges: evidenceJson,
       },
     });
   }
-  return { productId, matchConfidence, matchDecision, reasons };
+  return {
+    productId,
+    matchConfidence,
+    matchDecision,
+    reasons,
+    extractionEvidence: evidence,
+  };
 }
 
 export async function backfillUnmatchedListings(limit = 2000) {

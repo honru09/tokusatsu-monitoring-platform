@@ -1,0 +1,816 @@
+{
+  "base": "http://localhost:3000",
+  "results": [
+    {
+      "workspace": "inventory",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "全库在售态势",
+        "商品库"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "catalog",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "直购 · 5,023 件"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "links",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "链接专区"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "purchases",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "链接登记购买",
+        "购买记录"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "orders",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "库存订单 0 批"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "favorites",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "收藏"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "sellers",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "intel",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "资讯专区"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "disliked",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "不感兴趣 · 0"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "monitoring",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "实时监控与存量搜罗"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "resale",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "闲鱼运营"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "ai",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "AI 与额度"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "logistics",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "利润与物流"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "calculator",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "进货计算器"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "operations",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "运营台"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "assistant",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "采购助手"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "collaboration",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "与润的对话"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "workbench",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "工作台"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "profile",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "龙"
+      ],
+      "nav": {
+        "top": 14,
+        "bottom": 62
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "share",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false
+    },
+    {
+      "workspace": "inventory",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "全库在售态势",
+        "商品库"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "catalog",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "直购 · 5,023 件"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "links",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "链接专区"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "purchases",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "链接登记购买",
+        "购买记录"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "orders",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "库存订单 0 批"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "favorites",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "收藏"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "sellers",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "intel",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "资讯专区"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "disliked",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "不感兴趣 · 0"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "monitoring",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "实时监控与存量搜罗"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "resale",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "闲鱼运营"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "ai",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "AI 与额度"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "logistics",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "利润与物流"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "calculator",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "进货计算器"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "operations",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "运营台"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "assistant",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "采购助手"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "collaboration",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "与润的对话"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "workbench",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "工作台"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "profile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "contentOverflow": false,
+      "heading": [
+        "龙"
+      ],
+      "nav": {
+        "top": 780,
+        "bottom": 844
+      },
+      "buttons": 4
+    },
+    {
+      "workspace": "share",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    }
+  ],
+  "blocked": [
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/collaboration/presence"
+    }
+  ],
+  "realResaleUnchanged": true,
+  "iframe": "只验证运营外壳，独立iframe以只读夹具代替",
+  "share": "只读真实商品快照夹具，无创建分享或写入"
+}

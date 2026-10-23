@@ -9,6 +9,39 @@ function internalApiBase() {
   return /^https?:\/\//.test(configured) ? configured : `http://${configured}`;
 }
 
+const retryableUpstreamStatuses = new Set([502, 503, 504]);
+const getRetryDelaysMs = [120, 320] as const;
+
+function wait(delayMs: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+}
+
+async function fetchUpstream(target: URL, init: RequestInit, method: string) {
+  const canRetry = method === "GET" || method === "HEAD";
+  const attempts = canRetry ? getRetryDelaysMs.length + 1 : 1;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(target, init);
+      const hasAnotherAttempt = attempt + 1 < attempts;
+      if (
+        !hasAnotherAttempt ||
+        !retryableUpstreamStatuses.has(response.status)
+      ) {
+        return response;
+      }
+      await response.body?.cancel().catch(() => undefined);
+    } catch (error) {
+      lastError = error;
+      if (attempt + 1 >= attempts) throw error;
+    }
+    await wait(getRetryDelaysMs[attempt]!);
+  }
+
+  throw lastError ?? new Error("upstream request failed");
+}
+
 async function proxy(
   request: Request,
   context: { params: Promise<{ path: string[] }> },
@@ -32,14 +65,18 @@ async function proxy(
   const isAiRequest = path[0] === "ai";
   const timeoutMs = proxyTimeoutMs(path);
   try {
-    const response = await fetch(target, {
-      method: request.method,
-      headers,
-      body: hasBody ? await request.arrayBuffer() : undefined,
-      cache: "no-store",
-      redirect: "manual",
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    const response = await fetchUpstream(
+      target,
+      {
+        method: request.method,
+        headers,
+        body: hasBody ? await request.arrayBuffer() : undefined,
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(timeoutMs),
+      },
+      request.method,
+    );
     const responseBody = await response.arrayBuffer();
     if (response.status >= 400 && responseBody.byteLength === 0) {
       return Response.json(
@@ -92,4 +129,5 @@ async function proxy(
 export const GET = proxy;
 export const POST = proxy;
 export const PATCH = proxy;
+export const DELETE = proxy;
 export const OPTIONS = proxy;

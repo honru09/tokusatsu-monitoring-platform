@@ -1,0 +1,1214 @@
+.workspace {
+  --operations-line: var(--ui-line, rgb(60 60 67 / 13%));
+  --operations-muted: var(--glass-ink-secondary, #58616c);
+  --operations-surface: var(--ui-surface, rgb(255 255 255 / 94%));
+  min-width: 0;
+  width: 100%;
+  color: var(--color-ink, #1d1d1f);
+  font-size: 15px;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+  line-break: strict;
+  display: grid;
+  gap: 24px;
+  --operations-shadow: var(--ui-shadow, 0 8px 24px rgb(24 40 56 / 5%));
+}
+.workspace *,
+.intelDialog * {
+  box-sizing: border-box;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 8px 0 12px;
+  margin: 0;
+  border: 0;
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.workspace .heading h2,
+.pageTitle {
+  margin: 0;
+  color: var(--color-ink, #1d1d1f);
+  font-size: clamp(24px, 2.3vw, 32px);
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+}
+.heading p {
+  margin: 8px 0 0;
+  color: var(--operations-muted);
+  font-size: 13px;
+}
+.titleCount {
+  display: inline-block;
+  margin-left: 12px;
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--operations-muted);
+  vertical-align: middle;
+}
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 44px;
+  margin: 0 0 16px;
+}
+.sectionHeading h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.sectionHeading > span {
+  font-size: 13px;
+  color: var(--operations-muted);
+}
+.workspace :is(button, input, select, summary, a):focus-visible,
+.intelDialog :is(button, a):focus-visible {
+  outline: 3px solid var(--color-primary, #0071e3);
+  outline-offset: 3px;
+}
+.workspace :is(button, summary, a) {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.workspace :is(button, input:not([type="checkbox"]), select, summary, a[href]) {
+  min-height: 44px !important;
+  min-width: 44px !important;
+}
+.workspace button {
+  min-height: 44px;
+  transition:
+    color var(--ui-feedback, 180ms ease),
+    background-color var(--ui-feedback, 180ms ease),
+    box-shadow var(--ui-feedback, 180ms ease),
+    opacity var(--ui-feedback, 180ms ease),
+    transform var(--ui-press-motion, 120ms var(--ease-apple-out));
+}
+.workspace button:active:not(:disabled):not([data-apple-motion-owned]) {
+  transform: scale(0.97);
+}
+.workspace button:disabled {
+  opacity: 0.48 !important;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.workspace :is(input:not([type="checkbox"]), select) {
+  min-height: 44px;
+  font-size: 16px;
+}
+.tabIndicator {
+  position: absolute;
+  inset: 3px;
+  border-bottom: 0;
+  background: white;
+  pointer-events: none;
+  z-index: 0;
+  border: 1px solid rgb(255 255 255 / 90%);
+  border-radius: 12px;
+  box-shadow:
+    0 2px 8px rgb(25 43 64 / 10%),
+    inset 0 1px 0 white;
+}
+.tabLabel {
+  position: relative;
+  z-index: 1;
+}
+.primaryButton {
+  min-height: 44px;
+  padding: 10px 20px;
+  border: 1px solid transparent;
+  border-radius: var(--ui-control-radius, 14px);
+  background: var(--color-primary, #0071e3);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 16%),
+    0 2px 3px rgb(0 70 140 / 12%);
+}
+.primaryButton:disabled {
+  opacity: 0.5;
+}
+
+.actionReceipt {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: -8px 0 0;
+  padding: 12px 16px;
+  border: 1px solid rgb(50 137 91 / 10%);
+  border-radius: 14px;
+  background: rgb(231 245 237 / 92%);
+  color: #236342;
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.recoveryAction {
+  display: inline-flex;
+  align-items: center;
+  margin: 8px 0 0;
+  padding: 8px 16px;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.parameterStatus {
+  display: block;
+  color: var(--operations-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.parameterStatus[data-state="saved"] { color: #236342; }
+.parameterStatus[data-state="error"] { color: #9b3527; }
+.logistics :global(.logistics-adjust-panel) {
+  transition: border-color var(--ui-feedback, 180ms ease), background-color var(--ui-feedback, 180ms ease);
+  border: 1px solid transparent;
+}
+.logistics :global(.logistics-adjust-panel[data-save-state="saved"]) { border-color: rgb(50 137 91 / 14%); background: #f2faf5; }
+.logistics :global(.logistics-adjust-panel[data-save-state="error"]) { border-color: rgb(155 53 39 / 18%); background: #fff5f3; }
+.logistics :global(.logistics-adjust-panel:focus-within) { border-color: rgb(0 113 227 / 22%); }
+
+/* Orders share columns so quantity, recovery and profit can be compared. */
+.inventoryTools {
+  display: grid;
+  grid-template-columns: auto minmax(200px, 1fr);
+  align-items: center;
+  gap: 24px;
+}
+.inventory :global(.inventory-order-hero) {
+  padding: 8px 0 12px !important;
+  background: transparent !important;
+  border-bottom: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.inventory :global(.inventory-order-status-chips) {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  border-radius: 16px;
+  background: rgb(230 236 242 / 80%) !important;
+  border: 1px solid rgb(255 255 255 / 65%) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 80%) !important;
+}
+.inventory :global(.inventory-order-toolbar) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.inventory :global(.inventory-order-status-chips button) {
+  position: relative;
+  isolation: isolate;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent !important;
+  box-shadow: none;
+  color: var(--operations-muted);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.inventory :global(.inventory-order-status-chips button[aria-selected="true"]) {
+  color: var(--color-primary, #0071e3);
+}
+.inventory :global(.inventory-order-search) {
+  margin: 0;
+  width: 100%;
+  background: var(--operations-surface);
+  border: 1px solid var(--operations-line);
+  border-radius: var(--ui-control-radius, 14px);
+  min-height: 48px;
+  padding: 10px 16px;
+  box-shadow: var(--operations-shadow);
+}
+.inventory :global(.inventory-order-list) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0;
+  border-top: 0;
+  background: var(--operations-surface);
+  border: 1px solid rgb(255 255 255 / 90%);
+  border-radius: 22px;
+  box-shadow: var(--operations-shadow);
+  overflow: hidden;
+}
+.inventoryColumns {
+  display: none;
+}
+.inventory :global(.inventory-order-card) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px 24px;
+  padding: 24px;
+  border: 0;
+  border-bottom: 1px solid var(--operations-line);
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent;
+  min-width: 0;
+  animation: none !important;
+}
+.orderIdentity {
+  grid-column: 1 / -1;
+  border: 0;
+  background: transparent;
+  align-items: center;
+}
+.inventory :global(.inventory-order-card-thumb) {
+  width: 68px;
+  height: 68px;
+  border-radius: 14px;
+  background: var(--color-paper, #f5f5f7);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 4%);
+}
+.inventory :global(.inventory-order-card-name) {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.inventory :global(.inventory-order-card-ord) {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--operations-muted);
+  overflow-wrap: anywhere;
+}
+.inventory :global(.inventory-order-card-cost-label) {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--operations-muted);
+}
+.orderCost {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+.orderCost strong {
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.orderCost small {
+  color: var(--operations-muted);
+  font-size: 12px;
+}
+.mobileLabel {
+  color: var(--operations-muted);
+  font-size: 12px;
+}
+.orderStock,
+.orderRecovery {
+  min-width: 0;
+}
+.inventory :global(.inventory-order-metric) {
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.inventory :global(.inventory-order-metric-row) {
+  font-size: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.inventory :global(.inventory-order-track) {
+  height: 5px;
+  margin-top: 8px;
+  background: var(--color-fog, #e8e8ed);
+  border-radius: 8px;
+}
+.inventory :global(.inventory-order-track-fill-ink),
+.inventory :global(.inventory-order-track-fill-moss) {
+  border-radius: 8px;
+}
+.inventory :global(.inventory-order-card-footer) {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.inventory :global(.inventory-order-profit-label) {
+  font-size: 12px;
+  color: var(--operations-muted);
+}
+.inventory :global(.inventory-order-profit-value) {
+  display: block;
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 550;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.inventory :global(.io-btn-sell) {
+  justify-self: end;
+  padding: 8px 16px;
+  background: rgb(0 113 227 / 8%);
+  border: 1px solid rgb(0 113 227 / 12%);
+  border-radius: var(--ui-control-radius, 14px);
+  color: var(--color-primary, #0071e3);
+  min-width: 72px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 90%);
+  font-weight: 600;
+}
+.inventory :global(.io-btn-primary) {
+  border-radius: var(--ui-control-radius, 14px);
+  background: var(--color-primary, #0071e3);
+  color: white;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 22%),
+    0 4px 12px rgb(0 113 227 / 18%);
+}
+.inventory :global(.inventory-order-empty),
+.inventory :global(.inventory-order-loading) {
+  background: var(--operations-surface);
+  border-radius: 22px;
+  border-block: 1px solid rgb(255 255 255 / 85%);
+  padding: 48px 24px;
+  box-shadow: var(--operations-shadow);
+}
+
+/* Monitoring: keyword records on the reading plane, categories in a rail. */
+.monitoring :global(.mcfg-header) {
+  margin: 0;
+}
+.monitoring :global(.mcfg-content) {
+  gap: 32px;
+  grid-template-columns: minmax(0, 1fr);
+}
+.monitoring :global(.mcfg-keywords) {
+  padding: 24px;
+  background: var(--operations-surface);
+  border-block: 0;
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 22px;
+  box-shadow: var(--operations-shadow);
+}
+.monitoring :global(.mcfg-search) {
+  border: 1px solid var(--operations-line);
+  border-radius: var(--ui-control-radius, 14px);
+  background: white;
+}
+.monitoring :global(.mcfg-keyword-list) {
+  margin-top: 24px;
+}
+.keywordColumns {
+  display: none;
+}
+.monitoring :global(.mcfg-keyword-row) {
+  min-height: 88px;
+  padding: 16px 0;
+  border-color: var(--operations-line);
+  transition:
+    background-color 180ms ease,
+    opacity 180ms ease;
+  animation: none !important;
+}
+.monitoring :global(.mcfg-keyword-row[aria-busy="true"]) {
+  opacity: 0.55;
+}
+.monitoring :global(.mcfg-keyword-main strong) {
+  font-size: 15px;
+  font-weight: 600;
+}
+.monitoring :global(.mcfg-categories) {
+  padding: 20px;
+  background: var(--operations-surface);
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 22px;
+  box-shadow: var(--operations-shadow);
+}
+.monitoring :global(.mcfg-categories h3) {
+  font-size: 18px;
+}
+.monitoring :global(.mcfg-category-list) {
+  gap: 8px;
+  border-top: 0;
+}
+.monitoring :global(.mcfg-category-row) {
+  border-bottom: 0;
+  padding: 0;
+}
+.monitoring :global(.mcfg-category-filter) {
+  padding: 8px 12px;
+  background: transparent;
+  border: 0;
+  border-left: 0;
+  border-radius: 14px;
+  position: relative;
+  isolation: isolate;
+}
+.monitoring :global(.mcfg-category-filter[aria-pressed="true"]) {
+  border-left-color: transparent;
+  background: transparent;
+  color: var(--ui-accent, #0071e3);
+}
+.monitoring :global(.mcfg-button),
+.monitoring :global(.mcfg-icon-button) {
+  border-radius: var(--ui-control-radius, 14px);
+}
+
+/* Calculation keeps editable values and the live quote in one aligned spread. */
+.calculator :global(.procurement-calc-tabs) {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgb(230 236 242 / 80%);
+  border-radius: 16px;
+  border-bottom: 0;
+  border: 1px solid rgb(255 255 255 / 65%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 80%);
+  width: fit-content;
+  max-width: 100%;
+}
+.calculator :global(.procurement-calc-tabs button) {
+  position: relative;
+  isolation: isolate;
+  flex: 0 1 220px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--operations-muted);
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 48px;
+}
+.calculator :global(.procurement-calc-tabs button[aria-pressed="true"]) {
+  color: var(--color-primary, #0071e3);
+}
+.calculator :global(.procurement-calc-layout) {
+  gap: 32px;
+  grid-template-columns: minmax(0, 1fr);
+  animation: none !important;
+}
+.calculator :global(.procurement-calc-editor) {
+  display: grid;
+  gap: 32px;
+  min-width: 0;
+}
+.calculator :global(.procurement-calc-group) {
+  padding: 24px;
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-top: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 22px;
+  background: var(--operations-surface);
+  box-shadow: var(--operations-shadow);
+}
+.calculator :global(.procurement-calc-group h3),
+.calculator :global(.procurement-calc-result h3),
+.calculator :global(.procurement-calc-ceiling h3) {
+  margin: 0 0 20px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.calculator :global(.procurement-calc-fields) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+}
+.calculator :global(.procurement-calc-field) {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+}
+.calculator :global(.procurement-calc-input) {
+  background: white;
+  border: 1px solid var(--operations-line);
+  border-radius: var(--ui-control-radius, 14px);
+  min-height: 48px;
+}
+.calculator :global(.procurement-calc-input input) {
+  text-align: right;
+  font-size: 16px;
+  font-weight: 500;
+}
+.calculator :global(.procurement-calc-input small) {
+  min-width: 56px;
+  font-size: 12px;
+}
+.calculator :global(.procurement-calc-summary) {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+}
+.calculator :global(.procurement-calc-result) {
+  padding: 24px;
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-top: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 22px;
+  background: var(--operations-surface);
+  box-shadow: var(--operations-shadow);
+}
+.calculator :global(.procurement-calc-result output) {
+  color: var(--color-primary, #0071e3);
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 600;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+.calculator :global(.procurement-calc-result[data-loss="true"] output) {
+  color: var(--color-destructive, #ff3b30);
+}
+.calculator :global(.procurement-calc-result output small) {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 450;
+  color: var(--operations-muted);
+}
+.calculator :global(.procurement-calc-result dl) {
+  margin-top: 24px;
+  border-top: 1px solid var(--operations-line);
+  padding-top: 8px;
+}
+.calculator :global(.procurement-calc-row) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--operations-line);
+  font-size: 14px;
+}
+.calculator :global(.procurement-calc-row dt) {
+  font-size: 13px;
+}
+.calculator :global(.procurement-calc-row dd) {
+  max-width: none;
+  min-width: 0;
+  text-align: right;
+  font-weight: 550;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.calculator :global(.procurement-calc-copy) {
+  margin-top: 24px;
+  min-height: 48px;
+  border-radius: var(--ui-control-radius, 14px);
+  background: var(--color-primary, #0071e3);
+  color: white;
+  transition:
+    background-color var(--ui-feedback),
+    box-shadow var(--ui-feedback),
+    transform var(--ui-press-motion);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 20%),
+    0 4px 12px rgb(0 113 227 / 18%);
+}
+.calculator :global(.procurement-calc-ceiling) {
+  padding: 24px;
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-top: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 22px;
+  background: var(--operations-surface);
+  box-shadow: var(--operations-shadow);
+}
+.calculator :global(.procurement-calc-ceiling output) {
+  font-size: 20px;
+  font-weight: 600;
+}
+.calculator :global(.procurement-calc-rate) {
+  min-height: 44px;
+  padding: 8px 0;
+  font-size: 13px;
+  text-align: left;
+}
+.calculator :global(.procurement-calc-help summary) {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Logistics is a selection list next to the actual shipping ledger. */
+.logisticsLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+  min-width: 0;
+}
+.catalogue {
+  min-width: 0;
+  background: var(--operations-surface);
+  padding: 24px;
+  border-block: 0;
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 22px;
+  box-shadow: var(--operations-shadow);
+}
+.logisticsList {
+  display: grid;
+  gap: 8px;
+  max-height: 680px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+}
+.workspace .logisticsItem {
+  display: grid;
+  gap: 8px;
+  padding: 12px 4px;
+  border: 1px solid rgb(60 60 67 / 8%);
+  border-bottom: 1px solid rgb(60 60 67 / 8%);
+  border-radius: 16px !important;
+  background: rgb(245 245 247 / 65%);
+  transition:
+    background-color var(--ui-feedback),
+    border-color var(--ui-feedback),
+    box-shadow var(--ui-feedback);
+  animation: none !important;
+}
+.workspace .logisticsItem[data-selected="true"] {
+  background: rgb(0 113 227 / 7%) !important;
+  border-color: rgb(0 113 227 / 24%);
+  box-shadow:
+    inset 0 1px 0 white,
+    0 2px 8px rgb(0 113 227 / 6%);
+}
+.logisticsSelect {
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.logisticsSelect strong {
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 1.6;
+}
+.logisticsSelect :global(.text-ink\/45) {
+  font-size: 12px;
+}
+.predictButton {
+  justify-self: end;
+  padding: 8px 12px;
+  color: var(--color-primary, #0071e3);
+  background: transparent;
+  border: 0;
+  font-size: 13px;
+}
+.logisticsAside {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 24px;
+}
+.shippingEditor {
+  min-width: 0;
+  padding: 24px;
+  background: var(--operations-surface);
+  border-top: 1px solid rgb(255 255 255 / 85%);
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 22px;
+  box-shadow: var(--operations-shadow);
+}
+.shippingEditor > h3 {
+  margin: 0 0 20px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.shippingEditor :is(select, .logistics-field > span:last-child) {
+  background: white;
+  border-radius: var(--ui-control-radius, 14px);
+  border-color: var(--operations-line);
+}
+.shippingEditor :global(.logistics-adjust-panel) {
+  border: 1px solid var(--operations-line);
+  border-top: 1px solid var(--operations-line);
+  border-radius: 16px;
+  padding: 16px;
+  background: rgb(245 245 247 / 70%);
+}
+.shippingEditor :global(.logistics-adjust-panel legend) {
+  white-space: normal;
+  line-height: 1.6;
+  font-size: 13px;
+  font-weight: 550;
+}
+.shippingEditor :global(.logistics-field input) {
+  font-weight: 500;
+  text-align: right;
+}
+.shippingEditor > div:last-child button:first-child {
+  background: var(--color-primary, #0071e3);
+}
+.shippingEditor button {
+  border-radius: var(--ui-control-radius, 14px);
+}
+.logisticsResult {
+  min-width: 0;
+  padding: 24px;
+  border-top: 1px solid rgb(255 255 255 / 85%);
+  background: var(--operations-surface);
+  color: var(--color-ink, #1d1d1f);
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 22px;
+  box-shadow: var(--operations-shadow);
+}
+.logisticsResult :is(p, span, dt) {
+  color: var(--operations-muted) !important;
+}
+.logisticsResult strong {
+  color: var(--color-primary, #0071e3);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.logisticsResult dl {
+  border-color: var(--operations-line);
+  gap: 20px;
+}
+.logisticsResult dd {
+  margin-top: 8px;
+  font-size: 15px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.logisticsResult > div:last-child {
+  border-color: var(--operations-line);
+  color: var(--operations-muted);
+}
+
+/* Public intelligence reads as an editorial index, with the full article close. */
+.intelTop {
+  display: grid;
+  gap: 24px;
+}
+.intelTools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.intelTabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 0;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: rgb(230 236 242 / 80%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 80%);
+}
+.intelTab {
+  position: relative;
+  isolation: isolate;
+  min-height: 44px;
+  padding: 8px 16px;
+  color: var(--operations-muted);
+  font-size: 14px;
+  background: transparent;
+  border: 0;
+  border-radius: 14px;
+}
+.intelTab[aria-pressed="true"] {
+  color: var(--color-primary, #0071e3);
+}
+.intelTable {
+  display: none;
+  background: var(--operations-surface);
+  border-block: 0;
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 22px;
+  box-shadow: var(--operations-shadow);
+  overflow: hidden;
+}
+.intelTable table {
+  font-size: 13px;
+  min-width: 780px;
+}
+.intelTable th {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 16px;
+}
+.intelTable td {
+  padding: 12px 16px;
+}
+.intelTable th:nth-child(3) {
+  width: auto !important;
+}
+.intelTitle {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  width: 100%;
+  overflow: hidden;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 1.6;
+  background: transparent;
+  border: 0;
+  color: var(--color-ink, #1d1d1f);
+}
+.intelMobileList {
+  display: grid;
+  gap: 12px;
+  border-top: 0;
+}
+.intelMobileRow {
+  min-width: 0;
+  width: 100%;
+  padding: 20px 16px;
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-bottom: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 20px;
+  background: var(--operations-surface);
+  text-align: left;
+  box-shadow: var(--operations-shadow);
+}
+.intelMobileRow > div {
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 450;
+  color: var(--operations-muted);
+}
+.intelMobileRow h3 {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  font-weight: 550;
+}
+.intelDialog {
+  animation: none !important;
+  border-radius: 22px;
+  background: var(--glass-fill-sheet, rgb(255 255 255 / 96%));
+  box-shadow: var(--ui-shadow-raised);
+}
+.operationDialog {
+  border-radius: 22px !important;
+  background: var(--glass-fill-sheet, rgb(255 255 255 / 96%)) !important;
+  color: var(--color-ink, #1d1d1f);
+  font-size: 15px;
+  line-height: 1.6;
+  animation: none !important;
+  box-shadow: var(--ui-shadow-raised) !important;
+}
+.operationDialog h2 {
+  font-size: 24px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.operationDialog h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+.operationDialog :global(.inventory-order-field) > span {
+  font-size: 13px;
+  font-weight: 450;
+}
+.operationDialog :global(.inventory-order-input) {
+  min-height: 48px;
+  border: 1px solid var(--color-fog, #e8e8ed);
+  border-radius: var(--ui-control-radius, 14px);
+  background: white;
+}
+.operationDialog :global(.inventory-order-inset) {
+  border-radius: 16px;
+  box-shadow: none;
+  background: var(--color-paper, #f5f5f7);
+}
+.operationDialog :global(.inventory-order-primary-cta) {
+  min-height: 48px;
+  border-radius: var(--ui-control-radius, 14px);
+  background: var(--color-primary, #0071e3);
+}
+.operationDialog :is(button, input):focus-visible {
+  outline: 3px solid var(--color-primary, #0071e3);
+  outline-offset: 3px;
+}
+.intelDialog header {
+  background: var(--ui-glass, rgb(255 255 255 / 76%));
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+}
+.intelDialog h3 {
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.categoryIndicator {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(0 113 227 / 14%);
+  border-radius: 14px;
+  background: rgb(0 113 227 / 8%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 90%);
+  pointer-events: none;
+}
+.calculator :global(.procurement-calc-copy[data-copied="true"]) {
+  background: #16743c;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 20%),
+    0 4px 12px rgb(22 116 60 / 15%);
+}
+.workspace[data-keyboard-motion="true"] button,
+.workspace[data-keyboard-motion="true"] :global(.mcfg-switch)::before,
+.workspace[data-keyboard-motion="true"] .logisticsItem,
+.workspace[data-keyboard-motion="true"] :global(.logistics-adjust-panel),
+.workspace button:focus-visible:active {
+  transition-duration: 0ms;
+  transform: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .inventory :global(.inventory-order-card):hover,
+  .monitoring :global(.mcfg-keyword-row):hover {
+    background: rgb(0 113 227 / 2%);
+  }
+  .intelMobileRow:hover,
+  .logisticsItem:hover {
+    background: rgb(0 113 227 / 3%);
+  }
+  .workspace button:not(:disabled):hover {
+    filter: none;
+  }
+  .intelTitle:hover,
+  .predictButton:hover {
+    color: var(--color-primary, #0071e3);
+  }
+}
+@media (min-width: 600px) {
+  .calculator :global(.procurement-calc-fields) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .intelTools {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+@media (min-width: 900px) {
+  .intelTable {
+    display: block;
+  }
+  .intelMobileList {
+    display: none;
+  }
+  .logisticsLayout {
+    grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.8fr);
+  }
+  .logisticsAside {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+  .calculator :global(.procurement-calc-layout) {
+    grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.75fr);
+    align-items: start;
+  }
+  .calculator :global(.procurement-calc-summary) {
+    position: sticky;
+    top: 24px;
+  }
+  .keywordColumns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 160px 104px;
+    gap: 16px;
+    padding: 12px 0;
+    border-block: 1px solid var(--operations-line);
+    color: var(--operations-muted);
+    font-size: 12px;
+  }
+  .monitoring :global(.mcfg-content) {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.3fr);
+  }
+  .monitoring :global(.mcfg-keyword-row) {
+    grid-template-columns: minmax(0, 1fr) 160px 104px;
+    gap: 16px;
+  }
+}
+@media (min-width: 760px) and (max-width: 899px) {
+  .monitoring :global(.mcfg-category-list) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+}
+@media (min-width: 1180px) {
+  .inventoryColumns {
+    display: grid;
+    grid-template-columns:
+      minmax(220px, 2fr) minmax(100px, 0.8fr) minmax(135px, 1fr)
+      minmax(135px, 1fr) minmax(100px, 0.8fr) 72px;
+    gap: 24px;
+    padding: 16px 24px;
+    font-size: 12px;
+    color: var(--operations-muted);
+    border-bottom: 1px solid var(--operations-line);
+  }
+  .inventoryColumns > span:nth-child(2),
+  .inventoryColumns > span:nth-child(5),
+  .inventoryColumns > span:last-child {
+    text-align: right;
+  }
+  .inventory :global(.inventory-order-card) {
+    grid-template-columns:
+      minmax(220px, 2fr) minmax(100px, 0.8fr) minmax(135px, 1fr)
+      minmax(135px, 1fr) minmax(100px, 0.8fr) 72px;
+  }
+  .orderIdentity {
+    grid-column: auto;
+  }
+  .mobileLabel {
+    display: none;
+  }
+  .orderCost {
+    text-align: right;
+  }
+  .inventory :global(.inventory-order-card-footer) {
+    text-align: right;
+  }
+  .inventory :global(.inventory-order-profit-label) {
+    display: none;
+  }
+}
+@media (max-width: 759px) {
+  .workspace {
+    gap: 24px;
+  }
+  .heading {
+    align-items: flex-start;
+    padding-bottom: 20px;
+    gap: 12px;
+  }
+  .inventoryTools {
+    grid-template-columns: minmax(0, 1fr);
+    animation: none !important;
+    gap: 16px;
+  }
+  .inventory :global(.inventory-order-status-chips) {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .inventory :global(.inventory-order-status-chips button) {
+    padding: 8px 4px;
+    font-size: 13px;
+  }
+  .inventory :global(.inventory-order-list) {
+    gap: 12px;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .inventory :global(.inventory-order-card) {
+    border: 1px solid rgb(255 255 255 / 85%);
+    border-radius: 20px !important;
+    background: var(--operations-surface);
+    box-shadow: var(--operations-shadow) !important;
+    padding: 20px 16px;
+    gap: 16px;
+  }
+  .monitoring :global(.mcfg-keywords),
+  .catalogue,
+  .shippingEditor,
+  .calculator :global(.procurement-calc-group),
+  .calculator :global(.procurement-calc-result),
+  .calculator :global(.procurement-calc-ceiling) {
+    padding: 20px 16px;
+  }
+  .monitoring :global(.mcfg-content) {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .monitoring :global(.mcfg-keywords),
+  .monitoring :global(.mcfg-categories) {
+    width: 100%;
+  }
+  .monitoring :global(.mcfg-categories) {
+    order: -1;
+    padding: 16px;
+  }
+  .monitoring :global(.mcfg-category-list) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 16px;
+  }
+  .monitoring :global(.mcfg-category-row) {
+    align-items: center;
+  }
+  .monitoring :global(.mcfg-category-filter) {
+    padding: 8px;
+    gap: 8px;
+  }
+  .monitoring :global(.mcfg-keyword-facts) {
+    margin-top: 8px;
+    gap: 12px;
+  }
+  .calculator :global(.procurement-calc-tabs) {
+    width: 100%;
+  }
+  .calculator :global(.procurement-calc-tabs button) {
+    flex: 1;
+    padding: 8px;
+    font-size: 13px;
+  }
+  .calculator :global(.procurement-calc-row) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+    gap: 8px;
+  }
+  .logisticsList {
+    max-height: 500px;
+  }
+  .logisticsSelect > span:first-child {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
+}
+@media (max-width: 599px) {
+  .monitoring :global(.mcfg-category-list) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 359px) {
+  .inventory :global(.inventory-order-card) {
+    gap: 16px 12px;
+  }
+  .inventory :global(.inventory-order-toolbar) {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .calculator :global(.procurement-calc-row dd) {
+    max-width: 144px;
+  }
+  .intelTab {
+    padding-inline: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace button,
+  .workspace :global(.mcfg-keyword-row),
+  .logisticsItem {
+    transition:
+      color 100ms ease,
+      background-color 100ms ease,
+      opacity 100ms ease;
+  }
+  .workspace button:active:not(:disabled) {
+    transform: none;
+  }
+}

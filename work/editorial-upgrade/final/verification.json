@@ -1,0 +1,69 @@
+{
+  "results": [
+    {
+      "workspace": "inventory",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false
+    },
+    {
+      "workspace": "workbench",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false
+    },
+    {
+      "workspace": "resale",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false
+    },
+    {
+      "workspace": "overview-error-retry",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "passed": true
+    },
+    {
+      "workspace": "inventory",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "workspace": "workbench",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "workspace": "resale",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "workspace": "overview-error-retry",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "passed": true
+    }
+  ],
+  "source": "正式3000；真实只读商品与总览快照；写入/模型拦截；总览错误为夹具"
+}

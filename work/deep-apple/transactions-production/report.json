@@ -1,0 +1,125 @@
+[
+  {
+    "target": "http://localhost:3000",
+    "width": 1440,
+    "height": 1000,
+    "reducedMotion": "no-preference",
+    "flows": [
+      "favorite-pending-success-rollback",
+      "cart-add-remove-confirmation",
+      "note-error-input-retention-save",
+      "gallery-reverse-thumbnail-keyboard-event-isolation",
+      "description-and-disclosure-fast-reversal",
+      "more-menu-escape-focus-keyboard",
+      "purchase-error-retry-completion",
+      "link-analysis-pending-navigation-preservation",
+      "bundle-pricing-reversal-keyboard-material-input-retention",
+      "bundle-save-pending-error-retry-success-same-frame-deduplication"
+    ],
+    "patches": 4,
+    "purchases": 2,
+    "analysisSubmits": 1,
+    "analysisPolls": 5,
+    "bundleSaves": 2,
+    "bundleReads": 3,
+    "purchaseControlsOverflow": [],
+    "bundleControlsOverflow": [],
+    "pageErrors": [],
+    "hydrationErrors": [],
+    "realBusinessRequests": 0,
+    "realWrites": 0,
+    "realModelCalls": 0,
+    "blockedModelAttempts": 0,
+    "blockedMutationAttempts": [
+      {
+        "endpoint": "/collaboration/presence",
+        "method": "POST"
+      }
+    ],
+    "unmatchedGetFixtures": [
+      "/imports"
+    ]
+  },
+  {
+    "target": "http://localhost:3000",
+    "width": 390,
+    "height": 844,
+    "reducedMotion": "no-preference",
+    "flows": [
+      "favorite-pending-success-rollback",
+      "cart-add-remove-confirmation",
+      "note-error-input-retention-save",
+      "gallery-reverse-thumbnail-keyboard-event-isolation",
+      "description-and-disclosure-fast-reversal",
+      "more-menu-escape-focus-keyboard",
+      "purchase-error-retry-completion",
+      "link-analysis-pending-navigation-preservation",
+      "bundle-pricing-reversal-keyboard-material-input-retention",
+      "bundle-save-pending-error-retry-success-same-frame-deduplication"
+    ],
+    "patches": 4,
+    "purchases": 2,
+    "analysisSubmits": 1,
+    "analysisPolls": 5,
+    "bundleSaves": 2,
+    "bundleReads": 3,
+    "purchaseControlsOverflow": [],
+    "bundleControlsOverflow": [],
+    "pageErrors": [],
+    "hydrationErrors": [],
+    "realBusinessRequests": 0,
+    "realWrites": 0,
+    "realModelCalls": 0,
+    "blockedModelAttempts": 0,
+    "blockedMutationAttempts": [
+      {
+        "endpoint": "/collaboration/presence",
+        "method": "POST"
+      }
+    ],
+    "unmatchedGetFixtures": [
+      "/imports"
+    ]
+  },
+  {
+    "target": "http://localhost:3000",
+    "width": 320,
+    "height": 568,
+    "reducedMotion": "reduce",
+    "flows": [
+      "favorite-pending-success-rollback",
+      "cart-add-remove-confirmation",
+      "note-error-input-retention-save",
+      "gallery-reverse-thumbnail-keyboard-event-isolation",
+      "description-and-disclosure-fast-reversal",
+      "more-menu-escape-focus-keyboard",
+      "purchase-error-retry-completion",
+      "link-analysis-pending-navigation-preservation",
+      "bundle-pricing-reversal-keyboard-material-input-retention",
+      "bundle-save-pending-error-retry-success-same-frame-deduplication"
+    ],
+    "patches": 4,
+    "purchases": 2,
+    "analysisSubmits": 1,
+    "analysisPolls": 5,
+    "bundleSaves": 2,
+    "bundleReads": 3,
+    "purchaseControlsOverflow": [],
+    "bundleControlsOverflow": [],
+    "pageErrors": [],
+    "hydrationErrors": [],
+    "realBusinessRequests": 0,
+    "realWrites": 0,
+    "realModelCalls": 0,
+    "blockedModelAttempts": 0,
+    "blockedMutationAttempts": [
+      {
+        "endpoint": "/collaboration/presence",
+        "method": "POST"
+      }
+    ],
+    "unmatchedGetFixtures": [
+      "/imports"
+    ]
+  }
+]

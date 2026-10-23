@@ -1,0 +1,566 @@
+/*
+ * Apple polish pass
+ *
+ * This is the last visual layer in the app shell. It owns only shared
+ * presentation: material weight, information hierarchy, responsive density
+ * and interaction feedback. Product data and business states stay in the
+ * feature components so this layer cannot change meaning.
+ */
+:root {
+  --polish-ink: #1d1d1f;
+  --polish-secondary: rgba(29, 29, 31, 0.62);
+  --polish-tertiary: rgba(29, 29, 31, 0.44);
+  --polish-blue: #0071e3;
+  --polish-line: rgba(60, 60, 67, 0.13);
+  --polish-material: rgba(255, 255, 255, 0.72);
+  --polish-material-strong: rgba(255, 255, 255, 0.9);
+  --polish-radius-card: 22px;
+  --polish-radius-control: 14px;
+  --polish-shadow-card:
+    0 0 0 0.5px rgba(60, 60, 67, 0.08),
+    0 8px 24px rgba(24, 40, 56, 0.055),
+    0 1px 3px rgba(24, 40, 56, 0.05);
+  --polish-shadow-sheet:
+    0 0 0 0.5px rgba(255, 255, 255, 0.78) inset,
+    0 24px 72px rgba(16, 32, 48, 0.2),
+    0 4px 14px rgba(16, 32, 48, 0.08);
+  /* One card contract. All earlier legacy declarations resolve through these. */
+  --product-card-height: 520px;
+  --product-card-media-height: 188px;
+  --product-card-note-height: 44px;
+}
+
+/* The page is one calm scene. Content owns the scroll; the scene never does. */
+.ios-shell.procurement-shell {
+  isolation: isolate;
+  min-height: 100dvh;
+  color: var(--polish-ink);
+  background:
+    radial-gradient(70% 52% at 96% 0%, rgba(100, 210, 255, 0.24), transparent 68%),
+    radial-gradient(64% 54% at 0% 100%, rgba(164, 230, 191, 0.2), transparent 68%),
+    linear-gradient(145deg, #e9f2f8 0%, #f5f6f8 48%, #eef6f1 100%);
+}
+
+/* Keep one large ambient movement layer. The static reflection still gives
+   glass a highlight without making two full-viewport animations compete. */
+.ios-shell.procurement-shell::after {
+  animation: none !important;
+  opacity: 0.24 !important;
+}
+
+.procurement-shell .procurement-header {
+  z-index: 60;
+  border-bottom-color: rgba(255, 255, 255, 0.72) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.46)) !important;
+  box-shadow:
+    0 0.5px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 28px rgba(25, 46, 62, 0.055) !important;
+  backdrop-filter: blur(30px) saturate(175%);
+  -webkit-backdrop-filter: blur(30px) saturate(175%);
+}
+
+.procurement-shell .procurement-header > div {
+  min-height: 68px;
+  width: min(100%, 1500px);
+}
+
+.procurement-shell .brand-logo {
+  border: 0.5px solid rgba(29, 29, 31, 0.08);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.9) inset,
+    0 3px 10px rgba(29, 29, 31, 0.06);
+}
+
+.procurement-shell .brand-name {
+  color: var(--polish-ink);
+  font-size: clamp(0.98rem, 1.3vw, 1.12rem);
+  font-weight: 690;
+  letter-spacing: -0.025em;
+}
+
+.procurement-shell .header-tools {
+  color: var(--polish-secondary);
+}
+
+.procurement-shell .header-tools > :is(button, span) {
+  border-color: rgba(255, 255, 255, 0.76) !important;
+  background: rgba(255, 255, 255, 0.56) !important;
+  box-shadow:
+    0 0 0 0.5px rgba(29, 29, 31, 0.04) inset,
+    0 2px 8px rgba(24, 40, 56, 0.04);
+}
+
+.procurement-shell .header-tools > button {
+  transition:
+    transform 140ms var(--ease-apple-spring),
+    background-color 160ms var(--ease-apple-out),
+    box-shadow 160ms var(--ease-apple-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .procurement-shell .header-tools > button:hover {
+    background: rgba(255, 255, 255, 0.86) !important;
+    box-shadow:
+      0 0 0 0.5px rgba(29, 29, 31, 0.06) inset,
+      0 5px 14px rgba(24, 40, 56, 0.08);
+  }
+}
+
+.procurement-shell .procurement-content {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1500px);
+  min-width: 0;
+  scrollbar-gutter: stable both-edges;
+}
+
+.procurement-shell .home-dashboard {
+  gap: 18px;
+  padding-block: 4px 16px;
+}
+
+.procurement-shell .home-market-overview,
+.procurement-shell .home-entry-directory {
+  border-color: rgba(255, 255, 255, 0.86) !important;
+  box-shadow: var(--polish-shadow-card) !important;
+}
+
+.procurement-shell .home-market-overview {
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.52)) !important;
+}
+
+.procurement-shell .home-market-head h2,
+.procurement-shell .home-entry-directory-head h2 {
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.procurement-shell .home-analysis-button {
+  min-height: 48px;
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.16) inset,
+    0 8px 20px rgba(29, 29, 31, 0.16);
+}
+
+.procurement-shell .home-trend,
+.procurement-shell .home-market-structure,
+.procurement-shell .home-source-list,
+.procurement-shell .home-category-drawer {
+  border: 0.5px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 0 0 0.5px rgba(29, 29, 31, 0.035) inset,
+    0 4px 14px rgba(25, 46, 62, 0.035);
+}
+
+.procurement-shell .home-library-entry {
+  min-height: 86px;
+  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(145deg, #2b2b2e, #161618);
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.12) inset,
+    0 12px 28px rgba(20, 27, 34, 0.16);
+}
+
+.procurement-shell .home-value-king-entry,
+.procurement-shell .home-xianyu-drawer,
+.procurement-shell .home-menu-group,
+.procurement-shell .home-catalog-entry-grid button {
+  border-color: rgba(60, 60, 67, 0.1);
+  box-shadow: 0 2px 10px rgba(25, 46, 62, 0.035);
+}
+
+.procurement-shell .home-menu-group {
+  background: rgba(255, 255, 255, 0.66);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+.procurement-shell .home-menu-entry,
+.procurement-shell .home-catalog-entry-grid button,
+.procurement-shell .home-xianyu-body button,
+.procurement-shell .home-category-list button {
+  min-height: 64px;
+  transition:
+    transform 140ms var(--ease-apple-spring),
+    background-color 160ms var(--ease-apple-out),
+    box-shadow 160ms var(--ease-apple-out);
+}
+
+.procurement-shell .home-menu-entry:focus-visible,
+.procurement-shell .home-catalog-entry-grid button:focus-visible,
+.procurement-shell .home-xianyu-body button:focus-visible,
+.procurement-shell .home-category-list button:focus-visible {
+  outline: 3px solid rgba(0, 113, 227, 0.28);
+  outline-offset: -3px;
+}
+
+/* Decision cards: a stable minimum, with equal-row expansion for real content. */
+.procurement-shell .product-card,
+.procurement-shell .js-product-card {
+  height: 100% !important;
+  min-height: var(--product-card-height) !important;
+  max-height: none !important;
+  border-radius: var(--polish-radius-card) !important;
+  border-color: rgba(60, 60, 67, 0.12) !important;
+  box-shadow: var(--polish-shadow-card) !important;
+  transition:
+    transform 180ms var(--ease-apple-spring),
+    box-shadow 180ms var(--ease-apple-out),
+    border-color 180ms var(--ease-apple-out);
+}
+
+.procurement-shell .product-card-media {
+  background: #242427;
+}
+
+.procurement-shell .product-card-media img {
+  transition: transform 260ms var(--ease-apple-out), opacity 180ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .procurement-shell .product-card:hover {
+    transform: none;
+    border-color: rgba(0, 113, 227, 0.22) !important;
+    box-shadow:
+      0 0 0 0.5px rgba(0, 113, 227, 0.12),
+      0 16px 34px rgba(24, 40, 56, 0.1),
+      0 3px 8px rgba(24, 40, 56, 0.06) !important;
+  }
+  .procurement-shell .product-card:hover .product-card-media img {
+    transform: scale(1.015);
+  }
+}
+
+.procurement-shell .product-card-body {
+  min-height: auto;
+  flex: 1 0 auto !important;
+  overflow: visible !important;
+}
+
+.procurement-shell .product-card-title {
+  color: var(--polish-ink);
+  font-size: clamp(0.79rem, 1.1cqi, 0.93rem);
+  font-weight: 650 !important;
+  line-height: 1.34;
+}
+
+.procurement-shell .product-card-decision {
+  border: 0.5px solid rgba(60, 60, 67, 0.075);
+  background: rgba(118, 118, 128, 0.055) !important;
+  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.48) inset;
+}
+
+.procurement-shell .product-card-decision .product-card-total dd {
+  color: var(--polish-ink);
+  font-weight: 720;
+}
+
+.procurement-shell .product-card-actions > button {
+  border-color: rgba(60, 60, 67, 0.1) !important;
+  background: rgba(255, 255, 255, 0.66) !important;
+  transition:
+    transform 120ms var(--ease-apple-spring),
+    background-color 160ms var(--ease-apple-out),
+    color 160ms var(--ease-apple-out),
+    border-color 160ms var(--ease-apple-out);
+}
+
+.procurement-shell .product-card-actions > button[aria-label="取消收藏"] {
+  border-color: rgba(255, 59, 48, 0.18) !important;
+  background: rgba(255, 59, 48, 0.08) !important;
+  color: #c9342b;
+}
+
+.procurement-shell .product-card-note-trigger {
+  border-radius: 50%;
+  background: transparent;
+  transition:
+    transform 120ms var(--ease-apple-spring),
+    background-color 160ms var(--ease-apple-out);
+}
+
+.procurement-shell .product-card-note-trigger.is-active {
+  background: transparent;
+}
+
+.procurement-shell .product-card-note-trigger > span {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #1d1d1f;
+  border-color: rgb(255 255 255 / 85%);
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 14%), inset 0 1px 0 #fff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.procurement-shell .product-card-note-trigger.is-active > span {
+  color: #005eb8;
+  background: #e0edfc;
+}
+
+/* Sheets and dialogs use one material and one centered origin. */
+.procurement-shell .modal-backdrop {
+  background: rgba(29, 29, 31, 0.28) !important;
+  backdrop-filter: blur(8px) saturate(115%) !important;
+  -webkit-backdrop-filter: blur(8px) saturate(115%) !important;
+}
+
+.procurement-shell .modal-panel {
+  border-radius: 26px !important;
+  box-shadow: var(--polish-shadow-sheet) !important;
+  transform-origin: center;
+}
+
+.procurement-shell .modal-panel :is(button, input, select, textarea) {
+  border-radius: var(--polish-radius-control);
+}
+
+/* Bottom rail: never move with document scroll, never cover the last row. */
+.procurement-shell .primary-navigation {
+  z-index: 100;
+  border-color: rgba(255, 255, 255, 0.88) !important;
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.82) inset,
+    0 -10px 30px rgba(25, 46, 62, 0.08),
+    0 3px 12px rgba(25, 46, 62, 0.05) !important;
+}
+
+.procurement-shell .primary-navigation-item {
+  opacity: 0.62;
+}
+
+.procurement-shell .primary-navigation-item[aria-current="page"] {
+  opacity: 1;
+  color: var(--polish-ink);
+}
+
+.procurement-shell .primary-navigation-item[aria-current="page"] .primary-navigation-icon {
+  transform: translateY(-1px);
+}
+
+.procurement-shell .primary-navigation-item:focus-visible {
+  outline: 3px solid rgba(0, 113, 227, 0.28);
+  outline-offset: -2px;
+}
+
+.procurement-shell .message-unread-badge {
+  border-color: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 2px 7px rgba(255, 59, 48, 0.28);
+}
+
+/* Chat and AI stay dense, calm and readable instead of becoming another card grid. */
+.procurement-shell :is(.assistant-chat, .collaboration-chat) {
+  border-color: rgba(255, 255, 255, 0.78);
+  box-shadow: var(--polish-shadow-card);
+}
+
+.procurement-shell :is(.assistant-chat-heading, .collaboration-heading) {
+  border-bottom-color: var(--polish-line);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+
+.procurement-shell :is(.assistant-composer, .collaboration-composer) {
+  border-color: var(--polish-line);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: 0 -8px 24px rgba(25, 46, 62, 0.045);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+
+@media (max-width: 699px) {
+  :root {
+    --app-nav-height: 64px;
+    --product-card-height: 460px;
+    --product-card-media-height: 152px;
+    --product-card-note-height: 20px;
+  }
+
+  .procurement-shell .procurement-header > div {
+    min-height: 62px;
+    padding-block: 8px;
+  }
+
+  .procurement-shell .procurement-content {
+    padding-inline: 12px;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+    scrollbar-gutter: auto;
+  }
+
+  .procurement-shell .home-dashboard {
+    gap: 12px;
+    padding-top: 2px;
+  }
+
+  .procurement-shell .home-market-overview,
+  .procurement-shell .home-entry-directory {
+    border-radius: 22px;
+    padding: 14px;
+  }
+
+  .procurement-shell .home-market-head {
+    align-items: center;
+    gap: 10px;
+  }
+
+  .procurement-shell .home-market-head h2 {
+    font-size: clamp(1.3rem, 6vw, 1.65rem);
+  }
+
+  .procurement-shell .home-analysis-button {
+    min-width: 48px;
+    width: 48px;
+    padding: 5px;
+    justify-content: center;
+  }
+
+  .procurement-shell .home-analysis-button > span:nth-child(2) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .procurement-shell .home-market-grid,
+  .procurement-shell .home-market-lower {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .procurement-shell .home-trend,
+  .procurement-shell .home-market-structure {
+    min-height: 196px;
+  }
+
+  .procurement-shell .home-trend-bars {
+    height: 132px;
+  }
+
+  .procurement-shell .home-menu-group {
+    grid-template-columns: 1fr;
+  }
+
+  .procurement-shell .home-menu-entry {
+    min-height: 58px;
+  }
+
+  .procurement-shell .home-menu-entry:nth-child(even),
+  .procurement-shell .home-menu-entry:nth-child(n + 3) {
+    border-top: 0.5px solid rgba(29, 29, 31, 0.075);
+    border-left: 0;
+  }
+
+  .procurement-shell .product-card,
+  .procurement-shell .js-product-card {
+    height: 100% !important;
+    min-height: var(--product-card-height) !important;
+    max-height: none !important;
+    border-radius: 18px !important;
+  }
+
+  .procurement-shell .product-card-media-meta {
+    padding: 8px;
+  }
+
+  .procurement-shell .product-card-title {
+    font-size: 0.78rem;
+    line-height: 1.28;
+  }
+
+  .procurement-shell .product-card-decision {
+    padding: 7px !important;
+  }
+
+  .procurement-shell .product-card-decision .product-card-total dd {
+    font-size: clamp(1.02rem, 6.2vw, 1.28rem);
+  }
+
+  .procurement-shell .product-card-cost-evidence {
+    gap: 3px 6px;
+    font-size: 0.62rem;
+  }
+
+  .procurement-shell .product-card-actions {
+    gap: 5px;
+  }
+
+  .procurement-shell .product-card-actions > button {
+    min-height: 44px;
+  }
+
+  .procurement-shell .modal-panel {
+    max-width: calc(100vw - 20px);
+    border-radius: 22px !important;
+  }
+
+  .procurement-shell .primary-navigation {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: calc(64px + env(safe-area-inset-bottom)) !important;
+    min-height: calc(64px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(5px + env(safe-area-inset-bottom)) !important;
+    border-radius: 22px 22px 0 0 !important;
+  }
+
+  .procurement-shell .procurement-grid {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 359px) {
+  :root {
+    --product-card-height: 460px;
+    --product-card-media-height: 140px;
+  }
+
+  .procurement-shell .procurement-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (min-width: 700px) {
+  .procurement-shell .procurement-content {
+    padding-inline: clamp(20px, 3vw, 44px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .procurement-shell .product-card,
+  .procurement-shell .product-card-media img,
+  .procurement-shell .primary-navigation-item,
+  .procurement-shell .home-menu-entry,
+  .procurement-shell .home-catalog-entry-grid button,
+  .procurement-shell .home-xianyu-body button,
+  .procurement-shell .home-category-list button {
+    transition: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .procurement-shell .procurement-header,
+  .procurement-shell .home-menu-group,
+  .procurement-shell :is(.assistant-chat-heading, .collaboration-heading),
+  .procurement-shell :is(.assistant-composer, .collaboration-composer) {
+    background: #fff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}

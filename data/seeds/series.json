@@ -1,0 +1,332 @@
+[
+  {
+    "id": "200dd54b-e926-4e12-9def-66027a3b01a1",
+    "key": "ULTRAMAN_DYNA",
+    "franchiseId": "0e85645a-d883-4fa7-9dee-c88f0f78eb22",
+    "nameJa": "ウルトラマンダイナ",
+    "nameZh": "戴拿奥特曼",
+    "nameEn": "Ultraman Dyna",
+    "createdAt": "2026-08-29T01:25:22.515Z",
+    "updatedAt": "2026-10-21T16:39:19.575Z"
+  },
+  {
+    "id": "e6cec7fd-e136-4ec0-bafc-57237bc3ced4",
+    "key": "KAMEN_RIDER_BLADE",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダー剣",
+    "nameZh": "假面骑士剑",
+    "nameEn": "Kamen Rider Blade",
+    "createdAt": "2026-08-29T01:25:22.443Z",
+    "updatedAt": "2026-10-23T01:27:26.034Z"
+  },
+  {
+    "id": "d5f361af-d9d4-4e18-8db2-41ca4a05897c",
+    "key": "KAMEN_RIDER_GEATS",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーギーツ",
+    "nameZh": "假面骑士极狐",
+    "nameEn": "Kamen Rider Geats",
+    "createdAt": "2026-08-29T01:25:22.502Z",
+    "updatedAt": "2026-10-23T01:32:42.646Z"
+  },
+  {
+    "id": "95418054-308e-4920-8432-113a1f32f440",
+    "key": "ULTRAMAN_Z",
+    "franchiseId": "0e85645a-d883-4fa7-9dee-c88f0f78eb22",
+    "nameJa": "ウルトラマンZ",
+    "nameZh": "泽塔奥特曼",
+    "nameEn": "Ultraman Z",
+    "createdAt": "2026-08-29T01:25:22.525Z",
+    "updatedAt": "2026-10-22T15:22:40.870Z"
+  },
+  {
+    "id": "ea8c7d71-c22a-4840-98f1-1c6e9175d757",
+    "key": "KAMEN_RIDER_AGITO",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーアギト",
+    "nameZh": "假面骑士亚极陀",
+    "nameEn": "Kamen Rider Agito",
+    "createdAt": "2026-08-29T01:25:22.404Z",
+    "updatedAt": "2026-10-23T01:34:22.056Z"
+  },
+  {
+    "id": "c0aa14ba-5df7-4fa3-a932-5e6664f23c96",
+    "key": "KAMEN_RIDER_KUUGA",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダークウガ",
+    "nameZh": "假面骑士空我",
+    "nameEn": "Kamen Rider Kuuga",
+    "createdAt": "2026-08-29T01:25:22.398Z",
+    "updatedAt": "2026-10-23T01:34:39.163Z"
+  },
+  {
+    "id": "ecfa7bcf-2eba-4967-af03-e40380f71f7d",
+    "key": "KAMEN_RIDER_RYUKI",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダー龍騎",
+    "nameZh": "假面骑士龙骑",
+    "nameEn": "Kamen Rider Ryuki",
+    "createdAt": "2026-08-29T01:25:22.430Z",
+    "updatedAt": "2026-10-22T17:52:25.308Z"
+  },
+  {
+    "id": "53b99e6c-a2b4-44a7-abbc-d2612b7b34a2",
+    "key": "KAMEN_RIDER_FAIZ",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダー555",
+    "nameZh": "假面骑士555",
+    "nameEn": "Kamen Rider Faiz",
+    "createdAt": "2026-08-29T01:25:22.439Z",
+    "updatedAt": "2026-10-23T01:34:47.616Z"
+  },
+  {
+    "id": "b392611f-942f-4b4f-a404-a1e8f65fd6f0",
+    "key": "KAMEN_RIDER_ZI_O",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダージオウ",
+    "nameZh": "假面骑士时王",
+    "nameEn": "Kamen Rider Zi-O",
+    "createdAt": "2026-08-29T01:25:22.490Z",
+    "updatedAt": "2026-10-23T01:34:59.372Z"
+  },
+  {
+    "id": "60cc52e0-4c26-4803-a2d3-93da4eab57be",
+    "key": "ULTRAMAN_TIGA",
+    "franchiseId": "0e85645a-d883-4fa7-9dee-c88f0f78eb22",
+    "nameJa": "ウルトラマンティガ",
+    "nameZh": "迪迦奥特曼",
+    "nameEn": "Ultraman Tiga",
+    "createdAt": "2026-08-29T01:25:22.512Z",
+    "updatedAt": "2026-10-23T00:05:33.073Z"
+  },
+  {
+    "id": "42e7c528-23ab-4b1f-9df0-2cd53e5bed68",
+    "key": "KAMEN_RIDER_SABER",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーセイバー",
+    "nameZh": "假面骑士圣刃",
+    "nameEn": "Kamen Rider Saber",
+    "createdAt": "2026-08-29T01:25:22.496Z",
+    "updatedAt": "2026-10-23T01:13:45.780Z"
+  },
+  {
+    "id": "ec0c61b6-d8bf-4e15-9abd-40599239948f",
+    "key": "ULTRAMAN_GAIA",
+    "franchiseId": "0e85645a-d883-4fa7-9dee-c88f0f78eb22",
+    "nameJa": "ウルトラマンガイア",
+    "nameZh": "盖亚奥特曼",
+    "nameEn": "Ultraman Gaia",
+    "createdAt": "2026-08-29T01:25:22.518Z",
+    "updatedAt": "2026-10-22T12:00:09.567Z"
+  },
+  {
+    "id": "8f1563ae-3937-417d-a969-4eaceb944749",
+    "key": "KAMEN_RIDER_GAVV",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーガヴ",
+    "nameZh": "假面骑士加布",
+    "nameEn": "Kamen Rider Gavv",
+    "createdAt": "2026-08-29T01:25:22.509Z",
+    "updatedAt": "2026-10-23T01:17:57.256Z"
+  },
+  {
+    "id": "b0fe26e3-36d1-4146-99df-bafe314b1d25",
+    "key": "KAMEN_RIDER_FOURZE",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーフォーゼ",
+    "nameZh": "假面骑士卌骑",
+    "nameEn": "Kamen Rider Fourze",
+    "createdAt": "2026-08-29T01:25:22.470Z",
+    "updatedAt": "2026-10-22T16:36:20.128Z"
+  },
+  {
+    "id": "a0735f08-4adc-4d22-8ed5-5d3edce03dcb",
+    "key": "KAMEN_RIDER_REVICE",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーリバイス",
+    "nameZh": "假面骑士利维斯",
+    "nameEn": "Kamen Rider Revice",
+    "createdAt": "2026-08-29T01:25:22.499Z",
+    "updatedAt": "2026-10-23T01:29:41.421Z"
+  },
+  {
+    "id": "b88a8384-706a-4da9-93d7-343f28c718ff",
+    "key": "KAMEN_RIDER_DRIVE",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダードライブ",
+    "nameZh": "假面骑士驰骑",
+    "nameEn": "Kamen Rider Drive",
+    "createdAt": "2026-08-29T01:25:22.479Z",
+    "updatedAt": "2026-10-23T01:14:11.277Z"
+  },
+  {
+    "id": "060c4b0e-1eee-4d9a-bb59-66a601fa0476",
+    "key": "KAMEN_RIDER_KABUTO",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーカブト",
+    "nameZh": "假面骑士甲斗",
+    "nameEn": "Kamen Rider Kabuto",
+    "createdAt": "2026-08-29T01:25:22.450Z",
+    "updatedAt": "2026-10-23T01:29:47.135Z"
+  },
+  {
+    "id": "2711f402-fd04-4c00-9ecc-7a1a0926017d",
+    "key": "KAMEN_RIDER_WIZARD",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーウィザード",
+    "nameZh": "假面骑士巫骑",
+    "nameEn": "Kamen Rider Wizard",
+    "createdAt": "2026-08-29T01:25:22.473Z",
+    "updatedAt": "2026-10-23T01:35:13.654Z"
+  },
+  {
+    "id": "270e0671-8bea-4b6a-8456-e98a2ab2568d",
+    "key": "KAMEN_RIDER_DECADE",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーディケイド",
+    "nameZh": "假面骑士帝骑",
+    "nameEn": "Kamen Rider Decade",
+    "createdAt": "2026-08-29T01:25:22.460Z",
+    "updatedAt": "2026-10-23T01:15:01.841Z"
+  },
+  {
+    "id": "42bc94a4-36c0-4365-aa13-7cb84a26b3aa",
+    "key": "KAMEN_RIDER_DEN_O",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダー電王",
+    "nameZh": "假面骑士电王",
+    "nameEn": "Kamen Rider Den-O",
+    "createdAt": "2026-08-29T01:25:22.453Z",
+    "updatedAt": "2026-10-23T01:37:37.848Z"
+  },
+  {
+    "id": "79a9a235-e37b-4bf8-accf-2bacbf5f688d",
+    "key": "KAMEN_RIDER_GHOST",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーゴースト",
+    "nameZh": "假面骑士灵骑",
+    "nameEn": "Kamen Rider Ghost",
+    "createdAt": "2026-08-29T01:25:22.481Z",
+    "updatedAt": "2026-10-23T01:15:39.051Z"
+  },
+  {
+    "id": "27491a1b-1faa-427a-ad8a-fe0ae4d86380",
+    "key": "KAMEN_RIDER_HIBIKI",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダー響鬼",
+    "nameZh": "假面骑士响鬼",
+    "nameEn": "Kamen Rider Hibiki",
+    "createdAt": "2026-08-29T01:25:22.447Z",
+    "updatedAt": "2026-10-22T15:19:28.944Z"
+  },
+  {
+    "id": "e1b663fe-e37d-4b16-8cd9-3050e5fe6cee",
+    "key": "KAMEN_RIDER_GOTCHARD",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーガッチャード",
+    "nameZh": "假面骑士歌查德",
+    "nameEn": "Kamen Rider Gotchard",
+    "createdAt": "2026-08-29T01:25:22.506Z",
+    "updatedAt": "2026-10-23T01:16:05.053Z"
+  },
+  {
+    "id": "07a1d499-5fc4-4c31-8915-d85419e5ce01",
+    "key": "KAMEN_RIDER_ZERO_ONE",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーゼロワン",
+    "nameZh": "假面骑士零一",
+    "nameEn": "Kamen Rider Zero-One",
+    "createdAt": "2026-08-29T01:25:22.493Z",
+    "updatedAt": "2026-10-23T01:16:16.226Z"
+  },
+  {
+    "id": "5259f8b0-9a14-4621-af0e-e1e97de93665",
+    "key": "ULTRAMAN_BLAZAR",
+    "franchiseId": "0e85645a-d883-4fa7-9dee-c88f0f78eb22",
+    "nameJa": "ウルトラマンブレーザー",
+    "nameZh": "布莱泽奥特曼",
+    "nameEn": "Ultraman Blazar",
+    "createdAt": "2026-08-29T01:25:22.528Z",
+    "updatedAt": "2026-10-22T22:20:37.883Z"
+  },
+  {
+    "id": "9ff79091-3b40-4621-ad6f-b45c525f9b4a",
+    "key": "ULTRAMAN_ARC",
+    "franchiseId": "0e85645a-d883-4fa7-9dee-c88f0f78eb22",
+    "nameJa": "ウルトラマンアーク",
+    "nameZh": "亚刻奥特曼",
+    "nameEn": "Ultraman Arc",
+    "createdAt": "2026-08-29T01:25:22.531Z",
+    "updatedAt": "2026-10-22T02:54:51.448Z"
+  },
+  {
+    "id": "99fe91a3-9654-41db-8475-30b9a1d83533",
+    "key": "KAMEN_RIDER_EX_AID",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーエグゼイド",
+    "nameZh": "假面骑士艾克赛德",
+    "nameEn": "Kamen Rider Ex-Aid",
+    "createdAt": "2026-08-29T01:25:22.484Z",
+    "updatedAt": "2026-10-23T01:16:28.001Z"
+  },
+  {
+    "id": "dc140dba-9ac4-491a-a1f5-1dbe572b94aa",
+    "key": "ULTRAMAN_ZERO",
+    "franchiseId": "0e85645a-d883-4fa7-9dee-c88f0f78eb22",
+    "nameJa": "ウルトラマンゼロ",
+    "nameZh": "赛罗奥特曼",
+    "nameEn": "Ultraman Zero",
+    "createdAt": "2026-08-29T01:25:22.521Z",
+    "updatedAt": "2026-10-22T22:21:59.641Z"
+  },
+  {
+    "id": "e44259bd-c62e-4bab-90bb-3bd4ffdef349",
+    "key": "KAMEN_RIDER_BUILD",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダービルド",
+    "nameZh": "假面骑士创骑",
+    "nameEn": "Kamen Rider Build",
+    "createdAt": "2026-08-29T01:25:22.487Z",
+    "updatedAt": "2026-10-23T01:16:56.317Z"
+  },
+  {
+    "id": "941f5a4d-b126-41f0-b6b8-05916ae3b06e",
+    "key": "KAMEN_RIDER_OOO",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーオーズ",
+    "nameZh": "假面骑士欧兹",
+    "nameEn": "Kamen Rider OOO",
+    "createdAt": "2026-08-29T01:25:22.467Z",
+    "updatedAt": "2026-10-23T01:34:56.285Z"
+  },
+  {
+    "id": "eb61d5d2-b55b-45cb-85d7-6de17388f5f6",
+    "key": "KAMEN_RIDER_W",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーW",
+    "nameZh": "假面骑士W",
+    "nameEn": "Kamen Rider W",
+    "createdAt": "2026-08-29T01:25:22.463Z",
+    "updatedAt": "2026-10-22T08:45:25.485Z"
+  },
+  {
+    "id": "e24cdae1-2d55-407e-bdac-17e352f61117",
+    "key": "KAMEN_RIDER_GAIM",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダー鎧武",
+    "nameZh": "假面骑士铠武",
+    "nameEn": "Kamen Rider Gaim",
+    "createdAt": "2026-08-29T01:25:22.475Z",
+    "updatedAt": "2026-10-22T15:44:49.847Z"
+  },
+  {
+    "id": "2debe439-32f0-4ecc-91c7-1855555b2751",
+    "key": "KAMEN_RIDER_KIVA",
+    "franchiseId": "f00eb7da-f5f1-4cf4-8747-560d177965d5",
+    "nameJa": "仮面ライダーキバ",
+    "nameZh": "假面骑士月骑",
+    "nameEn": "Kamen Rider Kiva",
+    "createdAt": "2026-08-29T01:25:22.457Z",
+    "updatedAt": "2026-10-23T01:15:19.142Z"
+  }
+]

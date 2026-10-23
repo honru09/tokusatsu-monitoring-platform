@@ -1,0 +1,32 @@
+{
+  "target": "http://127.0.0.1:3105",
+  "results": [
+    {
+      "workspace": "monitoring",
+      "viewport": {
+        "width": 320,
+        "height": 667
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "monitoring",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    }
+  ],
+  "passed": true
+}

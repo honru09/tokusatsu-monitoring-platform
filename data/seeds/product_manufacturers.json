@@ -1,0 +1,47 @@
+[
+  {
+    "id": "91ac9769-cb41-4bc1-b01b-14e642b161ec",
+    "key": "bandai_spirits",
+    "nameJa": "BANDAI SPIRITS",
+    "nameZh": "万代魂",
+    "nameEn": "BANDAI SPIRITS",
+    "createdAt": "2026-08-29T01:25:22.536Z",
+    "updatedAt": "2026-10-22T19:44:33.433Z"
+  },
+  {
+    "id": "70ad1c7c-17f0-46c0-864a-197fd967e392",
+    "key": "banpresto",
+    "nameJa": "バンプレスト",
+    "nameZh": "眼镜厂",
+    "nameEn": "BANPRESTO",
+    "createdAt": "2026-08-29T01:25:22.537Z",
+    "updatedAt": "2026-10-22T20:12:15.943Z"
+  },
+  {
+    "id": "b41230ec-930a-463e-990a-53ab190075c0",
+    "key": "megahouse",
+    "nameJa": "メガハウス",
+    "nameZh": "MegaHouse",
+    "nameEn": "MegaHouse",
+    "createdAt": "2026-08-29T01:25:22.539Z",
+    "updatedAt": "2026-10-19T03:11:59.820Z"
+  },
+  {
+    "id": "8d210cea-2d2f-4d72-8b4c-39278ec7e3fd",
+    "key": "plex",
+    "nameJa": "プレックス",
+    "nameZh": "PLEX",
+    "nameEn": "PLEX",
+    "createdAt": "2026-08-29T01:25:22.540Z",
+    "updatedAt": "2026-10-19T03:11:59.823Z"
+  },
+  {
+    "id": "58d155f3-eedd-4c6c-b5a4-f91cce8d1f25",
+    "key": "bandai",
+    "nameJa": "バンダイ",
+    "nameZh": "万代",
+    "nameEn": "BANDAI",
+    "createdAt": "2026-08-29T01:25:22.534Z",
+    "updatedAt": "2026-10-23T01:34:36.180Z"
+  }
+]

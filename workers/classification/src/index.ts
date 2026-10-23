@@ -1,4 +1,7 @@
-import type { VisionClassification } from "@tokusatsu/shared";
+import {
+  normalizeHttpBaseUrl,
+  type VisionClassification,
+} from "@tokusatsu/shared";
 
 const conservativeFallback: VisionClassification = {
   franchise: { value: null, confidence: 0, evidence: [] },
@@ -94,9 +97,7 @@ export async function classifyImages(input: {
   imageUrls: string[];
   itemId?: string;
 }): Promise<{ provider: string; result: VisionClassification }> {
-  const apiBase = (
-    process.env.API_INTERNAL_URL ?? "http://localhost:3001"
-  ).replace(/\/$/, "");
+  const apiBase = normalizeHttpBaseUrl(process.env.API_INTERNAL_URL);
   if (input.imageUrls.length === 0) {
     return { provider: "unconfigured", result: conservativeFallback };
   }

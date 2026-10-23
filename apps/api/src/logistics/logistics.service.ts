@@ -4,8 +4,14 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma, ShippingBasis, SourceChannel } from "@tokusatsu/db";
+import { UNVERIFIED_AI_ESTIMATE_MARKER } from "@tokusatsu/shared";
 import { PrismaService } from "../prisma.service.js";
 import { AiGatewayService } from "../ai/ai-gateway.service.js";
+import { ProductAiService } from "../ai/product-ai.service.js";
+import {
+  LOGISTICS_EXPLANATION_SCHEMA,
+  LOGISTICS_PREDICTION_SCHEMA,
+} from "../ai/ai-response-contracts.js";
 import type {
   CreateCarrierDto,
   CreateTariffDto,
@@ -53,12 +59,23 @@ const itemSelect = {
   quantityEst: true,
   favorite: true,
   purchaseRecord: {
-    select: { id: true, purchaseAmount: true, purchasedAt: true },
+    select: {
+      id: true,
+      purchaseAmount: true,
+      amountAllocated: true,
+      purchasedAt: true,
+    },
   },
   source: { select: { key: true, displayName: true } },
   images: { orderBy: { position: "asc" as const } },
   logistics: true,
 } satisfies Prisma.ItemFindManyArgs["select"];
+
+type LogisticsCandidateItem = Prisma.ItemGetPayload<{
+  select: typeof itemSelect;
+}>;
+
+const logisticsCandidateBatchSize = 100;
 
 function asPositiveInt(value: number | null | undefined) {
   return value != null && Number.isFinite(value) && value > 0 ? value : null;
@@ -95,11 +112,19 @@ function groupKey(groups: GroupQuote[]) {
     .join("|");
 }
 
+function itemAcquisitionCostYen(item: LogisticsCandidateItem) {
+  if (item.purchaseRecord?.amountAllocated) {
+    return item.purchaseRecord.purchaseAmount;
+  }
+  return item.priceCurrent + (item.shippingFee ?? 0);
+}
+
 @Injectable()
 export class LogisticsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: AiGatewayService,
+    private readonly productAi: ProductAiService,
   ) {}
 
   async listItems(ids?: string[]) {
@@ -109,12 +134,25 @@ export class LogisticsService {
       categoryToyType: { not: "card" },
       OR: [{ favorite: true }, { purchaseRecord: { isNot: null } }],
     };
-    const items = await this.prisma.item.findMany({
-      where,
-      select: itemSelect,
-      orderBy: { detectedAt: "desc" },
-      take: 100,
-    });
+    const items: LogisticsCandidateItem[] = [];
+    let cursorId: string | undefined;
+    while (true) {
+      const page = await this.prisma.item.findMany({
+        where,
+        select: itemSelect,
+        orderBy: [{ detectedAt: "desc" }, { id: "desc" }],
+        take: logisticsCandidateBatchSize,
+        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+      });
+      items.push(...page);
+      if (page.length < logisticsCandidateBatchSize) break;
+
+      const nextCursorId = page.at(-1)?.id;
+      if (!nextCursorId || nextCursorId === cursorId) {
+        throw new Error("物流候选分页游标未前进");
+      }
+      cursorId = nextCursorId;
+    }
     return { items, total: items.length, serverTime: new Date().toISOString() };
   }
 
@@ -142,7 +180,7 @@ export class LogisticsService {
     if (!item || (!item.favorite && !item.purchaseRecord))
       throw new NotFoundException("只能分析已收藏或已购买的商品");
 
-    const response = await this.gateway.executeJson<{
+    const response = await this.productAi.execute<{
       weightGrams?: unknown;
       packageWeightGrams?: unknown;
       lengthMm?: unknown;
@@ -151,9 +189,11 @@ export class LogisticsService {
       estimatedSalePriceYen?: unknown;
       reasoningZh?: unknown;
       cautionsZh?: unknown;
-    }>({
-      task: "image_analysis",
-      dataClass: "sensitive_image",
+    }>("image_analysis", {
+      responseSchema: LOGISTICS_PREDICTION_SCHEMA,
+      // These URLs were loaded from this exact public marketplace item above.
+      dataClass: "public_market",
+      publicImageUrlsVerified: true,
       costPolicy: "free_first",
       itemId: item.id,
       imageUrls: item.images.map((image) => image.url),
@@ -206,34 +246,43 @@ export class LogisticsService {
         item.logistics?.estimatedSalePriceYen ??
         predicted.estimatedSalePriceYen,
     };
+    const predictionWasUsed = (
+      [
+        "weightGrams",
+        "packageWeightGrams",
+        "lengthMm",
+        "widthMm",
+        "heightMm",
+        "estimatedSalePriceYen",
+      ] as const
+    ).some(
+      (field) => item.logistics?.[field] == null && predicted[field] != null,
+    );
     const volumeCm3 =
       resolved.lengthMm && resolved.widthMm && resolved.heightMm
         ? Math.round(
             (resolved.lengthMm * resolved.widthMm * resolved.heightMm) / 1000,
           )
         : undefined;
-    const notes = [response.data.reasoningZh, response.data.cautionsZh]
+    const notes = [
+      ...(predictionWasUsed ? [UNVERIFIED_AI_ESTIMATE_MARKER] : []),
+      item.logistics?.notes,
+      ...(predictionWasUsed
+        ? [response.data.reasoningZh, response.data.cautionsZh]
+        : []),
+    ]
       .filter(
         (value): value is string =>
           typeof value === "string" && Boolean(value.trim()),
       )
       .join("\n")
       .slice(0, 500);
-    const create = {
-      itemId: item.id,
+    const logistics = {
+      ...(item.logistics ?? {}),
       ...resolved,
       volumeCm3,
       notes: notes || undefined,
     };
-    const logistics = await this.prisma.itemLogistics.upsert({
-      where: { itemId: item.id },
-      create,
-      update: {
-        ...resolved,
-        volumeCm3,
-        notes: item.logistics?.notes ?? (notes || undefined),
-      },
-    });
     return {
       logistics,
       prediction: predicted,
@@ -438,7 +487,7 @@ export class LogisticsService {
     const buildPlan = (groups: number[][]): Plan => {
       const quotes = groups.map(quoteGroup);
       const itemCostYen = ordered.reduce(
-        (sum, item) => sum + item.priceCurrent + (item.shippingFee ?? 0),
+        (sum, item) => sum + itemAcquisitionCostYen(item),
         0,
       );
       const saleValues = ordered.map(
@@ -599,6 +648,7 @@ export class LogisticsService {
           cautionsZh?: string[];
           recommendationZh?: string;
         }>({
+          responseSchema: LOGISTICS_EXPLANATION_SCHEMA,
           task: "logistics_analysis",
           dataClass: "user_private",
           costPolicy: "free_first",

@@ -1,0 +1,92 @@
+[
+  {
+    "id": "7c3196a5-be40-44b8-a647-3f1630987059",
+    "key": "shokugan",
+    "nameJa": "食玩",
+    "nameZh": "食玩",
+    "nameEn": "Candy toy",
+    "createdAt": "2026-08-29T01:25:22.548Z",
+    "updatedAt": "2026-10-22T18:36:10.512Z"
+  },
+  {
+    "id": "08b6e782-96fc-4274-b49c-25143b444157",
+    "key": "medal",
+    "nameJa": "メダル",
+    "nameZh": "奖牌/硬币道具",
+    "nameEn": "Medal",
+    "createdAt": "2026-08-29T01:25:22.554Z",
+    "updatedAt": "2026-10-22T13:46:55.539Z"
+  },
+  {
+    "id": "da4e67ec-277e-474b-a45f-9d2260ab58e1",
+    "key": "sofubi",
+    "nameJa": "ソフビ",
+    "nameZh": "软胶",
+    "nameEn": "Soft vinyl",
+    "createdAt": "2026-08-29T01:25:22.542Z",
+    "updatedAt": "2026-10-23T01:35:10.813Z"
+  },
+  {
+    "id": "527222a8-a0b4-4365-bb4d-5b709f53dc9a",
+    "key": "figure",
+    "nameJa": "フィギュア",
+    "nameZh": "手办",
+    "nameEn": "Figure",
+    "createdAt": "2026-08-29T01:25:22.549Z",
+    "updatedAt": "2026-10-23T01:37:38.205Z"
+  },
+  {
+    "id": "9f2e6976-a3cd-45f6-88ce-bf0085244f60",
+    "key": "dx_belt",
+    "nameJa": "変身ベルト",
+    "nameZh": "DX变身腰带",
+    "nameEn": "DX transformation belt",
+    "createdAt": "2026-08-29T01:25:22.551Z",
+    "updatedAt": "2026-10-23T01:17:46.095Z"
+  },
+  {
+    "id": "69705c36-2fde-48ed-9402-33c48268e48e",
+    "key": "henshin_item",
+    "nameJa": "変身アイテム",
+    "nameZh": "变身道具",
+    "nameEn": "Transformation item",
+    "createdAt": "2026-08-29T01:25:22.552Z",
+    "updatedAt": "2026-10-22T16:13:00.272Z"
+  },
+  {
+    "id": "10bb60b6-7f46-4473-8072-e1b7bd102ced",
+    "key": "finger_puppet",
+    "nameJa": "指人形",
+    "nameZh": "手指玩偶",
+    "nameEn": "Finger puppet",
+    "createdAt": "2026-08-29T01:25:22.544Z",
+    "updatedAt": "2026-10-21T19:44:59.360Z"
+  },
+  {
+    "id": "4e6d7446-df61-414b-87a5-48277c9ddeb0",
+    "key": "set",
+    "nameJa": "まとめ売り",
+    "nameZh": "整批套装",
+    "nameEn": "Lot",
+    "createdAt": "2026-08-29T01:25:22.556Z",
+    "updatedAt": "2026-10-23T01:30:50.653Z"
+  },
+  {
+    "id": "7b2d75f9-2301-4fcc-ad6c-6d49c75036b9",
+    "key": "gashapon",
+    "nameJa": "ガシャポン",
+    "nameZh": "扭蛋",
+    "nameEn": "Gashapon",
+    "createdAt": "2026-08-29T01:25:22.546Z",
+    "updatedAt": "2026-10-23T01:13:37.129Z"
+  },
+  {
+    "id": "d23e1046-e53e-419a-80ad-9508c477271d",
+    "key": "model",
+    "nameJa": "プラモデル",
+    "nameZh": "模型",
+    "nameEn": "Model kit",
+    "createdAt": "2026-08-29T01:25:22.555Z",
+    "updatedAt": "2026-10-21T12:32:20.480Z"
+  }
+]

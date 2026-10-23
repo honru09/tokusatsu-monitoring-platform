@@ -17,24 +17,40 @@ import {
 } from "class-validator";
 import {
   categoryIps,
+  collectibleSeriesKeys,
   conditionGrades,
   manufacturers,
+  shfEditions,
+  shfLines,
+  shfRegions,
+  shfReleaseChannels,
   toyTypes,
 } from "@tokusatsu/shared";
 import { sellerSegmentKeys } from "./seller-segments.js";
+import { type XianyuPriceBand, xianyuPriceBands } from "./item-response.js";
 
 const optionalBoolean = ({ value }: { value: unknown }) =>
   value === true || value === "true";
 
 export class ListItemsQuery {
+  @IsOptional() @IsString() @Length(1, 128) monitoringCategoryId?: string;
   @IsOptional() @IsIn(categoryIps) ip?: string;
+  @IsOptional()
+  @IsIn(collectibleSeriesKeys)
+  collection?: (typeof collectibleSeriesKeys)[number];
+  @IsOptional() @IsIn(shfLines) shfLine?: string;
+  @IsOptional() @IsIn(shfReleaseChannels) shfReleaseChannel?: string;
+  @IsOptional() @IsIn(shfEditions) shfEdition?: string;
+  @IsOptional() @IsIn(shfRegions) shfRegion?: string;
   @IsOptional() @IsIn(conditionGrades) condition?: string;
   @IsOptional() @IsIn(toyTypes) toyType?: string;
   @IsOptional() @IsIn(manufacturers) manufacturer?: string;
   @IsOptional() @IsIn(["online", "physical_store"]) channel?: string;
   @IsOptional() @IsString() platform?: string;
   @IsOptional() @IsIn(["search", "url"]) importOrigin?: string;
-  @IsOptional() @IsIn(["auction", "direct"]) listingType?: string;
+  @IsOptional()
+  @IsIn(["auction", "direct", "unknown"])
+  listingType?: string;
   @IsOptional()
   @IsIn(["lt_1000", "1000_2999", "3000_4999", "gte_5000"])
   priceBand?: string;
@@ -79,8 +95,19 @@ export class ListItemsQuery {
   @IsBoolean()
   favorite?: boolean;
   @IsOptional()
-  @IsIn(["price", "auctionEndAt"])
-  sortBy?: "price" | "auctionEndAt";
+  @Transform(optionalBoolean)
+  @IsBoolean()
+  hasXianyuComparison?: boolean;
+  @IsOptional()
+  @Transform(optionalBoolean)
+  @IsBoolean()
+  valueKing?: boolean;
+  @IsOptional()
+  @IsIn(xianyuPriceBands)
+  xianyuPriceBand?: XianyuPriceBand;
+  @IsOptional()
+  @IsIn(["price", "auctionEndAt", "xianyuPrice"])
+  sortBy?: "price" | "auctionEndAt" | "xianyuPrice";
   @IsOptional() @IsIn(["asc", "desc"]) sortOrder?: "asc" | "desc";
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 50;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) offset = 0;

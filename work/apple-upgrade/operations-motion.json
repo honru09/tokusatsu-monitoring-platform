@@ -1,0 +1,246 @@
+{
+  "target": "http://127.0.0.1:3105",
+  "checks": [
+    {
+      "name": "keyboard view change is immediate; number entry does not move",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "keyboard": {
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "y": 0,
+        "scale": 1,
+        "opacity": "1"
+      },
+      "before": {
+        "x": 44,
+        "y": 395.984375,
+        "width": 240,
+        "height": 44
+      },
+      "after": {
+        "x": 44,
+        "y": 395.984375,
+        "width": 240,
+        "height": 44
+      }
+    },
+    {
+      "name": "rapid pointer mode reversals settle on last target and preserve draft",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "final": {
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "y": 0,
+        "scale": 1,
+        "opacity": "1"
+      }
+    },
+    {
+      "name": "accordion reverses without waiting and keyboard toggles preserve inputs",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "rootKeyboard": "true"
+    },
+    {
+      "name": "monitor dialog keyboard entry is immediate and category reversals keep last selection",
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "dialog": {
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "y": 0,
+        "scale": 1,
+        "opacity": "1"
+      }
+    },
+    {
+      "name": "keyboard view change is immediate; number entry does not move",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "keyboard": {
+        "transform": "none",
+        "y": 0,
+        "scale": 1,
+        "opacity": "1"
+      },
+      "before": {
+        "x": 44,
+        "y": 395.984375,
+        "width": 240,
+        "height": 44
+      },
+      "after": {
+        "x": 44,
+        "y": 395.984375,
+        "width": 240,
+        "height": 44
+      }
+    },
+    {
+      "name": "rapid pointer mode reversals settle on last target and preserve draft",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "final": {
+        "transform": "none",
+        "y": 0,
+        "scale": 1,
+        "opacity": "1"
+      }
+    },
+    {
+      "name": "accordion reverses without waiting and keyboard toggles preserve inputs",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "rootKeyboard": "true"
+    },
+    {
+      "name": "monitor dialog keyboard entry is immediate and category reversals keep last selection",
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "dialog": {
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "y": 0,
+        "scale": 1,
+        "opacity": "1"
+      }
+    },
+    {
+      "name": "keyboard view change is immediate; number entry does not move",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "keyboard": {
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "y": 0,
+        "scale": 1,
+        "opacity": "1"
+      },
+      "before": {
+        "x": 188.5,
+        "y": 407.984375,
+        "width": 221,
+        "height": 44
+      },
+      "after": {
+        "x": 188.5,
+        "y": 407.984375,
+        "width": 221,
+        "height": 44
+      }
+    },
+    {
+      "name": "rapid pointer mode reversals settle on last target and preserve draft",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "final": {
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "y": 0,
+        "scale": 1,
+        "opacity": "1"
+      }
+    },
+    {
+      "name": "accordion reverses without waiting and keyboard toggles preserve inputs",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "rootKeyboard": "true"
+    },
+    {
+      "name": "monitor dialog keyboard entry is immediate and category reversals keep last selection",
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "dialog": {
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "y": 0,
+        "scale": 1,
+        "opacity": "1"
+      }
+    }
+  ],
+  "blocked": [
+    {
+      "method": "POST",
+      "path": "/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/__nextjs_original-stack-frames"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/__nextjs_original-stack-frames"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/__nextjs_original-stack-frames"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/presence"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/presence"
+    }
+  ],
+  "errors": [],
+  "passed": true
+}

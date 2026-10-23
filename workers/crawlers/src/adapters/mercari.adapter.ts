@@ -13,6 +13,11 @@ import type {
 } from "@tokusatsu/shared";
 import { sanitizeProductImageUrls } from "./images.js";
 import { shippingEvidence } from "./shipping.js";
+import {
+  ListingUnavailableError,
+  publicListingUiStatus,
+  schemaListingStatus,
+} from "./public-listing-status.js";
 
 type RobotPolicy = {
   isAllowed(url: string, userAgent?: string): boolean | undefined;
@@ -158,6 +163,7 @@ export function parseMercariSearchResponse(
       const status = String(value.status ?? "");
       const detailHint: RawItemDetail = {
         sourcePlatform: "mercari",
+        listingType: auction ? "auction" : "direct",
         sourceItemId: id,
         sourceUrl,
         titleRaw: name,
@@ -206,18 +212,22 @@ export function mergeMercariDetails(
   if (!detail.sellerProfileUrl && cached.sellerProfileUrl) {
     mergedSourceData.sellerProfileUrl = cached.sellerProfileUrl;
   }
+  const listingType =
+    cached.listingType === "auction" || detail.listingType === "auction"
+      ? "auction"
+      : cached.listingType === "direct" || detail.listingType === "direct"
+        ? "direct"
+        : "unknown";
   return {
     ...cached,
     ...detail,
+    listingType,
     descriptionRaw: detail.descriptionRaw ?? cached.descriptionRaw,
-    sellerName: genericDetailSeller
-      ? cached.sellerName
-      : detail.sellerName,
-    sellerProfileUrl:
-      detail.sellerProfileUrl ?? cached.sellerProfileUrl,
+    sellerName: genericDetailSeller ? cached.sellerName : detail.sellerName,
+    sellerProfileUrl: detail.sellerProfileUrl ?? cached.sellerProfileUrl,
     sellerType: genericDetailSeller
       ? cached.sellerType
-      : detail.sellerType ?? cached.sellerType,
+      : (detail.sellerType ?? cached.sellerType),
     shippingFee: detail.shippingFee ?? cached.shippingFee,
     listedAt: detail.listedAt ?? cached.listedAt,
     conditionRaw: detail.conditionRaw ?? cached.conditionRaw,
@@ -238,13 +248,29 @@ export function parseMercariDetailHtml(
   sourceItemId: string,
 ): RawItemDetail {
   const $ = cheerio.load(html);
+  const uiStatus = publicListingUiStatus($);
+  const structuredData = (() => {
+    const schemas: unknown[] = [];
+    $("script[type='application/ld+json']").each((_, element) => {
+      try {
+        schemas.push(JSON.parse($(element).text()));
+      } catch {}
+    });
+    return schemas.length === 1 ? schemas[0] : schemas;
+  })();
+  const status: ItemStatus =
+    uiStatus ?? schemaListingStatus(structuredData) ?? "unknown";
   const titleRaw = String(
     $("meta[property='og:title']").attr("content") ??
       $("title").first().text() ??
       $("h1").first().text() ??
       "",
   ).trim();
-  if (!titleRaw) throw new Error("Mercari detail page did not contain a title");
+  if (!titleRaw) {
+    if (status === "sold" || status === "ended")
+      throw new ListingUnavailableError(status);
+    throw new Error("Mercari detail page did not contain a title");
+  }
   let descriptionRaw =
     String(
       $("meta[property='og:description']").attr("content") ??
@@ -266,8 +292,11 @@ export function parseMercariDetailHtml(
   const priceCurrent = yen(
     $("meta[name='product:price:amount']").attr("content"),
   );
-  if (priceCurrent == null)
+  if (priceCurrent == null) {
+    if (status === "sold" || status === "ended")
+      throw new ListingUnavailableError(status);
     throw new Error("Mercari detail page did not contain a public price");
+  }
   const imageSet = new Set<string>();
   const addImages = (value: unknown) => {
     if (typeof value !== "string") return;
@@ -316,15 +345,6 @@ export function parseMercariDetailHtml(
     }
   })();
   const normalizedBody = bodyText.replace(/\s+/g, " ").trim();
-  const structuredData = (() => {
-    const element = $("script[type='application/ld+json']").first();
-    if (!element.length) return undefined;
-    try {
-      return JSON.parse(element.text()) as unknown;
-    } catch {
-      return undefined;
-    }
-  })();
   const shipping = shippingEvidence(structuredData, normalizedBody);
   const shippingFee = shipping.fee;
   const locationText =
@@ -341,17 +361,14 @@ export function parseMercariDetailHtml(
       .trim() || undefined;
   const listedAtValue = $("time[datetime]").first().attr("datetime");
   const listedAt = listedAtValue ? new Date(listedAtValue) : undefined;
-  const soldBadge = Boolean(
-    $(
-      "[data-testid*='sold'], [aria-label*='売り切れ'], [aria-label*='sold out']",
-    ).length,
-  );
-  const status: ItemStatus =
-    /sold\s*out|売り切れ|取引完了/i.test(bodyText) || soldBadge
-      ? "sold"
-      : "unknown";
   return {
     sourcePlatform: "mercari",
+    // A standalone Mercari public product page is a fixed-price listing unless
+    // the marketplace search payload supplies explicit auction evidence. When
+    // such evidence exists mergeMercariDetails preserves `auction`; defaulting
+    // the HTML fallback to `direct` prevents known Mercari inventory from
+    // leaking back into the "待识别" bucket after every new crawl/import.
+    listingType: "direct",
     sourceItemId,
     sourceUrl,
     titleRaw,
@@ -459,7 +476,10 @@ export class MercariAdapter implements SourceAdapter {
     return results;
   }
 
-  async fetchDetail(item: SearchResult): Promise<RawItemDetail> {
+  async fetchDetail(
+    item: SearchResult,
+    options: { allowCachedFallback?: boolean } = {},
+  ): Promise<RawItemDetail> {
     const cached = item.detailHint ?? this.details.get(item.sourceItemId);
     try {
       const detail = parseMercariDetailHtml(
@@ -467,34 +487,49 @@ export class MercariAdapter implements SourceAdapter {
         item.sourceUrl,
         item.sourceItemId,
       );
-      return cached ? mergeMercariDetails(cached, detail) : detail;
+      return cached && options.allowCachedFallback !== false
+        ? mergeMercariDetails(cached, detail)
+        : detail;
     } catch (error) {
-      if (cached) return cached;
+      if (
+        cached &&
+        options.allowCachedFallback !== false &&
+        !(error instanceof ListingUnavailableError) &&
+        !/^Mercari returned (?:404|410)$/.test(
+          String(error instanceof Error ? error.message : error),
+        )
+      )
+        return cached;
       throw error;
     }
   }
 
   async refreshStatus(item: StoredItem): Promise<ItemStatusUpdate> {
     try {
-      const detail = await this.fetchDetail({
-        sourceItemId: item.sourceItemId,
-        sourceUrl: item.sourceUrl,
-      });
+      const detail = await this.fetchDetail(
+        {
+          sourceItemId: item.sourceItemId,
+          sourceUrl: item.sourceUrl,
+        },
+        { allowCachedFallback: false },
+      );
       return {
-        status: detail.status === "unknown" ? item.status : detail.status,
+        status: detail.status,
+        listingType:
+          item.listingType === "auction" ? "auction" : detail.listingType,
         priceCurrent: detail.priceCurrent,
         shippingFee: detail.shippingFee,
       };
     } catch (error) {
-      // Removed and sold Mercari pages either return a terminal HTTP status or
-      // stop exposing their public price. Timeouts/robot failures still throw
-      // and use the queue retry path instead of archiving a live listing.
-      if (
-        /Mercari returned (?:404|410)|did not contain a public price/i.test(
-          String(error),
-        )
-      )
-        return { status: "sold" };
+      if (error instanceof ListingUnavailableError)
+        return {
+          status: error.status,
+          listingType: item.listingType ?? "unknown",
+        };
+      // Missing price is not terminal evidence: login/challenge/shell pages can
+      // omit it too. Only an explicit unavailable notice or HTTP 404/410 retires.
+      if (/Mercari returned (?:404|410)\b/i.test(String(error)))
+        return { status: "sold", listingType: item.listingType ?? "unknown" };
       throw error;
     }
   }
@@ -536,6 +571,17 @@ export class MercariAdapter implements SourceAdapter {
     });
     this.lastRequestAt = Date.now();
     if (!response.ok) throw new Error(`Mercari returned ${response.status}`);
+    if (response.url) {
+      const finalUrl = new URL(response.url);
+      if (
+        finalUrl.origin !== origin ||
+        finalUrl.pathname.replace(/\/$/, "") !==
+          parsed.pathname.replace(/\/$/, "")
+      )
+        throw new Error(
+          "Mercari redirected away from the requested public listing",
+        );
+    }
     return response.text();
   }
 }

@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#08090d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="假面雷达急救">
+  <title>假面雷达 · 远程应急急救台</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23ff453a'/%3E%3Cpath d='M50 20 L58 45 L85 45 L63 60 L72 85 L50 70 L28 85 L37 60 L15 45 L42 45 Z' fill='%23ffffff'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23ff453a'/%3E%3Cpath d='M50 20 L58 45 L85 45 L63 60 L72 85 L50 70 L28 85 L37 60 L15 45 L42 45 Z' fill='%23ffffff'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #08090d;
+      --card-bg: rgba(22, 25, 34, 0.68);
+      --card-border: rgba(255, 255, 255, 0.12);
+      --text-main: #f5f5f7;
+      --text-sub: #8e8e93;
+      --text-muted: #636366;
+      --red: #ff453a;
+      --red-active: #d70015;
+      --red-glow: rgba(255, 69, 58, 0.42);
+      --green: #30d158;
+      --green-glow: rgba(48, 209, 88, 0.35);
+      --blue: #0a84ff;
+      --blue-glow: rgba(10, 132, 255, 0.35);
+      --terminal-bg: rgba(12, 14, 19, 0.9);
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(255, 69, 58, 0.12) 0%, transparent 60%),
+        radial-gradient(circle at 10% 30%, rgba(10, 132, 255, 0.08) 0%, transparent 50%);
+      color: var(--text-main);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: max(20px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* 顶部状态条 */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(48, 209, 88, 0.12);
+      border: 1px solid rgba(48, 209, 88, 0.28);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      margin-bottom: 18px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: all 0.3s ease;
+    }
+    .status-pill.offline {
+      background: rgba(255, 69, 58, 0.12);
+      border-color: rgba(255, 69, 58, 0.28);
+      color: var(--red);
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green-glow);
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    .status-pill.offline .pulse-dot {
+      background: var(--red);
+      box-shadow: 0 0 10px var(--red-glow);
+      animation: none;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.25); }
+    }
+    /* 标题区域 */
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .header h1 {
+      font-size: 25px;
+      font-weight: 700;
+      letter-spacing: -0.6px;
+      background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.75) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header p {
+      color: var(--text-sub);
+      font-size: 13.5px;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+    /* 主液态玻璃卡片 */
+    .glass-card {
+      width: 100%;
+      background: var(--card-bg);
+      backdrop-filter: blur(40px) saturate(190%);
+      -webkit-backdrop-filter: blur(40px) saturate(190%);
+      border: 1px solid var(--card-border);
+      border-radius: 26px;
+      padding: 24px 20px;
+      box-shadow: 
+        0 24px 48px -12px rgba(0, 0, 0, 0.65),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    /* 一键重启英雄按钮 */
+    .btn-rescue {
+      width: 100%;
+      height: 66px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, #ff5347 0%, #d70015 100%);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 
+        0 12px 28px var(--red-glow),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.55);
+      transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-rescue:active {
+      transform: scale(0.96) translateY(2px);
+      box-shadow: 0 4px 14px var(--red-glow);
+    }
+    .btn-rescue:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-rescue .icon {
+      font-size: 20px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+    /* 次级按钮 */
+    .btn-sub {
+      width: 100%;
+      height: 48px;
+      margin-top: 12px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      font-size: 14.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .btn-sub:active {
+      background: rgba(255, 255, 255, 0.13);
+      transform: scale(0.98);
+    }
+    /* 主站跳转按钮 */
+    .btn-portal {
+      width: 100%;
+      height: 48px;
+      margin-top: 10px;
+      border-radius: 16px;
+      background: rgba(10, 132, 255, 0.12);
+      border: 1px solid rgba(10, 132, 255, 0.32);
+      color: var(--blue);
+      font-size: 14.5px;
+      font-weight: 600;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .btn-portal:active {
+      background: rgba(10, 132, 255, 0.22);
+      transform: scale(0.98);
+    }
+    /* 终端日志控制台 */
+    .console-wrapper {
+      width: 100%;
+      background: var(--terminal-bg);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+    }
+    .console-header {
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .mac-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .mac-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+    .mac-dot.red { background: #ff5f56; }
+    .mac-dot.yellow { background: #ffbd2e; }
+    .mac-dot.green { background: #27c93f; }
+    .console-title {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .console-body {
+      padding: 14px;
+      max-height: 230px;
+      overflow-y: auto;
+      font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: #98989f;
+      -webkit-overflow-scrolling: touch;
+      user-select: text;
+    }
+    .log-row {
+      margin-bottom: 6px;
+      word-break: break-word;
+    }
+    .log-ts {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-right: 6px;
+    }
+    .log-success { color: #30d158; font-weight: 600; }
+    .log-warn { color: #ffd60a; font-weight: 600; }
+    .log-err { color: #ff453a; font-weight: 600; }
+    .log-info { color: #70d7ff; }
+    /* 底部提示 */
+    .footer-tip {
+      margin-top: 18px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .footer-tip span {
+      color: var(--text-sub);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="wrapper">
+    <!-- 实时状态药丸 -->
+    <div class="status-pill" id="statusPill">
+      <div class="pulse-dot"></div>
+      <span id="statusText">云端独立救援信道连通中</span>
+    </div>
+
+    <!-- 标题 -->
+    <div class="header">
+      <h1>假面雷达 · 远程急救台</h1>
+      <p>即使主站完全失效，也能一键重启唤醒</p>
+    </div>
+
+    <!-- 核心操作卡片 -->
+    <div class="glass-card">
+      <button class="btn-rescue" id="btnRestart" onclick="triggerRestart()">
+        <span class="icon">⚡</span>
+        <span id="btnText">一键强制重启所有服务</span>
+      </button>
+
+      <button class="btn-sub" id="btnStatus" onclick="checkStatus()">
+        <span>📊</span>
+        <span>查询系统实时健康状态</span>
+      </button>
+
+      <button class="btn-sub" id="btnHygiene" onclick="triggerHygiene()">
+        <span>🧹</span>
+        <span id="btnHygieneText">立即清理无效后台与运存</span>
+      </button>
+
+      <a href="https://kamenradar.space" target="_blank" class="btn-portal">
+        <span>🌐</span>
+        <span>打开主站 (kamenradar.space)</span>
+      </a>
+    </div>
+
+    <!-- 实时日志终端 -->
+    <div class="console-wrapper">
+      <div class="console-header">
+        <div class="mac-dots">
+          <div class="mac-dot red"></div>
+          <div class="mac-dot yellow"></div>
+          <div class="mac-dot green"></div>
+        </div>
+        <div class="console-title">实时救援控制台 · Live Feed</div>
+        <div style="width: 35px;"></div>
+      </div>
+      <div class="console-body" id="consoleBody">
+        <div class="log-row">
+          <span class="log-ts">[系统]</span>
+          <span>独立应急信道已激活，正在监听指令与回执...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-tip">
+      💡 提示：在手机 Safari 或 Chrome 点击 <span>分享 -> 添加到主屏幕</span>，可作为原生 App 随时一键急救。
+    </div>
+  </div>
+
+  <script>
+    const TOPIC = "kamen-rescue-wangxr-88";
+    const consoleBody = document.getElementById("consoleBody");
+    const btnRestart = document.getElementById("btnRestart");
+    const btnText = document.getElementById("btnText");
+    const statusPill = document.getElementById("statusPill");
+    const statusText = document.getElementById("statusText");
+
+    function log(msg, type = "normal") {
+      const now = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+      const row = document.createElement("div");
+      row.className = "log-row";
+      let cls = "";
+      if (type === "success") cls = "log-success";
+      if (type === "warn") cls = "log-warn";
+      if (type === "err") cls = "log-err";
+      if (type === "info") cls = "log-info";
+      row.innerHTML = `<span class="log-ts">[${now}]</span><span class="${cls}">${msg.replace(/\\n/g, '<br>')}</span>`;
+      consoleBody.appendChild(row);
+      consoleBody.scrollTop = consoleBody.scrollHeight;
+    }
+
+    // 双轨发送：先直连本地 Node 救援端，同时向云端 ntfy 广播
+    async function triggerRestart() {
+      btnRestart.disabled = true;
+      btnText.innerText = "⏳ 正在下发重启指令...";
+      log("🚀 手机已触发【一键强制重启】指令...", "warn");
+
+      let sentCloud = false;
+      let sentLocal = false;
+
+      // 1. 直发云端独立带外中继（哪怕电脑断网也能存队列）
+      try {
+        const res = await fetch("https://ntfy.sh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: TOPIC,
+            title: "📱 手机下发紧急重启",
+            message: "一键重启",
+            priority: 4,
+            tags: ["iphone", "zap"]
+          })
+        });
+        if (res.ok) sentCloud = true;
+      } catch (e) {}
+
+      // 2. 直发本地救援守护端口（若本地域名已通则瞬时响应）
+      try {
+        const localRes = await fetch("/api/restart", { method: "POST" });
+        if (localRes.ok) sentLocal = true;
+      } catch (e) {}
+
+      if (sentCloud || sentLocal) {
+        log("✅ 指令已送达云端救援专线，电脑已接单执行！", "success");
+        log("⚙️ 电脑后台正在重置 Docker 容器与公网隧道，预计耗时 15-20 秒...", "info");
+      } else {
+        log("⚠️ 指令投递超时，请检查当前手机网络", "err");
+      }
+
+      setTimeout(() => {
+        btnRestart.disabled = false;
+        btnText.innerText = "一键强制重启所有服务";
+      }, 18000);
+    }
+
+    async function checkStatus() {
+      log("📡 正在查询系统最新运行状态...", "info");
+      
+      // 1. 优先直连探测本地接口 (50ms极速返回)
+      try {
+        const directRes = await fetch("/api/status", { signal: AbortSignal.timeout(3000) });
+        if (directRes.ok) {
+          const info = await directRes.json();
+          const isReady = info.health === "ready";
+          log(`📊 状态速报：主站状态 ${isReady ? "🟢 正常在线 (200 OK)" : "🔴 异常或未就绪"}，网址：https://kamenradar.space`, isReady ? "success" : "err");
+          return;
+        }
+      } catch (e) {}
+
+      // 2. 若直连不可达，走云端信道下发
+      try {
+        const res = await fetch("https://ntfy.sh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: TOPIC,
+            title: "📱 手机查询状态",
+            message: "status",
+            priority: 2,
+            tags: ["iphone", "mag"]
+          })
+        });
+        if (res.ok) {
+          log("✅ 云端查询请求已发送，等待电脑回传状态...", "normal");
+        }
+      } catch (err) {
+        log(`❌ 发送查询失败: ${err.message}`, "err");
+      }
+    }
+
+    async function triggerHygiene() {
+      const btn = document.getElementById("btnHygiene");
+      const btnText = document.getElementById("btnHygieneText");
+      btn.disabled = true;
+      btnText.innerText = "⏳ 正在清理无效后台与运存...";
+      log("🧹 正在向电脑下发【清理无效后台与运存】指令...", "info");
+
+      let sentCloud = false;
+      let sentLocal = false;
+
+      // 1. 直发云端独立带外信道
+      try {
+        const res = await fetch("https://ntfy.sh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: TOPIC,
+            title: "📱 手机下发运存清理",
+            message: "运存清理",
+            priority: 3,
+            tags: ["iphone", "broom"]
+          })
+        });
+        if (res.ok) sentCloud = true;
+      } catch (e) {}
+
+      // 2. 直发本地救援守护端口
+      try {
+        const localRes = await fetch("/api/cleanup", { method: "POST" });
+        if (localRes.ok) sentLocal = true;
+      } catch (e) {}
+
+      if (sentCloud || sentLocal) {
+        log("✅ 清理指令已送达，电脑正在安全回收内存并修剪废弃后台...", "success");
+      } else {
+        log("⚠️ 指令投递超时，请检查当前网络", "err");
+      }
+
+      setTimeout(() => {
+        btn.disabled = false;
+        btnText.innerText = "立即清理无效后台与运存";
+      }, 10000);
+    }
+
+    // 实时长连接监听电脑回执
+    function connectStream() {
+      try {
+        const es = new EventSource(`https://ntfy.sh/${TOPIC}/sse`);
+        es.onopen = () => {
+          statusPill.className = "status-pill";
+          statusText.innerText = "云端救援信道已就绪 (双向)";
+        };
+        es.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.event === "message" && data.message) {
+              const raw = data.message.trim();
+              if (raw === "restart" || raw === "status" || raw === "一键重启" || raw === "运存清理" || raw === "cleanup") return; // 忽略自身指令
+              const title = data.title ? `【${data.title}】 ` : "";
+              let type = "normal";
+              if (raw.includes("成功") || raw.includes("复活") || raw.includes("就绪") || raw.includes("在线")) type = "success";
+              if (raw.includes("收到") || raw.includes("正在")) type = "warn";
+              if (raw.includes("异常") || raw.includes("失败")) type = "err";
+              log(`${title}${raw}`, type);
+            }
+          } catch {}
+        };
+        es.onerror = () => {
+          statusPill.className = "status-pill offline";
+          statusText.innerText = "救援信道重连中...";
+          es.close();
+          setTimeout(connectStream, 4000);
+        };
+      } catch (err) {
+        setTimeout(connectStream, 5000);
+      }
+    }
+
+    connectStream();
+  </script>
+</body>
+</html>

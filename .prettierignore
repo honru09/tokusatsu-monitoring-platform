@@ -1,0 +1,5 @@
+.agents/skills/
+.codex-tmp/
+.local-backups/
+skills/
+pnpm-lock.yaml

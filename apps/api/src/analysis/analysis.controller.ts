@@ -12,13 +12,27 @@ export class AnalysisController {
   }
 
   @Post("translate")
-  translate(@Body() body: TranslateDto) {
-    return this.analysis.translate(body);
+  translate(
+    @Body() body: TranslateDto,
+    @Query("costPolicy") costPolicy?: string,
+  ) {
+    return this.analysis.translate(
+      body,
+      costPolicy === "free_only" ? "free_only" : undefined,
+    );
   }
 
   @Get("item/:id")
-  item(@Param("id") id: string, @Query("refresh") refresh?: string) {
-    return this.analysis.itemTranslation(id, refresh === "true");
+  item(
+    @Param("id") id: string,
+    @Query("refresh") refresh?: string,
+    @Query("costPolicy") costPolicy?: string,
+  ) {
+    return this.analysis.itemTranslation(
+      id,
+      refresh === "true",
+      costPolicy === "free_only" ? "free_only" : undefined,
+    );
   }
 
   @Get("seller/:id")

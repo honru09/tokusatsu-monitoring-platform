@@ -29,18 +29,9 @@ function publicSourceUrl(value: string) {
 function preferredShareTitle(item: {
   titleZh?: string | null;
   titleRaw?: string | null;
-  product?: {
-    titleZh?: string | null;
-    canonicalName?: string | null;
-  } | null;
 }) {
   return (
-    [
-      item.titleZh,
-      item.product?.titleZh,
-      item.product?.canonicalName,
-      item.titleRaw,
-    ]
+    [item.titleZh, item.titleRaw]
       .find((value): value is string =>
         Boolean(typeof value === "string" && value.trim()),
       )
@@ -78,7 +69,7 @@ export class CartService {
     return this.cartPayload(cart.id);
   }
 
-  async createShare(itemIds?: string[]) {
+  async createShare(itemIds?: string[], accountId?: string) {
     const cart = await this.ensureCart();
     const requestedIds = [...new Set(itemIds?.filter(Boolean) ?? [])];
     const requestedItems = requestedIds.length
@@ -121,6 +112,21 @@ export class CartService {
     const text = shareItems
       .map((item) => `${item.title}\n${item.sourceUrl}`)
       .join("\n\n");
+    if (accountId) {
+      const manager = await this.prisma.managerAccount.findFirst({
+        where: { id: accountId, active: true },
+        select: { id: true },
+      });
+      if (manager) {
+        await this.prisma.managerActivity.create({
+          data: {
+            accountId: manager.id,
+            action: "share",
+            count: shareItems.length,
+          },
+        });
+      }
+    }
     return {
       itemCount: shareItems.length,
       primaryUrl: sourceUrls[0],

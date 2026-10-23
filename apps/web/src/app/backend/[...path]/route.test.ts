@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { proxyTimeoutMs } from "../../../lib/proxy-timeout";
 import { forwardedClientIp } from "../../../lib/forwarded-client-ip";
-import { POST } from "./route";
+import { DELETE, GET, POST } from "./route";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -117,6 +117,88 @@ describe("backend proxy", () => {
     expect(response.status).toBe(504);
     await expect(response.json()).resolves.toEqual(
       expect.objectContaining({ code: "UPSTREAM_TIMEOUT", retryable: true }),
+    );
+  });
+
+  it("retries an idempotent GET after a transient connection failure", async () => {
+    const upstream = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("connection refused"))
+      .mockResolvedValueOnce(Response.json({ items: ["restored"] }));
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await GET(
+      new Request("http://localhost/backend/items?listingType=direct"),
+      { params: Promise.resolve({ path: ["items"] }) },
+    );
+
+    expect(upstream).toHaveBeenCalledTimes(2);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ items: ["restored"] });
+  });
+
+  it("retries an idempotent GET after a transient gateway status", async () => {
+    const upstream = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("unavailable", { status: 503 }))
+      .mockResolvedValueOnce(Response.json({ total: 2093 }));
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await GET(
+      new Request("http://localhost/backend/items?listingType=direct"),
+      { params: Promise.resolve({ path: ["items"] }) },
+    );
+
+    expect(upstream).toHaveBeenCalledTimes(2);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ total: 2093 });
+  });
+
+  it("never retries a non-idempotent POST", async () => {
+    const upstream = vi
+      .fn()
+      .mockRejectedValue(new TypeError("connection refused"));
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await POST(
+      new Request("http://localhost/backend/items/analyze-url", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: '{"url":"https://example.com/item/1"}',
+      }),
+      { params: Promise.resolve({ path: ["items", "analyze-url"] }) },
+    );
+
+    expect(upstream).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(502);
+  });
+
+  it("forwards DELETE requests used to remove message reactions", async () => {
+    const upstream = vi.fn().mockResolvedValue(
+      Response.json({ removed: true }),
+    );
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await DELETE(
+      new Request(
+        "http://localhost/backend/collaboration/messages/message-1/reactions",
+        {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: '{"accountId":"manager-1","reaction":"like"}',
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["collaboration", "messages", "message-1", "reactions"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstream).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({ method: "DELETE" }),
     );
   });
 });

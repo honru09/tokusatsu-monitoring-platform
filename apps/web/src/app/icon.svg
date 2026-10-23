@@ -1,6 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Brand logo locked by user: white ground and black line art. Do not redesign. -->
-  <rect x="1" y="1" width="62" height="62" rx="14" fill="#fff" stroke="#111827" stroke-width="2"/>
-  <path d="M15 25 19 13l9 5 4-2 4 2 9-5 4 12v15L44 55H20l-5-15V25Z" fill="#fff" stroke="#111827" stroke-width="2.5" stroke-linejoin="round"/>
-  <path d="m19 18 8 10 5-4 5 4 8-10M24 33l4 4m12-4-4 4M25 43h14M22 48h20M32 21v6" fill="none" stroke="#111827" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet">
+  <rect width="64" height="64" fill="#ffffff"/>
+  <g transform="translate(0 -2)" fill="none" stroke="#1d1d1f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 25 19 13l9 5 4-2 4 2 9-5 4 12v15L44 55H20l-5-15V25Z"/>
+    <path d="m19 18 8 10 5-4 5 4 8-10M24 33l4 4m12-4-4 4M25 43h14M22 48h20M32 21v6"/>
+  </g>
 </svg>

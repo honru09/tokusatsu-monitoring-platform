@@ -6,16 +6,31 @@ import {
 } from "@nestjs/common";
 import {
   CategoryIp,
+  CollectibleSeries,
   ConditionGrade,
   ListingType,
   Manufacturer,
   Prisma,
+  ShfEdition,
+  ShfLine,
+  ShfRegion,
+  ShfReleaseChannel,
   SourceChannel,
   ToyType,
 } from "@tokusatsu/db";
+import {
+  classifyCollectibleSeries,
+  classifyShfListing,
+} from "@tokusatsu/shared";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { PrismaService } from "../prisma.service.js";
+import { valueKingPeerRelation } from './value-king.js';
+import {
+  ensureInventoryOrderFromBundle,
+  syncInventoryOrderFromBundle,
+  type BundleMemberForInventory,
+} from "../inventory-orders/inventory-order-from-bundle.js";
 import type {
   CreatePurchaseBundleDto,
   ListItemsQuery,
@@ -32,6 +47,15 @@ import {
   sellerSegmentStats,
   type SellerSegmentKey,
 } from "./seller-segments.js";
+import {
+  itemResponseWithChinaComparison,
+  publicReadyChinaComparisonWhere,
+  publicValueKingOpportunityRelation,
+  readyChinaComparisonDetailRelation,
+  readyChinaComparisonRelation,
+  readyValueKingOpportunityRelation,
+} from "./item-response.js";
+import { activeMarketItemWhere } from "./active-market-scope.js";
 
 const include = {
   source: { select: { key: true, displayName: true } },
@@ -48,6 +72,7 @@ const include = {
   images: { orderBy: { position: "asc" as const } },
   logistics: true,
   priceHistory: { orderBy: { observedAt: "desc" as const }, take: 8 },
+  crossMarketOpportunities: readyValueKingOpportunityRelation,
   purchaseRecord: {
     include: {
       receipts: {
@@ -73,6 +98,17 @@ const include = {
   },
 };
 
+const itemResponseInclude = {
+  ...include,
+  product: {
+    include: {
+      ...include.product.include,
+      marketComparisons: readyChinaComparisonRelation,
+      listings: valueKingPeerRelation,
+    },
+  },
+} satisfies Prisma.ItemInclude;
+
 // Used by the collaborative dashboard sync path. Keeping this projection
 // deliberately small avoids reloading image galleries, price history and
 // purchase receipts when another operator only changes a favorite or note.
@@ -81,10 +117,132 @@ const syncSelect = {
   favorite: true,
   ignored: true,
   ignoredAt: true,
+  ignoredReason: true,
   archivedAt: true,
   note: true,
   updatedAt: true,
+  product: {
+    select: {
+      marketComparisons: readyChinaComparisonRelation,
+    },
+  },
 } satisfies Prisma.ItemSelect;
+
+const syncPageSize = 500;
+const syncCursorPrefix = "v1.";
+const collaborativeSyncFields = [
+  "favorite",
+  "ignored",
+  "ignoredAt",
+  "ignoredReason",
+  "note",
+  "status",
+  "archivedAt",
+  "auctionEndAt",
+  "listingType",
+  "priceCurrent",
+  "shippingFee",
+  "priceTotalEst",
+  "bidCount",
+] as const;
+
+type SyncCursor = {
+  at: Date;
+  id?: string;
+};
+
+function jsonRecord(value: Prisma.JsonValue): Record<string, Prisma.JsonValue> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, Prisma.JsonValue>)
+    : {};
+}
+
+function decodeSyncCursor(value?: string): SyncCursor {
+  if (value?.startsWith(syncCursorPrefix)) {
+    try {
+      const decoded = JSON.parse(
+        Buffer.from(value.slice(syncCursorPrefix.length), "base64url").toString(
+          "utf8",
+        ),
+      ) as { at?: unknown; id?: unknown };
+      const at = typeof decoded.at === "string" ? new Date(decoded.at) : null;
+      if (at && !Number.isNaN(at.getTime())) {
+        return {
+          at,
+          id: typeof decoded.id === "string" ? decoded.id : undefined,
+        };
+      }
+    } catch {
+      // Fall through to the legacy timestamp parser.
+    }
+  }
+
+  const parsed = value ? new Date(value) : new Date(Date.now() - 15_000);
+  return {
+    at: Number.isNaN(parsed.getTime()) ? new Date(Date.now() - 15_000) : parsed,
+  };
+}
+
+function encodeSyncCursor(cursor: SyncCursor) {
+  return `${syncCursorPrefix}${Buffer.from(
+    JSON.stringify({ at: cursor.at.toISOString(), id: cursor.id }),
+  ).toString("base64url")}`;
+}
+
+function collaborativeChangeFromReview(review: {
+  itemId: string;
+  createdAt: Date;
+  beforeData: Prisma.JsonValue;
+  afterData: Prisma.JsonValue;
+}) {
+  const before = jsonRecord(review.beforeData);
+  const after = jsonRecord(review.afterData);
+  const hasCollaborativeChange = collaborativeSyncFields.some(
+    (field) => Object.hasOwn(after, field) && before[field] !== after[field],
+  );
+  if (!hasCollaborativeChange) return undefined;
+
+  return {
+    id: typeof after.id === "string" ? after.id : review.itemId,
+    // Availability checks can write a partial audit event. Missing fields are
+    // not a request to clear favorites, notes or an existing archived state.
+    ...(typeof after.favorite === "boolean" ? { favorite: after.favorite } : {}),
+    ...(typeof after.ignored === "boolean" ? { ignored: after.ignored } : {}),
+    ...(Object.hasOwn(after, "ignoredAt")
+      ? { ignoredAt: typeof after.ignoredAt === "string" ? after.ignoredAt : null }
+      : {}),
+    ...(Object.hasOwn(after, "ignoredReason")
+      ? { ignoredReason: typeof after.ignoredReason === "string" ? after.ignoredReason : null }
+      : {}),
+    ...(Object.hasOwn(after, "archivedAt")
+      ? { archivedAt: typeof after.archivedAt === "string" ? after.archivedAt : null }
+      : {}),
+    ...(Object.hasOwn(after, "note")
+      ? { note: typeof after.note === "string" ? after.note : null }
+      : {}),
+    ...(typeof after.status === "string" ? { status: after.status } : {}),
+    ...(typeof after.listingType === "string" ? { listingType: after.listingType } : {}),
+    ...(Object.hasOwn(after, "auctionEndAt")
+      ? { auctionEndAt: typeof after.auctionEndAt === "string" ? after.auctionEndAt : null }
+      : {}),
+    ...(typeof after.priceCurrent === "number" ? { priceCurrent: after.priceCurrent } : {}),
+    ...(Object.hasOwn(after, "shippingFee")
+      ? { shippingFee: typeof after.shippingFee === "number" ? after.shippingFee : null }
+      : {}),
+    ...(typeof after.priceTotalEst === "number" ? { priceTotalEst: after.priceTotalEst } : {}),
+    ...(Object.hasOwn(after, "bidCount")
+      ? { bidCount: typeof after.bidCount === "number" ? after.bidCount : null }
+      : {}),
+    updatedAt:
+      typeof after.updatedAt === "string"
+        ? after.updatedAt
+        : review.createdAt.toISOString(),
+  };
+}
+
+function syncServerTime(cursor: SyncCursor) {
+  return cursor.at.toISOString();
+}
 
 const purchaseReceiptSelect = {
   id: true,
@@ -175,10 +333,7 @@ export function normalizePurchaseMembers(
       (sum, member) => sum + member.amountYen!,
       0,
     );
-    if (
-      requestedTotal != null &&
-      requestedTotal !== totalPurchaseAmountYen
-    )
+    if (requestedTotal != null && requestedTotal !== totalPurchaseAmountYen)
       throw new BadRequestException("批次总价必须等于全部商品单价之和");
     return {
       itemIds,
@@ -344,7 +499,9 @@ export function resolveAdapterKey(
 export class ItemsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private prepareUrlImport(rawUrl: string): PreparedUrlImport | UrlImportResult {
+  private prepareUrlImport(
+    rawUrl: string,
+  ): PreparedUrlImport | UrlImportResult {
     let url: URL;
     try {
       url = new URL(rawUrl.trim());
@@ -542,9 +699,13 @@ export class ItemsService {
         if (
           existingJob &&
           existingState &&
-          ["active", "waiting", "delayed", "prioritized", "waiting-children"].includes(
-            existingState,
-          )
+          [
+            "active",
+            "waiting",
+            "delayed",
+            "prioritized",
+            "waiting-children",
+          ].includes(existingState)
         ) {
           await this.prisma.urlImport.update({
             where: { id },
@@ -743,7 +904,10 @@ export class ItemsService {
         readyForPricing: state === "completed" && Boolean(item),
         pricingOptions: item
           ? {
-              perItem: { itemId: item.id, suggestedAmountYen: item.priceCurrent },
+              perItem: {
+                itemId: item.id,
+                suggestedAmountYen: item.priceCurrent,
+              },
               bundleTotal: true,
             }
           : null,
@@ -756,52 +920,41 @@ export class ItemsService {
   }
 
   async list(query: ListItemsQuery) {
-    const where: Prisma.ItemWhereInput = {
-      archivedAt: null,
-      channel: SourceChannel.online,
-      purchaseRecord: null,
-      categoryToyType: { not: ToyType.card },
-      AND: [
-        {
-          OR: [
-            { descriptionRaw: null },
-            {
-              NOT: {
-                descriptionRaw: { contains: "カードダス", mode: "insensitive" },
-              },
-            },
-          ],
-        },
-      ],
-      NOT: [
-        { titleRaw: { contains: "トレカ", mode: "insensitive" } },
-        { titleRaw: { contains: "trading card", mode: "insensitive" } },
-        { titleRaw: { contains: "card game", mode: "insensitive" } },
-        { titleRaw: { contains: "mook", mode: "insensitive" } },
-        { titleRaw: { contains: "magazine", mode: "insensitive" } },
-        { titleRaw: { contains: "comic", mode: "insensitive" } },
-        { titleRaw: { contains: "novel", mode: "insensitive" } },
-        { titleRaw: { contains: "書籍", mode: "insensitive" } },
-        { titleRaw: { contains: "漫画", mode: "insensitive" } },
-        { titleRaw: { contains: "マンガ", mode: "insensitive" } },
-        { titleRaw: { contains: "コミック", mode: "insensitive" } },
-        { titleRaw: { contains: "写真集", mode: "insensitive" } },
-        { titleRaw: { contains: "攻略本", mode: "insensitive" } },
-        { titleRaw: { contains: "図鑑", mode: "insensitive" } },
-        { titleRaw: { contains: "辞典", mode: "insensitive" } },
-        { titleRaw: { contains: "事典", mode: "insensitive" } },
-        { titleRaw: { contains: "図録", mode: "insensitive" } },
-        { titleRaw: { contains: "資料集", mode: "insensitive" } },
-        { titleRaw: { contains: "雑誌", mode: "insensitive" } },
-        { titleRaw: { contains: "絵本", mode: "insensitive" } },
-        { titleRaw: { contains: "小説", mode: "insensitive" } },
-        { titleRaw: { contains: "パンフレット", mode: "insensitive" } },
-      ],
-    };
-    if (!query.includeIgnored) where.ignored = false;
+    const where = activeMarketItemWhere({
+      includeIgnored: query.includeIgnored,
+    });
     if (query.ignored != null) where.ignored = query.ignored;
     if (query.favorite != null) where.favorite = query.favorite;
+    if (query.monitoringCategoryId) {
+      const categories = await this.prisma.monitoringCategory.findMany({
+        select: { id: true, parentId: true },
+      });
+      const children = new Map<string, string[]>();
+      for (const category of categories) {
+        if (!category.parentId) continue;
+        const siblings = children.get(category.parentId) ?? [];
+        siblings.push(category.id);
+        children.set(category.parentId, siblings);
+      }
+      const ids = new Set<string>([query.monitoringCategoryId]);
+      const pending = [query.monitoringCategoryId];
+      while (pending.length) {
+        for (const child of children.get(pending.pop()!) ?? []) {
+          if (ids.has(child)) continue;
+          ids.add(child);
+          pending.push(child);
+        }
+      }
+      where.monitoringCategoryId = { in: [...ids] };
+    }
     if (query.ip) where.categoryIp = query.ip as CategoryIp;
+    if (query.collection)
+      where.collectibleSeries = query.collection as CollectibleSeries;
+    if (query.shfLine) where.shfLine = query.shfLine as ShfLine;
+    if (query.shfReleaseChannel)
+      where.shfReleaseChannel = query.shfReleaseChannel as ShfReleaseChannel;
+    if (query.shfEdition) where.shfEdition = query.shfEdition as ShfEdition;
+    if (query.shfRegion) where.shfRegion = query.shfRegion as ShfRegion;
     if (query.condition)
       where.conditionGrade = query.condition as ConditionGrade;
     if (query.toyType && query.toyType !== "card")
@@ -813,7 +966,7 @@ export class ItemsService {
       return {
         items: [],
         total: 0,
-        facets: { auction: 0, direct: 0 },
+        facets: { auction: 0, direct: 0, unknown: 0 },
         serverTime: new Date().toISOString(),
       };
     if (query.platform) where.source = { key: query.platform };
@@ -847,6 +1000,10 @@ export class ItemsService {
       where.OR = [
         { titleRaw: { contains: query.search, mode: "insensitive" } },
         { descriptionRaw: { contains: query.search, mode: "insensitive" } },
+        { titleZh: { contains: query.search, mode: "insensitive" } },
+        { descriptionZh: { contains: query.search, mode: "insensitive" } },
+        { conditionZh: { contains: query.search, mode: "insensitive" } },
+        { shippingZh: { contains: query.search, mode: "insensitive" } },
         { seller: { name: { contains: query.search, mode: "insensitive" } } },
       ];
     }
@@ -859,6 +1016,57 @@ export class ItemsService {
             : query.priceBand === "3000_4999"
               ? { gte: 3000, lte: 4999 }
               : { gte: 5000 };
+    }
+
+    let valueKingRelation: ReturnType<
+      typeof publicValueKingOpportunityRelation
+    > = null;
+    if (query.valueKing === true) {
+      const valueKingNow = new Date();
+      const opportunityRelation =
+        publicValueKingOpportunityRelation(valueKingNow);
+      if (
+        (query.listingType && query.listingType !== "direct")
+      )
+        return {
+          items: [],
+          total: 0,
+          facets: { auction: 0, direct: 0, unknown: 0 },
+          serverTime: new Date().toISOString(),
+        };
+      where.listingType = ListingType.direct;
+      where.status = "active";
+      where.shippingFee = { not: null };
+      where.quantityEst = { not: null };
+      where.conditionGrade = {
+        in: [
+          ConditionGrade.new_sealed,
+          ConditionGrade.like_new,
+          ConditionGrade.used,
+        ],
+      };
+      valueKingRelation = opportunityRelation;
+    }
+
+    const requestsXianyuComparison =
+      query.hasXianyuComparison === true ||
+      Boolean(query.xianyuPriceBand) ||
+      query.sortBy === "xianyuPrice";
+    const xianyuComparisonWhere = requestsXianyuComparison
+      ? publicReadyChinaComparisonWhere(query.xianyuPriceBand)
+      : null;
+    if (requestsXianyuComparison && !xianyuComparisonWhere) {
+      return {
+        items: [],
+        total: 0,
+        facets: { auction: 0, direct: 0, unknown: 0 },
+        serverTime: new Date().toISOString(),
+      };
+    }
+    if (xianyuComparisonWhere) {
+      where.product = {
+        is: { marketComparisons: { some: xianyuComparisonWhere } },
+      };
     }
 
     const facetWhere: Prisma.ItemWhereInput = { ...where };
@@ -875,11 +1083,146 @@ export class ItemsService {
             ]
           : [{ detectedAt: "desc" }, { listedAt: "desc" }, { id: "asc" }];
 
-    const [items, total, auctionTotal, directTotal] =
+    if (query.sortBy === "xianyuPrice" && xianyuComparisonWhere) {
+      const [rankedRows, auctionTotal, directTotal, unknownTotal] =
+        await this.prisma.$transaction([
+          this.prisma.item.findMany({
+            where,
+            select: {
+              id: true,
+              detectedAt: true,
+              priceCurrent: true,
+              product: {
+                select: {
+                  marketComparisons: {
+                    where: xianyuComparisonWhere,
+                    select: { referencePriceCny: true },
+                    orderBy: [
+                      { observedAt: "desc" as const },
+                      { updatedAt: "desc" as const },
+                    ],
+                    take: 1,
+                  },
+                },
+              },
+            },
+          }),
+          this.prisma.item.count({
+            where: { ...facetWhere, listingType: ListingType.auction },
+          }),
+          this.prisma.item.count({
+            where: { ...facetWhere, listingType: ListingType.direct },
+          }),
+          this.prisma.item.count({
+            where: { ...facetWhere, listingType: ListingType.unknown },
+          }),
+        ]);
+      const direction = sortOrder === "desc" ? -1 : 1;
+      rankedRows.sort((left, right) => {
+        const leftPrice = Number(
+          left.product?.marketComparisons[0]?.referencePriceCny ?? 0,
+        );
+        const rightPrice = Number(
+          right.product?.marketComparisons[0]?.referencePriceCny ?? 0,
+        );
+        const priceDifference = (leftPrice - rightPrice) * direction;
+        if (priceDifference) return priceDifference;
+        if (left.priceCurrent !== right.priceCurrent)
+          return left.priceCurrent - right.priceCurrent;
+        const detectedDifference =
+          right.detectedAt.getTime() - left.detectedAt.getTime();
+        return detectedDifference || left.id.localeCompare(right.id);
+      });
+      const pageIds = rankedRows
+        .slice(query.offset, query.offset + query.limit)
+        .map((row) => row.id);
+      const pageRows = pageIds.length
+        ? await this.prisma.item.findMany({
+            where: { ...where, id: { in: pageIds } },
+            include: itemResponseInclude,
+          })
+        : [];
+      const position = new Map(pageIds.map((id, index) => [id, index]));
+      pageRows.sort(
+        (left, right) =>
+          (position.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+          (position.get(right.id) ?? Number.MAX_SAFE_INTEGER),
+      );
+      return {
+        items: pageRows.map((item) =>
+          itemResponseWithChinaComparison({
+            ...item,
+            source: {
+              ...item.source,
+              displayName: sourceDisplayName(
+                item.source.key,
+                item.source.displayName,
+                item.sourceData,
+              ),
+            },
+          }),
+        ),
+        total: rankedRows.length,
+        facets: {
+          auction: auctionTotal,
+          direct: directTotal,
+          unknown: unknownTotal,
+        },
+        serverTime: new Date().toISOString(),
+      };
+    }
+
+    if (query.valueKing === true) {
+      const candidates = await this.prisma.item.findMany({
+        where,
+        include: {
+          ...itemResponseInclude,
+          crossMarketOpportunities:
+            valueKingRelation ?? readyValueKingOpportunityRelation,
+        },
+        orderBy: [{ detectedAt: "desc" }, { id: "asc" }],
+      });
+      const verified = candidates
+        .map((item) =>
+          itemResponseWithChinaComparison({
+            ...item,
+            source: {
+              ...item.source,
+              displayName: sourceDisplayName(
+                item.source.key,
+                item.source.displayName,
+                item.sourceData,
+              ),
+            },
+          }),
+        )
+        .filter((item) => item.valueKing != null)
+        .sort((left, right) => {
+          if (query.sortBy === "price")
+            return (
+              (left.priceCurrent - right.priceCurrent) *
+              (query.sortOrder === "desc" ? -1 : 1)
+            );
+          return (
+            Number(right.valueKing?.savingsJpy ?? right.valueKing?.netProfitJpy ?? 0) -
+              Number(left.valueKing?.savingsJpy ?? left.valueKing?.netProfitJpy ?? 0) ||
+            Number(left.valueKing?.unitCostJpy ?? 0) - Number(right.valueKing?.unitCostJpy ?? 0) ||
+            right.detectedAt.getTime() - left.detectedAt.getTime()
+          );
+        });
+      return {
+        items: verified.slice(query.offset, query.offset + query.limit),
+        total: verified.length,
+        facets: { auction: 0, direct: verified.length, unknown: 0 },
+        serverTime: new Date().toISOString(),
+      };
+    }
+
+    const [items, total, auctionTotal, directTotal, unknownTotal] =
       await this.prisma.$transaction([
         this.prisma.item.findMany({
           where,
-          include,
+          include: itemResponseInclude,
           orderBy,
           skip: query.offset,
           take: query.limit,
@@ -891,39 +1234,74 @@ export class ItemsService {
         this.prisma.item.count({
           where: { ...facetWhere, listingType: ListingType.direct },
         }),
+        this.prisma.item.count({
+          where: { ...facetWhere, listingType: ListingType.unknown },
+        }),
       ]);
     return {
-      items: items.map((item) => ({
-        ...item,
-        source: {
-          ...item.source,
-          displayName: sourceDisplayName(
-            item.source.key,
-            item.source.displayName,
-            item.sourceData,
-          ),
-        },
-      })),
+      items: items.map((item) =>
+        itemResponseWithChinaComparison({
+          ...item,
+          source: {
+            ...item.source,
+            displayName: sourceDisplayName(
+              item.source.key,
+              item.source.displayName,
+              item.sourceData,
+            ),
+          },
+        }),
+      ),
       total,
-      facets: { auction: auctionTotal, direct: directTotal },
+      facets: {
+        auction: auctionTotal,
+        direct: directTotal,
+        unknown: unknownTotal,
+      },
       serverTime: new Date().toISOString(),
     };
   }
 
   async changes(since?: string) {
-    const parsed = since ? new Date(since) : new Date(Date.now() - 15_000);
-    const sinceDate = Number.isNaN(parsed.getTime())
-      ? new Date(Date.now() - 15_000)
-      : parsed;
-    const changes = await this.prisma.item.findMany({
-      where: { updatedAt: { gt: sinceDate } },
-      select: syncSelect,
-      orderBy: { updatedAt: "asc" },
-      take: 500,
+    const cursor = decodeSyncCursor(since);
+    const reviews = await this.prisma.manualReview.findMany({
+      where: cursor.id
+        ? {
+            OR: [
+              { createdAt: { gt: cursor.at } },
+              { createdAt: cursor.at, id: { gt: cursor.id } },
+            ],
+          }
+        : { createdAt: { gt: cursor.at } },
+      select: {
+        id: true,
+        itemId: true,
+        createdAt: true,
+        beforeData: true,
+        afterData: true,
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: syncPageSize + 1,
     });
+    const page = reviews.slice(0, syncPageSize);
+    const latestByItem = new Map<
+      string,
+      NonNullable<ReturnType<typeof collaborativeChangeFromReview>>
+    >();
+    for (const review of page) {
+      const change = collaborativeChangeFromReview(review);
+      if (change)
+        latestByItem.set(change.id, { ...latestByItem.get(change.id), ...change });
+    }
+    const last = page.at(-1);
+    const nextCursor = encodeSyncCursor(
+      last ? { at: last.createdAt, id: last.id } : cursor,
+    );
     return {
-      changes,
-      serverTime: new Date().toISOString(),
+      changes: [...latestByItem.values()],
+      nextCursor,
+      serverTime: syncServerTime(last ? { at: last.createdAt } : cursor),
+      hasMore: reviews.length > syncPageSize,
     };
   }
 
@@ -931,7 +1309,13 @@ export class ItemsService {
     const item = await this.prisma.item.findUnique({
       where: { id },
       include: {
-        ...include,
+        ...itemResponseInclude,
+        product: {
+          include: {
+            ...include.product.include,
+            marketComparisons: readyChinaComparisonDetailRelation,
+          },
+        },
         classifications: { orderBy: { createdAt: "desc" } },
         manualReviews: { orderBy: { createdAt: "desc" } },
         reviewQueue: { orderBy: { createdAt: "desc" } },
@@ -939,17 +1323,20 @@ export class ItemsService {
     });
     if (!item) throw new NotFoundException("Item not found");
     return {
-      item: {
-        ...item,
-        source: {
-          ...item.source,
-          displayName: sourceDisplayName(
-            item.source.key,
-            item.source.displayName,
-            item.sourceData,
-          ),
+      item: itemResponseWithChinaComparison(
+        {
+          ...item,
+          source: {
+            ...item.source,
+            displayName: sourceDisplayName(
+              item.source.key,
+              item.source.displayName,
+              item.sourceData,
+            ),
+          },
         },
-      },
+        { includeOffers: true },
+      ),
       serverTime: new Date().toISOString(),
     };
   }
@@ -993,6 +1380,67 @@ export class ItemsService {
           : { beforeData: auditJson(input.before) }),
         afterData: auditJson(input.after),
       },
+    });
+  }
+
+  private async loadBundleMembersForInventory(
+    tx: Prisma.TransactionClient,
+    itemIds: string[],
+  ): Promise<BundleMemberForInventory[]> {
+    if (itemIds.length === 0) return [];
+    const items = await tx.item.findMany({
+      where: { id: { in: itemIds } },
+      select: {
+        id: true,
+        quantityEst: true,
+        titleRaw: true,
+        titleZh: true,
+        source: { select: { displayName: true } },
+        images: {
+          orderBy: { position: "asc" as const },
+          take: 1,
+          select: { url: true },
+        },
+      },
+    });
+    const byId = new Map(items.map((item) => [item.id, item]));
+    return itemIds.map((itemId) => {
+      const item = byId.get(itemId);
+      return {
+        quantityEst: item?.quantityEst ?? 1,
+        titleZh: item?.titleZh ?? null,
+        titleRaw: item?.titleRaw ?? itemId,
+        platform: item?.source.displayName ?? null,
+        imageUrl: item?.images[0]?.url ?? null,
+      };
+    });
+  }
+
+  /**
+   * Dual-write purchase bundle → inventory order.
+   * Cost/qty resync only when remaining===initial and no sales yet; otherwise
+   * metadata may update but sold state is never clobbered.
+   */
+  private async syncLinkedInventoryOrder(
+    tx: Prisma.TransactionClient,
+    bundle: {
+      id: string;
+      totalPurchaseAmount: number;
+      purchasedAt: Date;
+      note: string | null;
+      purchases: Array<{ itemId: string }>;
+    },
+  ) {
+    const members = await this.loadBundleMembersForInventory(
+      tx,
+      bundle.purchases.map((purchase) => purchase.itemId),
+    );
+    return syncInventoryOrderFromBundle(tx, {
+      bundleId: bundle.id,
+      purchaseCost: bundle.totalPurchaseAmount,
+      purchasedAt: bundle.purchasedAt,
+      note: bundle.note,
+      members,
     });
   }
 
@@ -1075,6 +1523,14 @@ export class ItemsService {
             id: true,
             productId: true,
             quantityEst: true,
+            titleRaw: true,
+            titleZh: true,
+            source: { select: { displayName: true } },
+            images: {
+              orderBy: { position: "asc" as const },
+              take: 1,
+              select: { url: true },
+            },
             purchaseRecord: {
               include: {
                 bundle: {
@@ -1166,6 +1622,19 @@ export class ItemsService {
           actor,
           reason,
           after: after.snapshot,
+        });
+        await ensureInventoryOrderFromBundle(tx, {
+          bundleId: created.id,
+          purchaseCost: normalized.totalPurchaseAmountYen,
+          purchasedAt,
+          note: body.note,
+          members: items.map((item) => ({
+            quantityEst: item.quantityEst,
+            titleZh: item.titleZh,
+            titleRaw: item.titleRaw,
+            platform: item.source.displayName,
+            imageUrl: item.images[0]?.url ?? null,
+          })),
         });
         return tx.purchaseBundle.findUniqueOrThrow({
           where: { id: created.id },
@@ -1404,6 +1873,9 @@ export class ItemsService {
         before: before.snapshot,
         after: after.snapshot,
       });
+      // Dual-write: create linked inventory order if missing; resync
+      // purchaseCost/initialQuantity only when remaining===initial and no sales.
+      await this.syncLinkedInventoryOrder(tx, after.row);
       return tx.purchaseBundle.findUniqueOrThrow({
         where: { id },
         include: {
@@ -1418,7 +1890,9 @@ export class ItemsService {
   async listPurchaseBundles(query: ListPurchaseBundlesQuery) {
     const page = Math.max(1, query.page);
     const limit = Math.max(1, Math.min(100, query.limit));
-    const where = { archivedAt: null } satisfies Prisma.PurchaseBundleWhereInput;
+    const where = {
+      archivedAt: null,
+    } satisfies Prisma.PurchaseBundleWhereInput;
     const [bundles, total, aggregate] = await this.prisma.$transaction([
       this.prisma.purchaseBundle.findMany({
         where,
@@ -1439,8 +1913,7 @@ export class ItemsService {
       page,
       limit,
       pageCount: Math.max(1, Math.ceil(total / limit)),
-      grandTotalPurchaseAmountYen:
-        aggregate._sum.totalPurchaseAmount ?? 0,
+      grandTotalPurchaseAmountYen: aggregate._sum.totalPurchaseAmount ?? 0,
       serverTime: new Date().toISOString(),
     };
   }
@@ -1478,6 +1951,14 @@ export class ItemsService {
           id: true,
           productId: true,
           quantityEst: true,
+          titleRaw: true,
+          titleZh: true,
+          source: { select: { displayName: true } },
+          images: {
+            orderBy: { position: "asc" as const },
+            take: 1,
+            select: { url: true },
+          },
           purchaseRecord: {
             include: {
               bundle: { include: purchaseBundleSnapshotInclude },
@@ -1514,11 +1995,7 @@ export class ItemsService {
             bundle: { include: purchaseBundleSnapshotInclude },
           },
         });
-        await this.addNewPurchaseToInventory(
-          tx,
-          current,
-          body.purchaseAmount,
-        );
+        await this.addNewPurchaseToInventory(tx, current, body.purchaseAmount);
       } else {
         bundleId = purchase.bundleId;
         beforeSnapshot = purchaseBundleSnapshot(purchase.bundle);
@@ -1589,6 +2066,8 @@ export class ItemsService {
         ...(beforeSnapshot ? { before: beforeSnapshot } : {}),
         after: after.snapshot,
       });
+      // Dual-write on create and amount updates; cost/qty skipped if sold.
+      await this.syncLinkedInventoryOrder(tx, after.row);
       return tx.purchaseRecord.findUniqueOrThrow({
         where: { id: purchase.id },
         include: {
@@ -1633,12 +2112,7 @@ export class ItemsService {
     const safeLimit = Number.isFinite(limit)
       ? Math.max(1, Math.min(100, Math.floor(limit)))
       : 60;
-    const visibleItemWhere = {
-      archivedAt: null,
-      channel: SourceChannel.online,
-      purchaseRecord: null,
-      categoryToyType: { not: ToyType.card },
-    } satisfies Prisma.ItemWhereInput;
+    const visibleItemWhere = activeMarketItemWhere();
     const where: Prisma.SellerWhereInput = {
       AND: [
         ...(search?.trim()
@@ -1716,11 +2190,8 @@ export class ItemsService {
       ? Math.max(1, Math.min(100, Math.floor(limit)))
       : 48;
     const itemWhere = {
+      ...activeMarketItemWhere(),
       sellerId: id,
-      archivedAt: null,
-      channel: SourceChannel.online,
-      purchaseRecord: null,
-      categoryToyType: { not: ToyType.card },
     } satisfies Prisma.ItemWhereInput;
     const [seller, segmentItems] = await Promise.all([
       this.prisma.seller.findUnique({
@@ -1728,12 +2199,7 @@ export class ItemsService {
         include: {
           source: { select: { key: true, displayName: true } },
           items: {
-            where: {
-              archivedAt: null,
-              channel: SourceChannel.online,
-              purchaseRecord: null,
-              categoryToyType: { not: ToyType.card },
-            },
+            where: activeMarketItemWhere(),
             include,
             orderBy: { detectedAt: "desc" },
             skip: (safePage - 1) * safeLimit,
@@ -1823,13 +2289,16 @@ export class ItemsService {
       throw new BadRequestException("商品不能同时收藏并标记为不感兴趣");
     if (changes.ignored === true) {
       (changes as Prisma.ItemUpdateInput).ignoredAt = new Date();
+      (changes as Prisma.ItemUpdateInput).ignoredReason = "manual";
       changes.favorite = false;
     } else if (changes.ignored === false) {
       (changes as Prisma.ItemUpdateInput).ignoredAt = null;
+      (changes as Prisma.ItemUpdateInput).ignoredReason = null;
     }
     if (changes.favorite === true) {
       changes.ignored = false;
       (changes as Prisma.ItemUpdateInput).ignoredAt = null;
+      (changes as Prisma.ItemUpdateInput).ignoredReason = null;
     }
     const changedKeys = Object.entries(changes)
       .filter(([, value]) => value !== undefined)
@@ -1837,7 +2306,9 @@ export class ItemsService {
     const isCollaborativePatch =
       changedKeys.length > 0 &&
       changedKeys.every((key) =>
-        ["favorite", "ignored", "ignoredAt", "note"].includes(key),
+        ["favorite", "ignored", "ignoredAt", "ignoredReason", "note"].includes(
+          key,
+        ),
       );
     if (isCollaborativePatch) {
       return this.prisma.$transaction(async (tx) => {
@@ -1846,6 +2317,27 @@ export class ItemsService {
           data: changes as Prisma.ItemUpdateInput,
           select: syncSelect,
         });
+        const managerAction =
+          updated.favorite && !current.favorite
+            ? "favorite"
+            : updated.ignored && !current.ignored
+              ? "dislike"
+              : null;
+        if (managerAction) {
+          const manager = await tx.managerAccount.findFirst({
+            where: { id: actor, active: true },
+            select: { id: true },
+          });
+          if (manager) {
+            await tx.managerActivity.create({
+              data: {
+                accountId: manager.id,
+                action: managerAction,
+                itemId: id,
+              },
+            });
+          }
+        }
         await tx.manualReview.create({
           data: {
             itemId: id,
@@ -1867,12 +2359,35 @@ export class ItemsService {
             resolvedAt: new Date(),
           },
         });
-        return { item: updated, serverTime: new Date().toISOString() };
+        const normalized = itemResponseWithChinaComparison(updated);
+        const { product: _comparisonRelation, ...item } = normalized;
+        return { item, serverTime: new Date().toISOString() };
       });
     }
     const quantity = changes.quantityEst ?? current.quantityEst;
-    const priceTotal = current.priceTotalEst;
-    const unitCostEst = quantity ? Math.round(priceTotal / quantity) : null;
+    const unitCostEst =
+      quantity &&
+      quantity > 0 &&
+      current.listingType === "direct" &&
+      current.shippingFee != null
+        ? Math.round((current.priceCurrent + current.shippingFee) / quantity)
+        : null;
+    const shf =
+      changes.categoryIp !== undefined
+        ? classifyShfListing({
+            titleRaw: current.titleRaw,
+            descriptionRaw: current.descriptionRaw,
+            categoryIp: changes.categoryIp,
+          })
+        : undefined;
+    const collectibleSeries =
+      changes.categoryIp !== undefined
+        ? classifyCollectibleSeries({
+            titleRaw: current.titleRaw,
+            descriptionRaw: current.descriptionRaw,
+            categoryIp: changes.categoryIp,
+          })
+        : undefined;
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.item.update({
         where: { id },
@@ -1880,6 +2395,15 @@ export class ItemsService {
           ...changes,
           categoryIp: changes.categoryIp as CategoryIp | undefined,
           categoryToyType: changes.categoryToyType as ToyType | undefined,
+          ...(shf !== undefined
+            ? {
+                shfLine: shf?.line ?? null,
+                shfReleaseChannel: shf?.releaseChannel ?? null,
+                shfEdition: shf?.edition ?? null,
+                shfRegion: shf?.region ?? null,
+                collectibleSeries,
+              }
+            : {}),
           manufacturer: changes.manufacturer as Manufacturer | undefined,
           conditionGrade: changes.conditionGrade as ConditionGrade | undefined,
           unitCostEst,
@@ -1889,7 +2413,7 @@ export class ItemsService {
               : current.needsReview,
           matchDecision: "manually_matched",
         },
-        include,
+        include: itemResponseInclude,
       });
       await tx.manualReview.create({
         data: {
@@ -1912,7 +2436,10 @@ export class ItemsService {
           resolvedAt: new Date(),
         },
       });
-      return { item: updated, serverTime: new Date().toISOString() };
+      return {
+        item: itemResponseWithChinaComparison(updated),
+        serverTime: new Date().toISOString(),
+      };
     });
   }
 

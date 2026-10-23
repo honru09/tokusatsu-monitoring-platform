@@ -18,7 +18,7 @@ describe("Rakuma parsing", () => {
         sourceUrl: `https://item.fril.jp/${"a".repeat(32)}`,
         status: "active",
       }),
-    ).resolves.toEqual({ status: "sold" });
+    ).resolves.toEqual({ status: "sold", listingType: "direct" });
   });
 
   it("filters books and cards from public search cards", () => {
@@ -34,6 +34,7 @@ describe("Rakuma parsing", () => {
     expect(results).toHaveLength(1);
     expect(results[0].detailHint).toMatchObject({
       sourcePlatform: "rakuma",
+      listingType: "direct",
       priceCurrent: 1799,
       sellerType: "individual",
     });

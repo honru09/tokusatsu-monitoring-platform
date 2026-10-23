@@ -191,8 +191,9 @@ describe("AnalyzeUrlDto", () => {
       urls: ["https://example.com/one", "https://example.com/two"],
     });
     const rejected = Object.assign(new AnalyzeUrlDto(), {
-      urls: Array.from({ length: 21 }, (_, index) =>
-        `https://example.com/${index}`,
+      urls: Array.from(
+        { length: 21 },
+        (_, index) => `https://example.com/${index}`,
       ),
     });
 

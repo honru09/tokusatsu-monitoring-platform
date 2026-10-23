@@ -1,0 +1,132 @@
+{
+  "base": "http://127.0.0.1:3105",
+  "runs": [
+    {
+      "width": 1440,
+      "height": 1000,
+      "reducedMotion": "no-preference",
+      "checks": [
+        {
+          "name": "pointer-origin-light-and-release",
+          "pass": true
+        },
+        {
+          "name": "pointer-cancel-does-not-stick",
+          "pass": true
+        },
+        {
+          "name": "keyboard-feedback-is-immediate",
+          "pass": true
+        },
+        {
+          "name": "action-rail-follows-action-and-reduce",
+          "pass": true
+        },
+        {
+          "name": "rapid-navigation-and-fixed-ancestor",
+          "pass": true
+        },
+        {
+          "name": "native-disclosure-pointer-and-keyboard",
+          "pass": true
+        },
+        {
+          "name": "SSR-console-and-layout",
+          "pass": true
+        }
+      ],
+      "errors": [],
+      "consoleErrors": [],
+      "intercepted": [
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "reducedMotion": "no-preference",
+      "checks": [
+        {
+          "name": "pointer-origin-light-and-release",
+          "pass": true
+        },
+        {
+          "name": "pointer-cancel-does-not-stick",
+          "pass": true
+        },
+        {
+          "name": "keyboard-feedback-is-immediate",
+          "pass": true
+        },
+        {
+          "name": "action-rail-follows-action-and-reduce",
+          "pass": true
+        },
+        {
+          "name": "rapid-navigation-and-fixed-ancestor",
+          "pass": true
+        },
+        {
+          "name": "native-disclosure-pointer-and-keyboard",
+          "pass": true
+        },
+        {
+          "name": "SSR-console-and-layout",
+          "pass": true
+        }
+      ],
+      "errors": [],
+      "consoleErrors": [],
+      "intercepted": [
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        }
+      ]
+    },
+    {
+      "width": 320,
+      "height": 568,
+      "reducedMotion": "reduce",
+      "checks": [
+        {
+          "name": "pointer-origin-light-and-release",
+          "pass": true
+        },
+        {
+          "name": "pointer-cancel-does-not-stick",
+          "pass": true
+        },
+        {
+          "name": "keyboard-feedback-is-immediate",
+          "pass": true
+        },
+        {
+          "name": "action-rail-follows-action-and-reduce",
+          "pass": true
+        }
+      ],
+      "errors": [],
+      "consoleErrors": [],
+      "intercepted": [
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        },
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        },
+        {
+          "method": "POST",
+          "path": "/backend/collaboration/presence"
+        }
+      ]
+    }
+  ],
+  "realBusinessWrites": 0,
+  "realModels": 0
+}

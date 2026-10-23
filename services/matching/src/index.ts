@@ -94,6 +94,15 @@ export function hasSalientOverlap(
   query: MatchableProduct,
   candidate: MatchableProduct,
 ): boolean {
+  // A title resemblance can never bridge two explicitly different fictional
+  // properties. This guard prevents a polluted Product row from attracting
+  // future listings even when their normalized names are nearly identical.
+  if (
+    query.franchiseKey &&
+    candidate.franchiseKey &&
+    query.franchiseKey !== candidate.franchiseKey
+  )
+    return false;
   if (query.seriesKey && candidate.seriesKey)
     return query.seriesKey === candidate.seriesKey;
   const queryTokens = tokens(query.normalizedName);
@@ -132,6 +141,14 @@ export function scoreProductMatch(
       score *= 0.45;
       evidence.push("作品系列冲突");
     }
+  }
+  if (
+    query.franchiseKey &&
+    candidate.franchiseKey &&
+    query.franchiseKey !== candidate.franchiseKey
+  ) {
+    score *= 0.2;
+    evidence.push("作品大类冲突");
   }
   if (
     query.toyTypeKey &&

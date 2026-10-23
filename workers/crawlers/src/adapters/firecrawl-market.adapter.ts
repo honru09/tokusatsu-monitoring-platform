@@ -39,6 +39,10 @@ const MARKETPLACE_NAMES: Record<string, string> = {
   "store.shopping.yahoo.co.jp": "Yahoo! Shopping",
 };
 
+const JPY_MARKETPLACE_HOSTS = new Set(
+  DEFAULT_DOMAINS.filter((host) => host !== "www.ebay.com"),
+);
+
 type RobotPolicy = {
   isAllowed(url: string, userAgent?: string): boolean | undefined;
 };
@@ -121,11 +125,14 @@ function sourceItemId(url: string): string {
   );
 }
 
-function yen(value: unknown): number | undefined {
+function yen(value: unknown, allowSymbol: boolean): number | undefined {
+  const marker = allowSymbol ? "¥|￥|JPY|価格[:：]?|円" : "JPY|円";
   const match = String(value ?? "")
     .replace(/,/g, "")
-    .match(/(?:¥|￥|JPY|価格[:：]?)\s*(\d{2,10})/i);
-  return match ? Number(match[1]) : undefined;
+    .match(
+      new RegExp(`(?:(?:${marker})\\s*(\\d{2,10})|(\\d{2,10})\\s*円)`, "i"),
+    );
+  return match ? Number(match[1] ?? match[2]) : undefined;
 }
 
 export function parseFirecrawlMarketplaceDocument(
@@ -133,6 +140,7 @@ export function parseFirecrawlMarketplaceDocument(
   sourceUrl: string,
 ): RawItemDetail {
   const metadata = document.metadata ?? {};
+  const marketplaceHost = new URL(sourceUrl).hostname.toLowerCase();
   const variant = document.product?.variants.find(
     (candidate) => candidate.price?.amount != null,
   );
@@ -144,10 +152,23 @@ export function parseFirecrawlMarketplaceDocument(
   ).trim();
   if (!titleRaw)
     throw new Error("Firecrawl marketplace result did not contain a title");
+  const variantCurrency = String(variant?.price?.currency ?? "")
+    .trim()
+    .toUpperCase();
+  if (variant?.price?.amount != null) {
+    if (variantCurrency && variantCurrency !== "JPY")
+      throw new Error(
+        `Firecrawl marketplace result is not priced in JPY: ${variantCurrency}`,
+      );
+    if (!variantCurrency && !JPY_MARKETPLACE_HOSTS.has(marketplaceHost))
+      throw new Error(
+        "Firecrawl marketplace result has no verifiable JPY currency",
+      );
+  }
   const priceCurrent =
     variant?.price?.amount != null
       ? Math.round(variant.price.amount)
-      : yen(body);
+      : yen(body, JPY_MARKETPLACE_HOSTS.has(marketplaceHost));
   if (priceCurrent == null)
     throw new Error(
       "Firecrawl marketplace result did not contain a public price",
@@ -178,9 +199,9 @@ export function parseFirecrawlMarketplaceDocument(
     images.add(new URL(metadata.ogImage, sourceUrl).toString());
   const listedAtText = metadata.publishedTime ?? metadata.dcDateCreated;
   const listedAt = listedAtText ? new Date(listedAtText) : undefined;
-  const marketplaceHost = new URL(sourceUrl).hostname.toLowerCase();
   return {
     sourcePlatform: "firecrawl_market",
+    listingType: marketplaceHost === "www.ebay.com" ? "unknown" : "direct",
     sourceItemId: sourceItemId(sourceUrl),
     sourceUrl,
     titleRaw,
@@ -282,6 +303,7 @@ export class FirecrawlMarketplaceAdapter implements SourceAdapter {
     });
     return {
       status: detail.status,
+      listingType: detail.listingType,
       priceCurrent: detail.priceCurrent,
     };
   }

@@ -1,7 +1,12 @@
 "use client";
+import { YahooDiscount } from "./yahoo-discount";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { readJsonResponse } from "../lib/http-json";
+import type { ListingType } from "../lib/listing-type";
+import { motionTokens, springs } from "../lib/motion-tokens";
+import styles from "./editorial-communications.module.css";
 
 type ChatItem = {
   id: string;
@@ -11,7 +16,7 @@ type ChatItem = {
   priceCurrent: number;
   shippingFee?: number | null;
   quantityEst?: number | null;
-  listingType: "auction" | "direct";
+  listingType: ListingType;
   auctionEndAt?: string | null;
   source: { key: string; displayName: string };
   seller?: { id?: string; name: string } | null;
@@ -23,7 +28,7 @@ type ChatResponse = {
   items: ChatItem[];
   suggestions: string[];
   model: string;
-  provider?: "bai" | "openrouter";
+  provider?: string;
   fallbackUsed: boolean;
   generatedAt: string;
 };
@@ -111,14 +116,38 @@ export function AssistantChatWorkspace({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const endRef = useRef<HTMLDivElement>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
+  const requestInFlightRef = useRef(false);
+  const newAnswerIdRef = useRef<string | null>(null);
+  const stickToBottomRef = useRef(true);
+  const reduceMotion = useReducedMotion();
+  const pointerInputRef = useRef(false);
+  const [hasNewAnswer, setHasNewAnswer] = useState(false);
+  const [openingItemId, setOpeningItemId] = useState<string | null>(null);
+  const openingItemRef = useRef<string | null>(null);
+  const [itemError, setItemError] = useState("");
+  const instantMotion = reduceMotion || !pointerInputRef.current;
 
   useEffect(() => setMessages(loadStoredMessages()), []);
   useEffect(() => {
     if (!messages.length) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-30)));
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages]);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-30)));
+    } catch {
+      // The current conversation remains available if local storage is full.
+    }
+    const feed = feedRef.current;
+    if (feed && stickToBottomRef.current) feed.scrollTop = feed.scrollHeight;
+  }, [messages, loading]);
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (!feed || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (stickToBottomRef.current) feed.scrollTop = feed.scrollHeight;
+    });
+    observer.observe(feed);
+    return () => observer.disconnect();
+  }, []);
 
   const history = useMemo(
     () => messages.slice(-12).map(({ role, content }) => ({ role, content })),
@@ -127,7 +156,9 @@ export function AssistantChatWorkspace({
 
   async function send(text: string) {
     const message = text.trim();
-    if (!message || loading) return;
+    if (!message || requestInFlightRef.current) return;
+    requestInFlightRef.current = true;
+    stickToBottomRef.current = true;
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -148,10 +179,13 @@ export function AssistantChatWorkspace({
           message?: string;
         }
       >(response, "AI 暂时无法回答");
+      const answerId = `assistant-${Date.now()}`;
+      newAnswerIdRef.current = answerId;
+      setHasNewAnswer(!stickToBottomRef.current);
       setMessages((current) => [
         ...current,
         {
-          id: `assistant-${Date.now()}`,
+          id: answerId,
           role: "assistant",
           content: data.answerZh,
           items: data.items,
@@ -164,6 +198,7 @@ export function AssistantChatWorkspace({
       setInput(message);
       setError(reason instanceof Error ? reason.message : "AI 暂时无法回答");
     } finally {
+      requestInFlightRef.current = false;
       setLoading(false);
     }
   }
@@ -173,30 +208,48 @@ export function AssistantChatWorkspace({
     void send(input);
   }
 
+  async function openResult(id: string) {
+    if (openingItemRef.current) return;
+    openingItemRef.current = id;
+    setOpeningItemId(id);
+    setItemError("");
+    try {
+      if (!(await onOpenItem(id))) setItemError("商品暂时无法打开，可稍后重试。");
+    } catch {
+      setItemError("商品暂时无法打开，可稍后重试。");
+    } finally {
+      openingItemRef.current = null;
+      setOpeningItemId(null);
+    }
+  }
+
   return (
-    <section className="assistant-chat" aria-label="AI 采购助手">
+    <section className={`assistant-chat ${styles.assistant}`} aria-label="AI 采购助手" onPointerDownCapture={() => { pointerInputRef.current = true; }} onKeyDownCapture={() => { pointerInputRef.current = false; }}>
       <header className="assistant-chat-heading">
-        <div className="assistant-chat-mark" aria-hidden="true">
-          <SparklesIcon />
-        </div>
         <div>
-          <p>实时采购助手</p>
-          <h2>想找什么，直接问我</h2>
+          <h2>采购助手</h2>
+          <p>基于商品与库存，按需回答</p>
         </div>
+        <span className={styles.serviceLabel}>智谱 · Flash</span>
       </header>
 
-      <div className="assistant-chat-feed" aria-live="polite">
+      <div ref={feedRef} className="assistant-chat-feed" role="log" aria-live="polite" onScroll={(event) => {
+        const feed = event.currentTarget;
+        stickToBottomRef.current = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 72;
+        if (stickToBottomRef.current) setHasNewAnswer(false);
+      }}>
         {messages.length === 0 && (
           <div className="assistant-welcome">
             <SparklesIcon className="h-7 w-7" />
             <p>
-              我可以读取当前商品、卖家、收藏、购买、资讯和监控状态，帮你找到具体商品并给出下一步建议。
+              找商品、查价格，或问问当前库存。
             </p>
             <div className="assistant-starters">
               {starters.map((starter) => (
                 <button
                   key={starter}
                   type="button"
+                  disabled={loading}
                   onClick={() => void send(starter)}
                 >
                   {starter}
@@ -206,14 +259,16 @@ export function AssistantChatWorkspace({
           </div>
         )}
         {messages.map((message) => (
-          <article
+          <motion.article
             key={message.id}
             className={`assistant-message assistant-message-${message.role}`}
+            data-apple-motion-owned="true"
+            initial={message.id === newAnswerIdRef.current && !instantMotion ? { opacity: 0, transform: "translateY(12px)" } : false}
+            animate={{ opacity: 1, transform: instantMotion ? "none" : "translateY(0px)" }}
+            transition={instantMotion ? { duration: 0 } : springs.appleSpatial}
           >
-            {message.role === "assistant" && (
-              <SparklesIcon className="assistant-message-icon" />
-            )}
             <div className="assistant-message-body">
+              <span className={styles.messageByline}>{message.role === "assistant" ? "采购助手" : "你"}</span>
               <p className="whitespace-pre-wrap">
                 {cleanDisplayText(message.content)}
               </p>
@@ -224,7 +279,9 @@ export function AssistantChatWorkspace({
                       key={item.id}
                       type="button"
                       className="assistant-result-card"
-                      onClick={() => void onOpenItem(item.id)}
+                      onClick={() => void openResult(item.id)}
+                      disabled={openingItemId !== null}
+                      aria-busy={openingItemId === item.id}
                     >
                       <span className="assistant-result-image">
                         {item.images[0]?.url ? (
@@ -236,6 +293,7 @@ export function AssistantChatWorkspace({
                       </span>
                       <span className="assistant-result-copy">
                         <strong>{item.titleZh ?? item.titleRaw}</strong>
+                        {openingItemId === item.id && <small className={styles.resultOpening} role="status">正在打开商品…</small>}
                         <span>
                           {formatYen(item.priceCurrent)} ·{" "}
                           {item.source.displayName}
@@ -245,6 +303,7 @@ export function AssistantChatWorkspace({
                             约 ¥{(item.priceCurrent * exchangeRate).toFixed(0)}
                           </small>
                         )}
+                        <YahooDiscount sourceKey={item.source.key} priceYen={item.priceCurrent} exchangeRate={exchangeRate} />
                       </span>
                     </button>
                   ))}
@@ -256,6 +315,7 @@ export function AssistantChatWorkspace({
                     <button
                       key={suggestion}
                       type="button"
+                      disabled={loading}
                       onClick={() => void send(suggestion)}
                     >
                       {suggestion}
@@ -265,7 +325,7 @@ export function AssistantChatWorkspace({
               )}
               {message.role === "assistant" && message.generatedAt && (
                 <small className="assistant-message-meta">
-                  实时数据 ·{" "}
+                  回答于{" "}
                   {new Date(message.generatedAt).toLocaleTimeString("zh-CN", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -273,25 +333,29 @@ export function AssistantChatWorkspace({
                 </small>
               )}
             </div>
-          </article>
+          </motion.article>
         ))}
+        <AnimatePresence initial={false}>
         {loading && (
-          <div className="assistant-thinking">
+          <motion.div key="thinking" className="assistant-thinking" role="status" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : motionTokens.duration.fast }}>
             <SparklesIcon className="h-5 w-5" />
             <span>正在检索实时数据</span>
             <i />
             <i />
             <i />
-          </div>
+          </motion.div>
         )}
-        {error && <p className="assistant-error">{error}</p>}
-        <div ref={endRef} />
+        </AnimatePresence>
+        {error && <p className="assistant-error" role="alert">{error}</p>}
+        {itemError && <p className="assistant-error" role="alert">{itemError}</p>}
       </div>
 
+      <AnimatePresence initial={false}>
+        {hasNewAnswer && <motion.div className={styles.answerNotice} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: instantMotion ? 0 : motionTokens.duration.feedback }}>
+          <button type="button" onClick={() => { const feed = feedRef.current; if (feed) feed.scrollTop = feed.scrollHeight; stickToBottomRef.current = true; setHasNewAnswer(false); }} aria-label="查看新回答">新回答已就绪<span aria-hidden="true">↓</span></button>
+        </motion.div>}
+      </AnimatePresence>
       <form className="assistant-composer" onSubmit={submit}>
-        <span className="assistant-composer-mark" aria-hidden="true">
-          <SparklesIcon />
-        </span>
         <label className="sr-only" htmlFor="assistant-input">
           向 AI 采购助手提问
         </label>
@@ -299,7 +363,7 @@ export function AssistantChatWorkspace({
           id="assistant-input"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="我能帮你找什么？"
+          placeholder="输入商品、采购或库存问题…"
           maxLength={2_000}
           disabled={loading}
         />

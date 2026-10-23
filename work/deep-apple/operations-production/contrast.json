@@ -1,0 +1,2041 @@
+{
+  "target": "http://localhost:3000",
+  "method": "Computed text color, actual ancestor opacity, rendered PNG background sampled at three documented blank positions adjacent to text or inside padded surface; WCAG relative luminance formula. Gradients/translucency are read from rendered pixels, not treated as solid white.",
+  "scope": "Shared header and primary navigation, new inventory success receipt, and focused AI product entry. This is a bounded sample, not a whole-site pixel audit.",
+  "rows": [
+    {
+      "name": "Header brand",
+      "selector": ".procurement-header .brand-name",
+      "color": "rgb(29, 29, 31)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 17,
+      "fontWeight": 650,
+      "opacity": 1,
+      "rect": {
+        "x": 88,
+        "y": 17.078125,
+        "width": 94.46875,
+        "height": 21.25
+      },
+      "sampleY": 39.328125,
+      "parents": [
+        {
+          "tag": "HEADER",
+          "className": "ios-header procurement-header procurement-header-back",
+          "backgroundColor": "rgba(255, 255, 255, 0.76)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-1440-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ]
+      ],
+      "ratios": [
+        16.346,
+        16.346,
+        16.346
+      ],
+      "minimumRatio": 16.346,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Header exchange rate",
+      "selector": ".procurement-header .exchange-rate-inline",
+      "color": "rgb(88, 97, 108)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 400,
+      "opacity": 1,
+      "rect": {
+        "x": 88,
+        "y": 42.328125,
+        "width": 94.46875,
+        "height": 15.59375
+      },
+      "sampleY": 58.921875,
+      "parents": [
+        {
+          "tag": "HEADER",
+          "className": "ios-header procurement-header procurement-header-back",
+          "backgroundColor": "rgba(255, 255, 255, 0.76)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-1440-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ]
+      ],
+      "ratios": [
+        6.104,
+        6.104,
+        6.104
+      ],
+      "minimumRatio": 6.104,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav home",
+      "selector": ".primary-navigation [aria-label=\"首页\"] .primary-navigation-label",
+      "color": "rgb(99, 102, 109)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 570.75,
+        "y": 34.40625,
+        "width": 24,
+        "height": 13.1875
+      },
+      "sampleY": 48.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.5)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-1440-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          252,
+          254,
+          255
+        ],
+        [
+          252,
+          254,
+          255
+        ],
+        [
+          252,
+          254,
+          255
+        ]
+      ],
+      "ratios": [
+        5.685,
+        5.685,
+        5.685
+      ],
+      "minimumRatio": 5.685,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav AI",
+      "selector": ".primary-navigation [aria-label=\"AI\"] .primary-navigation-label",
+      "color": "rgb(99, 102, 109)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 678.71875,
+        "y": 34.40625,
+        "width": 13.0625,
+        "height": 13.1875
+      },
+      "sampleY": 48.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.5)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-1440-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          252,
+          254,
+          255
+        ],
+        [
+          252,
+          254,
+          255
+        ],
+        [
+          252,
+          254,
+          255
+        ]
+      ],
+      "ratios": [
+        5.685,
+        5.685,
+        5.685
+      ],
+      "minimumRatio": 5.685,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav messages",
+      "selector": ".primary-navigation [aria-label=\"消息\"] .primary-navigation-label",
+      "color": "rgb(99, 102, 109)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 775.75,
+        "y": 34.40625,
+        "width": 24,
+        "height": 13.1875
+      },
+      "sampleY": 48.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.5)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-1440-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          251,
+          254,
+          255
+        ],
+        [
+          251,
+          254,
+          255
+        ],
+        [
+          251,
+          254,
+          255
+        ]
+      ],
+      "ratios": [
+        5.674,
+        5.674,
+        5.674
+      ],
+      "minimumRatio": 5.674,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav active workbench",
+      "selector": ".primary-navigation [aria-label=\"工作台\"] .primary-navigation-label",
+      "color": "rgb(0, 102, 204)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 600,
+      "opacity": 1,
+      "rect": {
+        "x": 872.25,
+        "y": 34.40625,
+        "width": 36,
+        "height": 13.1875
+      },
+      "sampleY": 48.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.5)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-1440-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          236,
+          245,
+          255
+        ],
+        [
+          235,
+          245,
+          255
+        ],
+        [
+          234,
+          244,
+          255
+        ]
+      ],
+      "ratios": [
+        5.055,
+        5.046,
+        5.005
+      ],
+      "minimumRatio": 5.005,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Inventory success receipt",
+      "selector": "[class*=\"actionReceipt\"]",
+      "color": "rgb(35, 99, 66)",
+      "backgroundColor": "rgba(231, 245, 237, 0.92)",
+      "backgroundImage": "none",
+      "fontSize": 13,
+      "fontWeight": 500,
+      "opacity": 1,
+      "rect": {
+        "x": 122.5,
+        "y": 215.97433471679688,
+        "width": 1180,
+        "height": 46.796875
+      },
+      "sampleY": 219.97433471679688,
+      "parents": [
+        {
+          "tag": "P",
+          "className": "operations-editorial_actionReceipt__Jh6mi",
+          "backgroundColor": "rgba(231, 245, 237, 0.92)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-1440-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          232,
+          244,
+          238
+        ],
+        [
+          232,
+          244,
+          237
+        ],
+        [
+          231,
+          243,
+          238
+        ]
+      ],
+      "ratios": [
+        6.34,
+        6.336,
+        6.287
+      ],
+      "minimumRatio": 6.287,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "AI product entry on focused pale blue",
+      "selector": "[aria-label=\"到商品库，从详情读取商品\"]",
+      "color": "rgb(0, 102, 204)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 14,
+      "fontWeight": 400,
+      "opacity": 1,
+      "rect": {
+        "x": 1151.84375,
+        "y": 614.765625,
+        "width": 95.65625,
+        "height": 44
+      },
+      "sampleY": 618.765625,
+      "parents": [
+        {
+          "tag": "ARTICLE",
+          "className": "",
+          "backgroundColor": "rgba(241, 247, 255, 0.99)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "DIV",
+          "className": "ai-system-workspace_useList__dOFl_",
+          "backgroundColor": "rgba(255, 255, 255, 0.94)",
+          "backgroundImage": "linear-gradient(185deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.22) 20%, rgba(0, 0, 0, 0) 46%), none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-ai",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-ai-entry-1440-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ]
+      ],
+      "ratios": [
+        5.166,
+        5.166,
+        5.166
+      ],
+      "minimumRatio": 5.166,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "AI purpose heading",
+      "selector": "[data-ai-purpose=\"product_reading\"] h4",
+      "color": "rgb(29, 29, 31)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 16,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 233.5,
+        "y": 612.046875,
+        "width": 902.34375,
+        "height": 24
+      },
+      "sampleY": 637.046875,
+      "parents": [
+        {
+          "tag": "ARTICLE",
+          "className": "",
+          "backgroundColor": "rgba(241, 247, 255, 1)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "DIV",
+          "className": "ai-system-workspace_useList__dOFl_",
+          "backgroundColor": "rgba(255, 255, 255, 0.94)",
+          "backgroundImage": "linear-gradient(185deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.22) 20%, rgba(0, 0, 0, 0) 46%), none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-ai",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 1440,
+        "height": 1000,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-ai-entry-1440-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ]
+      ],
+      "ratios": [
+        15.619,
+        15.619,
+        15.619
+      ],
+      "minimumRatio": 15.619,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Header brand",
+      "selector": ".procurement-header .brand-name",
+      "color": "rgb(29, 29, 31)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 15,
+      "fontWeight": 650,
+      "opacity": 1,
+      "rect": {
+        "x": 64,
+        "y": 14.96875,
+        "width": 86.484375,
+        "height": 18.75
+      },
+      "sampleY": 34.71875,
+      "parents": [
+        {
+          "tag": "HEADER",
+          "className": "ios-header procurement-header procurement-header-back",
+          "backgroundColor": "rgba(255, 255, 255, 0.76)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ]
+      ],
+      "ratios": [
+        16.346,
+        16.346,
+        16.346
+      ],
+      "minimumRatio": 16.346,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Header exchange rate",
+      "selector": ".procurement-header .exchange-rate-inline",
+      "color": "rgb(88, 97, 108)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 11,
+      "fontWeight": 400,
+      "opacity": 1,
+      "rect": {
+        "x": 64,
+        "y": 37.71875,
+        "width": 86.484375,
+        "height": 14.296875
+      },
+      "sampleY": 53.015625,
+      "parents": [
+        {
+          "tag": "HEADER",
+          "className": "ios-header procurement-header procurement-header-back",
+          "backgroundColor": "rgba(255, 255, 255, 0.76)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ]
+      ],
+      "ratios": [
+        6.104,
+        6.104,
+        6.104
+      ],
+      "minimumRatio": 6.104,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav home",
+      "selector": ".primary-navigation [aria-label=\"首页\"] .primary-navigation-label",
+      "color": "rgb(99, 102, 109)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 45.75,
+        "y": 819.40625,
+        "width": 24,
+        "height": 13.1875
+      },
+      "sampleY": 833.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.93)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          253,
+          254,
+          254
+        ],
+        [
+          253,
+          254,
+          254
+        ],
+        [
+          253,
+          254,
+          254
+        ]
+      ],
+      "ratios": [
+        5.691,
+        5.691,
+        5.691
+      ],
+      "minimumRatio": 5.691,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav AI",
+      "selector": ".primary-navigation [aria-label=\"AI\"] .primary-navigation-label",
+      "color": "rgb(99, 102, 109)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 142.71875,
+        "y": 819.40625,
+        "width": 13.0625,
+        "height": 13.1875
+      },
+      "sampleY": 833.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.93)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          254,
+          254,
+          254
+        ],
+        [
+          254,
+          254,
+          254
+        ],
+        [
+          254,
+          254,
+          254
+        ]
+      ],
+      "ratios": [
+        5.702,
+        5.702,
+        5.702
+      ],
+      "minimumRatio": 5.702,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav messages",
+      "selector": ".primary-navigation [aria-label=\"消息\"] .primary-navigation-label",
+      "color": "rgb(99, 102, 109)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 228.75,
+        "y": 819.40625,
+        "width": 24,
+        "height": 13.1875
+      },
+      "sampleY": 833.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.93)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          254,
+          254,
+          254
+        ],
+        [
+          254,
+          254,
+          254
+        ],
+        [
+          254,
+          254,
+          254
+        ]
+      ],
+      "ratios": [
+        5.702,
+        5.702,
+        5.702
+      ],
+      "minimumRatio": 5.702,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav active workbench",
+      "selector": ".primary-navigation [aria-label=\"工作台\"] .primary-navigation-label",
+      "color": "rgb(0, 102, 204)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 600,
+      "opacity": 1,
+      "rect": {
+        "x": 314.25,
+        "y": 819.40625,
+        "width": 36,
+        "height": 13.1875
+      },
+      "sampleY": 833.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.93)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          237,
+          245,
+          255
+        ],
+        [
+          235,
+          244,
+          255
+        ],
+        [
+          234,
+          243,
+          255
+        ]
+      ],
+      "ratios": [
+        5.065,
+        5.014,
+        4.974
+      ],
+      "minimumRatio": 4.974,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Inventory success receipt",
+      "selector": "[class*=\"actionReceipt\"]",
+      "color": "rgb(35, 99, 66)",
+      "backgroundColor": "rgba(231, 245, 237, 0.92)",
+      "backgroundImage": "none",
+      "fontSize": 13,
+      "fontWeight": 500,
+      "opacity": 1,
+      "rect": {
+        "x": 16,
+        "y": 245.5669403076172,
+        "width": 358,
+        "height": 46.79689025878906
+      },
+      "sampleY": 249.5669403076172,
+      "parents": [
+        {
+          "tag": "P",
+          "className": "operations-editorial_actionReceipt__Jh6mi",
+          "backgroundColor": "rgba(231, 245, 237, 0.92)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          232,
+          244,
+          238
+        ],
+        [
+          232,
+          244,
+          237
+        ],
+        [
+          231,
+          244,
+          238
+        ]
+      ],
+      "ratios": [
+        6.34,
+        6.336,
+        6.328
+      ],
+      "minimumRatio": 6.328,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "AI product entry on focused pale blue",
+      "selector": "[aria-label=\"到商品库，从详情读取商品\"]",
+      "color": "rgb(0, 102, 204)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 14,
+      "fontWeight": 400,
+      "opacity": 1,
+      "rect": {
+        "x": 73,
+        "y": 385.953125,
+        "width": 83.65625,
+        "height": 44
+      },
+      "sampleY": 389.953125,
+      "parents": [
+        {
+          "tag": "ARTICLE",
+          "className": "",
+          "backgroundColor": "rgba(241, 247, 255, 0.898)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "DIV",
+          "className": "ai-system-workspace_useList__dOFl_",
+          "backgroundColor": "rgba(255, 255, 255, 0.94)",
+          "backgroundImage": "linear-gradient(185deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.22) 20%, rgba(0, 0, 0, 0) 46%), none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-ai",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-ai-entry-390-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ]
+      ],
+      "ratios": [
+        5.166,
+        5.166,
+        5.166
+      ],
+      "minimumRatio": 5.166,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "AI purpose heading",
+      "selector": "[data-ai-purpose=\"product_reading\"] h4",
+      "color": "rgb(29, 29, 31)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 15,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 73,
+        "y": 326.015625,
+        "width": 284,
+        "height": 22.5
+      },
+      "sampleY": 349.515625,
+      "parents": [
+        {
+          "tag": "ARTICLE",
+          "className": "",
+          "backgroundColor": "rgba(241, 247, 255, 0.965)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "DIV",
+          "className": "ai-system-workspace_useList__dOFl_",
+          "backgroundColor": "rgba(255, 255, 255, 0.94)",
+          "backgroundImage": "linear-gradient(185deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.22) 20%, rgba(0, 0, 0, 0) 46%), none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-ai",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 844,
+        "motion": "no-preference"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-ai-entry-390-no-preference.png",
+      "sampledBackgrounds": [
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ]
+      ],
+      "ratios": [
+        15.619,
+        15.619,
+        15.619
+      ],
+      "minimumRatio": 15.619,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Header brand",
+      "selector": ".procurement-header .brand-name",
+      "color": "rgb(29, 29, 31)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 15,
+      "fontWeight": 650,
+      "opacity": 1,
+      "rect": {
+        "x": 64,
+        "y": 14.96875,
+        "width": 86.484375,
+        "height": 18.75
+      },
+      "sampleY": 34.71875,
+      "parents": [
+        {
+          "tag": "HEADER",
+          "className": "ios-header procurement-header procurement-header-back",
+          "backgroundColor": "rgba(255, 255, 255, 0.76)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-reduce.png",
+      "sampledBackgrounds": [
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ]
+      ],
+      "ratios": [
+        16.346,
+        16.346,
+        16.346
+      ],
+      "minimumRatio": 16.346,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Header exchange rate",
+      "selector": ".procurement-header .exchange-rate-inline",
+      "color": "rgb(88, 97, 108)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 11,
+      "fontWeight": 400,
+      "opacity": 1,
+      "rect": {
+        "x": 64,
+        "y": 37.71875,
+        "width": 86.484375,
+        "height": 14.296875
+      },
+      "sampleY": 53.015625,
+      "parents": [
+        {
+          "tag": "HEADER",
+          "className": "ios-header procurement-header procurement-header-back",
+          "backgroundColor": "rgba(255, 255, 255, 0.76)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-reduce.png",
+      "sampledBackgrounds": [
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ],
+        [
+          249,
+          252,
+          255
+        ]
+      ],
+      "ratios": [
+        6.104,
+        6.104,
+        6.104
+      ],
+      "minimumRatio": 6.104,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav home",
+      "selector": ".primary-navigation [aria-label=\"首页\"] .primary-navigation-label",
+      "color": "rgb(99, 102, 109)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 45.75,
+        "y": 543.40625,
+        "width": 24,
+        "height": 13.1875
+      },
+      "sampleY": 557.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.93)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-reduce.png",
+      "sampledBackgrounds": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "ratios": [
+        5.75,
+        5.75,
+        5.75
+      ],
+      "minimumRatio": 5.75,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav AI",
+      "selector": ".primary-navigation [aria-label=\"AI\"] .primary-navigation-label",
+      "color": "rgb(99, 102, 109)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 142.71875,
+        "y": 543.40625,
+        "width": 13.0625,
+        "height": 13.1875
+      },
+      "sampleY": 557.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.93)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-reduce.png",
+      "sampledBackgrounds": [
+        [
+          254,
+          254,
+          255
+        ],
+        [
+          254,
+          254,
+          255
+        ],
+        [
+          254,
+          255,
+          255
+        ]
+      ],
+      "ratios": [
+        5.705,
+        5.705,
+        5.74
+      ],
+      "minimumRatio": 5.705,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav messages",
+      "selector": ".primary-navigation [aria-label=\"消息\"] .primary-navigation-label",
+      "color": "rgb(99, 102, 109)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 228.75,
+        "y": 543.40625,
+        "width": 24,
+        "height": 13.1875
+      },
+      "sampleY": 557.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.93)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-reduce.png",
+      "sampledBackgrounds": [
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ],
+        [
+          255,
+          255,
+          255
+        ]
+      ],
+      "ratios": [
+        5.75,
+        5.75,
+        5.75
+      ],
+      "minimumRatio": 5.75,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Nav active workbench",
+      "selector": ".primary-navigation [aria-label=\"工作台\"] .primary-navigation-label",
+      "color": "rgb(0, 102, 204)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 12,
+      "fontWeight": 600,
+      "opacity": 1,
+      "rect": {
+        "x": 314.25,
+        "y": 543.40625,
+        "width": 36,
+        "height": 13.1875
+      },
+      "sampleY": 557.59375,
+      "parents": [
+        {
+          "tag": "NAV",
+          "className": "ios-nav primary-navigation primary-navigation_navigation__NwbBQ",
+          "backgroundColor": "rgba(255, 255, 255, 0.93)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-reduce.png",
+      "sampledBackgrounds": [
+        [
+          237,
+          245,
+          255
+        ],
+        [
+          235,
+          244,
+          255
+        ],
+        [
+          234,
+          243,
+          255
+        ]
+      ],
+      "ratios": [
+        5.065,
+        5.014,
+        4.974
+      ],
+      "minimumRatio": 4.974,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "Inventory success receipt",
+      "selector": "[class*=\"actionReceipt\"]",
+      "color": "rgb(35, 99, 66)",
+      "backgroundColor": "rgba(231, 245, 237, 0.92)",
+      "backgroundImage": "none",
+      "fontSize": 13,
+      "fontWeight": 500,
+      "opacity": 1,
+      "rect": {
+        "x": 16,
+        "y": 245.578125,
+        "width": 358,
+        "height": 46.796875
+      },
+      "sampleY": 249.578125,
+      "parents": [
+        {
+          "tag": "P",
+          "className": "operations-editorial_actionReceipt__Jh6mi",
+          "backgroundColor": "rgba(231, 245, 237, 0.92)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-orders",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-orders-390-reduce.png",
+      "sampledBackgrounds": [
+        [
+          232,
+          244,
+          237
+        ],
+        [
+          232,
+          244,
+          237
+        ],
+        [
+          231,
+          244,
+          237
+        ]
+      ],
+      "ratios": [
+        6.336,
+        6.336,
+        6.324
+      ],
+      "minimumRatio": 6.324,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "AI product entry on focused pale blue",
+      "selector": "[aria-label=\"到商品库，从详情读取商品\"]",
+      "color": "rgb(0, 102, 204)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 14,
+      "fontWeight": 400,
+      "opacity": 1,
+      "rect": {
+        "x": 73,
+        "y": 247.953125,
+        "width": 83.65625,
+        "height": 44
+      },
+      "sampleY": 251.953125,
+      "parents": [
+        {
+          "tag": "ARTICLE",
+          "className": "",
+          "backgroundColor": "rgb(241, 247, 255)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "DIV",
+          "className": "ai-system-workspace_useList__dOFl_",
+          "backgroundColor": "rgba(255, 255, 255, 0.94)",
+          "backgroundImage": "linear-gradient(185deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.22) 20%, rgba(0, 0, 0, 0) 46%), none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-ai",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-ai-entry-390-reduce.png",
+      "sampledBackgrounds": [
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ]
+      ],
+      "ratios": [
+        5.166,
+        5.166,
+        5.166
+      ],
+      "minimumRatio": 5.166,
+      "threshold": 4.5,
+      "pass": true
+    },
+    {
+      "name": "AI purpose heading",
+      "selector": "[data-ai-purpose=\"product_reading\"] h4",
+      "color": "rgb(29, 29, 31)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "backgroundImage": "none",
+      "fontSize": 15,
+      "fontWeight": 550,
+      "opacity": 1,
+      "rect": {
+        "x": 73,
+        "y": 188.015625,
+        "width": 284,
+        "height": 22.5
+      },
+      "sampleY": 211.515625,
+      "parents": [
+        {
+          "tag": "ARTICLE",
+          "className": "",
+          "backgroundColor": "rgb(241, 247, 255)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "DIV",
+          "className": "ai-system-workspace_useList__dOFl_",
+          "backgroundColor": "rgba(255, 255, 255, 0.94)",
+          "backgroundImage": "linear-gradient(185deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.22) 20%, rgba(0, 0, 0, 0) 46%), none"
+        },
+        {
+          "tag": "MAIN",
+          "className": "ios-shell procurement-shell scanline min-h-dvh workspace-ai",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "radial-gradient(70% 52% at 96% 0px, rgba(100, 210, 255, 0.24), rgba(0, 0, 0, 0) 68%), radial-gradient(64% 54% at 0px 100%, rgba(164, 230, 191, 0.2), rgba(0, 0, 0, 0) 68%), linear-gradient(145deg, rgb(233, 242, 248), rgb(245, 246, 248) 48%, rgb(238, 246, 241))"
+        },
+        {
+          "tag": "BODY",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        },
+        {
+          "tag": "HTML",
+          "className": "",
+          "backgroundColor": "rgb(185, 219, 240)",
+          "backgroundImage": "none"
+        }
+      ],
+      "settings": {
+        "width": 390,
+        "height": 568,
+        "motion": "reduce"
+      },
+      "screenshot": "work/deep-apple/operations-production/contrast-ai-entry-390-reduce.png",
+      "sampledBackgrounds": [
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ],
+        [
+          241,
+          247,
+          255
+        ]
+      ],
+      "ratios": [
+        15.619,
+        15.619,
+        15.619
+      ],
+      "minimumRatio": 15.619,
+      "threshold": 4.5,
+      "pass": true
+    }
+  ]
+}

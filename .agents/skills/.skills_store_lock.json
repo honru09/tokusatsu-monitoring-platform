@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "@user_a41ae6c8/xianyu-title-generator": {
+      "name": "闲鱼爆款标题生成器",
+      "zip_url": "https://api.skillhub.cn/api/v1/download?slug=xianyu-title-generator&namespace=user_a41ae6c8",
+      "source": "community",
+      "version": "1.0.0",
+      "namespace": {
+        "canonicalName": "@user_a41ae6c8/xianyu-title-generator",
+        "displayName": "user_a41ae6c8",
+        "handle": "user_a41ae6c8",
+        "publicSlug": "xianyu-title-generator"
+      },
+      "internalSlug": "xianyu-title-generator",
+      "publicSlug": "xianyu-title-generator",
+      "installDir": "D:\\tokusatsu-monitoring-platform\\.agents\\skills\\@user_a41ae6c8\\xianyu-title-generator"
+    }
+  }
+}

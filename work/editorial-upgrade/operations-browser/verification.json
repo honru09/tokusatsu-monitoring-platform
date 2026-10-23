@@ -1,0 +1,500 @@
+{
+  "target": "http://127.0.0.1:3105",
+  "results": [
+    {
+      "workspace": "orders",
+      "viewport": {
+        "width": 320,
+        "height": 667
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 9
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "monitoring",
+      "viewport": {
+        "width": 320,
+        "height": 667
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "logistics",
+      "viewport": {
+        "width": 320,
+        "height": 667
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 5
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "calculator",
+      "viewport": {
+        "width": 320,
+        "height": 667
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "intel",
+      "viewport": {
+        "width": 320,
+        "height": 667
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 7
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "orders",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 9
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "monitoring",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "logistics",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 5
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "calculator",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "intel",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 7
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "orders",
+      "state": "empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 8
+      }
+    },
+    {
+      "workspace": "monitoring",
+      "state": "empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 5
+      }
+    },
+    {
+      "workspace": "logistics",
+      "state": "empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 4
+      }
+    },
+    {
+      "workspace": "intel",
+      "state": "empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 6
+      }
+    },
+    {
+      "workspace": "orders",
+      "state": "error",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 8
+      }
+    },
+    {
+      "workspace": "monitoring",
+      "state": "error",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 3
+      }
+    },
+    {
+      "workspace": "logistics",
+      "state": "error",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 4
+      }
+    },
+    {
+      "workspace": "intel",
+      "state": "error",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 6
+      }
+    },
+    {
+      "workspace": "orders",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 9
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "monitoring",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "logistics",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 5
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "calculator",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "intel",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 7
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "orders",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 9
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "monitoring",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "logistics",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 5
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "calculator",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "intel",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 7
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "orders",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 9
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "monitoring",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "logistics",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 5
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "calculator",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 12
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "intel",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 7
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "orders",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 9
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "monitoring",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "logistics",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 5
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "calculator",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 11
+      },
+      "interaction": "passed"
+    },
+    {
+      "workspace": "intel",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "baseline": {
+        "overflow": false,
+        "small": [],
+        "controls": 7
+      },
+      "interaction": "passed"
+    }
+  ],
+  "passed": true
+}
