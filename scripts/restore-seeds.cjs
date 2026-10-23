@@ -60,25 +60,34 @@ async function main() {
 
   console.log('=== Starting Database Restoration from Seeds ===');
 
-  // 1. Dictionaries & Taxonomies
+  // 1. Sources (ensure all sources exist and build key -> id mapping)
+  const sourcesSeed = readJsonOrGz(path.join(seedsDir, 'sources.json')) || [];
+  if (sourcesSeed.length > 0) {
+    await safeStep('source', () => bulkInsert('source', sourcesSeed));
+  }
+  const sourcesInDb = await prisma.source.findMany();
+  const sourceKeyToDbId = new Map(sourcesInDb.map(s => [s.key, s.id]));
+  const sourceSeedIdToKey = new Map(sourcesSeed.map(s => [s.id, s.key]));
+
+  // 2. Dictionaries & Taxonomies
   await safeStep('franchise', () => bulkInsert('franchise', readJsonOrGz(path.join(seedsDir, 'franchises.json'))));
   await safeStep('series', () => bulkInsert('series', readJsonOrGz(path.join(seedsDir, 'series.json'))));
   await safeStep('productToyType', () => bulkInsert('productToyType', readJsonOrGz(path.join(seedsDir, 'product_toy_types.json'))));
   await safeStep('productManufacturer', () => bulkInsert('productManufacturer', readJsonOrGz(path.join(seedsDir, 'product_manufacturers.json'))));
   await safeStep('catalogAlias', () => bulkInsert('catalogAlias', readJsonOrGz(path.join(seedsDir, 'catalog_aliases.json'))));
 
-  // 2. Monitoring setup
+  // 3. Monitoring setup
   await safeStep('monitoringCategory', () => bulkInsert('monitoringCategory', readJsonOrGz(path.join(seedsDir, 'monitoring_categories.json'))));
   await safeStep('monitoringKeyword', () => bulkInsert('monitoringKeyword', readJsonOrGz(path.join(seedsDir, 'monitoring_keywords.json'))));
 
-  // 3. Shipping & Logistics with carrier dynamic mapping
+  // 4. Shipping & Logistics
   await safeStep('shippingCarrier', () => bulkInsert('shippingCarrier', readJsonOrGz(path.join(seedsDir, 'shipping_carriers.json'))));
 
   await safeStep('shippingTariff', async () => {
     const carriersInDb = await prisma.shippingCarrier.findMany();
-    const carriersSeed = readJsonOrGz(path.join(seedsDir, 'shipping_carriers.json')) || [];
+    const carrierSeed = readJsonOrGz(path.join(seedsDir, 'shipping_carriers.json')) || [];
     const carrierMap = new Map();
-    for (const cs of carriersSeed) {
+    for (const cs of carrierSeed) {
       const match = carriersInDb.find(c => c.key === cs.key);
       if (match) carrierMap.set(cs.id, match.id);
     }
@@ -92,7 +101,7 @@ async function main() {
     }
   });
 
-  // 4. Sellers & Products
+  // 5. Sellers & Products
   await safeStep('seller', async () => {
     const sellers = readJsonOrGz(path.join(seedsDir, 'all_sellers.json.gz'));
     if (sellers) await bulkInsert('seller', sellers);
@@ -103,25 +112,37 @@ async function main() {
     if (products) await bulkInsert('product', products);
   });
 
-  // 5. Catalog Items (50,548 items)
+  // 6. Catalog Items (50,548 items) - Normalize sourceId from source relation object
   await safeStep('item', async () => {
-    const items = readJsonOrGz(path.join(seedsDir, 'all_catalog_items.json.gz'));
-    if (items) await bulkInsert('item', items);
+    const rawItems = readJsonOrGz(path.join(seedsDir, 'all_catalog_items.json.gz'));
+    if (rawItems && rawItems.length > 0) {
+      const normalizedItems = rawItems.map(item => {
+        const { source, ...rest } = item;
+        const oldSourceId = item.sourceId || source?.id;
+        const sourceKey = source?.key || sourceSeedIdToKey.get(oldSourceId);
+        const resolvedSourceId = (sourceKey && sourceKeyToDbId.get(sourceKey)) || oldSourceId;
+        return {
+          ...rest,
+          sourceId: resolvedSourceId
+        };
+      });
+      await bulkInsert('item', normalizedItems);
+    }
   });
 
-  // 6. Item Images (49,832 images)
+  // 7. Item Images (49,832 images)
   await safeStep('itemImage', async () => {
     const images = readJsonOrGz(path.join(seedsDir, 'all_item_images.json.gz'));
     if (images) await bulkInsert('itemImage', images);
   });
 
-  // 7. Keyword matches
+  // 8. Keyword matches
   await safeStep('monitoringKeywordMatch', async () => {
     const matches = readJsonOrGz(path.join(seedsDir, 'all_keyword_matches.json.gz'));
     if (matches) await bulkInsert('monitoringKeywordMatch', matches);
   });
 
-  // 8. Classifications
+  // 9. Classifications
   await safeStep('itemClassification Part 1', async () => {
     const c1 = readJsonOrGz(path.join(seedsDir, 'all_classifications_part1.json.gz'));
     if (c1) await bulkInsert('itemClassification', c1);
@@ -131,10 +152,10 @@ async function main() {
     if (c2) await bulkInsert('itemClassification', c2);
   });
 
-  // 9. Orders & Resale
+  // 10. Purchase Bundles FIRST, then Inventory Orders, Purchase Records, Resale
+  await safeStep('purchaseBundle', () => bulkInsert('purchaseBundle', readJsonOrGz(path.join(seedsDir, 'purchase_bundles.json'))));
   await safeStep('inventoryOrder', () => bulkInsert('inventoryOrder', readJsonOrGz(path.join(seedsDir, 'inventory_orders.json'))));
   await safeStep('purchaseRecord', () => bulkInsert('purchaseRecord', readJsonOrGz(path.join(seedsDir, 'purchase_records.json'))));
-  await safeStep('purchaseBundle', () => bulkInsert('purchaseBundle', readJsonOrGz(path.join(seedsDir, 'purchase_bundles.json'))));
   await safeStep('resaleListing', () => bulkInsert('resaleListing', readJsonOrGz(path.join(seedsDir, 'resale_listings.json'))));
   await safeStep('resaleSettings', () => bulkInsert('resaleSettings', readJsonOrGz(path.join(seedsDir, 'resale_settings.json'))));
 
