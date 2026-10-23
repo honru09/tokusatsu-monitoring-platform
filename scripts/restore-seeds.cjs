@@ -1,9 +1,25 @@
-const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const prisma = new PrismaClient();
+let PrismaClient;
+try {
+  PrismaClient = require('@prisma/client').PrismaClient;
+} catch {
+  try {
+    PrismaClient = require(path.resolve(__dirname, '../packages/db/node_modules/@prisma/client')).PrismaClient;
+  } catch {
+    PrismaClient = require(path.resolve(__dirname, '../node_modules/@prisma/client')).PrismaClient;
+  }
+}
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL || 'postgresql://tokusatsu:change-me-in-production@127.0.0.1:55432/tokusatsu?schema=public'
+    }
+  }
+});
 
 function readJsonOrGz(filePath) {
   if (!fs.existsSync(filePath)) return null;

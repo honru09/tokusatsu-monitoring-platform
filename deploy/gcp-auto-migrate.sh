@@ -249,9 +249,8 @@ sleep 15
 echo "=== [5/5] 还原 50,000+ 件特摄业务数据与字典 ==="
 cd ~/tokusatsu-monitoring-platform
 git pull origin main || true
-pnpm config set runtime-on-fail warn
-pnpm install --filter @tokusatsu/db --no-runtime
-pnpm --filter @tokusatsu/db generate
+pnpm install --filter @tokusatsu/db --no-runtime || true
+pnpm --filter @tokusatsu/db generate || true
 DATABASE_URL="postgresql://tokusatsu:change-me-in-production@127.0.0.1:55432/tokusatsu?schema=public" node scripts/restore-seeds.cjs || true
 
 # 安装并启动 Cloudflared 服务 (自启动保活)
