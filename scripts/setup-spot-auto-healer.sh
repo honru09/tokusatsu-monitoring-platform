@@ -54,7 +54,7 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --role="roles/workflows.invoker" \
     --condition=None >/dev/null
 
-# 3. 创建自愈工作流定义文件
+# 3. 创建自愈工作流定义文件 (所有表达式均用单引号包裹以符合 YAML 规范)
 echo "[3/7] 生成云端自愈工作流 (Workflow Definition)..."
 cat << 'EOF' > /tmp/spot-auto-healer-workflow.yaml
 main:
@@ -62,24 +62,24 @@ main:
   steps:
     - init:
         assign:
-          - projectId: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - projectId: '${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}'
           - zone: "asia-northeast1-b"
           - instanceName: "tokusatsu-cloud-server"
 
     - check_instance_status:
         call: googleapis.compute.v1.instances.get
         args:
-          project: ${projectId}
-          zone: ${zone}
-          instance: ${instanceName}
+          project: '${projectId}'
+          zone: '${zone}'
+          instance: '${instanceName}'
         result: instanceDetails
 
     - evaluate_status:
         switch:
-          - condition: ${instanceDetails.status == "RUNNING"}
+          - condition: '${instanceDetails.status == "RUNNING"}'
             next: instance_running
 
-          - condition: ${instanceDetails.status == "TERMINATED" or instanceDetails.status == "STOPPED"}
+          - condition: '${instanceDetails.status == "TERMINATED" or instanceDetails.status == "STOPPED"}'
             next: start_instance
 
         next: unknown_status
@@ -88,9 +88,9 @@ main:
         try:
           call: googleapis.compute.v1.instances.start
           args:
-            project: ${projectId}
-            zone: ${zone}
-            instance: ${instanceName}
+            project: '${projectId}'
+            zone: '${zone}'
+            instance: '${instanceName}'
           result: startResult
         except:
           as: err
@@ -98,25 +98,25 @@ main:
             - log_capacity_wait:
                 call: sys.log
                 args:
-                  data: ${"Spot capacity temporarily unavailable, will retry next cycle: " + err.message}
+                  data: '${"Spot capacity temporarily unavailable, will retry next cycle - " + err.message}'
                 next: end
 
     - log_started:
         call: sys.log
         args:
-          data: ${"Spot VM " + instanceName + " was preempted/stopped and has been successfully restarted!"}
+          data: '${"Spot VM " + instanceName + " was preempted/stopped and has been successfully restarted!"}'
         next: end
 
     - instance_running:
         call: sys.log
         args:
-          data: ${"Spot VM " + instanceName + " is healthy and RUNNING."}
+          data: '${"Spot VM " + instanceName + " is healthy and RUNNING."}'
         next: end
 
     - unknown_status:
         call: sys.log
         args:
-          data: ${"Instance is in state " + instanceDetails.status + ", waiting for next cycle."}
+          data: '${"Instance is in state " + instanceDetails.status + ", waiting for next cycle."}'
         next: end
 EOF
 
@@ -171,11 +171,11 @@ gcloud compute instances start "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJE
 
 # 7. 等待 SSH 与容器就绪，自动执行全量数据恢复
 echo "[7/7] 等待虚拟机及数据库容器启动就绪，自动同步全量 50,548 条数据..."
-for i in {1..12}; do
+for i in {1..15}; do
     if gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --command="echo ready" >/dev/null 2>&1; then
         break
     fi
-    echo "等待 SSH 通道就绪 ($i/12)..."
+    echo "等待 SSH 通道就绪 ($i/15)..."
     sleep 5
 done
 
@@ -183,7 +183,7 @@ gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --com
   cd ~/tokusatsu-monitoring-platform && \
   git pull origin main && \
   echo '等待 PostgreSQL 容器就绪...' && \
-  for j in {1..15}; do
+  for j in {1..20}; do
     if docker exec tokusatsu-postgres pg_isready -U tokusatsu >/dev/null 2>&1; then
       break
     fi
