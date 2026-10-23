@@ -30,9 +30,45 @@ export type CollaborationItem = {
   sourceUrl: string;
   priceCurrent: number;
   source: { key: string; displayName: string };
+  seller?: { id?: string; name: string } | null;
   images: { url: string; position: number }[];
   product?: { titleZh?: string | null } | null;
 };
+
+export type PendingCollaborationBundle = {
+  items: CollaborationItem[];
+  targetPriceYen?: number | null;
+  sellerName?: string | null;
+};
+
+export function buildBundleNegotiationScript(
+  items: CollaborationItem[],
+  targetPriceYen?: number | null,
+): string {
+  if (!items.length) return "";
+  if (items.length === 1) {
+    const priceText =
+      targetPriceYen && targetPriceYen > 0
+        ? `${targetPriceYen.toLocaleString("ja-JP")}円にお値下げ可能でしょうか？`
+        : "お気持ちお値下げいただくことは可能でしょうか？";
+    return `コメント失礼いたします。購入を考えているのですが、こちらの商品は${priceText}即決いたしますので、ご検討よろしくお願いいたします。`;
+  }
+  const lines = items.map(
+    (item) =>
+      `・${item.titleRaw.trim()}（¥${item.priceCurrent.toLocaleString("ja-JP")}）`,
+  );
+  const askLine =
+    targetPriceYen && targetPriceYen > 0
+      ? `同梱発送で構いませんので、合計${targetPriceYen.toLocaleString("ja-JP")}円でお譲りいただくことは可能でしょうか？`
+      : "同梱発送で構いませんので、まとめ割でお気持ちお値引きいただくことは可能でしょうか？";
+  return [
+    "コメント失礼いたします。",
+    `出品されている以下の${items.length}点をまとめて購入希望です。`,
+    ...lines,
+    askLine,
+    "即決いたしますので、ご検討よろしくお願いいたします。",
+  ].join("\n");
+}
 
 type MessageReaction = {
   id: string;
@@ -107,6 +143,8 @@ type DirectMessage = {
   sender: ManagerAccount;
   recipient: ManagerAccount;
   item?: CollaborationItem | null;
+  bundleItems?: CollaborationItem[];
+  targetPriceYen?: number | null;
   replyTo?: Pick<DirectMessage, "id" | "text" | "sender" | "item"> | null;
   reactions: MessageReaction[];
   optimistic?: boolean;
@@ -329,39 +367,246 @@ function mergeMessages(current: DirectMessage[], incoming: DirectMessage[]) {
 
 function ProductReference({
   item,
+  targetPriceYen,
   onOpen,
 }: {
   item: CollaborationItem;
+  targetPriceYen?: number | null;
   onOpen: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  const copyScript = () => {
+    const script = buildBundleNegotiationScript([item], targetPriceYen);
+    void navigator.clipboard?.writeText(script);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  };
   return (
-    <div className="collaboration-product">
-      <span className="collaboration-product-image">
-        {item.images[0]?.url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.images[0].url} alt="" loading="lazy" />
-        ) : (
-          <ProductGlyph />
-        )}
-      </span>
-      <span className="collaboration-product-copy">
-        <strong>{itemTitle(item)}</strong>
-        <span>
-          {yen(item.priceCurrent)} · {item.source.displayName}
+    <div className="collaboration-product-wrapper space-y-1.5">
+      <div className="collaboration-product">
+        <span className="collaboration-product-image">
+          {item.images[0]?.url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.images[0].url} alt="" loading="lazy" />
+          ) : (
+            <ProductGlyph />
+          )}
         </span>
-        <YahooDiscount
-          sourceKey={item.source.key}
-          priceYen={item.priceCurrent}
-        />
-      </span>
-      <button
-        type="button"
-        className="collaboration-product-open"
-        aria-label={`打开商品：${itemTitle(item)}`}
-        onClick={onOpen}
-      >
-        <ChevronRightIcon />
-      </button>
+        <span className="collaboration-product-copy">
+          <strong>{itemTitle(item)}</strong>
+          <span>
+            {yen(item.priceCurrent)} · {item.source.displayName}
+            {item.seller?.name ? ` · ${item.seller.name}` : ""}
+          </span>
+          {targetPriceYen && targetPriceYen > 0 ? (
+            <span className="inline-block text-[11px] font-semibold text-emerald-700">
+              目标价 {yen(targetPriceYen)}（省{" "}
+              {yen(Math.max(0, item.priceCurrent - targetPriceYen))}）
+            </span>
+          ) : null}
+          <YahooDiscount
+            sourceKey={item.source.key}
+            priceYen={item.priceCurrent}
+          />
+        </span>
+        <button
+          type="button"
+          className="collaboration-product-open"
+          aria-label={`打开商品：${itemTitle(item)}`}
+          onClick={onOpen}
+        >
+          <ChevronRightIcon />
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+        <button
+          type="button"
+          onClick={copyScript}
+          className="inline-flex min-h-8 items-center gap-1 rounded-full bg-black/[0.06] px-2.5 py-1 text-[11px] font-semibold text-ink transition active:scale-[0.97] hover:bg-black/[0.1]"
+        >
+          {copied ? "✓ 已复制砍价日语" : "复制砍价日语"}
+        </button>
+        <a
+          href={item.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-8 items-center gap-1 rounded-full bg-black/[0.06] px-2.5 py-1 text-[11px] font-semibold text-ink transition active:scale-[0.97] hover:bg-black/[0.1]"
+        >
+          直达原商品 ↗
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function BundleProductReference({
+  items,
+  targetPriceYen,
+  onOpenItem,
+}: {
+  items: CollaborationItem[];
+  targetPriceYen?: number | null;
+  onOpenItem: (id: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [showScript, setShowScript] = useState(false);
+  const totalOriginalYen = useMemo(
+    () => items.reduce((sum, entry) => sum + entry.priceCurrent, 0),
+    [items],
+  );
+  const effectiveTargetYen =
+    targetPriceYen && targetPriceYen > 0 ? targetPriceYen : null;
+  const savingsYen = effectiveTargetYen
+    ? Math.max(0, totalOriginalYen - effectiveTargetYen)
+    : 0;
+  const sellerNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          items
+            .map((entry) => entry.seller?.name?.trim())
+            .filter((name): name is string => Boolean(name)),
+        ),
+      ),
+    [items],
+  );
+  const script = useMemo(
+    () => buildBundleNegotiationScript(items, effectiveTargetYen),
+    [effectiveTargetYen, items],
+  );
+  const copyScript = () => {
+    void navigator.clipboard?.writeText(script);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+  const openAllLinks = () => {
+    for (const entry of items) {
+      window.open(entry.sourceUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+  const primaryItem = items[0];
+  return (
+    <div className="mt-1.5 overflow-hidden rounded-2xl border border-black/[0.08] bg-white/95 p-3 text-ink shadow-sm backdrop-blur-md">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/[0.06] pb-2.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="inline-flex items-center rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold tracking-tight text-white">
+            集合砍价 · {items.length} 件
+          </span>
+          <span className="truncate text-xs font-semibold text-ink/70">
+            {sellerNames.length === 1
+              ? `同店：${sellerNames[0]}`
+              : sellerNames.length > 1
+                ? `${sellerNames.length} 位卖家组合`
+                : primaryItem?.source.displayName ?? "多商品集合"}
+          </span>
+        </div>
+        <div className="text-right font-mono text-xs tabular-nums">
+          <span className="text-ink/55">原价合计 </span>
+          <strong className="font-bold text-ink">{yen(totalOriginalYen)}</strong>
+          {effectiveTargetYen ? (
+            <span className="ml-1.5 inline-flex items-center rounded-md bg-emerald-500/12 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800">
+              目标 {yen(effectiveTargetYen)}
+              {savingsYen > 0 ? ` · 省 ${yen(savingsYen)}` : ""}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-2 divide-y divide-black/[0.05]">
+        {items.map((entry, idx) => (
+          <div
+            key={entry.id}
+            className="flex items-center gap-2.5 py-2 first:pt-0.5 last:pb-0.5"
+          >
+            <button
+              type="button"
+              onClick={() => onOpenItem(entry.id)}
+              className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-black/5"
+              aria-label={`查看 ${itemTitle(entry)}`}
+            >
+              {entry.images[0]?.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={entry.images[0].url}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="grid h-full w-full place-items-center text-[10px] font-bold text-ink/40">
+                  #{idx + 1}
+                </span>
+              )}
+              <span className="absolute left-0.5 top-0.5 rounded bg-black/65 px-1 text-[9px] font-bold text-white tabular-nums">
+                {idx + 1}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenItem(entry.id)}
+              className="min-w-0 flex-1 text-left"
+            >
+              <strong className="block truncate text-xs font-semibold text-ink">
+                {itemTitle(entry)}
+              </strong>
+              <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-ink/60">
+                {yen(entry.priceCurrent)} · {entry.source.displayName}
+              </span>
+            </button>
+            <a
+              href={entry.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 rounded-lg border border-black/[0.08] bg-black/[0.03] px-2 py-1 text-[11px] font-semibold text-ink/80 transition active:scale-[0.97] hover:bg-black/[0.07]"
+            >
+              直达 ↗
+            </a>
+          </div>
+        ))}
+      </div>
+
+      {showScript && (
+        <pre
+          lang="ja"
+          className="mt-2.5 whitespace-pre-wrap rounded-xl bg-black/[0.04] p-2.5 font-sans text-xs leading-relaxed text-ink/85"
+        >
+          {script}
+        </pre>
+      )}
+
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-black/[0.06] pt-2.5">
+        <button
+          type="button"
+          onClick={copyScript}
+          className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition active:scale-[0.97] hover:bg-ink/90"
+        >
+          {copied ? "✓ 已复制合并砍价日语" : "📋 一键复制合并砍价日语"}
+        </button>
+        {primaryItem && (
+          <a
+            href={primaryItem.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold text-ink transition active:scale-[0.97] hover:bg-black/[0.04]"
+          >
+            去第 1 件留言 ↗
+          </a>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowScript((prev) => !prev)}
+          className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.08] bg-black/[0.03] px-2.5 py-1.5 text-[11px] font-medium text-ink/70 transition active:scale-[0.97] hover:bg-black/[0.06]"
+        >
+          {showScript ? "收起日语" : "预览日语"}
+        </button>
+        <button
+          type="button"
+          onClick={openAllLinks}
+          className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.08] bg-black/[0.03] px-2.5 py-1.5 text-[11px] font-medium text-ink/70 transition active:scale-[0.97] hover:bg-black/[0.06]"
+        >
+          全开 ({items.length})
+        </button>
+      </div>
     </div>
   );
 }
@@ -372,6 +617,8 @@ export function CollaborationChatWorkspace({
   accounts,
   pendingItem,
   onPendingItemConsumed,
+  pendingBundle = null,
+  onPendingBundleConsumed,
   onOpenItem,
   onSwitchAccount,
   cartCount,
@@ -386,6 +633,8 @@ export function CollaborationChatWorkspace({
   accounts: ManagerAccount[];
   pendingItem: CollaborationItem | null;
   onPendingItemConsumed: () => void;
+  pendingBundle?: PendingCollaborationBundle | null;
+  onPendingBundleConsumed?: () => void;
   onOpenItem: (id: string) => Promise<boolean>;
   onSwitchAccount: () => void;
   cartCount: number;
@@ -412,6 +661,12 @@ export function CollaborationChatWorkspace({
   );
   const [attachedItem, setAttachedItem] = useState<CollaborationItem | null>(
     pendingItem,
+  );
+  const [attachedBundleItems, setAttachedBundleItems] = useState<
+    CollaborationItem[]
+  >(() => pendingBundle?.items ?? []);
+  const [bundleTargetPrice, setBundleTargetPrice] = useState<string>(() =>
+    pendingBundle?.targetPriceYen ? String(pendingBundle.targetPriceYen) : "",
   );
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
@@ -462,8 +717,27 @@ export function CollaborationChatWorkspace({
   useEffect(() => {
     if (!pendingItem) return;
     setAttachedItem(pendingItem);
+    setAttachedBundleItems([]);
     setForwardedFrom(null);
   }, [pendingItem]);
+
+  useEffect(() => {
+    if (!pendingBundle?.items?.length) return;
+    if (pendingBundle.items.length === 1) {
+      setAttachedItem(pendingBundle.items[0] ?? null);
+      setAttachedBundleItems([]);
+      setBundleTargetPrice(
+        pendingBundle.targetPriceYen ? String(pendingBundle.targetPriceYen) : "",
+      );
+    } else {
+      setAttachedBundleItems(pendingBundle.items);
+      setAttachedItem(null);
+      setBundleTargetPrice(
+        pendingBundle.targetPriceYen ? String(pendingBundle.targetPriceYen) : "",
+      );
+    }
+    setForwardedFrom(null);
+  }, [pendingBundle]);
 
   const markRead = useCallback(
     async (incoming: DirectMessage[]) => {
@@ -680,23 +954,39 @@ export function CollaborationChatWorkspace({
   async function send(event: FormEvent) {
     event.preventDefault();
     const text = input.trim();
-    if ((!text && !attachedItem) || !other || sendingRef.current) return;
+    const activeItems =
+      attachedBundleItems.length > 0
+        ? attachedBundleItems
+        : attachedItem
+          ? [attachedItem]
+          : [];
+    if ((!text && !activeItems.length) || !other || sendingRef.current) return;
     sendingRef.current = true;
     stickToBottomRef.current = true;
+    const parsedTargetPrice = bundleTargetPrice.trim()
+      ? Math.round(Number(bundleTargetPrice.trim()))
+      : null;
+    const validTargetPrice =
+      parsedTargetPrice && Number.isFinite(parsedTargetPrice) && parsedTargetPrice > 0
+        ? parsedTargetPrice
+        : null;
+    const primaryItem = activeItems[0] ?? null;
     const optimisticId = `optimistic-${Date.now()}`;
     const optimistic: DirectMessage = {
       id: optimisticId,
       senderId: account.id,
       recipientId: other.id,
       text: text || null,
-      itemId: attachedItem?.id,
+      itemId: primaryItem?.id,
       replyToId: replyTo?.id,
       forwardedFromId: forwardedFrom?.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       sender: account,
       recipient: other,
-      item: attachedItem,
+      item: primaryItem,
+      bundleItems: activeItems.length > 0 ? activeItems : undefined,
+      targetPriceYen: validTargetPrice,
       replyTo: replyTo,
       reactions: [],
       optimistic: true,
@@ -706,7 +996,10 @@ export function CollaborationChatWorkspace({
     setReplyTo(null);
     setForwardedFrom(null);
     setAttachedItem(null);
+    setAttachedBundleItems([]);
+    setBundleTargetPrice("");
     onPendingItemConsumed();
+    onPendingBundleConsumed?.();
     setSending(true);
     setError("");
     try {
@@ -717,7 +1010,12 @@ export function CollaborationChatWorkspace({
           senderId: account.id,
           recipientId: other.id,
           text: text || undefined,
-          itemId: optimistic.itemId,
+          itemId: primaryItem?.id,
+          itemIds:
+            activeItems.length > 1
+              ? activeItems.map((entry) => entry.id)
+              : undefined,
+          targetPriceYen: validTargetPrice ?? undefined,
           replyToId: optimistic.replyToId,
           forwardedFromId: optimistic.forwardedFromId,
         }),
@@ -740,7 +1038,12 @@ export function CollaborationChatWorkspace({
         current.filter((message) => message.id !== optimisticId),
       );
       setInput(text);
-      setAttachedItem(optimistic.item ?? null);
+      if (activeItems.length > 1) {
+        setAttachedBundleItems(activeItems);
+      } else {
+        setAttachedItem(primaryItem);
+      }
+      if (validTargetPrice) setBundleTargetPrice(String(validTargetPrice));
       setReplyTo(replyTo);
       setForwardedFrom(forwardedFrom);
       setError(reason instanceof Error ? reason.message : "消息发送失败");
@@ -1131,12 +1434,19 @@ export function CollaborationChatWorkspace({
                   )}
                   <div className="collaboration-bubble">
                     {message.text && <p>{message.text}</p>}
-                    {message.item && (
+                    {message.bundleItems && message.bundleItems.length > 1 ? (
+                      <BundleProductReference
+                        items={message.bundleItems}
+                        targetPriceYen={message.targetPriceYen}
+                        onOpenItem={(id) => void onOpenItem(id)}
+                      />
+                    ) : message.item ? (
                       <ProductReference
                         item={message.item}
+                        targetPriceYen={message.targetPriceYen}
                         onOpen={() => void onOpenItem(message.item!.id)}
                       />
-                    )}
+                    ) : null}
                   </div>
                   <div className="collaboration-message-meta">
                     <time dateTime={message.createdAt}>{messageTime(message.createdAt)}</time>
@@ -1204,7 +1514,16 @@ export function CollaborationChatWorkspace({
                         <button
                           type="button"
                           onClick={() => {
-                            setAttachedItem(message.item!);
+                            if (message.bundleItems && message.bundleItems.length > 1) {
+                              setAttachedBundleItems(message.bundleItems);
+                              setAttachedItem(null);
+                              setBundleTargetPrice(
+                                message.targetPriceYen ? String(message.targetPriceYen) : "",
+                              );
+                            } else {
+                              setAttachedItem(message.item!);
+                              setAttachedBundleItems([]);
+                            }
                             setForwardedFrom(message);
                             setActiveActionMessageId(null);
                             composerInputRef.current?.focus({ preventScroll: true });
@@ -1259,7 +1578,157 @@ export function CollaborationChatWorkspace({
             {reactionError || error}
           </div>
         )}
-        {(replyTo || attachedItem) && (
+        {attachedBundleItems.length > 0 && (
+          <motion.div
+            key="composer-bundle-context"
+            className="mb-2.5 rounded-2xl border border-black/[0.08] bg-white/95 p-3 shadow-sm backdrop-blur-md"
+            data-apple-motion-owned="true"
+            initial={
+              reduceMotion || !pointerInputRef.current
+                ? false
+                : { opacity: 0, transform: "translateY(8px)" }
+            }
+            animate={{
+              opacity: 1,
+              transform:
+                reduceMotion || !pointerInputRef.current
+                  ? "none"
+                  : "translateY(0px)",
+            }}
+            transition={
+              reduceMotion || !pointerInputRef.current
+                ? { duration: 0 }
+                : springs.appleSpatial
+            }
+          >
+            {(() => {
+              const totalOriginalYen = attachedBundleItems.reduce(
+                (sum, entry) => sum + entry.priceCurrent,
+                0,
+              );
+              const presets = [
+                {
+                  label: "9折",
+                  value: Math.round((totalOriginalYen * 0.9) / 100) * 100,
+                },
+                {
+                  label: "85折",
+                  value: Math.round((totalOriginalYen * 0.85) / 100) * 100,
+                },
+                {
+                  label: "8折",
+                  value: Math.round((totalOriginalYen * 0.8) / 100) * 100,
+                },
+              ];
+              return (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="inline-flex items-center rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold text-white">
+                        待发集合 · {attachedBundleItems.length} 件
+                      </span>
+                      <span className="truncate font-mono text-xs font-semibold text-ink/75 tabular-nums">
+                        合计 {yen(totalOriginalYen)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="清空集合商品"
+                      onClick={() => {
+                        setAttachedBundleItems([]);
+                        setBundleTargetPrice("");
+                        setForwardedFrom(null);
+                        onPendingBundleConsumed?.();
+                        composerInputRef.current?.focus({ preventScroll: true });
+                      }}
+                      className="grid h-7 w-7 place-items-center rounded-full bg-black/[0.05] text-ink/60 hover:bg-black/[0.1]"
+                    >
+                      <CloseIcon />
+                    </button>
+                  </div>
+
+                  <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    {attachedBundleItems.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex shrink-0 items-center gap-1.5 rounded-xl border border-black/[0.08] bg-black/[0.02] p-1.5 pr-2"
+                      >
+                        {entry.images[0]?.url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={entry.images[0].url}
+                            alt=""
+                            className="h-8 w-8 rounded-lg object-cover"
+                          />
+                        ) : null}
+                        <div className="max-w-[130px] text-left">
+                          <b className="block truncate text-[11px] font-semibold text-ink">
+                            {itemTitle(entry)}
+                          </b>
+                          <span className="block font-mono text-[10px] text-ink/55 tabular-nums">
+                            {yen(entry.priceCurrent)}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={`移除 ${itemTitle(entry)}`}
+                          onClick={() => {
+                            const next = attachedBundleItems.filter(
+                              (candidate) => candidate.id !== entry.id,
+                            );
+                            if (next.length === 1) {
+                              setAttachedItem(next[0] ?? null);
+                              setAttachedBundleItems([]);
+                            } else {
+                              setAttachedBundleItems(next);
+                            }
+                          }}
+                          className="ml-0.5 text-xs text-ink/45 hover:text-ink"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-medium text-ink/55">
+                      目标打包价：
+                    </span>
+                    {presets.map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() =>
+                          setBundleTargetPrice(String(preset.value))
+                        }
+                        className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition active:scale-[0.97] ${
+                          bundleTargetPrice === String(preset.value)
+                            ? "bg-ink text-white"
+                            : "bg-black/[0.05] text-ink/75 hover:bg-black/[0.09]"
+                        }`}
+                      >
+                        {preset.label} {yen(preset.value)}
+                      </button>
+                    ))}
+                    <input
+                      inputMode="numeric"
+                      value={bundleTargetPrice}
+                      onChange={(event) =>
+                        setBundleTargetPrice(
+                          event.target.value.replace(/[^\d]/g, ""),
+                        )
+                      }
+                      placeholder="自定义日元"
+                      className="h-7 w-28 rounded-lg border border-black/[0.12] bg-white px-2 font-mono text-xs text-ink tabular-nums"
+                    />
+                  </div>
+                </>
+              );
+            })()}
+          </motion.div>
+        )}
+        {(replyTo || attachedItem) && attachedBundleItems.length === 0 && (
           <motion.div key="composer-context" className="collaboration-composer-context"
             data-apple-motion-owned="true"
             initial={reduceMotion || !pointerInputRef.current ? false : { opacity: 0, transform: "translateY(8px)" }} animate={{ opacity: 1, transform: reduceMotion || !pointerInputRef.current ? "none" : "translateY(0px)" }} transition={reduceMotion || !pointerInputRef.current ? { duration: 0 } : springs.appleSpatial}>
@@ -1278,14 +1747,27 @@ export function CollaborationChatWorkspace({
                 {attachedItem ? itemTitle(attachedItem) : replyTo?.text}
               </strong>
             </span>
+            {attachedItem && (
+              <input
+                inputMode="numeric"
+                value={bundleTargetPrice}
+                onChange={(event) =>
+                  setBundleTargetPrice(event.target.value.replace(/[^\d]/g, ""))
+                }
+                placeholder="目标日元(可选)"
+                className="h-8 w-28 shrink-0 rounded-lg border border-black/[0.12] bg-white px-2 font-mono text-xs text-ink tabular-nums"
+              />
+            )}
             <button
               type="button"
               aria-label="移除引用"
               onClick={() => {
                 setReplyTo(null);
                 setAttachedItem(null);
+                setBundleTargetPrice("");
                 setForwardedFrom(null);
                 onPendingItemConsumed();
+                onPendingBundleConsumed?.();
                 composerInputRef.current?.focus({ preventScroll: true });
               }}
             >
@@ -1302,9 +1784,11 @@ export function CollaborationChatWorkspace({
             rows={1}
             maxLength={1200}
             placeholder={
-              attachedItem
-                ? "补充一句…"
-                : `发消息给${other?.displayName ?? "对方"}`
+              attachedBundleItems.length > 0
+                ? "补充一句给砍价搭档（可直接点发送）…"
+                : attachedItem
+                  ? "补充一句…"
+                  : `发消息给${other?.displayName ?? "对方"}`
             }
             aria-label="消息内容"
             onKeyDown={(event) => {
@@ -1324,7 +1808,10 @@ export function CollaborationChatWorkspace({
             onPointerDown={(event) => {
               if (event.pointerType === "touch") event.preventDefault();
             }}
-            disabled={sending || (!input.trim() && !attachedItem)}
+            disabled={
+              sending ||
+              (!input.trim() && !attachedItem && !attachedBundleItems.length)
+            }
             aria-label="发送消息"
           >
             <SendIcon />

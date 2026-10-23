@@ -44,7 +44,9 @@ import { ProductReadingPanel } from "../components/product-reading-panel";
 import { AssistantChatWorkspace } from "../components/assistant-chat-workspace";
 import {
   CollaborationChatWorkspace,
+  buildBundleNegotiationScript,
   type CollaborationItem,
+  type PendingCollaborationBundle,
 } from "../components/collaboration-chat-workspace";
 import {
   ManagerAccountGate,
@@ -1407,6 +1409,8 @@ function ProductCard({
   onCart,
   onShare,
   onSendToManager,
+  inBundleShare = false,
+  onToggleBundleShare,
 }: {
   item: Item;
   serverOffset: number;
@@ -1423,6 +1427,8 @@ function ProductCard({
   onCart: () => void | Promise<void | boolean>;
   onShare: () => void;
   onSendToManager: () => void;
+  inBundleShare?: boolean;
+  onToggleBundleShare?: () => void;
 }) {
   const [showOriginal, setShowOriginal] = useState(language === "original");
   useEffect(() => setShowOriginal(language === "original"), [language]);
@@ -1466,7 +1472,7 @@ function ProductCard({
         item.product?.manufacturerEntity?.nameZh ?? labels[item.manufacturer],
       ].filter((tag): tag is string => Boolean(tag && tag !== "待识别")),
     ),
-  ).slice(0, 3);
+  ).slice(0, 2);
   const chinaComparison = chinaComparisonSummary(item);
   const chinaPrice = fmtCnyAmount(chinaComparison.priceCny);
   const chinaSourceUrl = chinaComparison.sourceUrl;
@@ -1617,7 +1623,7 @@ function ProductCard({
             ) : null}
           </div>
         </div>
-        <div className="product-card-seller mt-2 flex items-center justify-between gap-2 text-[10px] text-ink/50">
+        <div className="product-card-seller mt-2 flex items-center justify-between gap-1.5 text-[10px] text-ink/50">
           <button
             type="button"
             disabled={!item.seller?.id}
@@ -1630,23 +1636,50 @@ function ProductCard({
               event.stopPropagation();
               if (item.seller?.id) onSeller(item.seller.id);
             }}
-            className="truncate text-left hover:text-moss disabled:cursor-default"
+            className="min-w-0 flex-1 truncate text-left transition-colors hover:text-ink disabled:cursor-default"
           >
             <span className="mr-1 text-ink/35">卖家</span>
             {item.seller?.name ?? "卖家未知"}
           </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setShowOriginal((current) => !current);
-            }}
-            aria-label={showOriginal ? "切换为中文" : "切换为原文"}
-            title={showOriginal ? "中文" : "原文"}
-            className="product-card-language-toggle shrink-0"
-          >
-            {showOriginal ? "中" : "原"}
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            {onToggleBundleShare && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleBundleShare();
+                }}
+                aria-pressed={inBundleShare}
+                aria-label={
+                  inBundleShare ? "移出集合分享篮" : "加入集合分享篮"
+                }
+                title={
+                  inBundleShare
+                    ? "已加入集合分享篮，点击移出"
+                    : "加入集合分享篮（与同店商品一起发给搭档砍价）"
+                }
+                className={`inline-flex h-5 items-center rounded-md px-1.5 text-[10px] font-semibold transition active:scale-[0.96] ${
+                  inBundleShare
+                    ? "bg-ink text-white"
+                    : "bg-black/[0.05] text-ink/65 hover:bg-black/[0.09] hover:text-ink"
+                }`}
+              >
+                {inBundleShare ? "✓ 已凑" : "+ 凑单"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setShowOriginal((current) => !current);
+              }}
+              aria-label={showOriginal ? "切换为中文" : "切换为原文"}
+              title={showOriginal ? "中文" : "原文"}
+              className="product-card-language-toggle shrink-0"
+            >
+              {showOriginal ? "中" : "原"}
+            </button>
+          </div>
         </div>
         {item.note && (
           <div className="product-card-note mt-1">
@@ -1835,6 +1868,7 @@ function CartDialog({
   onRemove,
   onOpen,
   onShare,
+  onSendBundle,
   onClose,
 }: {
   cart: CartPayload;
@@ -1846,6 +1880,7 @@ function CartDialog({
   onRemove: (itemId: string) => void;
   onOpen: (item: Item) => void;
   onShare: () => void;
+  onSendBundle?: () => void;
   onClose: () => void;
 }) {
   const presentationRef = useRef<HTMLElement>(null);
@@ -1965,14 +2000,26 @@ function CartDialog({
               </span>
             </div>
           </div>
-          <button
-            type="button"
-            disabled={!cart.count || sharing}
-            onClick={onShare}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-moss px-4 text-sm font-bold text-white disabled:opacity-40"
-          >
-            <ShareIcon /> {sharing ? "正在生成…" : "分享原始商品链接"}
-          </button>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {onSendBundle && (
+              <button
+                type="button"
+                disabled={!cart.count}
+                onClick={onSendBundle}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-ink px-4 text-sm font-bold text-white transition active:scale-[0.98] disabled:opacity-40"
+              >
+                <MessageIcon /> 集合发给搭档砍价
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={!cart.count || sharing}
+              onClick={onShare}
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-moss px-4 text-sm font-bold text-white transition active:scale-[0.98] disabled:opacity-40"
+            >
+              <ShareIcon /> {sharing ? "正在生成…" : "分享原始商品链接"}
+            </button>
+          </div>
           {message && (
             <p
               className="mt-2 text-center text-xs text-ink/55"
@@ -3032,19 +3079,53 @@ function SellerProfileDialog({
   sellerId,
   onClose,
   onOpenItem,
+  onSendBundle,
   exchangeRate,
 }: {
   sellerId: string;
   onClose: () => void;
   onOpenItem: (item: Item) => void;
+  onSendBundle?: (items: Item[], targetPriceYen?: number | null) => void;
   exchangeRate?: number;
 }) {
   const [data, setData] = useState<SellerAnalysis | null>(null);
   const [targetPrice, setTargetPrice] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [copiedBundleJa, setCopiedBundleJa] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const selectedItems = useMemo(
+    () => (data?.items ?? []).filter((item) => selectedIds.has(item.id)),
+    [data?.items, selectedIds],
+  );
+  const selectedTotalYen = useMemo(
+    () => selectedItems.reduce((sum, item) => sum + item.priceCurrent, 0),
+    [selectedItems],
+  );
+  const parsedTargetPriceYen = useMemo(() => {
+    const num = Number(targetPrice.trim());
+    return Number.isFinite(num) && num > 0 ? Math.round(num) : null;
+  }, [targetPrice]);
+  const toggleSelectItem = useCallback((itemId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }, []);
+  const copySelectedBundleScript = useCallback(() => {
+    if (!selectedItems.length) return;
+    const script = buildBundleNegotiationScript(
+      selectedItems,
+      parsedTargetPriceYen,
+    );
+    void navigator.clipboard?.writeText(script);
+    setCopiedBundleJa(true);
+    window.setTimeout(() => setCopiedBundleJa(false), 1800);
+  }, [parsedTargetPriceYen, selectedItems]);
   const load = useCallback(
     async (price?: string) => {
       setAnalyzing(true);
@@ -3107,24 +3188,24 @@ function SellerProfileDialog({
   }, [load]);
   return createPortal(
     <div
-      className="modal-backdrop absolute inset-0 z-[80] grid place-items-center bg-ink/60 p-4"
+      className="modal-backdrop absolute inset-0 z-[80] grid place-items-center bg-ink/50 p-3 sm:p-4 backdrop-blur-sm"
       onMouseDown={onClose}
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="seller-profile-title"
-        className="modal-panel max-h-[88dvh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-paper p-4 shadow-modal sm:p-5"
+        className="modal-panel relative max-h-[88dvh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-paper p-4 shadow-modal sm:p-5"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[.2em] text-moss">
-              商家画像
+            <p className="text-[11px] font-semibold tracking-tight text-ink/50">
+              商家画像 · 同店凑单工作台
             </p>
             <h2
               id="seller-profile-title"
-              className="mt-1 font-heading text-xl font-black"
+              className="mt-0.5 font-heading text-xl font-black text-ink"
             >
               {data?.seller.name ?? "正在读取商家…"}
             </h2>
@@ -3134,7 +3215,7 @@ function SellerProfileDialog({
                   data.seller.source.key,
                   data.seller.source.displayName,
                 )}{" "}
-                · {data.items.length} 件在售
+                · {data.items.length} 件在售 · 勾选多件可一键集合发给搭档合并砍价
               </p>
             )}
           </div>
@@ -3142,7 +3223,7 @@ function SellerProfileDialog({
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="grid h-11 w-11 place-items-center rounded-full border border-ink/15 bg-white text-ink hover:bg-fog"
+            className="grid h-10 w-10 place-items-center rounded-full border border-black/10 bg-white text-ink transition active:scale-95 hover:bg-fog"
           >
             <CloseIcon />
           </button>
@@ -3163,12 +3244,12 @@ function SellerProfileDialog({
         {data && (
           <>
             <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1.2fr]">
-              <div className="rounded-xl border border-blue-100 bg-white p-4">
-                <div className="text-xs font-bold text-ink/50">类型</div>
-                <div className="mt-1 text-lg font-black text-moss">
+              <div className="rounded-2xl border border-black/[0.07] bg-white p-4">
+                <div className="text-xs font-semibold text-ink/50">类型</div>
+                <div className="mt-1 text-lg font-black text-ink">
                   {data.analysis.sellerType}
                 </div>
-                <p className="mt-3 text-sm leading-6 text-ink/75">
+                <p className="mt-2.5 text-sm leading-6 text-ink/75">
                   {data.analysis.profile}
                 </p>
                 {data.seller.locationText && (
@@ -3198,83 +3279,161 @@ function SellerProfileDialog({
                     </details>
                   )}
               </div>
-              <div className="rounded-xl border border-ink/10 bg-white p-4 shadow-sm">
+              <div className="rounded-2xl border border-black/[0.07] bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-bold text-ink/55">砍价语录</div>
+                  <div className="text-xs font-semibold text-ink/55">
+                    {selectedItems.length > 0
+                      ? `已选 ${selectedItems.length} 件合并砍价日语`
+                      : "砍价语录"}
+                  </div>
                   <span className="text-[10px] font-semibold text-moss">
-                    {data.mode === "ai" ? "AI" : "规则建议"}
+                    {selectedItems.length > 0
+                      ? "同店凑单模板"
+                      : data.mode === "ai"
+                        ? "AI"
+                        : "规则建议"}
                   </span>
                 </div>
                 <p
                   lang="ja"
-                  className="mt-3 whitespace-pre-wrap text-[15px] font-medium leading-7 text-ink"
+                  className="mt-2.5 max-h-36 overflow-y-auto whitespace-pre-wrap text-[13px] font-medium leading-6 text-ink"
                 >
-                  {data.analysis.negotiationJa ?? data.analysis.negotiation}
+                  {selectedItems.length > 0
+                    ? buildBundleNegotiationScript(
+                        selectedItems,
+                        parsedTargetPriceYen,
+                      )
+                    : (data.analysis.negotiationJa ?? data.analysis.negotiation)}
                 </p>
-                <p className="mt-3 border-t border-ink/8 pt-3 text-[11px] leading-5 text-ink/55">
-                  {data.analysis.negotiationZh}
-                </p>
-                <div className="mt-4 flex gap-2">
+                {selectedItems.length === 0 && (
+                  <p className="mt-2.5 border-t border-ink/8 pt-2.5 text-[11px] leading-5 text-ink/55">
+                    {data.analysis.negotiationZh}
+                  </p>
+                )}
+                <div className="mt-3 flex gap-2">
                   <input
                     inputMode="numeric"
                     value={targetPrice}
-                    onChange={(event) => setTargetPrice(event.target.value)}
-                    placeholder="目标价（日元）"
-                    className="h-11 min-w-0 flex-1 rounded-lg border border-ink/15 bg-fog/45 px-3 text-sm"
+                    onChange={(event) =>
+                      setTargetPrice(event.target.value.replace(/[^\d]/g, ""))
+                    }
+                    placeholder={
+                      selectedItems.length > 0
+                        ? "目标打包总价（日元）"
+                        : "目标价（日元）"
+                    }
+                    className="h-10 min-w-0 flex-1 rounded-xl border border-black/12 bg-fog/45 px-3 font-mono text-sm tabular-nums"
                   />
-                  <button
-                    type="button"
-                    onClick={() => void load(targetPrice)}
-                    disabled={analyzing}
-                    className="min-h-11 rounded-lg bg-moss px-3 text-xs font-bold text-white disabled:opacity-50"
-                  >
-                    {analyzing ? "生成中" : "生成"}
-                  </button>
+                  {selectedItems.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={copySelectedBundleScript}
+                      className="min-h-10 rounded-xl bg-ink px-3.5 text-xs font-semibold text-white transition active:scale-95"
+                    >
+                      {copiedBundleJa ? "✓ 已复制" : "复制日语"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void load(targetPrice)}
+                      disabled={analyzing}
+                      className="min-h-10 rounded-xl bg-moss px-3.5 text-xs font-bold text-white disabled:opacity-50"
+                    >
+                      {analyzing ? "生成中" : "生成"}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
             <div className="mt-5">
-              <h3 className="font-heading text-sm font-black">
-                该商家全部商品
-              </h3>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {data.items.map((item) => {
-                  const previewImage = item.images?.[0];
-                  return (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-heading text-sm font-black text-ink">
+                  该商家全部商品（勾选多件可集合分享）
+                </h3>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedIds(
+                        new Set(data.items.map((entry) => entry.id)),
+                      )
+                    }
+                    className="rounded-lg bg-black/[0.05] px-2.5 py-1 text-xs font-semibold text-ink/75 transition active:scale-95 hover:bg-black/[0.09]"
+                  >
+                    全选当前 ({data.items.length})
+                  </button>
+                  {selectedIds.size > 0 && (
                     <button
                       type="button"
-                      key={item.id}
-                      onClick={() => onOpenItem(item)}
-                      className="flex min-w-0 items-center gap-3 rounded-xl border border-blue-100 bg-white p-2 text-left hover:border-moss/50"
+                      onClick={() => setSelectedIds(new Set())}
+                      className="rounded-lg bg-black/[0.05] px-2.5 py-1 text-xs font-semibold text-ink/60 transition active:scale-95 hover:bg-black/[0.09]"
                     >
-                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-ink">
-                        {previewImage && (
-                          <img
-                            src={previewImage.url}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        )}
-                      </div>
-                      <span className="min-w-0">
-                        <b className="line-clamp-2 text-xs leading-5">
-                          {itemDisplayTitle(item, "zh")}
-                        </b>
-                        <span className="mt-1 block font-mono text-[10px] text-rust">
-                          {fmtYen(item.priceCurrent)} ·{" "}
-                          {listingTypeLabel(item.listingType)}
-                        </span>
-                        <span className="block font-mono text-[9px] text-ink/45">
-                          {fmtCny(item.priceCurrent, exchangeRate)}
-                        </span>
-                        <YahooDiscount
-                          sourceKey={item.source.key}
-                          priceYen={item.priceCurrent}
-                          exchangeRate={exchangeRate}
-                        />
-                      </span>
+                      清空 ({selectedIds.size})
                     </button>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2.5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {data.items.map((item) => {
+                  const previewImage = item.images?.[0];
+                  const isChecked = selectedIds.has(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`flex min-w-0 items-center gap-2.5 rounded-2xl border p-2 text-left transition ${
+                        isChecked
+                          ? "border-ink bg-ink/[0.03] ring-1 ring-ink/15"
+                          : "border-black/[0.07] bg-white hover:border-black/20"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={isChecked}
+                        aria-label={`选择商品凑单：${itemDisplayTitle(item, "zh")}`}
+                        onClick={() => toggleSelectItem(item.id)}
+                        className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border text-xs font-bold transition active:scale-90 ${
+                          isChecked
+                            ? "border-ink bg-ink text-white"
+                            : "border-black/20 bg-white text-transparent hover:border-ink"
+                        }`}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onOpenItem(item)}
+                        className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                      >
+                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-ink">
+                          {previewImage && (
+                            <img
+                              src={previewImage.url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          )}
+                        </div>
+                        <span className="min-w-0 flex-1">
+                          <b className="line-clamp-2 text-xs font-semibold leading-5 text-ink">
+                            {itemDisplayTitle(item, "zh")}
+                          </b>
+                          <span className="mt-0.5 block font-mono text-[10px] font-bold text-rust tabular-nums">
+                            {fmtYen(item.priceCurrent)} ·{" "}
+                            {listingTypeLabel(item.listingType)}
+                          </span>
+                          <span className="block font-mono text-[9px] text-ink/45 tabular-nums">
+                            {fmtCny(item.priceCurrent, exchangeRate)}
+                          </span>
+                          <YahooDiscount
+                            sourceKey={item.source.key}
+                            priceYen={item.priceCurrent}
+                            exchangeRate={exchangeRate}
+                          />
+                        </span>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -3291,6 +3450,79 @@ function SellerProfileDialog({
                 </button>
               )}
             </div>
+            {selectedItems.length > 0 && (
+              <div className="sticky bottom-0 z-20 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white/95 p-3 shadow-modal backdrop-blur-md">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center rounded-full bg-ink px-2.5 py-0.5 text-xs font-bold text-white">
+                      已选 {selectedItems.length} 件同店商品
+                    </span>
+                    <strong className="font-mono text-sm font-black text-ink tabular-nums">
+                      合计 {fmtYen(selectedTotalYen)}
+                    </strong>
+                    <span className="font-mono text-xs text-ink/50 tabular-nums">
+                      ({fmtCny(selectedTotalYen, exchangeRate)})
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-ink/55">目标总价：</span>
+                    {[
+                      {
+                        label: "9折",
+                        val: Math.round((selectedTotalYen * 0.9) / 100) * 100,
+                      },
+                      {
+                        label: "85折",
+                        val: Math.round((selectedTotalYen * 0.85) / 100) * 100,
+                      },
+                      {
+                        label: "8折",
+                        val: Math.round((selectedTotalYen * 0.8) / 100) * 100,
+                      },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setTargetPrice(String(preset.val))}
+                        className={`rounded-lg px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums transition active:scale-95 ${
+                          targetPrice === String(preset.val)
+                            ? "bg-ink text-white"
+                            : "bg-black/[0.05] text-ink/75 hover:bg-black/[0.1]"
+                        }`}
+                      >
+                        {preset.label} {fmtYen(preset.val)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={copySelectedBundleScript}
+                    className="min-h-10 rounded-xl border border-black/12 bg-white px-3 text-xs font-semibold text-ink transition active:scale-95 hover:bg-black/[0.04]"
+                  >
+                    {copiedBundleJa ? "✓ 已复制合并日语" : "📋 复制合并日语"}
+                  </button>
+                  {onSendBundle && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSendBundle(
+                          selectedItems.map((entry) => ({
+                            ...entry,
+                            seller: data.seller,
+                          })),
+                          parsedTargetPriceYen,
+                        )
+                      }
+                      className="min-h-10 rounded-xl bg-ink px-4 text-xs font-semibold text-white shadow-sm transition active:scale-95 hover:bg-ink/90"
+                    >
+                      一键集合发给搭档 ({selectedItems.length} 件) →
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
       </section>
@@ -3309,6 +3541,7 @@ function DetailDrawer({
   onClose,
   onSaved,
   onSendToManager,
+  onOpenSeller,
   exchangeRate,
   serverOffset,
 }: {
@@ -3321,6 +3554,7 @@ function DetailDrawer({
   onClose: () => void;
   onSaved: (item: Item) => void;
   onSendToManager: () => void;
+  onOpenSeller?: (sellerId: string) => void;
   exchangeRate?: number;
   serverOffset: number;
 }) {
@@ -3542,8 +3776,20 @@ function DetailDrawer({
                 </div>
               )}
               {item.seller?.name && (
-                <p className="detail-seller-line">
+                <p className="detail-seller-line flex flex-wrap items-center gap-2">
                   卖家 <span>{item.seller.name}</span>
+                  {item.seller.id && onOpenSeller && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetSellerId = item.seller?.id;
+                        if (targetSellerId) onOpenSeller(targetSellerId);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full bg-black/[0.06] px-2.5 py-0.5 text-[11px] font-semibold text-ink transition active:scale-95 hover:bg-black/[0.1]"
+                    >
+                      查看同店商品 / 凑单 →
+                    </button>
+                  )}
                 </p>
               )}
               {item.note && (
@@ -5075,6 +5321,9 @@ export default function Dashboard() {
   );
   const [pendingChatItem, setPendingChatItem] =
     useState<CollaborationItem | null>(null);
+  const [pendingChatBundle, setPendingChatBundle] =
+    useState<PendingCollaborationBundle | null>(null);
+  const [bundleShareItems, setBundleShareItems] = useState<Item[]>([]);
   const workspaceScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const workspaceMotionPreference = useReducedMotion();
   const workspaceHasNavigatedRef = useRef(false);
@@ -6745,8 +6994,12 @@ export default function Dashboard() {
   }
 
   function openManagerConversation(item?: Item | CollaborationItem) {
-    if (item) setPendingChatItem(item);
+    if (item) {
+      setPendingChatItem(item);
+      setPendingChatBundle(null);
+    }
     setCartOpen(false);
+    setSellerId(null);
     if (detailHistoryActiveRef.current) {
       detailHistoryActiveRef.current = false;
       window.history.replaceState(
@@ -6757,6 +7010,42 @@ export default function Dashboard() {
     }
     setSelected(null);
     navigateWorkspace("collaboration");
+  }
+
+  function openManagerBundleConversation(
+    bundleItems: (Item | CollaborationItem)[],
+    targetPriceYen?: number | null,
+  ) {
+    if (!bundleItems.length) return;
+    if (bundleItems.length === 1 && !targetPriceYen) {
+      openManagerConversation(bundleItems[0]);
+      return;
+    }
+    setPendingChatItem(null);
+    setPendingChatBundle({
+      items: bundleItems,
+      targetPriceYen: targetPriceYen ?? null,
+    });
+    setCartOpen(false);
+    setSellerId(null);
+    if (detailHistoryActiveRef.current) {
+      detailHistoryActiveRef.current = false;
+      window.history.replaceState(
+        withoutItemDetailHistoryState(window.history.state),
+        "",
+        window.location.href,
+      );
+    }
+    setSelected(null);
+    navigateWorkspace("collaboration");
+  }
+
+  function toggleBundleShareItem(item: Item) {
+    setBundleShareItems((current) =>
+      current.some((entry) => entry.id === item.id)
+        ? current.filter((entry) => entry.id !== item.id)
+        : [...current, item],
+    );
   }
 
   async function updateCart(itemId: string, present: boolean) {
@@ -7441,6 +7730,8 @@ export default function Dashboard() {
             accounts={managerAccounts}
             pendingItem={pendingChatItem}
             onPendingItemConsumed={() => setPendingChatItem(null)}
+            pendingBundle={pendingChatBundle}
+            onPendingBundleConsumed={() => setPendingChatBundle(null)}
             onOpenItem={openAnalysisItem}
             onSwitchAccount={() => setAccountGateOpen(true)}
             cartCount={cart.count}
@@ -7773,6 +8064,10 @@ export default function Dashboard() {
                           }
                           onShare={() => void shareItems([item.id])}
                           onSendToManager={() => openManagerConversation(item)}
+                          inBundleShare={bundleShareItems.some(
+                            (entry) => entry.id === item.id,
+                          )}
+                          onToggleBundleShare={() => toggleBundleShareItem(item)}
                         />
                       ))
                     )}
@@ -8653,6 +8948,10 @@ export default function Dashboard() {
                         }
                         onShare={() => void shareItems([item.id])}
                         onSendToManager={() => openManagerConversation(item)}
+                        inBundleShare={bundleShareItems.some(
+                          (entry) => entry.id === item.id,
+                        )}
+                        onToggleBundleShare={() => toggleBundleShareItem(item)}
                       />
                     ))}
                   </div>
@@ -8870,6 +9169,10 @@ export default function Dashboard() {
                         }
                         onShare={() => void shareItems([item.id])}
                         onSendToManager={() => openManagerConversation(item)}
+                        inBundleShare={bundleShareItems.some(
+                          (entry) => entry.id === item.id,
+                        )}
+                        onToggleBundleShare={() => toggleBundleShareItem(item)}
                       />
                     ))}
                   </div>
@@ -9081,6 +9384,10 @@ export default function Dashboard() {
           serverOffset={serverOffset}
           onClose={closeItemDetail}
           onSendToManager={() => openManagerConversation(selected)}
+          onOpenSeller={(targetSellerId) => {
+            closeItemDetail();
+            setSellerId(targetSellerId);
+          }}
           onSaved={(updated) => {
             setSelected(updated);
             setItems((current) =>
@@ -9104,6 +9411,9 @@ export default function Dashboard() {
           onOpenItem={(item) => {
             setSellerId(null);
             void openAnalysisItem(item.id);
+          }}
+          onSendBundle={(selectedSellerItems, targetPriceYen) => {
+            openManagerBundleConversation(selectedSellerItems, targetPriceYen);
           }}
         />
       )}
@@ -9182,6 +9492,86 @@ export default function Dashboard() {
           }}
         />
       )}
+      {workspace !== "collaboration" && bundleShareItems.length > 0 && (
+        <div
+          role="region"
+          aria-label="待分享凑单篮"
+          className="fixed bottom-4 left-1/2 z-40 flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white/95 px-3.5 py-2.5 shadow-modal backdrop-blur-md"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-white">
+                凑单篮 · {bundleShareItems.length} 件
+              </span>
+              <strong className="truncate font-mono text-xs font-bold text-ink tabular-nums">
+                合计{" "}
+                {fmtYen(
+                  bundleShareItems.reduce(
+                    (sum, entry) => sum + entry.priceCurrent,
+                    0,
+                  ),
+                )}
+              </strong>
+            </div>
+            <p className="mt-0.5 truncate text-[11px] text-ink/55">
+              {(() => {
+                const sellerIds = Array.from(
+                  new Set(
+                    bundleShareItems
+                      .map((entry) => entry.seller?.id)
+                      .filter((id): id is string => Boolean(id)),
+                  ),
+                );
+                const firstSellerName = bundleShareItems[0]?.seller?.name;
+                if (sellerIds.length === 1 && firstSellerName) {
+                  return `同店：${firstSellerName}（可一键生成合并砍价日语）`;
+                }
+                return "可继续勾选商品，或直接集合发给搭档砍价";
+              })()}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {(() => {
+              const singleSellerId =
+                bundleShareItems.length > 0 &&
+                bundleShareItems.every(
+                  (entry) =>
+                    entry.seller?.id &&
+                    entry.seller.id === bundleShareItems[0]?.seller?.id,
+                )
+                  ? bundleShareItems[0]?.seller?.id
+                  : null;
+              return singleSellerId ? (
+                <button
+                  type="button"
+                  onClick={() => setSellerId(singleSellerId)}
+                  className="min-h-9 rounded-xl border border-black/10 bg-black/[0.04] px-2.5 text-xs font-semibold text-ink transition active:scale-95 hover:bg-black/[0.08]"
+                >
+                  看同店
+                </button>
+              ) : null;
+            })()}
+            <button
+              type="button"
+              onClick={() => setBundleShareItems([])}
+              className="min-h-9 rounded-xl border border-black/10 bg-white px-2.5 text-xs font-medium text-ink/65 transition active:scale-95 hover:bg-black/[0.04]"
+            >
+              清空
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const toSend = [...bundleShareItems];
+                setBundleShareItems([]);
+                openManagerBundleConversation(toSend);
+              }}
+              className="min-h-9 rounded-xl bg-ink px-3.5 text-xs font-semibold text-white shadow-sm transition active:scale-95 hover:bg-ink/90"
+            >
+              集合发给搭档 →
+            </button>
+          </div>
+        </div>
+      )}
       {workspace !== "collaboration" && (
         <button
           type="button"
@@ -9212,6 +9602,7 @@ export default function Dashboard() {
             void openAnalysisItem(item.id);
           }}
           onShare={() => void shareItems()}
+          onSendBundle={() => openManagerBundleConversation(cart.items)}
           onClose={() => setCartOpen(false)}
         />
       )}

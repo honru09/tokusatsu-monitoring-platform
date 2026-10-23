@@ -1,9 +1,11 @@
 import {
   IsArray,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
 } from "class-validator";
 
 export class SendDirectMessageDto {
@@ -21,6 +23,16 @@ export class SendDirectMessageDto {
   @IsOptional()
   @IsString()
   itemId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  itemIds?: string[];
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  targetPriceYen?: number;
 
   @IsOptional()
   @IsString()

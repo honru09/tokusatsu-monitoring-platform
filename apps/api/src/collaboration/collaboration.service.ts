@@ -24,15 +24,88 @@ const allowedReactions = new Set([
   "negotiation_failed",
 ]);
 
+const BUNDLE_META_PREFIX = "[[BUNDLE:";
+const BUNDLE_META_SUFFIX = "]]";
+
+interface BundleMessageMetadata {
+  itemIds: string[];
+  targetPriceYen?: number | null;
+}
+
+function encodeBundleMessageText(
+  text: string | null | undefined,
+  itemIds: string[],
+  targetPriceYen?: number | null,
+): string | null {
+  const cleanText = text?.trim() || null;
+  if (itemIds.length <= 1 && !targetPriceYen) {
+    return cleanText;
+  }
+  const meta: BundleMessageMetadata = {
+    itemIds,
+    ...(targetPriceYen && targetPriceYen > 0 ? { targetPriceYen } : {}),
+  };
+  const header = `${BUNDLE_META_PREFIX}${JSON.stringify(meta)}${BUNDLE_META_SUFFIX}`;
+  return cleanText ? `${header}\n${cleanText}` : header;
+}
+
+function parseBundleMessageText(rawText: string | null | undefined): {
+  cleanText: string | null;
+  itemIds: string[];
+  targetPriceYen: number | null;
+} {
+  if (!rawText || !rawText.startsWith(BUNDLE_META_PREFIX)) {
+    return {
+      cleanText: rawText ?? null,
+      itemIds: [],
+      targetPriceYen: null,
+    };
+  }
+  const endIndex = rawText.indexOf(BUNDLE_META_SUFFIX);
+  if (endIndex === -1) {
+    return {
+      cleanText: rawText,
+      itemIds: [],
+      targetPriceYen: null,
+    };
+  }
+  const jsonPart = rawText.slice(BUNDLE_META_PREFIX.length, endIndex);
+  const rest = rawText.slice(endIndex + BUNDLE_META_SUFFIX.length).replace(/^\n/, "");
+  try {
+    const parsed = JSON.parse(jsonPart) as Partial<BundleMessageMetadata>;
+    const itemIds = Array.isArray(parsed.itemIds)
+      ? parsed.itemIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+      : [];
+    const targetPriceYen =
+      typeof parsed.targetPriceYen === "number" && parsed.targetPriceYen > 0
+        ? Math.round(parsed.targetPriceYen)
+        : null;
+    return {
+      cleanText: rest.trim() || null,
+      itemIds,
+      targetPriceYen,
+    };
+  } catch {
+    return {
+      cleanText: rawText,
+      itemIds: [],
+      targetPriceYen: null,
+    };
+  }
+}
+
+const messageItemInclude = {
+  source: true,
+  seller: true,
+  images: { orderBy: { position: "asc" as const } },
+  product: true,
+} as const;
+
 const messageInclude = {
   sender: true,
   recipient: true,
   item: {
-    include: {
-      source: true,
-      images: { orderBy: { position: "asc" as const } },
-      product: true,
-    },
+    include: messageItemInclude,
   },
   replyTo: {
     include: {
@@ -40,6 +113,7 @@ const messageInclude = {
       item: {
         include: {
           source: true,
+          seller: true,
           images: { orderBy: { position: "asc" as const } },
         },
       },
@@ -54,11 +128,7 @@ const messageInclude = {
 const negotiationInclude = {
   initiatedBy: true,
   item: {
-    include: {
-      source: true,
-      images: { orderBy: { position: "asc" as const } },
-      product: true,
-    },
+    include: messageItemInclude,
   },
 } as const;
 
@@ -138,7 +208,7 @@ export class CollaborationService {
       throw new BadRequestException("消息游标无效");
     }
 
-    const messages = afterDate
+    const rawMessages = afterDate
       ? await this.prisma.directMessage.findMany({
           where: { AND: [conversation, { updatedAt: { gte: afterDate } }] },
           include: messageInclude,
@@ -154,10 +224,12 @@ export class CollaborationService {
           })
         ).reverse();
 
+    const messages = await this.hydrateMessages(rawMessages);
+
     return {
       messages,
       nextAfter:
-        messages.reduce<string | null>((latest, message) => {
+        rawMessages.reduce<string | null>((latest, message) => {
           const value = message.updatedAt.toISOString();
           return !latest || value > latest ? value : latest;
         }, null) ??
@@ -168,8 +240,17 @@ export class CollaborationService {
   }
 
   async send(body: SendDirectMessageDto) {
-    const text = body.text?.trim() || null;
-    if (!text && !body.itemId) {
+    const cleanText = body.text?.trim() || null;
+    const requestedItemIds = [
+      ...new Set(
+        [
+          ...(body.itemIds ?? []),
+          ...(body.itemId ? [body.itemId] : []),
+        ].filter((id): id is string => Boolean(id && id.trim())),
+      ),
+    ];
+    const primaryItemId = requestedItemIds[0] ?? undefined;
+    if (!cleanText && !primaryItemId) {
       throw new BadRequestException("消息需要文字或商品");
     }
     if (body.senderId === body.recipientId) {
@@ -179,12 +260,14 @@ export class CollaborationService {
       this.requireAccount(body.senderId),
       this.requireAccount(body.recipientId),
     ]);
-    if (body.itemId) {
-      const item = await this.prisma.item.findUnique({
-        where: { id: body.itemId },
+    if (requestedItemIds.length > 0) {
+      const found = await this.prisma.item.findMany({
+        where: { id: { in: requestedItemIds } },
         select: { id: true },
       });
-      if (!item) throw new NotFoundException("商品不存在");
+      if (found.length !== requestedItemIds.length) {
+        throw new NotFoundException("商品不存在");
+      }
     }
     await this.requireConversationMessage(
       body.replyToId,
@@ -199,31 +282,39 @@ export class CollaborationService {
       "转发消息不存在",
     );
 
-    return this.prisma.$transaction(async (tx) => {
+    const encodedText = encodeBundleMessageText(
+      cleanText,
+      requestedItemIds,
+      body.targetPriceYen,
+    );
+
+    const created = await this.prisma.$transaction(async (tx) => {
       const message = await tx.directMessage.create({
         data: {
           senderId: body.senderId,
           recipientId: body.recipientId,
-          text,
-          itemId: body.itemId,
+          text: encodedText,
+          itemId: primaryItemId,
           replyToId: body.replyToId,
           forwardedFromId: body.forwardedFromId,
         },
         include: messageInclude,
       });
-      // Sending a product into the shared conversation is a real forwarding
-      // action, whether it originates from a card or another message.
-      if (body.itemId) {
+      // Sending a product or bundle into the shared conversation records the share count.
+      if (primaryItemId) {
         await tx.managerActivity.create({
           data: {
             accountId: body.senderId,
             action: "share",
-            itemId: body.itemId,
+            itemId: primaryItemId,
+            count: requestedItemIds.length,
           },
         });
       }
       return message;
     });
+    const [hydrated] = await this.hydrateMessages([created]);
+    return hydrated;
   }
 
   async markRead(body: MarkDirectMessagesReadDto) {
@@ -273,20 +364,32 @@ export class CollaborationService {
           : body.reaction === "negotiation_failed"
             ? "failed"
             : null;
-    if (negotiationStatus && message.itemId) {
-      await this.prisma.negotiationCase.upsert({
-        where: { itemId: message.itemId },
-        create: {
-          itemId: message.itemId,
-          initiatedById: body.accountId,
-          status: negotiationStatus,
-          statusChangedAt: new Date(),
-        },
-        update: {
-          status: negotiationStatus,
-          statusChangedAt: new Date(),
-        },
-      });
+    if (negotiationStatus) {
+      const parsed = parseBundleMessageText(message.text);
+      const targetItemIds = [
+        ...new Set(
+          [
+            ...parsed.itemIds,
+            ...(message.itemId ? [message.itemId] : []),
+          ].filter(Boolean),
+        ),
+      ];
+      const now = new Date();
+      for (const itemId of targetItemIds) {
+        await this.prisma.negotiationCase.upsert({
+          where: { itemId },
+          create: {
+            itemId,
+            initiatedById: body.accountId,
+            status: negotiationStatus,
+            statusChangedAt: now,
+          },
+          update: {
+            status: negotiationStatus,
+            statusChangedAt: now,
+          },
+        });
+      }
     }
     return reaction;
   }
@@ -409,15 +512,31 @@ export class CollaborationService {
           },
           include: negotiationInclude,
         });
+        rows.push(negotiation);
+      }
+      // Group items by seller so same-seller items are sent as one bundle negotiation card
+      const groupedBySeller = new Map<string, string[]>();
+      for (const negotiation of rows) {
+        const key = negotiation.item.sellerId ?? `single:${negotiation.itemId}`;
+        const list = groupedBySeller.get(key) ?? [];
+        list.push(negotiation.itemId);
+        groupedBySeller.set(key, list);
+      }
+      for (const groupItemIds of groupedBySeller.values()) {
+        const primaryItemId = groupItemIds[0];
+        if (!primaryItemId) continue;
+        const label =
+          groupItemIds.length > 1
+            ? `🔪 发起同店合并砍价（共 ${groupItemIds.length} 件）`
+            : "🔪 发起砍价";
         await tx.directMessage.create({
           data: {
             senderId: manager.id,
             recipientId: recipient.id,
-            text: "🔪 发起砍价",
-            itemId,
+            text: encodeBundleMessageText(label, groupItemIds),
+            itemId: primaryItemId,
           },
         });
-        rows.push(negotiation);
       }
       await tx.shoppingCartItem.deleteMany({
         where: { cartId: cart.id, itemId: { in: itemIds } },
@@ -466,6 +585,64 @@ export class CollaborationService {
     return { negotiation, serverTime: now.toISOString() };
   }
 
+  private async hydrateMessages<
+    T extends {
+      text: string | null;
+      itemId: string | null;
+      item: unknown;
+      replyTo?: { text: string | null } | null;
+    },
+  >(messages: T[]) {
+    if (!messages.length) return [];
+    const parsedByIndex = messages.map((msg) => parseBundleMessageText(msg.text));
+    const extraItemIds = new Set<string>();
+    for (let i = 0; i < messages.length; i++) {
+      const parsed = parsedByIndex[i];
+      if (!parsed) continue;
+      for (const id of parsed.itemIds) {
+        extraItemIds.add(id);
+      }
+    }
+    const itemsById = new Map<string, unknown>();
+    if (extraItemIds.size > 0) {
+      const fetched = await this.prisma.item.findMany({
+        where: { id: { in: [...extraItemIds] } },
+        include: messageItemInclude,
+      });
+      for (const item of fetched) {
+        itemsById.set(item.id, item);
+      }
+    }
+    return messages.map((msg, index) => {
+      const parsed = parsedByIndex[index] ?? {
+        cleanText: msg.text,
+        itemIds: [],
+        targetPriceYen: null,
+      };
+      const bundleItems = parsed.itemIds
+        .map((id) => itemsById.get(id) ?? (msg.itemId === id ? msg.item : null))
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+      const replyTo = msg.replyTo
+        ? {
+            ...msg.replyTo,
+            text: parseBundleMessageText(msg.replyTo.text).cleanText,
+          }
+        : msg.replyTo;
+      return {
+        ...msg,
+        text: parsed.cleanText,
+        replyTo,
+        bundleItems:
+          bundleItems.length > 0
+            ? bundleItems
+            : msg.item
+              ? [msg.item]
+              : [],
+        targetPriceYen: parsed.targetPriceYen,
+      };
+    });
+  }
+
   private async requireAccount(id: string) {
     const account = await this.prisma.managerAccount.findFirst({
       where: { id, active: true },
@@ -484,7 +661,7 @@ export class CollaborationService {
         id: messageId,
         OR: [{ senderId: accountId }, { recipientId: accountId }],
       },
-      select: { id: true, itemId: true },
+      select: { id: true, itemId: true, text: true },
     });
     if (!message) throw new NotFoundException("消息不存在");
     return message;
