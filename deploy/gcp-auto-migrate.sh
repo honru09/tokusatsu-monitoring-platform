@@ -248,7 +248,9 @@ sleep 15
 # 还原业务全量数据
 echo "=== [5/5] 还原 50,000+ 件特摄业务数据与字典 ==="
 cd ~/tokusatsu-monitoring-platform
-pnpm install --filter @tokusatsu/db
+git pull origin main || true
+pnpm config set runtime-on-fail warn
+pnpm install --filter @tokusatsu/db --no-runtime
 pnpm --filter @tokusatsu/db generate
 DATABASE_URL="postgresql://tokusatsu:change-me-in-production@127.0.0.1:55432/tokusatsu?schema=public" node scripts/restore-seeds.cjs || true
 
