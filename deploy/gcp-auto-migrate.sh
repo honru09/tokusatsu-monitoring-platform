@@ -234,12 +234,21 @@ sed -i "s/\$USER/$USER/g" ~/.cloudflared/config.yml
 echo "=== [4/5] 启动 Docker 11 容器集群 ==="
 sudo docker compose -f infrastructure/docker-compose.yml up -d --build
 
-echo "⏳ 等待数据库 Postgres 初始化就绪..."
+echo "⏳ 等待 Docker 容器与数据库迁移初始化就绪..."
+for i in $(seq 1 30); do
+  if sudo docker exec tokusatsu-monitor-postgres-1 pg_isready -U tokusatsu -d tokusatsu >/dev/null 2>&1; then
+    echo "✓ 数据库核心已就绪！"
+    break
+  fi
+  sleep 2
+done
 sleep 10
 
 # 还原业务全量数据
 echo "=== [5/5] 还原 50,000+ 件特摄业务数据与字典 ==="
+cd ~/tokusatsu-monitoring-platform
 pnpm install --filter @tokusatsu/db
+pnpm --filter @tokusatsu/db generate
 DATABASE_URL="postgresql://tokusatsu:change-me-in-production@127.0.0.1:55432/tokusatsu?schema=public" node scripts/restore-seeds.cjs || true
 
 # 安装并启动 Cloudflared 服务 (自启动保活)
@@ -257,9 +266,26 @@ echo "📱 救援控制台: https://rescue.kamenradar.space"
 echo "========================================================"
 REMOTESCRIPT
 
-# 5. 上传并执行到云服务器
+# 5. 上传并执行到云服务器 (增加 SSH 重试保护)
 echo "🚚 正在将部署流水线传输到云服务器..."
-gcloud compute scp --quiet /tmp/remote-install.sh "$INSTANCE_NAME":~/remote-install.sh --zone="$ZONE"
+CONNECTED=0
+for i in $(seq 1 10); do
+  echo "正在连接云服务器 (第 $i/10 次尝试)..."
+  if gcloud compute scp --quiet /tmp/remote-install.sh "$INSTANCE_NAME":~/remote-install.sh --zone="$ZONE"; then
+    CONNECTED=1
+    echo "✓ 部署流水线传输成功！"
+    break
+  fi
+  echo "⏳ 等待 SSH 密钥同步 (10秒)..."
+  sleep 10
+done
+
+if [ $CONNECTED -eq 0 ]; then
+  echo "❌ 无法连接到云服务器，请检查 GCP 实例状态后重试。"
+  exit 1
+fi
+
+echo "🚀 开始在云服务器内执行部署与数据还原..."
 gcloud compute ssh --quiet "$INSTANCE_NAME" --zone="$ZONE" --command="bash ~/remote-install.sh"
 
 echo "✅ 全部迁移流程已完成！"
