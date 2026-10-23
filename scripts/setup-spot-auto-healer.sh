@@ -162,6 +162,7 @@ gcloud compute instances set-scheduling "$INSTANCE_NAME" \
     --zone="$ZONE" \
     --project="$PROJECT_ID" \
     --provisioning-model=SPOT \
+    --preemptible \
     --instance-termination-action=STOP \
     --maintenance-policy=TERMINATE \
     --no-restart-on-failure
