@@ -33,14 +33,43 @@ function readJsonOrGz(filePath) {
 async function bulkInsert(modelName, items, batchSize = 1000) {
   if (!items || items.length === 0) return;
   console.log(`Restoring ${items.length} records into ${modelName}...`);
+  let inserted = 0;
   for (let i = 0; i < items.length; i += batchSize) {
     const chunk = items.slice(i, i + batchSize);
-    await prisma[modelName].createMany({
-      data: chunk,
-      skipDuplicates: true
-    });
+    try {
+      await prisma[modelName].createMany({
+        data: chunk,
+        skipDuplicates: true
+      });
+      inserted += chunk.length;
+    } catch (chunkErr) {
+      // Fallback to smaller sub-chunks so one concurrent conflict never aborts the whole table
+      const subSize = 50;
+      for (let j = 0; j < chunk.length; j += subSize) {
+        const subChunk = chunk.slice(j, j + subSize);
+        try {
+          await prisma[modelName].createMany({
+            data: subChunk,
+            skipDuplicates: true
+          });
+          inserted += subChunk.length;
+        } catch {
+          for (const single of subChunk) {
+            try {
+              await prisma[modelName].createMany({
+                data: [single],
+                skipDuplicates: true
+              });
+              inserted += 1;
+            } catch {
+              // skip single conflicting record
+            }
+          }
+        }
+      }
+    }
   }
-  console.log(`✓ ${modelName} restored (${items.length} records)`);
+  console.log(`✓ ${modelName} restored (${inserted}/${items.length} records processed)`);
 }
 
 async function safeStep(name, fn) {
@@ -123,9 +152,16 @@ async function main() {
   });
 
   // 5. Sellers & Products
+  const sellersSeed = readJsonOrGz(path.join(seedsDir, 'all_sellers.json.gz')) || [];
   await safeStep('seller', async () => {
-    const sellers = readJsonOrGz(path.join(seedsDir, 'all_sellers.json.gz'));
-    if (sellers) await bulkInsert('seller', sellers, 1000);
+    if (sellersSeed.length > 0) {
+      const normalizedSellers = sellersSeed.map(s => {
+        const sKey = sourceSeedIdToKey.get(s.sourceId);
+        const resolvedSourceId = (sKey && sourceKeyToDbId.get(sKey)) || s.sourceId;
+        return { ...s, sourceId: resolvedSourceId };
+      });
+      await bulkInsert('seller', normalizedSellers, 1000);
+    }
   });
 
   await safeStep('product', async () => {
@@ -133,7 +169,30 @@ async function main() {
     if (products) await bulkInsert('product', products, 1000);
   });
 
-  // 6. Catalog Items (50,548 items) - Normalize sourceId from source relation object
+  // Build live DB seller & product ID sets (guards against concurrent worker inserts with different UUIDs)
+  const dbSellers = await prisma.seller.findMany({
+    select: { id: true, sourceId: true, sourceSellerId: true }
+  });
+  const validSellerIds = new Set(dbSellers.map(s => s.id));
+  const sellerCompositeToDbId = new Map();
+  for (const s of dbSellers) {
+    if (s.sourceSellerId) {
+      sellerCompositeToDbId.set(`${s.sourceId}:${s.sourceSellerId}`, s.id);
+    }
+  }
+  const seedSellerIdToComposite = new Map();
+  for (const s of sellersSeed) {
+    if (s.sourceSellerId) {
+      const sKey = sourceSeedIdToKey.get(s.sourceId);
+      const resolvedSourceId = (sKey && sourceKeyToDbId.get(sKey)) || s.sourceId;
+      seedSellerIdToComposite.set(s.id, `${resolvedSourceId}:${s.sourceSellerId}`);
+    }
+  }
+
+  const dbProducts = await prisma.product.findMany({ select: { id: true } });
+  const validProductIds = new Set(dbProducts.map(p => p.id));
+
+  // 6. Catalog Items (50,548 items) - Normalize sourceId and sellerId against live DB
   await safeStep('item', async () => {
     const rawItems = readJsonOrGz(path.join(seedsDir, 'all_catalog_items.json.gz'));
     if (rawItems && rawItems.length > 0) {
@@ -142,54 +201,101 @@ async function main() {
         const oldSourceId = item.sourceId || source?.id;
         const sourceKey = source?.key || sourceSeedIdToKey.get(oldSourceId);
         const resolvedSourceId = (sourceKey && sourceKeyToDbId.get(sourceKey)) || oldSourceId;
-        return {
+
+        let resolvedSellerId = item.sellerId || null;
+        if (resolvedSellerId && !validSellerIds.has(resolvedSellerId)) {
+          const comp = seedSellerIdToComposite.get(resolvedSellerId);
+          resolvedSellerId = (comp && sellerCompositeToDbId.get(comp)) || null;
+        }
+
+        let resolvedProductId = item.productId || null;
+        if (resolvedProductId && !validProductIds.has(resolvedProductId)) {
+          resolvedProductId = null;
+        }
+
+        const out = {
           ...rest,
-          sourceId: resolvedSourceId
+          sourceId: resolvedSourceId,
+          sellerId: resolvedSellerId
         };
+        if ('productId' in rest) {
+          out.productId = resolvedProductId;
+        }
+        return out;
       });
       await bulkInsert('item', normalizedItems, 1000);
     }
   });
 
+  // Build valid item IDs set for child tables
+  const dbItems = await prisma.item.findMany({ select: { id: true } });
+  const validItemIds = new Set(dbItems.map(i => i.id));
+
   // 7. Item Images (49,832 images)
   await safeStep('itemImage', async () => {
     const images = readJsonOrGz(path.join(seedsDir, 'all_item_images.json.gz'));
-    if (images) await bulkInsert('itemImage', images, 1500);
+    if (images) {
+      const filtered = images.filter(img => validItemIds.has(img.itemId));
+      await bulkInsert('itemImage', filtered, 1500);
+    }
   });
 
   // 8. Keyword matches
   await safeStep('monitoringKeywordMatch', async () => {
     const matches = readJsonOrGz(path.join(seedsDir, 'all_keyword_matches.json.gz'));
-    if (matches) await bulkInsert('monitoringKeywordMatch', matches, 1500);
+    if (matches) {
+      const filtered = matches.filter(m => validItemIds.has(m.itemId));
+      await bulkInsert('monitoringKeywordMatch', filtered, 1500);
+    }
   });
 
   // 9. Classifications
   await safeStep('itemClassification Part 1', async () => {
     const c1 = readJsonOrGz(path.join(seedsDir, 'all_classifications_part1.json.gz'));
-    if (c1) await bulkInsert('itemClassification', c1, 1500);
+    if (c1) {
+      const filtered = c1.filter(c => validItemIds.has(c.itemId));
+      await bulkInsert('itemClassification', filtered, 1500);
+    }
   });
   await safeStep('itemClassification Part 2', async () => {
     const c2 = readJsonOrGz(path.join(seedsDir, 'all_classifications_part2.json.gz'));
-    if (c2) await bulkInsert('itemClassification', c2, 1500);
+    if (c2) {
+      const filtered = c2.filter(c => validItemIds.has(c.itemId));
+      await bulkInsert('itemClassification', filtered, 1500);
+    }
   });
 
   // 10. Purchase Bundles, Orders, Records, Resale
   await safeStep('purchaseBundle', () => bulkInsert('purchaseBundle', readJsonOrGz(path.join(seedsDir, 'purchase_bundles.json'))));
   await safeStep('inventoryOrder', () => bulkInsert('inventoryOrder', readJsonOrGz(path.join(seedsDir, 'inventory_orders.json'))));
-  await safeStep('purchaseRecord', () => bulkInsert('purchaseRecord', readJsonOrGz(path.join(seedsDir, 'purchase_records.json'))));
-  await safeStep('resaleListing', () => bulkInsert('resaleListing', readJsonOrGz(path.join(seedsDir, 'resale_listings.json'))));
+  await safeStep('purchaseRecord', async () => {
+    const records = readJsonOrGz(path.join(seedsDir, 'purchase_records.json'));
+    if (records) {
+      const filtered = records.filter(r => !r.itemId || validItemIds.has(r.itemId));
+      await bulkInsert('purchaseRecord', filtered);
+    }
+  });
+  await safeStep('resaleListing', async () => {
+    const listings = readJsonOrGz(path.join(seedsDir, 'resale_listings.json'));
+    if (listings) {
+      const filtered = listings.filter(l => !l.itemId || validItemIds.has(l.itemId));
+      await bulkInsert('resaleListing', filtered);
+    }
+  });
   await safeStep('resaleSettings', () => bulkInsert('resaleSettings', readJsonOrGz(path.join(seedsDir, 'resale_settings.json'))));
 
   // Verification
   console.log('\n=== Database Verification ===');
-  const [itemCount, productCount, sellerCount] = await Promise.all([
+  const [itemCount, productCount, sellerCount, imageCount] = await Promise.all([
     prisma.item.count(),
     prisma.product.count(),
-    prisma.seller.count()
+    prisma.seller.count(),
+    prisma.itemImage.count()
   ]);
-  console.log(`Items in DB: ${itemCount}`);
+  console.log(`Items in DB:    ${itemCount}`);
   console.log(`Products in DB: ${productCount}`);
-  console.log(`Sellers in DB: ${sellerCount}`);
+  console.log(`Sellers in DB:  ${sellerCount}`);
+  console.log(`Images in DB:   ${imageCount}`);
   console.log('=== Database Restoration Finished Successfully! ===');
 
   await prisma.$disconnect();
