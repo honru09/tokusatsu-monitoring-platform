@@ -232,17 +232,18 @@ EOF
 sed -i "s/\$USER/$USER/g" ~/.cloudflared/config.yml
 
 echo "=== [4/5] 启动 Docker 11 容器集群 ==="
-sudo docker compose -f infrastructure/docker-compose.yml up -d --build
+cp .env infrastructure/.env
+sudo docker compose --env-file .env -f infrastructure/docker-compose.yml up -d --build
 
 echo "⏳ 等待 Docker 容器与数据库迁移初始化就绪..."
-for i in $(seq 1 30); do
-  if sudo docker exec tokusatsu-monitor-postgres-1 pg_isready -U tokusatsu -d tokusatsu >/dev/null 2>&1; then
+for i in $(seq 1 45); do
+  if sudo docker compose --env-file .env -f infrastructure/docker-compose.yml exec -T postgres pg_isready -U tokusatsu -d tokusatsu >/dev/null 2>&1; then
     echo "✓ 数据库核心已就绪！"
     break
   fi
   sleep 2
 done
-sleep 10
+sleep 15
 
 # 还原业务全量数据
 echo "=== [5/5] 还原 50,000+ 件特摄业务数据与字典 ==="
@@ -255,9 +256,10 @@ DATABASE_URL="postgresql://tokusatsu:change-me-in-production@127.0.0.1:55432/tok
 echo "🌐 启动 Cloudflare 隧道服务..."
 sudo mkdir -p /etc/cloudflared
 sudo cp -r ~/.cloudflared/* /etc/cloudflared/
+sudo sed -i 's|/home/[^/]*/\.cloudflared|/etc/cloudflared|g' /etc/cloudflared/config.yml
 sudo cloudflared service install || true
 sudo systemctl daemon-reload || true
-sudo systemctl restart cloudflared || sudo systemctl enable --now cloudflared || cloudflared run 17a1109b-4265-4f09-860c-c7a21a0770d5 &
+sudo systemctl restart cloudflared || sudo systemctl enable --now cloudflared || sudo cloudflared --config /etc/cloudflared/config.yml run 17a1109b-4265-4f09-860c-c7a21a0770d5 &
 
 echo "========================================================"
 echo "🎉 恭喜！特摄监控平台已成功在 Google Cloud 部署上线！"
