@@ -25,14 +25,28 @@ export function zhipuResourcePolicy() {
 export function normalizeScopedRequest<T extends { task: AiTask; messages: { role: "system" | "user" | "assistant"; content: string }[]; maxTokens: number; imageUrls?: string[]; purpose?: AiPurpose }>(request: T): T {
   assertAiScope(request.task, request.purpose);
   if ((request.imageUrls?.length ?? 0) > 2) throw new BadRequestException("一次最多读取两张商品图片");
-  if (request.messages.length > 24 || request.messages.reduce((n, m) => n + m.content.length, 0) > 60_000)
+  const contextChars = request.messages.reduce((n, m) => n + m.content.length, 0);
+  if (request.messages.length > 24 || contextChars > 60_000)
     throw new BadRequestException("上下文过长，请缩短问题或重新开启聊天");
-  const floor = request.task === "translation" ? 4096 : request.task === "assistant_chat" ? 4096 : 6144;
+  // Small translation batches (a title plus a few short fields) cannot produce
+  // anywhere near 4k output tokens; the full floor is kept for large batches.
+  const translationFloor = contextChars <= 2000 ? 1024 : 4096;
+  const floor = request.task === "translation" ? translationFloor : request.task === "assistant_chat" ? 4096 : 6144;
   const maxTokens = Math.min(8192, Math.max(floor, Number.isFinite(request.maxTokens) ? request.maxTokens : floor));
   const messages = request.messages.map(m => ({ ...m, content: m.content.replace(/\b[a-f\d]{32}\.[A-Za-z\d]{16,}\b/gi, "[已隐藏密钥]") }));
   return { ...request, messages, maxTokens };
 }
+// Per-image reservation, charged only until the provider's real usage lands
+// (the gateway overwrites the reservation on success). The old 65,536 figure
+// was far above this model's actual per-image cost: two images alone reserved
+// ~131k of the 200k daily budget. 8,192 is a calibrated estimate that still
+// stays above the real cost of a typical product photo; override with
+// ZHIPU_IMAGE_RESERVATION_TOKENS when measured usage says otherwise.
+export function imageReservationTokens() {
+  const value = Number(process.env.ZHIPU_IMAGE_RESERVATION_TOKENS ?? 8192);
+  return Number.isFinite(value) && value > 0 ? Math.min(Math.floor(value), 65_536) : 8192;
+}
 export function conservativeTokenReservation(messages: { content: string }[], maxTokens: number, imageCount: number) {
   // Keep a pessimistic charge on timeout/restart. No automatic replay or refund.
-  return Buffer.byteLength(JSON.stringify(messages), "utf8") + maxTokens + 1024 + imageCount * 65_536;
+  return Buffer.byteLength(JSON.stringify(messages), "utf8") + maxTokens + 1024 + imageCount * imageReservationTokens();
 }

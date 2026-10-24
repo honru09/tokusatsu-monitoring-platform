@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { assertAiScope, normalizeScopedRequest, zhipuResourcePolicy } from "./zhipu.policy.js";
+import { assertAiScope, conservativeTokenReservation, imageReservationTokens, normalizeScopedRequest, zhipuResourcePolicy } from "./zhipu.policy.js";
 import { candidatesForTask, routeForProvider } from "./ai-router.js";
 import { configuredProviderRuntimes } from "./ai-provider-registry.js";
 afterEach(()=>vi.unstubAllEnvs());
@@ -30,5 +30,25 @@ describe("scoped Zhipu resource policy",()=>{
     expect(normalizeScopedRequest(request).maxTokens).toBe(8192);
     expect(()=>normalizeScopedRequest({...request,imageUrls:['a','b','c']})).toThrow(/两张/);
     expect(()=>normalizeScopedRequest({...request,messages:[{role:'user',content:'x'.repeat(60001)}]})).toThrow(/上下文/);
+  });
+  it("scales the translation floor by input size and keeps the chat floor",()=>{
+    const small={task:"translation" as const,maxTokens:10,messages:[{role:"user" as const,content:"短いタイトル"}]};
+    expect(normalizeScopedRequest(small).maxTokens).toBe(1024);
+    const large={task:"translation" as const,maxTokens:10,messages:[{role:"user" as const,content:"x".repeat(3000)}]};
+    expect(normalizeScopedRequest(large).maxTokens).toBe(4096);
+    const chat={task:"assistant_chat" as const,maxTokens:10,messages:[{role:"user" as const,content:"hi"}]};
+    expect(normalizeScopedRequest(chat).maxTokens).toBe(4096);
+  });
+  it("reserves a calibrated per-image estimate instead of 65,536",()=>{
+    const messages=[{content:"x"}];
+    const base=Buffer.byteLength(JSON.stringify(messages),"utf8")+100+1024;
+    expect(imageReservationTokens()).toBe(8192);
+    expect(conservativeTokenReservation(messages,100,2)).toBe(base+2*8192);
+    vi.stubEnv("ZHIPU_IMAGE_RESERVATION_TOKENS","4096");
+    expect(conservativeTokenReservation(messages,100,1)).toBe(base+4096);
+    vi.stubEnv("ZHIPU_IMAGE_RESERVATION_TOKENS","999999999");
+    expect(imageReservationTokens()).toBe(65536);
+    vi.stubEnv("ZHIPU_IMAGE_RESERVATION_TOKENS","0");
+    expect(imageReservationTokens()).toBe(8192);
   });
 });
