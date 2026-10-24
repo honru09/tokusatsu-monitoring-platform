@@ -1143,6 +1143,142 @@ export async function scheduleChinaComparisonJobs() {
   return { enabled: true, scheduled: 1 };
 }
 
+export const DEFAULT_FULL_RESCAN_INTERVAL_MS = 86_400_000;
+
+/** Full re-scans run by default; FULL_RESCAN_ENABLED=false is the kill switch. */
+export function fullRescanEnabled(
+  env: Record<string, string | undefined> = process.env,
+) {
+  return env.FULL_RESCAN_ENABLED !== "false";
+}
+
+export function fullRescanIntervalMs(
+  env: Record<string, string | undefined> = process.env,
+) {
+  const configured = Number(env.FULL_RESCAN_INTERVAL_MS);
+  if (!Number.isFinite(configured) || configured < 1)
+    return DEFAULT_FULL_RESCAN_INTERVAL_MS;
+  // A re-scan walks a source from its first page on every run, so keep the
+  // cadence between an hour and a week even if the env value is extreme.
+  return Math.max(
+    60 * 60_000,
+    Math.min(Math.floor(configured), 7 * 86_400_000),
+  );
+}
+
+type FullRescanSourceConfig = {
+  adapterKey: string;
+  jobName: string;
+  keywords: (env: Record<string, string | undefined>) => string[];
+  limit: number;
+  pages: number;
+};
+
+/**
+ * The non-rotating counterpart of each scheduled backfill pass. Keyword,
+ * limit and page counts mirror the rotating backfill registered for the
+ * same source further down, so a re-scan costs one ordinary backfill pass;
+ * only the page window stops rotating. That is what makes the pass count
+ * as a complete scan for search-absence bookkeeping: processSearch checks
+ * scanMode and rotatePages through isAbsenceCountingScan.
+ */
+function fullRescanSourceConfigs(): FullRescanSourceConfig[] {
+  return [
+    {
+      adapterKey: "yahoo_auctions",
+      jobName: "market-full-rescan",
+      keywords: (env) => marketKeywords(env),
+      limit: 80,
+      pages: 2,
+    },
+    {
+      adapterKey: "yahoo_fleamarket",
+      jobName: "yahoo-fleamarket-full-rescan",
+      keywords: (env) => marketKeywordWindow(env, 4, 0),
+      limit: 20,
+      pages: 1,
+    },
+    {
+      adapterKey: "rakuma",
+      jobName: "rakuma-full-rescan",
+      keywords: (env) => marketKeywordWindow(env, 3, 0),
+      limit: 16,
+      pages: 1,
+    },
+    {
+      adapterKey: "surugaya",
+      jobName: "surugaya-full-rescan",
+      keywords: () => [
+        "仮面ライダー",
+        "仮面ライダー まとめ売り",
+        "ウルトラマン",
+      ],
+      limit: 40,
+      pages: 1,
+    },
+  ];
+}
+
+export async function scheduleFullRescanJobs(
+  env: Record<string, string | undefined> = process.env,
+) {
+  const configs = fullRescanSourceConfigs();
+  if (!fullRescanEnabled(env)) {
+    await removeRepeatJobs(
+      configs.map((config) => `repeat-${config.adapterKey}-full-rescan-`),
+    );
+    return { enabled: false, scheduled: 0 };
+  }
+  const sources = await prisma.source.findMany({
+    where: {
+      enabled: true,
+      channel: "online",
+      comparisonOnly: false,
+      key: { in: configs.map((config) => config.adapterKey) },
+    },
+    select: { key: true },
+  });
+  const activeKeys = new Set(sources.map((source) => source.key));
+  const every = fullRescanIntervalMs(env);
+  let scheduled = 0;
+  for (const config of configs) {
+    if (!activeKeys.has(config.adapterKey)) continue;
+    const keywords = config.keywords(env);
+    for (const [index, keyword] of keywords.entries()) {
+      await searchQueue.add(
+        config.jobName,
+        {
+          adapterKey: config.adapterKey,
+          query: {
+            keyword,
+            highPriority: false,
+            limit: config.limit,
+            pages: config.pages,
+            pageStart: 0,
+            scanMode: "backfill",
+            rotatePages: false,
+          },
+        },
+        {
+          jobId: `repeat-${config.adapterKey}-full-rescan-${index}`,
+          repeat: {
+            every,
+            offset: Math.floor((index * every) / keywords.length),
+          },
+          removeOnComplete: 300,
+          removeOnFail: 300,
+        },
+      );
+      scheduled += 1;
+    }
+  }
+  if (scheduled > 0)
+    console.log(
+      JSON.stringify({ event: "full_rescan_scheduled", jobs: scheduled, every }),
+    );
+  return { enabled: true, scheduled };
+}
+
 /**
  * Cover the complete historical backlog in bounded database pages. Stable
  * content job IDs make this safe across restarts and while the queue is paused.
@@ -1489,6 +1625,10 @@ export async function scheduleJobs() {
       if (data.adapterKey && realSources.has(data.adapterKey) && !data.monitoringKeywordId)
         await removeSearchJobSafely(job);
     }
+    // Source rows were just synced from the scheduler flags above, so the
+    // enabled filter inside sees the current configuration. Register after
+    // the legacy cleanup so it cannot remove the new repeatable jobs.
+    await scheduleFullRescanJobs();
     return;
   }
 
@@ -2127,5 +2267,9 @@ export async function scheduleJobs() {
       await removeRepeatJobs(["repeat-apify-ecommerce-"], ["apify_ecommerce"]);
       await removePendingAdapterJobs(searchQueue, ["apify_ecommerce"]);
     }
+
+    // Every adapter block above has just written its enabled flag back to
+    // its Source row, so the enabled filter inside sees the final state.
+    await scheduleFullRescanJobs();
   }
 }

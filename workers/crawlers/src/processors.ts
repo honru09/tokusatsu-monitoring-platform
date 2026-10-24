@@ -1210,9 +1210,10 @@ export async function processSearch(job: Job<SearchJobData>) {
       );
     // Absence bookkeeping runs only after the scan itself succeeded, and
     // only for passes that provably covered the whole result set for
-    // their query. Every currently scheduled backfill rotates its page
-    // window, so those passes are excluded until a non-rotating full
-    // re-scan exists; see isAbsenceCountingScan.
+    // their query. The rotating backfill passes are excluded; the
+    // scheduled full re-scans (scheduleFullRescanJobs) run the same
+    // queries without page rotation, so they are the passes that count;
+    // see isAbsenceCountingScan.
     if (
       !job.data.arbitrageContext &&
       isAbsenceCountingScan(effectiveQuery)

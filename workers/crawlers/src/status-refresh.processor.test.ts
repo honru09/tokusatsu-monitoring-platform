@@ -301,6 +301,184 @@ describe("search results cannot revive confirmed terminal listings", () => {
     expect(MercariAdapter.prototype.fetchDetail).not.toHaveBeenCalled();
   });
 });
+
+describe("search sold and ended hints for existing listings", () => {
+  function searchJob() {
+    return {
+      name: "search",
+      id: "job-1",
+      opts: {},
+      attemptsMade: 0,
+      data: { adapterKey: "mercari", query: { keyword: "S.H.Figuarts" } },
+    } as never;
+  }
+
+  function hintedResult(
+    sourceItemId: string,
+    status: "sold" | "ended",
+    priceCurrent = 3_500,
+  ) {
+    return {
+      sourceItemId,
+      sourceUrl: `https://jp.mercari.com/item/${sourceItemId}`,
+      detailHint: {
+        titleRaw: "仮面ライダー SHF",
+        status,
+        priceCurrent,
+        shippingFee: 0,
+        listingType: "direct",
+      } as never,
+    };
+  }
+
+  it.each(["sold", "ended"] as const)(
+    "marks a listing that still needs enrichment as %s straight from the hint, without a detail fetch",
+    async (status) => {
+      // The stored row is missing images, description, shipping and seller,
+      // so the old path would have spent a detail fetch on it first.
+      store.findMany.mockResolvedValue([currentItem({ imageCount: 0 })]);
+      vi.spyOn(MercariAdapter.prototype, "search").mockResolvedValue([
+        hintedResult("m123", status),
+      ]);
+      const fetchDetail = vi
+        .spyOn(MercariAdapter.prototype, "fetchDetail")
+        .mockRejectedValue(new Error("must not fetch detail for a hint"));
+
+      await expect(processSearch(searchJob())).resolves.toMatchObject({
+        recordsEnriched: 0,
+        detailFailed: 0,
+      });
+
+      expect(fetchDetail).not.toHaveBeenCalled();
+      expect(store.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: "listing-1",
+            archivedAt: null,
+            deletedAt: null,
+            status: { in: ["active", "unknown"] },
+          }),
+          data: expect.objectContaining({
+            status,
+            archivedAt: expect.any(Date),
+            lastSeenAt: expect.any(Date),
+            priceCurrent: 3_500,
+          }),
+        }),
+      );
+      expect(store.createAudit).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          actor: "market-search",
+          reason: "search_detail_confirmed_terminal",
+          afterData: expect.objectContaining({ status, priceCurrent: 3_500 }),
+        }),
+      });
+    },
+  );
+
+  it("writes every hinted terminal listing even after the enrichment budget would have run out", async () => {
+    const total = 17;
+    const items = Array.from({ length: total }, (_, index) =>
+      currentItem({
+        id: `listing-${index + 1}`,
+        sourceItemId: `m${index + 1}`,
+        sourceUrl: `https://jp.mercari.com/item/m${index + 1}`,
+        imageCount: 0,
+      }),
+    );
+    store.findMany.mockResolvedValue(items);
+    store.findUnique.mockImplementation(async (args: { where: { id: string } }) =>
+      currentItem({ id: args.where.id }),
+    );
+    vi.spyOn(MercariAdapter.prototype, "search").mockResolvedValue(
+      items.map((item) => hintedResult(item.sourceItemId, "sold")),
+    );
+    const fetchDetail = vi
+      .spyOn(MercariAdapter.prototype, "fetchDetail")
+      .mockRejectedValue(new Error("must not fetch detail for a hint"));
+
+    await expect(processSearch(searchJob())).resolves.toMatchObject({
+      recordsEnriched: 0,
+      detailFailed: 0,
+    });
+
+    expect(fetchDetail).not.toHaveBeenCalled();
+    const terminalWrites = store.updateMany.mock.calls.filter(
+      ([args]) => args.data?.status === "sold",
+    );
+    expect(terminalWrites).toHaveLength(total);
+    expect(store.createAudit).toHaveBeenCalledTimes(total);
+  });
+
+  it.each([
+    ["an active hint", () => hintedResult("m123", "active" as never)],
+    [
+      "no hint",
+      () => ({
+        sourceItemId: "m123",
+        sourceUrl: "https://jp.mercari.com/item/m123",
+      }),
+    ],
+  ])(
+    "leaves a fully enriched listing on the previous path for %s",
+    async (_label, makeResult) => {
+      store.findMany.mockResolvedValue([
+        currentItem({
+          imageCount: 3,
+          sourceData: { shippingStatus: "free" },
+          descriptionRaw: "商品説明",
+          shippingFee: 0,
+          sellerId: "seller-1",
+          seller: {
+            name: "Some Shop",
+            sourceSellerId: "seller-1",
+            profileUrl: "https://jp.mercari.com/user/profile/1",
+            sourceData: {},
+          },
+        }),
+      ]);
+      vi.spyOn(MercariAdapter.prototype, "search").mockResolvedValue([
+        makeResult(),
+      ]);
+      const fetchDetail = vi
+        .spyOn(MercariAdapter.prototype, "fetchDetail")
+        .mockRejectedValue(new Error("fully enriched listing needs no fetch"));
+
+      await expect(processSearch(searchJob())).resolves.toMatchObject({
+        skippedKnown: 1,
+        recordsEnriched: 0,
+      });
+
+      expect(fetchDetail).not.toHaveBeenCalled();
+      expect(store.updateMany).not.toHaveBeenCalled();
+      expect(store.createAudit).not.toHaveBeenCalled();
+    },
+  );
+
+  it("leaves a deleted listing completely untouched by a sold hint", async () => {
+    store.findMany.mockResolvedValue([
+      currentItem({
+        imageCount: 0,
+        deletedAt: new Date("2026-10-20T00:00:00.000Z"),
+      }),
+    ]);
+    vi.spyOn(MercariAdapter.prototype, "search").mockResolvedValue([
+      hintedResult("m123", "sold"),
+    ]);
+    const fetchDetail = vi
+      .spyOn(MercariAdapter.prototype, "fetchDetail")
+      .mockRejectedValue(new Error("must not fetch detail for a deleted item"));
+
+    await expect(processSearch(searchJob())).resolves.toMatchObject({
+      skippedKnown: 1,
+      recordsEnriched: 0,
+    });
+
+    expect(fetchDetail).not.toHaveBeenCalled();
+    expect(store.updateMany).not.toHaveBeenCalled();
+    expect(store.createAudit).not.toHaveBeenCalled();
+  });
+});
 afterEach(() => vi.restoreAllMocks());
 
 describe("authoritative availability refresh", () => {

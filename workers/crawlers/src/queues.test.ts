@@ -34,6 +34,7 @@ const dbMock = vi.hoisted(() => ({
   findItems: vi.fn(),
   countItems: vi.fn(),
   findSource: vi.fn(),
+  findSources: vi.fn(),
   updateSources: vi.fn(),
   countMarketIntel: vi.fn(),
 }));
@@ -126,6 +127,7 @@ vi.mock("@tokusatsu/db", () => ({
     item: { findMany: dbMock.findItems, count: dbMock.countItems },
     source: {
       findUnique: dbMock.findSource,
+      findMany: dbMock.findSources,
       updateMany: dbMock.updateSources,
     },
     marketIntel: { count: dbMock.countMarketIntel },
@@ -151,6 +153,7 @@ beforeEach(() => {
   dbMock.findItems.mockReset().mockResolvedValue([]);
   dbMock.countItems.mockReset();
   dbMock.findSource.mockReset().mockResolvedValue(null);
+  dbMock.findSources.mockReset().mockResolvedValue([]);
   dbMock.updateSources.mockReset().mockResolvedValue({ count: 0 });
   dbMock.countMarketIntel.mockReset().mockResolvedValue(1);
 });
@@ -968,6 +971,176 @@ describe("historical automatic classification scheduler", () => {
       options: {
         jobId: expect.stringMatching(/^classification-item-history-1-/),
       },
+    });
+  });
+});
+
+describe("full re-scan scheduler", () => {
+  it("schedules one non-rotating backfill per keyword only for enabled sources", async () => {
+    dbMock.findSources.mockResolvedValue([
+      { key: "yahoo_auctions" },
+      { key: "rakuma" },
+    ]);
+    vi.resetModules();
+    const { scheduleFullRescanJobs, marketKeywords, marketKeywordWindow } =
+      await import("./queues.js");
+
+    await expect(scheduleFullRescanJobs({})).resolves.toEqual({
+      enabled: true,
+      scheduled: marketKeywords({}).length + 3,
+    });
+
+    expect(dbMock.findSources).toHaveBeenCalledWith({
+      where: {
+        enabled: true,
+        channel: "online",
+        comparisonOnly: false,
+        key: {
+          in: ["yahoo_auctions", "yahoo_fleamarket", "rakuma", "surugaya"],
+        },
+      },
+      select: { key: true },
+    });
+    const queue = queueCalls.find(({ name }) => name === "source-search")!;
+    // Disabled sources (yahoo_fleamarket, surugaya) get no re-scan jobs.
+    expect(
+      queue.adds.filter(
+        (job) =>
+          (job.data as { adapterKey?: string }).adapterKey ===
+          "yahoo_fleamarket",
+      ),
+    ).toHaveLength(0);
+    expect(
+      queue.adds.filter(
+        (job) =>
+          (job.data as { adapterKey?: string }).adapterKey === "surugaya",
+      ),
+    ).toHaveLength(0);
+    const yahoo = queue.adds.filter(
+      (job) =>
+        (job.data as { adapterKey?: string }).adapterKey === "yahoo_auctions",
+    );
+    expect(yahoo).toHaveLength(marketKeywords({}).length);
+    expect(yahoo[0]).toMatchObject({
+      name: "market-full-rescan",
+      data: {
+        adapterKey: "yahoo_auctions",
+        query: {
+          keyword: marketKeywords({})[0],
+          highPriority: false,
+          limit: 80,
+          pages: 2,
+          pageStart: 0,
+          scanMode: "backfill",
+          rotatePages: false,
+        },
+      },
+      options: {
+        jobId: "repeat-yahoo_auctions-full-rescan-0",
+        repeat: { every: 86_400_000, offset: 0 },
+      },
+    });
+    const rakuma = queue.adds.filter(
+      (job) => (job.data as { adapterKey?: string }).adapterKey === "rakuma",
+    );
+    expect(rakuma.map((job) => (job.data as { query: { keyword: string } }).query.keyword)).toEqual(
+      marketKeywordWindow({}, 3, 0),
+    );
+    for (const job of queue.adds) {
+      expect(job.options?.jobId).toMatch(
+        /^repeat-(yahoo_auctions|rakuma)-full-rescan-\d+$/,
+      );
+      expect(
+        (job.data as { query: { scanMode: string; rotatePages: boolean } })
+          .query,
+      ).toMatchObject({ scanMode: "backfill", rotatePages: false });
+      expect(
+        (job.options?.repeat as { every: number }).every,
+      ).toBe(86_400_000);
+    }
+    // Stable job ids: a second registration reuses the same ids instead of
+    // minting new ones.
+    const firstIds = queue.adds.map((job) => job.options?.jobId);
+    queue.adds.length = 0;
+    await scheduleFullRescanJobs({});
+    expect(queue.adds.map((job) => job.options?.jobId)).toEqual(firstIds);
+  });
+
+  it("schedules nothing and removes old re-scan repeats when the kill switch is off", async () => {
+    vi.resetModules();
+    const { scheduleFullRescanJobs } = await import("./queues.js");
+    const queue = queueCalls.find(({ name }) => name === "source-search")!;
+    queue.repeatableJobs = [
+      { id: "repeat-rakuma-full-rescan-0", key: "rescan-key" },
+      { id: "repeat-rakuma-backfill-0", key: "backfill-key" },
+    ];
+
+    await expect(
+      scheduleFullRescanJobs({ FULL_RESCAN_ENABLED: "false" }),
+    ).resolves.toEqual({ enabled: false, scheduled: 0 });
+
+    expect(queue.adds).toHaveLength(0);
+    expect(dbMock.findSources).not.toHaveBeenCalled();
+    expect(queue.removedRepeatableKeys).toEqual(["rescan-key"]);
+  });
+
+  it("defaults to a daily cadence and clamps extreme interval overrides", async () => {
+    vi.resetModules();
+    const { fullRescanEnabled, fullRescanIntervalMs } = await import(
+      "./queues.js"
+    );
+
+    expect(fullRescanEnabled({})).toBe(true);
+    expect(fullRescanEnabled({ FULL_RESCAN_ENABLED: "true" })).toBe(true);
+    expect(fullRescanEnabled({ FULL_RESCAN_ENABLED: "false" })).toBe(false);
+    expect(fullRescanIntervalMs({})).toBe(86_400_000);
+    expect(fullRescanIntervalMs({ FULL_RESCAN_INTERVAL_MS: "junk" })).toBe(
+      86_400_000,
+    );
+    expect(fullRescanIntervalMs({ FULL_RESCAN_INTERVAL_MS: "0" })).toBe(
+      86_400_000,
+    );
+    expect(
+      fullRescanIntervalMs({ FULL_RESCAN_INTERVAL_MS: "7200000" }),
+    ).toBe(7_200_000);
+    expect(
+      fullRescanIntervalMs({ FULL_RESCAN_INTERVAL_MS: "1800000" }),
+    ).toBe(3_600_000);
+    expect(
+      fullRescanIntervalMs({ FULL_RESCAN_INTERVAL_MS: "99999999999" }),
+    ).toBe(7 * 86_400_000);
+  });
+
+  it("registers re-scans from scheduleJobs when monitoring keywords own the schedule", async () => {
+    keywordMock.initialize.mockResolvedValue({ hasConfig: true });
+    dbMock.findSources.mockResolvedValue([{ key: "surugaya" }]);
+    vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
+    vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "false");
+    vi.stubEnv("MOCK_ADAPTER_ENABLED", "false");
+    vi.resetModules();
+    const { scheduleJobs } = await import("./queues.js");
+
+    await scheduleJobs();
+
+    const queue = queueCalls.find(({ name }) => name === "source-search")!;
+    expect(queue.adds).toHaveLength(3);
+    expect(queue.adds.map((job) => job.name)).toEqual([
+      "surugaya-full-rescan",
+      "surugaya-full-rescan",
+      "surugaya-full-rescan",
+    ]);
+    expect(queue.adds[0]).toMatchObject({
+      data: {
+        adapterKey: "surugaya",
+        query: {
+          keyword: "仮面ライダー",
+          limit: 40,
+          pages: 1,
+          scanMode: "backfill",
+          rotatePages: false,
+        },
+      },
+      options: { jobId: "repeat-surugaya-full-rescan-0" },
     });
   });
 });
