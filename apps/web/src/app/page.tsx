@@ -58,12 +58,37 @@ import {
   HomeMarketOverview,
   type MarketOverviewData,
 } from "../components/home-market-overview";
-import { displayListingTitle } from "../lib/listing-title";
 import {
   marketplaceSourceName as sourceName,
   marketplaceSourceOptions,
 } from "../lib/source-label";
 import { listingCostSummary } from "../lib/listing-cost";
+import {
+  fmtCny,
+  fmtCnyAmount,
+  fmtYen,
+  itemDisplayTitle,
+  listingLabels as labels,
+  relativeTime,
+  shippingLabel,
+  useLiveAuctionTimeline,
+} from "../lib/listing-display";
+import { ProductCard } from "../components/product-card/product-card";
+import {
+  ProductCardDensityToggle,
+  readStoredCardDensity,
+  storeCardDensity,
+} from "../components/product-card/product-card-density";
+import type { ProductCardDensity } from "../components/product-card/product-card-item";
+import {
+  ArchiveIcon,
+  CartIcon,
+  CommentIcon,
+  MessageIcon,
+  MoneyIcon,
+  ShareIcon,
+  TrashIcon,
+} from "../components/product-card/product-card-icons";
 import {
   isAvailableMarketListing,
   retainAvailableMarketListings,
@@ -572,26 +597,6 @@ type MonitoringOverview = {
 
 type IconProps = { className?: string };
 
-function HeartIcon({
-  className = "h-4 w-4",
-  filled = false,
-}: IconProps & { filled?: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z" />
-    </svg>
-  );
-}
-
 function FilterIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg
@@ -676,42 +681,6 @@ function ExternalLinkIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
-function MoneyIcon({ className = "h-4 w-4" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M14.5 9.5c-.45-.55-1.15-.85-2.05-.85-1.2 0-2 .58-2 1.45 0 .82.64 1.2 2.05 1.55 1.28.31 2.05.73 2.05 1.63 0 .9-.79 1.5-2.08 1.5-.95 0-1.7-.3-2.2-.92M12.45 7.4v9.2" />
-    </svg>
-  );
-}
-
-function CommentIcon({ className = "h-4 w-4" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.8 8.8 0 0 1-3.6-.8L4 20l1.1-3.2A7.2 7.2 0 0 1 4 12c0-4.1 3.6-7.5 8-7.5s8 3.1 8 7Z" />
-      <path d="M8 12h.01M12 12h.01M16 12h.01" />
-    </svg>
-  );
-}
-
 function EditIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg
@@ -744,58 +713,6 @@ function HistoryIcon({ className = "h-4 w-4" }: IconProps) {
     >
       <path d="M3 12a9 9 0 1 0 3-6.7" />
       <path d="M3 4v5h5M12 7v5l3 2" />
-    </svg>
-  );
-}
-
-function CartIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 4h2l1.8 10.2a2 2 0 0 0 2 1.7h7.9a2 2 0 0 0 1.9-1.4L21 7H6" />
-      <circle cx="9" cy="20" r="1" />
-      <circle cx="18" cy="20" r="1" />
-    </svg>
-  );
-}
-
-function ShareIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 15V3m-4 4 4-4 4 4" />
-      <path d="M7 10H5.5A1.5 1.5 0 0 0 4 11.5v8A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5H17" />
-    </svg>
-  );
-}
-
-function MoreIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="currentColor"
-    >
-      <circle cx="5" cy="12" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="19" cy="12" r="1.6" />
     </svg>
   );
 }
@@ -966,40 +883,6 @@ function AnalysisIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
-function ArchiveIcon({ className = "h-4 w-4" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 7h16v13H4zM3 4h18v3H3zM9 11h6" />
-    </svg>
-  );
-}
-
-function TrashIcon({ className = "h-4 w-4" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />
-    </svg>
-  );
-}
-
 function BagIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg
@@ -1164,24 +1047,6 @@ function ProfileIcon({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
-function MessageIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5.2 5.5h13.6A2.2 2.2 0 0 1 21 7.7v8.1a2.2 2.2 0 0 1-2.2 2.2H11l-4.9 3v-3h-.9A2.2 2.2 0 0 1 3 15.8V7.7a2.2 2.2 0 0 1 2.2-2.2Z" />
-      <path d="M7.5 10h9M7.5 13.5h6" />
-    </svg>
-  );
-}
-
 function RiderLogo({ className = "h-11 w-11" }: IconProps) {
   // One centered white-ground mark is shared with browser and home-screen icons.
   return (
@@ -1228,79 +1093,6 @@ function friendlyImportError(value?: string | null) {
     return "网络暂时不可用，请稍后重试";
   return value.replace(/\s+/g, " ").trim().slice(0, 120);
 }
-const labels: Record<string, string> = {
-  kamen_rider: "假面骑士",
-  ultraman: "奥特曼",
-  super_sentai: "超级战队",
-  godzilla: "哥斯拉",
-  other: "其他",
-  unknown: "待识别",
-  gashapon: "扭蛋",
-  shokugan: "食玩",
-  figure: "手办",
-  sofubi: "软胶",
-  finger_puppet: "指人形",
-  dx_belt: "DX腰带",
-  henshin_item: "变身道具",
-  medal: "Medal",
-  model: "模型",
-  set: "套装",
-  standard: "普通 SHF",
-  shinkocchou: "真骨雕制法",
-  retail: "通贩",
-  tamashii_web: "魂限定",
-  event: "会场限定",
-  first: "初版",
-  reissue: "再版",
-  japanese: "日版",
-  agent: "代理版",
-  hong_kong: "港版",
-  bandai: "BANDAI",
-  bandai_spirits: "BANDAI SPIRITS",
-  banpresto: "Banpresto",
-  megahouse: "Megahouse",
-  plex: "PLEX",
-  new_sealed: "全新/未开封",
-  like_new: "近新",
-  used: "普通二手",
-  stained_or_damaged: "污损/瑕疵",
-  junk: "JUNK",
-  online: "线上",
-  physical_store: "线下店",
-};
-
-function itemDisplayTitle(
-  item: Pick<Item, "titleRaw" | "titleZh"> & {
-    product?: Item["product"];
-  },
-  language: "zh" | "original",
-  translatedTitle?: string,
-) {
-  return displayListingTitle(item, language, translatedTitle);
-}
-
-const fmtYen = (value?: number | null) =>
-  value == null ? "未知" : `¥${value.toLocaleString("ja-JP")}`;
-
-const fmtCny = (yen: number | null | undefined, rate?: number) =>
-  yen == null || !rate
-    ? ""
-    : `约 ¥${(yen * rate).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const fmtCnyAmount = (value?: number | null) =>
-  value == null || !Number.isFinite(value)
-    ? ""
-    : `¥${value.toLocaleString("zh-CN", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-      })}`;
-
-function shippingLabel(item: Item) {
-  if (item.shippingFee === 0) return "包邮";
-  if (item.shippingFee != null) return fmtYen(item.shippingFee);
-  const status = item.sourceData?.shippingStatus;
-  return status === "calculated" ? "按地区计算" : "平台未提供";
-}
 const fmtDate = (value?: string | null) =>
   value
     ? new Intl.DateTimeFormat("zh-CN", {
@@ -1310,20 +1102,6 @@ const fmtDate = (value?: string | null) =>
         minute: "2-digit",
       }).format(new Date(value))
     : "平台未提供";
-
-function relativeTime(value?: string | null) {
-  if (!value) return "尚无记录";
-  const seconds = Math.max(
-    0,
-    Math.round((Date.now() - new Date(value).getTime()) / 1000),
-  );
-  if (seconds < 60) return "刚刚";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} 分钟前`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} 小时前`;
-  return `${Math.floor(hours / 24)} 天前`;
-}
 
 function countdown(endAt: string | null | undefined, serverOffset: number) {
   if (!endAt) return null;
@@ -1336,49 +1114,6 @@ function countdown(endAt: string | null | undefined, serverOffset: number) {
   if (days) return `${days} 天 ${hours} 小时`;
   if (hours) return `${hours} 小时 ${minutes} 分`;
   return `${Math.max(1, minutes)} 分钟`;
-}
-
-function useLiveAuctionTimeline(
-  item: Item,
-  serverOffset: number,
-  sharedClock?: number,
-) {
-  const [clock, setClock] = useState(() => Date.now());
-  useEffect(() => {
-    if (
-      sharedClock != null ||
-      item.listingType !== "auction" ||
-      !item.auctionEndAt
-    )
-      return;
-    const timer = window.setInterval(() => setClock(Date.now()), 1_000);
-    return () => window.clearInterval(timer);
-  }, [item.auctionEndAt, item.listingType, sharedClock]);
-  return useMemo(() => {
-    if (item.listingType !== "auction" || !item.auctionEndAt) return null;
-    const end = new Date(item.auctionEndAt).getTime();
-    const detected = new Date(item.detectedAt).getTime();
-    const listed = item.listedAt
-      ? new Date(item.listedAt).getTime()
-      : Number.NaN;
-    const start = Number.isFinite(listed) && listed < end ? listed : detected;
-    const now = (sharedClock ?? clock) + serverOffset;
-    const remainingMs = end - now;
-    const remaining =
-      remainingMs <= 0
-        ? "已结束"
-        : remainingMs >= 86_400_000
-          ? `${Math.floor(remainingMs / 86_400_000)}天 ${String(Math.floor((remainingMs % 86_400_000) / 3_600_000)).padStart(2, "0")}:${String(Math.floor((remainingMs % 3_600_000) / 60_000)).padStart(2, "0")}`
-          : `${String(Math.floor(remainingMs / 3_600_000)).padStart(2, "0")}:${String(Math.floor((remainingMs % 3_600_000) / 60_000)).padStart(2, "0")}:${String(Math.floor((remainingMs % 60_000) / 1_000)).padStart(2, "0")}`;
-    return {
-      remaining,
-      remainingMs,
-      progress: Math.max(
-        0,
-        Math.min(1, (now - start) / Math.max(60_000, end - start)),
-      ),
-    };
-  }, [clock, item, serverOffset, sharedClock]);
 }
 
 function median(values: number[]) {
@@ -1415,410 +1150,6 @@ function FilterSelect({
         {children}
       </select>
     </label>
-  );
-}
-
-function ProductCard({
-  item,
-  serverOffset,
-  nowTick,
-  language,
-  translatedTitle,
-  onOpen,
-  onPatch,
-  onIgnore,
-  onDelete,
-  onPurchase,
-  exchangeRate,
-  inCart,
-  onCart,
-  onShare,
-  onSendToManager,
-  inBundleShare = false,
-  onToggleBundleShare,
-}: {
-  item: Item;
-  serverOffset: number;
-  nowTick: number;
-  language: "zh" | "original";
-  translatedTitle?: string;
-  onOpen: () => void;
-  onPatch: (patch: Partial<Item>) => void | Promise<void | boolean>;
-  onIgnore: () => void;
-  onDelete: () => void;
-  onPurchase: () => void;
-  exchangeRate?: number;
-  inCart: boolean;
-  onCart: () => void | Promise<void | boolean>;
-  onShare: () => void;
-  onSendToManager: () => void;
-  inBundleShare?: boolean;
-  onToggleBundleShare?: () => void;
-}) {
-  const [showOriginal, setShowOriginal] = useState(language === "original");
-  useEffect(() => setShowOriginal(language === "original"), [language]);
-  const [noteOpen, setNoteOpen] = useState(false);
-  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
-  const reduceMotion = useReducedMotion();
-  const pointerInputRef = useRef(false);
-  const actionInFlightRef = useRef(false);
-  const [pendingAction, setPendingAction] = useState<"favorite" | "cart" | null>(null);
-  const [actionFeedback, setActionFeedback] = useState<{ text:string; error:boolean } | null>(null);
-  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const moreTriggerRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => () => { if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current); }, []);
-  async function runAction(kind:"favorite"|"cart", action:()=>void|Promise<void|boolean>, success:string) {
-    if (actionInFlightRef.current) return;
-    actionInFlightRef.current = true;
-    setPendingAction(kind);
-    setActionFeedback({text:"正在保存…",error:false});
-    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-    try {
-      const result = await action();
-      setActionFeedback({text:result === false ? "保存失败，已恢复原状态" : success,error:result === false});
-    } catch (reason) { setActionFeedback({text:reason instanceof Error ? reason.message : "保存失败，已恢复原状态",error:true}); }
-    finally { actionInFlightRef.current = false; setPendingAction(null); feedbackTimerRef.current = setTimeout(()=>setActionFeedback(null),2400); }
-  }
-  const cost = listingCostSummary(item);
-  const knownShipping =
-    item.shippingFee != null &&
-    Number.isFinite(item.shippingFee) &&
-    item.shippingFee >= 0;
-  const auction = useLiveAuctionTimeline(item, serverOffset, nowTick);
-  const displayTitle = itemDisplayTitle(
-    item,
-    showOriginal ? "original" : language,
-    translatedTitle,
-  );
-  const productTags = Array.from(
-    new Set(
-      [
-        item.categoryIp && item.categoryIp !== "unknown"
-          ? labels[item.categoryIp]
-          : null,
-        item.listingType === "unknown" ? "交易方式待识别" : null,
-        item.shfLine ? labels[item.shfLine] : null,
-        item.product?.series?.nameZh,
-        item.product?.toyTypeEntity?.nameZh ?? labels[item.categoryToyType],
-        labels[item.conditionGrade],
-        item.product?.manufacturerEntity?.nameZh ?? labels[item.manufacturer],
-      ].filter((tag): tag is string => Boolean(tag && tag !== "待识别")),
-    ),
-  ).slice(0, 2);
-  const chinaComparison = chinaComparisonSummary(item);
-  const chinaPrice = fmtCnyAmount(chinaComparison.priceCny);
-  const chinaSourceUrl = chinaComparison.sourceUrl;
-  return (
-    <article
-      data-item-id={item.id}
-      onPointerDownCapture={() => { pointerInputRef.current = true; }}
-      onKeyDownCapture={(event) => { pointerInputRef.current = false; if(event.key === "Escape" && moreActionsOpen) { event.stopPropagation(); setMoreActionsOpen(false); moreTriggerRef.current?.focus(); } }}
-      className={`ios-card product-card js-product-card motion-layer group flex min-w-0 flex-col overflow-hidden rounded-[18px] shadow-panel ${item.note ? "product-card-has-note" : ""}`}
-    >
-      <div className="product-card-media relative block aspect-[3/2] w-full overflow-hidden bg-ink text-left">
-        <ImageGallery
-          images={item.images}
-          alt={displayTitle ?? item.titleRaw}
-          className="h-full w-full"
-          imageClassName="opacity-95"
-          quietControls
-          onSurfaceClick={onOpen}
-        />
-        <div className="product-card-media-meta absolute inset-x-0 top-0 z-30 flex items-start justify-between p-2.5">
-          <span className="max-w-[70%] truncate rounded-md bg-ink/55 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
-            {sourceName(
-              item.source.key,
-              item.source.displayName,
-              item.sourceUrl,
-            )}
-          </span>
-          <button
-            type="button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              setNoteOpen(true);
-            }}
-            aria-label={
-              item.note ? `编辑采购备注：${item.note}` : "添加采购备注"
-            }
-            title={item.note ? "编辑采购备注" : "添加采购备注"}
-            className={`product-card-note-trigger relative grid h-11 w-11 shrink-0 place-items-center text-white ${item.note ? "is-active" : ""}`}
-          >
-            <span>
-              <CommentIcon className="h-4 w-4" />
-            </span>
-          </button>
-        </div>
-        <div className="product-card-media-footer absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-ink/85 to-transparent p-2.5 pb-3 pt-10 text-white">
-          <span className="min-w-0 truncate text-[11px] font-semibold">
-            发现 {relativeTime(item.detectedAt)}
-          </span>
-          {auction?.remaining ? (
-            <span
-              className={`product-card-auction-countdown shrink-0 rounded-md px-2 py-1 tabular-nums ${auction.remainingMs < 10 * 60_000 ? "is-critical" : auction.remainingMs < 60 * 60_000 ? "is-urgent" : ""}`}
-            >
-              <small>拍卖</small>
-              <strong>{auction.remaining}</strong>
-            </span>
-          ) : null}
-        </div>
-        {auction?.remaining && (
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-1 bg-white/25"
-            aria-label={`拍卖进度 ${Math.round(auction.progress * 100)}%`}
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(auction.progress * 100)}
-          >
-            <span
-              className={`block h-full origin-left transition-transform duration-1000 ease-linear motion-reduce:transition-none ${auction.remainingMs < 10 * 60_000 ? "bg-rust" : auction.remainingMs < 60 * 60_000 ? "bg-amber-400" : "bg-white"}`}
-              style={{ transform: `scaleX(${auction.progress})` }}
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="product-card-body flex flex-1 flex-col p-3">
-        <div className="product-card-tags mb-2 flex min-h-6 flex-wrap gap-1">
-          {productTags.map((tag, index) => (
-            <span
-              key={`${tag}-${index}`}
-              className={`rounded px-1.5 py-1 text-[10px] font-bold ${tag === labels.junk || tag === labels.stained_or_damaged ? "bg-rust/10 text-rust" : "bg-fog/70 text-moss"}`}
-            >
-              {tag}
-            </span>
-          ))}
-          {item.needsReview && (
-            <span className="rounded bg-amber-100 px-1.5 py-1 text-[10px] font-bold text-amber-800">
-              待复核
-            </span>
-          )}
-        </div>
-        <button
-          onClick={onOpen}
-          className="product-card-title line-clamp-2 min-h-11 w-full text-left text-sm font-black leading-[1.35rem] text-ink transition-colors hover:text-moss"
-        >
-          {displayTitle}
-        </button>
-        <div className="product-card-market product-card-decision mt-2">
-          <dl>
-            <div className="product-card-total">
-              <dt>{cost.label}</dt>
-              <dd>{fmtYen(cost.total)}</dd>
-              <small>{fmtCny(cost.total, exchangeRate)}</small>
-            </div>
-            <div>
-              <dt>数量</dt>
-              <dd>{item.quantityEst ? `${item.quantityEst} 件` : "待识别"}</dd>
-            </div>
-            <div>
-              <dt>{cost.unitLabel}</dt>
-              <dd>{fmtYen(cost.unit)}</dd>
-            </div>
-          </dl>
-          <div className="product-card-price-split text-[11px] tabular-nums text-ink/55">
-            标价 {fmtYen(item.priceCurrent)}
-            {knownShipping
-              ? item.shippingFee === 0
-                ? " · 包邮"
-                : ` + 邮费 ${fmtYen(item.shippingFee)}`
-              : ` · 邮费${shippingLabel(item)}`}
-            {knownShipping && item.shippingFee ? (
-              <small className="ml-1">
-                {fmtCny(item.shippingFee, exchangeRate)}
-              </small>
-            ) : null}
-          </div>
-          <YahooDiscount
-            sourceKey={item.source.key}
-            priceYen={item.priceCurrent}
-            exchangeRate={exchangeRate}
-          />
-          {(item.valueKing || (chinaPrice && chinaSourceUrl)) && (
-            <div className="product-card-cost-evidence">
-              {item.valueKing ? (
-                <span
-                  className="product-card-value-king"
-                  title={item.valueKing.facts.join(" · ")}
-                >
-                  <b aria-hidden="true">♛</b>
-                  {item.valueKing.label}
-                </span>
-              ) : chinaPrice && chinaSourceUrl ? (
-                <a
-                  className="product-card-china-reference"
-                  href={chinaSourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`打开${chinaComparison.platformName}原商品，中国参考价 ${chinaPrice}`}
-                  title={`${chinaComparison.platformName}参考价 ${chinaPrice}`}
-                >
-                  {chinaComparison.platformName}同款 {chinaPrice}
-                </a>
-              ) : null}
-            </div>
-          )}
-        </div>
-        {onToggleBundleShare && (
-          <div className="product-card-seller mt-2 flex items-center justify-end gap-1.5 text-[10px] text-ink/50">
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onToggleBundleShare();
-                }}
-                aria-pressed={inBundleShare}
-                aria-label={
-                  inBundleShare ? "移出集合分享篮" : "加入集合分享篮"
-                }
-                title={
-                  inBundleShare
-                    ? "已加入集合分享篮，点击移出"
-                    : "加入集合分享篮（与同店商品一起发给搭档砍价）"
-                }
-                className={`inline-flex h-5 items-center rounded-md px-1.5 text-[10px] font-semibold transition active:scale-[0.96] ${
-                  inBundleShare
-                    ? "bg-ink text-white"
-                    : "bg-black/[0.05] text-ink/65 hover:bg-black/[0.09] hover:text-ink"
-                }`}
-              >
-                {inBundleShare ? "✓ 已凑" : "+ 凑单"}
-              </button>
-            </div>
-          </div>
-        )}
-        {item.note && (
-          <div className="product-card-note mt-1">
-            <button
-              type="button"
-              onClick={() => setNoteOpen(true)}
-              aria-label={`查看或编辑采购备注：${item.note}`}
-              title={item.note}
-              className="product-card-note-desktop flex w-full min-w-0 items-center gap-1.5 rounded-lg bg-fog/55 px-2 text-left text-[11px] text-ink/65"
-            >
-              <CommentIcon className="h-3.5 w-3.5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{item.note}</span>
-            </button>
-            <div
-              className="product-card-note-mobile hidden min-w-0 items-center gap-1 rounded-md bg-fog/55 px-1.5 text-[10px] font-medium leading-5 text-ink/65"
-              title={item.note}
-            >
-              <CommentIcon className="h-3 w-3 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{item.note}</span>
-            </div>
-          </div>
-        )}
-        <div className="product-card-actions relative mt-auto grid grid-cols-3 gap-1.5 pt-1">
-          <button
-            onClick={() => void runAction("favorite",()=>onPatch({ favorite: !item.favorite }),item.favorite ? "已取消收藏" : "已收藏")}
-            disabled={pendingAction !== null}
-            data-pending={pendingAction === "favorite" || undefined}
-            data-pointer-motion={pointerInputRef.current}
-            aria-pressed={item.favorite}
-            aria-label={item.favorite ? "取消收藏" : "收藏商品"}
-            title={item.favorite ? "取消收藏" : "收藏"}
-            className={`${transactionStyles.stateAction} grid min-h-11 place-items-center rounded-lg border transition-colors ${item.favorite ? "border-lime bg-lime text-ink" : "border-ink/10 bg-white hover:border-moss/35"}`}
-          >
-            <motion.span data-apple-motion-owned tabIndex={-1} className={transactionStyles.actionIcon} initial={false} animate={{ transform:item.favorite && pointerInputRef.current && !reduceMotion ? "scale(1.12)" : "scale(1)" }} transition={reduceMotion || !pointerInputRef.current ? {duration:0} : springs.applePress}><HeartIcon filled={item.favorite} /></motion.span>
-          </button>
-          <button
-            onClick={() => void runAction("cart",onCart,inCart ? "已移出采购清单" : "已加入采购清单")}
-            disabled={pendingAction !== null}
-            data-pending={pendingAction === "cart" || undefined}
-            data-pointer-motion={pointerInputRef.current}
-            aria-pressed={inCart}
-            aria-label={inCart ? "移出购物车" : "加入购物车"}
-            title={inCart ? "移出购物车" : "加入购物车"}
-            className={`${transactionStyles.stateAction} grid min-h-11 place-items-center rounded-lg border transition-colors ${inCart ? "border-blue-300 bg-blue-50 text-moss" : "border-ink/10 bg-white text-ink hover:border-moss/35"}`}
-          >
-            <motion.span data-apple-motion-owned tabIndex={-1} className={transactionStyles.actionIcon} initial={false} animate={{transform:inCart && pointerInputRef.current && !reduceMotion ? "translateY(-2px) scale(1.08)" : "translateY(0px) scale(1)"}} transition={reduceMotion || !pointerInputRef.current ? {duration:0} : springs.applePress}><CartIcon /></motion.span>
-          </button>
-          <button
-            type="button"
-            ref={moreTriggerRef}
-            onClick={() => setMoreActionsOpen((current) => !current)}
-            aria-label={moreActionsOpen ? "收起更多操作" : "更多商品操作"}
-            aria-expanded={moreActionsOpen}
-            title="更多"
-            className={`grid min-h-11 place-items-center rounded-lg border transition-colors ${moreActionsOpen ? "border-ink bg-ink text-white" : "border-ink/10 bg-white text-ink hover:border-moss/35"}`}
-          >
-            <MoreIcon />
-          </button>
-        </div>
-        {moreActionsOpen && (
-          <motion.div data-apple-motion-owned className={`product-card-more-actions ${transactionStyles.moreMenu} absolute bottom-[68px] right-3 z-30 grid w-[248px] grid-cols-5 gap-1.5 rounded-2xl border border-ink/10 bg-white/95 p-2 shadow-modal`} initial={reduceMotion || !pointerInputRef.current ? false : {opacity:0,transform:"translateY(10px) scale(.94)"}} animate={{opacity:1,transform:"translateY(0px) scale(1)"}} transition={reduceMotion || !pointerInputRef.current ? {duration:0} : springs.appleSpatial}>
-            <button
-              onClick={() => {
-                setMoreActionsOpen(false);
-                onIgnore();
-              }}
-              aria-label="标记为不感兴趣"
-              title="不感兴趣"
-              className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-rust/40 hover:text-rust"
-            >
-              <ArchiveIcon />
-            </button>
-            <button
-              onClick={() => {
-                setMoreActionsOpen(false);
-                onDelete();
-              }}
-              aria-label="删除商品"
-              title="删除"
-              className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-rust/40 hover:text-rust"
-            >
-              <TrashIcon />
-            </button>
-            <button
-              onClick={() => {
-                setMoreActionsOpen(false);
-                onPurchase();
-              }}
-              aria-label="记录购买"
-              title="记录购买"
-              className="grid min-h-11 place-items-center rounded-lg border border-rust/25 bg-rust/5 text-rust transition-colors hover:bg-rust/10"
-            >
-              <MoneyIcon />
-            </button>
-            <button
-              onClick={() => {
-                setMoreActionsOpen(false);
-                onShare();
-              }}
-              aria-label="分享商品"
-              title="分享"
-              className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-moss/35"
-            >
-              <ShareIcon />
-            </button>
-            <button
-              onClick={() => {
-                setMoreActionsOpen(false);
-                onSendToManager();
-              }}
-              aria-label="发送给另一位管理者"
-              title="发送给管理者"
-              className="grid min-h-11 place-items-center rounded-lg border border-blue-200 bg-blue-50 text-[color:var(--color-accent)] transition-colors hover:bg-blue-100"
-            >
-              <MessageIcon />
-            </button>
-          </motion.div>
-        )}
-        {actionFeedback && <motion.span role="status" aria-live="polite" className={transactionStyles.status} data-error={actionFeedback.error} initial={reduceMotion || !pointerInputRef.current ? false : {opacity:0,transform:"translateY(6px)"}} animate={{opacity:1,transform:"translateY(0px)"}} transition={{duration:reduceMotion || !pointerInputRef.current ? 0 : motionTokens.duration.fast}}>{actionFeedback.text}</motion.span>}
-      </div>
-      <NoteDialog
-        open={noteOpen}
-        value={item.note}
-        onClose={() => setNoteOpen(false)}
-        onSave={async (note) => {
-          if (note !== (item.note ?? null) && await onPatch({ note }) === false) throw new Error("备注保存失败，请重试");
-        }}
-      />
-    </article>
   );
 }
 
@@ -5476,6 +4807,14 @@ export default function Dashboard() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const [language, setLanguage] = useState<"zh" | "original">("zh");
+  const [cardDensity, setCardDensity] = useState<ProductCardDensity>("standard");
+  useEffect(() => {
+    setCardDensity(readStoredCardDensity());
+  }, []);
+  const changeCardDensity = (next: ProductCardDensity) => {
+    setCardDensity(next);
+    storeCardDensity(next);
+  };
   const [listingMode, setListingMode] = useState<ListingType>("direct");
   const inventoryQueryKey = JSON.stringify([
     listingMode,
@@ -8406,6 +7745,10 @@ export default function Dashboard() {
                     <h3 className="font-heading text-base font-black">
                       已导入商品 · {linkTotal}
                     </h3>
+                    <ProductCardDensityToggle
+                      density={cardDensity}
+                      onChange={changeCardDensity}
+                    />
                   </div>
                   <div className="mt-2 grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {linkItems.length === 0 ? (
@@ -8419,6 +7762,7 @@ export default function Dashboard() {
                           item={item}
                           serverOffset={serverOffset}
                           nowTick={nowTick}
+                          density={cardDensity}
                           language={language}
                           translatedTitle={translations[`${item.id}:title`]}
                           onOpen={() => openItemDetail(item)}
@@ -9311,6 +8655,7 @@ export default function Dashboard() {
                         item={item}
                         serverOffset={serverOffset}
                         nowTick={nowTick}
+                        density={cardDensity}
                         language={language}
                         translatedTitle={translations[`${item.id}:title`]}
                         onOpen={() => openItemDetail(item)}
@@ -9386,6 +8731,10 @@ export default function Dashboard() {
                 <div
                   className="catalog-actions flex flex-wrap gap-2"
                 >
+                  <ProductCardDensityToggle
+                    density={cardDensity}
+                    onChange={changeCardDensity}
+                  />
                   {filters.valueKing !== "true" && (
                     <div className="catalog-mode-switch" role="group" aria-label="在售商品类型">
                       <span className="catalog-mode-indicator" aria-hidden="true" style={{transform: `translateX(${listingMode === "direct" ? "100%" : "0%"})`}} />
@@ -9532,6 +8881,7 @@ export default function Dashboard() {
                         item={item}
                         serverOffset={serverOffset}
                         nowTick={nowTick}
+                        density={cardDensity}
                         language={language}
                         translatedTitle={translations[`${item.id}:title`]}
                         onOpen={() => openItemDetail(item)}
