@@ -292,6 +292,240 @@ describe("purchase link analysis with actual amounts", () => {
   });
 });
 
+describe("purchase link analysis persistence", () => {
+  beforeEach(() => {
+    queueMocks.add.mockReset();
+    queueMocks.close.mockReset().mockResolvedValue(undefined);
+    queueMocks.getJob.mockReset().mockResolvedValue(undefined);
+    queueMocks.quit.mockReset().mockResolvedValue("OK");
+  });
+
+  function purchasePrismaStub() {
+    let sequence = 0;
+    const created: Array<Record<string, unknown>> = [];
+    const updated: Array<Record<string, unknown>> = [];
+    return {
+      created,
+      updated,
+      urlImport: {
+        create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+          created.push(data);
+          return { id: `import-${++sequence}` };
+        }),
+        update: vi.fn(async (args: Record<string, unknown>) => {
+          updated.push(args);
+          return args;
+        }),
+        findUnique: vi.fn(async () => undefined),
+      },
+    };
+  }
+
+  it("creates one purchase-origin UrlImport row per URL with the paid amount in resultData", async () => {
+    queueMocks.add
+      .mockResolvedValueOnce({ id: "job-paid" })
+      .mockResolvedValueOnce({ id: "job-plain" });
+    const prisma = purchasePrismaStub();
+    const service = new ItemsService(prisma as never);
+
+    const result = await service.analyzePurchaseLinks(
+      [
+        "https://paypayfleamarket.yahoo.co.jp/item/z667890666",
+        "https://paypayfleamarket.yahoo.co.jp/item/z670895698",
+      ],
+      { "https://paypayfleamarket.yahoo.co.jp/item/z667890666": 12_800 },
+    );
+
+    expect(result.results[0]).toMatchObject({
+      accepted: true,
+      importId: "import-1",
+      jobId: "job-paid",
+    });
+    expect(prisma.created).toHaveLength(2);
+    expect(prisma.created[0]).toMatchObject({
+      sourceUrl: "https://paypayfleamarket.yahoo.co.jp/item/z667890666",
+      adapterKey: "yahoo_fleamarket",
+      status: "queued",
+      origin: "purchase",
+      resultData: {
+        adapterKey: "yahoo_fleamarket",
+        paidAmountYen: 12_800,
+        suggestedAmountYen: 12_800,
+      },
+    });
+    expect(prisma.created[1]).toMatchObject({
+      origin: "purchase",
+      resultData: { paidAmountYen: null, suggestedAmountYen: null },
+    });
+    // The job carries the row id so the worker writes status and the parsed
+    // item back to the same row, like ordinary imports.
+    expect(queueMocks.add).toHaveBeenNthCalledWith(
+      1,
+      "analyze-purchase-url",
+      expect.objectContaining({ importId: "import-1" }),
+      expect.anything(),
+    );
+    expect(prisma.updated).toContainEqual(
+      expect.objectContaining({
+        where: { id: "import-1" },
+        data: { queueJobId: "job-paid" },
+      }),
+    );
+  });
+
+  it("answers a poll from the persisted row after the queue job has been evicted", async () => {
+    const item = {
+      id: "item-1",
+      titleRaw: "仮面ライダー DX変身ベルト",
+      priceCurrent: 15_000,
+      source: { key: "yahoo_fleamarket", displayName: "Yahoo" },
+      sourceData: null,
+      seller: { name: "seller-a" },
+    };
+    const prisma = {
+      urlImport: {
+        findUnique: vi.fn(async () => ({
+          id: "import-1",
+          queueJobId: "job-evicted",
+          origin: "purchase",
+          status: "succeeded",
+          progress: 100,
+          itemId: "item-1",
+          adapterKey: "yahoo_fleamarket",
+          errorText: null,
+          resultData: {
+            title: item.titleRaw,
+            priceYen: 15_000,
+            shopName: "Yahoo!フリマ",
+            sellerName: "seller-a",
+            adapterKey: "yahoo_fleamarket",
+            suggestedAmountYen: 12_800,
+            paidAmountYen: 12_800,
+          },
+        })),
+      },
+      item: { findUnique: vi.fn(async () => item) },
+    };
+    const service = new ItemsService(prisma as never);
+
+    await expect(
+      service.getPurchaseLinkAnalysis("job-evicted"),
+    ).resolves.toMatchObject({
+      state: "completed",
+      importId: "import-1",
+      readyForPricing: true,
+      pricingOptions: {
+        perItem: { suggestedAmountYen: 12_800, suggestedAmountSource: "actual" },
+      },
+    });
+    expect(queueMocks.getJob).not.toHaveBeenCalled();
+  });
+
+  it("copies the parsed snapshot into resultData when a poll first observes completion", async () => {
+    const item = {
+      id: "item-1",
+      titleRaw: "仮面ライダー DX変身ベルト",
+      priceCurrent: 15_000,
+      source: { key: "yahoo_fleamarket", displayName: "Yahoo" },
+      sourceData: null,
+      seller: { name: "seller-a" },
+    };
+    const update = vi.fn(async () => ({}));
+    const prisma = {
+      urlImport: {
+        findUnique: vi.fn(async () => ({
+          id: "import-1",
+          queueJobId: "job-paid",
+          origin: "purchase",
+          status: "running",
+          progress: 10,
+          itemId: null,
+          adapterKey: "yahoo_fleamarket",
+          errorText: null,
+          resultData: { paidAmountYen: 12_800, suggestedAmountYen: 12_800 },
+        })),
+        update,
+      },
+      item: { findUnique: vi.fn(async () => item) },
+    };
+    queueMocks.getJob.mockResolvedValue({
+      id: "job-paid",
+      data: { importOrigin: "purchase", actualAmountYen: 12_800 },
+      getState: vi.fn().mockResolvedValue("completed"),
+      progress: 100,
+      returnvalue: { itemId: "item-1" },
+    });
+    const service = new ItemsService(prisma as never);
+
+    await expect(
+      service.getPurchaseLinkAnalysis("job-paid"),
+    ).resolves.toMatchObject({ state: "completed", readyForPricing: true });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "import-1" },
+        data: expect.objectContaining({
+          status: "succeeded",
+          itemId: "item-1",
+          resultData: expect.objectContaining({
+            title: item.titleRaw,
+            priceYen: 15_000,
+            paidAmountYen: 12_800,
+            suggestedAmountYen: 12_800,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("lists persisted purchase analyses with their amounts", async () => {
+    const prisma = {
+      urlImport: {
+        findMany: vi.fn(async () => [
+          {
+            id: "import-1",
+            queueJobId: "job-paid",
+            sourceUrl:
+              "https://paypayfleamarket.yahoo.co.jp/item/z667890666",
+            adapterKey: "yahoo_fleamarket",
+            status: "succeeded",
+            progress: 100,
+            currentStep: "已完成",
+            errorText: null,
+            itemId: "item-1",
+            createdAt: new Date("2026-10-25T00:00:00.000Z"),
+            resultData: { paidAmountYen: 12_800, suggestedAmountYen: 12_800 },
+            item: {
+              id: "item-1",
+              titleRaw: "仮面ライダー DX変身ベルト",
+              priceCurrent: 15_000,
+              source: { key: "yahoo_fleamarket", displayName: "Yahoo" },
+              sourceData: null,
+              seller: { name: "seller-a" },
+            },
+          },
+        ]),
+      },
+    };
+    const service = new ItemsService(prisma as never);
+
+    const result = await service.listPurchaseAnalyses();
+
+    expect(prisma.urlImport.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { origin: "purchase" } }),
+    );
+    expect(result.analyses).toHaveLength(1);
+    expect(result.analyses[0]).toMatchObject({
+      id: "import-1",
+      jobId: "job-paid",
+      state: "completed",
+      suggestedAmountYen: 12_800,
+      paidAmountYen: 12_800,
+      suggestedAmountSource: "actual",
+      item: { id: "item-1" },
+    });
+  });
+});
+
 describe("AnalyzePurchaseLinksDto", () => {
   it("accepts an optional amountsByUrl object and rejects a non-object", async () => {
     const accepted = Object.assign(new AnalyzePurchaseLinksDto(), {

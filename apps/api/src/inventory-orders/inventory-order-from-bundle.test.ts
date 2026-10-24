@@ -244,6 +244,15 @@ describe("quantityFromBundleMembers", () => {
       ]),
     ).toBe(3);
   });
+
+  it("lets a quantityOverride win over quantityEst per member", () => {
+    expect(
+      quantityFromBundleMembers([
+        { titleRaw: "a", quantityEst: 2, quantityOverride: 5 },
+        { titleRaw: "b", quantityEst: 4, quantityOverride: null },
+      ]),
+    ).toBe(9);
+  });
 });
 
 describe("nameFromBundleMembers", () => {

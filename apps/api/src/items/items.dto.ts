@@ -173,6 +173,15 @@ export class PurchaseDto {
   @Max(100_000_000)
   purchaseAmount!: number;
 
+  // Operator-confirmed unit count. Stored as PurchaseRecord.quantityOverride
+  // and preferred over the recognised quantityEst in inventory math.
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100_000)
+  quantity?: number;
+
   @IsOptional() @IsString() purchasedAt?: string;
   @IsOptional() @IsString() note?: string;
   @IsOptional() @IsString() receiptFileName?: string;
@@ -214,6 +223,15 @@ export class PurchaseBundleMemberDto {
   @Min(0)
   @Max(100_000_000)
   amountYen?: number;
+
+  // Operator-confirmed unit count for this member. Stored as
+  // PurchaseRecord.quantityOverride; omit to keep the recognised estimate.
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100_000)
+  quantity?: number;
 }
 
 export class CreatePurchaseBundleDto {

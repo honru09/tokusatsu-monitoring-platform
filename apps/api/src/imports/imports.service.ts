@@ -42,6 +42,9 @@ export class ImportsService {
   async list() {
     await this.repairSucceededImportErrors();
     const imports = await this.prisma.urlImport.findMany({
+      // Purchase-link analyses share the UrlImport table (origin
+      // "purchase") but belong to the purchase workspace, not this list.
+      where: { origin: "link" },
       include: {
         item: { select: { id: true, titleRaw: true, priceCurrent: true } },
       },

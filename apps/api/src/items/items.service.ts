@@ -27,6 +27,7 @@ import { Redis } from "ioredis";
 import { PrismaService } from "../prisma.service.js";
 import { valueKingPeerRelation } from './value-king.js';
 import {
+  effectiveMemberQuantity,
   ensureInventoryOrderFromBundle,
   syncInventoryOrderFromBundle,
   type BundleMemberForInventory,
@@ -265,6 +266,7 @@ const purchaseBundleSnapshotInclude = {
       itemId: true,
       purchaseAmount: true,
       amountAllocated: true,
+      quantityOverride: true,
       purchasedAt: true,
       note: true,
       verifiedAt: true,
@@ -302,6 +304,7 @@ function purchaseBundleSnapshot(bundle: PurchaseBundleSnapshotRow) {
       itemId: purchase.itemId,
       amountYen: purchase.amountAllocated ? purchase.purchaseAmount : null,
       amountAllocated: purchase.amountAllocated,
+      quantityOverride: purchase.quantityOverride ?? null,
       purchasedAt: purchase.purchasedAt.toISOString(),
       note: purchase.note,
       verifiedAt: purchase.verifiedAt?.toISOString() ?? null,
@@ -330,6 +333,17 @@ export function normalizePurchaseMembers(
     throw new BadRequestException("购买批次成员商品 ID 不能为空");
   if (new Set(itemIds).size !== itemIds.length)
     throw new BadRequestException("购买批次不能重复包含同一商品");
+  // Quantity corrections are independent of the pricing mode. Only a
+  // positive integer counts; anything else keeps the recognised estimate.
+  const quantityByItemId = new Map<string, number>();
+  for (const member of members) {
+    if (
+      member.quantity != null &&
+      Number.isInteger(member.quantity) &&
+      member.quantity >= 1
+    )
+      quantityByItemId.set(member.itemId.trim(), member.quantity);
+  }
 
   if (pricingMode === "per_item") {
     if (members.some(({ amountYen }) => amountYen == null))
@@ -345,6 +359,7 @@ export function normalizePurchaseMembers(
       amountByItemId: new Map(
         members.map((member) => [member.itemId.trim(), member.amountYen!]),
       ),
+      quantityByItemId,
       totalPurchaseAmountYen,
       amountAllocated: true,
     };
@@ -359,6 +374,7 @@ export function normalizePurchaseMembers(
   return {
     itemIds,
     amountByItemId: new Map<string, number>(),
+    quantityByItemId,
     totalPurchaseAmountYen: requestedTotal,
     amountAllocated: false,
   };
@@ -433,6 +449,71 @@ export function actualAmountFromJobData(value: unknown) {
     Number(value) <= 100_000_000
     ? Number(value)
     : null;
+}
+
+/**
+ * Snapshot stored on a purchase-origin UrlImport row. Written with the paid
+ * amount at submission time and completed from the parsed listing when the
+ * analysis finishes, so the purchase workspace can rebuild its state from
+ * the database after a refresh or after the queue job has been evicted.
+ */
+export type PurchaseAnalysisResultData = {
+  title: string | null;
+  priceYen: number | null;
+  shopName: string | null;
+  sellerName: string | null;
+  adapterKey: string;
+  suggestedAmountYen: number | null;
+  paidAmountYen: number | null;
+};
+
+export function purchaseResultData(input: {
+  adapterKey: string;
+  paidAmountYen: number | null;
+  item?: {
+    titleRaw: string;
+    priceCurrent: number;
+    sellerName?: string | null;
+    shopName?: string | null;
+  } | null;
+}): PurchaseAnalysisResultData {
+  const priceYen = input.item?.priceCurrent ?? null;
+  return {
+    title: input.item?.titleRaw ?? null,
+    priceYen,
+    shopName: input.item?.shopName ?? null,
+    sellerName: input.item?.sellerName ?? null,
+    adapterKey: input.adapterKey,
+    suggestedAmountYen: input.paidAmountYen ?? priceYen,
+    paidAmountYen: input.paidAmountYen,
+  };
+}
+
+export function purchaseAmountsFromResultData(value: unknown): {
+  paidAmountYen: number | null;
+  suggestedAmountYen: number | null;
+} {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  return {
+    paidAmountYen: actualAmountFromJobData(record.paidAmountYen),
+    suggestedAmountYen: actualAmountFromJobData(record.suggestedAmountYen),
+  };
+}
+
+// UrlImport rows use the JobStatus vocabulary; the purchase workspace polls
+// with BullMQ state names. Terminal rows must read the same either way.
+const purchaseStateByImportStatus: Record<string, string> = {
+  queued: "waiting",
+  running: "active",
+  succeeded: "completed",
+  failed: "failed",
+};
+
+export function purchaseStateFromImportStatus(status: string) {
+  return purchaseStateByImportStatus[status] ?? "waiting";
 }
 
 function sourceDisplayName(
@@ -718,6 +799,10 @@ export class ItemsService {
   async retryUrlImport(id: string) {
     const record = await this.prisma.urlImport.findUnique({ where: { id } });
     if (!record) throw new NotFoundException("链接分析任务不存在");
+    if ((record as { origin?: string }).origin === "purchase")
+      throw new BadRequestException(
+        "购买链接分析请在购买工作区重新粘贴链接提交",
+      );
     if (record.status !== "failed")
       throw new BadRequestException("只有失败的链接分析任务可以重试");
     const prepared = this.prepareUrlImport(record.sourceUrl);
@@ -855,15 +940,38 @@ export class ItemsService {
     const queue = new Queue("url-analysis", { connection: redis });
     try {
       for (const candidate of candidates) {
+        const actualAmountYen = actualAmounts.get(candidate.url) ?? null;
+        let importRecord: { id: string } | undefined;
         try {
-          const actualAmountYen = actualAmounts.get(candidate.url);
+          // Purchase analyses are persisted like ordinary imports (origin
+          // "purchase") so a refresh does not lose them. The job carries the
+          // record id, which is how the worker already writes status,
+          // progress and the parsed item id back to UrlImport rows.
+          importRecord = await this.prisma.urlImport.create({
+            data: {
+              sourceUrl: candidate.url,
+              adapterKey: candidate.adapterKey,
+              status: "queued",
+              progress: 0,
+              currentStep: "已排队",
+              origin: "purchase",
+              resultData: purchaseResultData({
+                adapterKey: candidate.adapterKey,
+                paidAmountYen: actualAmountYen,
+              }) as Prisma.InputJsonValue,
+            },
+            select: { id: true },
+          });
           const job = await queue.add(
             "analyze-purchase-url",
             {
               adapterKey: candidate.adapterKey,
               sourceUrl: candidate.url,
               importOrigin: "purchase",
-              ...(actualAmountYen != null ? { actualAmountYen } : {}),
+              importId: importRecord.id,
+              ...(actualAmountYen != null
+                ? { actualAmountYen }
+                : {}),
             },
             {
               attempts: 3,
@@ -872,18 +980,38 @@ export class ItemsService {
               removeOnFail: 100,
             },
           );
+          await this.prisma.urlImport.update({
+            where: { id: importRecord.id },
+            data: { queueJobId: String(job.id) },
+          });
           queuedByUrl.set(candidate.url, {
             url: candidate.url,
             accepted: true,
             jobId: job.id,
+            importId: importRecord.id,
             adapter: candidate.adapterKey,
             message: "正在分析商品，完成后可填写单价或打包总价。",
           });
         } catch {
+          if (importRecord) {
+            await this.prisma.urlImport
+              .update({
+                where: { id: importRecord.id },
+                data: {
+                  status: "failed",
+                  progress: 100,
+                  currentStep: "排队失败",
+                  errorText: "任务队列暂时不可用，请稍后重试。",
+                  finishedAt: new Date(),
+                },
+              })
+              .catch(() => undefined);
+          }
           queuedByUrl.set(candidate.url, {
             url: candidate.url,
             accepted: false,
             adapter: candidate.adapterKey,
+            importId: importRecord?.id,
             error: "任务队列暂时不可用，请稍后重试。",
           });
         }
@@ -906,15 +1034,154 @@ export class ItemsService {
     };
   }
 
+  private async findPurchaseImportByJobId(jobId: string) {
+    if (!this.prisma.urlImport?.findUnique) return null;
+    const record = await this.prisma.urlImport
+      .findUnique({ where: { queueJobId: jobId } })
+      .catch(() => null);
+    return record && record.origin === "purchase" ? record : null;
+  }
+
+  private purchaseAnalysisItemResponse(
+    item: Prisma.ItemGetPayload<{ include: typeof include }>,
+  ) {
+    return {
+      ...item,
+      source: {
+        ...item.source,
+        displayName: sourceDisplayName(
+          item.source.key,
+          item.source.displayName,
+          item.sourceData,
+        ),
+      },
+    };
+  }
+
+  private purchaseAnalysisResponse(input: {
+    jobId: string;
+    importId?: string | null;
+    state: string;
+    progress: number;
+    failedReason?: string | null;
+    item: Prisma.ItemGetPayload<{ include: typeof include }> | null;
+    paidAmountYen: number | null;
+  }) {
+    const item = input.item;
+    return {
+      jobId: input.jobId,
+      importId: input.importId ?? null,
+      state: input.state,
+      progress: input.progress,
+      failedReason: input.failedReason ?? null,
+      item: item ? this.purchaseAnalysisItemResponse(item) : null,
+      readyForPricing: input.state === "completed" && Boolean(item),
+      pricingOptions: item
+        ? {
+            perItem: {
+              itemId: item.id,
+              suggestedAmountYen: input.paidAmountYen ?? item.priceCurrent,
+              suggestedAmountSource:
+                input.paidAmountYen != null ? "actual" : "listing",
+            },
+            bundleTotal: true,
+          }
+        : null,
+      serverTime: new Date().toISOString(),
+    };
+  }
+
+  // The worker updates the UrlImport row itself (status/progress/itemId via
+  // the importId the job carries). The parsed snapshot lives only in the
+  // parsed Item, so the first poll that observes completion copies it into
+  // resultData; after that the row alone can answer polls and listings.
+  private async persistPurchaseAnalysisCompletion(
+    recordId: string,
+    input: {
+      item: Prisma.ItemGetPayload<{ include: typeof include }>;
+      adapterKey: string;
+      paidAmountYen: number | null;
+    },
+  ) {
+    await this.prisma.urlImport
+      .update({
+        where: { id: recordId },
+        data: {
+          status: "succeeded",
+          progress: 100,
+          currentStep: "已完成",
+          errorText: null,
+          finishedAt: new Date(),
+          itemId: input.item.id,
+          resultData: purchaseResultData({
+            adapterKey: input.adapterKey,
+            paidAmountYen: input.paidAmountYen,
+            item: {
+              titleRaw: input.item.titleRaw,
+              priceCurrent: input.item.priceCurrent,
+              sellerName: input.item.seller?.name ?? null,
+              shopName: sourceDisplayName(
+                input.item.source.key,
+                input.item.source.displayName,
+                input.item.sourceData,
+              ),
+            },
+          }) as Prisma.InputJsonValue,
+        },
+      })
+      .catch(() => undefined);
+  }
+
   async getPurchaseLinkAnalysis(jobId: string) {
+    const persisted = await this.findPurchaseImportByJobId(jobId);
+    if (persisted && (persisted.status === "succeeded" || persisted.status === "failed")) {
+      const { paidAmountYen } = purchaseAmountsFromResultData(
+        persisted.resultData,
+      );
+      const item =
+        persisted.status === "succeeded" && persisted.itemId
+          ? await this.prisma.item.findUnique({
+              where: { id: persisted.itemId },
+              include,
+            })
+          : null;
+      return this.purchaseAnalysisResponse({
+        jobId,
+        importId: persisted.id,
+        state: purchaseStateFromImportStatus(persisted.status),
+        progress: persisted.progress,
+        failedReason:
+          persisted.status === "failed" ? persisted.errorText : null,
+        item,
+        paidAmountYen,
+      });
+    }
+
     const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
       maxRetriesPerRequest: null,
     });
     const queue = new Queue("url-analysis", { connection: redis });
     try {
       const job = await queue.getJob(jobId);
-      if (!job || job.data?.importOrigin !== "purchase")
+      if (!job || job.data?.importOrigin !== "purchase") {
+        // The queue job is gone (evicted after completion). A persisted row
+        // that is still in flight is the only source left; without one the
+        // analysis really is unknown.
+        if (persisted) {
+          const { paidAmountYen } = purchaseAmountsFromResultData(
+            persisted.resultData,
+          );
+          return this.purchaseAnalysisResponse({
+            jobId,
+            importId: persisted.id,
+            state: purchaseStateFromImportStatus(persisted.status),
+            progress: persisted.progress,
+            item: null,
+            paidAmountYen,
+          });
+        }
         throw new NotFoundException("购买链接分析任务不存在或已过期");
+      }
       const state = await job.getState();
       const result = job.returnvalue as
         | { itemId?: string; title?: string }
@@ -925,45 +1192,93 @@ export class ItemsService {
             include,
           })
         : null;
-      const actualAmountYen = actualAmountFromJobData(
-        job.data?.actualAmountYen,
-      );
-      return {
+      const actualAmountYen =
+        actualAmountFromJobData(job.data?.actualAmountYen) ??
+        (persisted
+          ? purchaseAmountsFromResultData(persisted.resultData).paidAmountYen
+          : null);
+      if (persisted && state === "completed" && item) {
+        await this.persistPurchaseAnalysisCompletion(persisted.id, {
+          item,
+          adapterKey: persisted.adapterKey,
+          paidAmountYen: actualAmountYen,
+        });
+      } else if (persisted && state === "failed") {
+        await this.prisma.urlImport
+          .update({
+            where: { id: persisted.id },
+            data: {
+              status: "failed",
+              progress: 100,
+              currentStep: "分析失败",
+              errorText: String(job.failedReason ?? "分析失败").slice(0, 1000),
+              finishedAt: new Date(),
+            },
+          })
+          .catch(() => undefined);
+      }
+      return this.purchaseAnalysisResponse({
         jobId: String(job.id),
+        importId: persisted?.id ?? job.data?.importId ?? null,
         state,
-        progress: job.progress,
+        progress:
+          typeof job.progress === "number" ? job.progress : persisted?.progress ?? 0,
         failedReason: state === "failed" ? job.failedReason : null,
-        item: item
-          ? {
-              ...item,
-              source: {
-                ...item.source,
-                displayName: sourceDisplayName(
-                  item.source.key,
-                  item.source.displayName,
-                  item.sourceData,
-                ),
-              },
-            }
-          : null,
-        readyForPricing: state === "completed" && Boolean(item),
-        pricingOptions: item
-          ? {
-              perItem: {
-                itemId: item.id,
-                suggestedAmountYen: actualAmountYen ?? item.priceCurrent,
-                suggestedAmountSource:
-                  actualAmountYen != null ? "actual" : "listing",
-              },
-              bundleTotal: true,
-            }
-          : null,
-        serverTime: new Date().toISOString(),
-      };
+        item,
+        paidAmountYen: actualAmountYen,
+      });
     } finally {
       await queue.close().catch(() => undefined);
       await redis.quit().catch(() => undefined);
     }
+  }
+
+  async listPurchaseAnalyses() {
+    const records = await this.prisma.urlImport.findMany({
+      where: { origin: "purchase" },
+      orderBy: { createdAt: "desc" },
+      take: 40,
+      include: {
+        item: { include },
+      },
+    });
+    return {
+      analyses: records.map((record) => {
+        const { paidAmountYen, suggestedAmountYen } =
+          purchaseAmountsFromResultData(record.resultData);
+        const item = record.item
+          ? this.purchaseAnalysisItemResponse(
+              record.item as Prisma.ItemGetPayload<{ include: typeof include }>,
+            )
+          : null;
+        return {
+          id: record.id,
+          jobId: record.queueJobId,
+          url: record.sourceUrl,
+          adapterKey: record.adapterKey,
+          status: record.status,
+          state: purchaseStateFromImportStatus(record.status),
+          progress: record.progress,
+          currentStep: record.currentStep,
+          failedReason:
+            record.status === "failed" ? record.errorText : null,
+          itemId: record.itemId,
+          item,
+          suggestedAmountYen:
+            suggestedAmountYen ?? item?.priceCurrent ?? null,
+          suggestedAmountSource:
+            paidAmountYen != null
+              ? "actual"
+              : item
+                ? "listing"
+                : null,
+          paidAmountYen,
+          resultData: record.resultData ?? null,
+          createdAt: record.createdAt,
+        };
+      }),
+      serverTime: new Date().toISOString(),
+    };
   }
 
   async list(query: ListItemsQuery) {
@@ -1432,9 +1747,10 @@ export class ItemsService {
 
   private async loadBundleMembersForInventory(
     tx: Prisma.TransactionClient,
-    itemIds: string[],
+    purchases: Array<{ itemId: string; quantityOverride?: number | null }>,
   ): Promise<BundleMemberForInventory[]> {
-    if (itemIds.length === 0) return [];
+    if (purchases.length === 0) return [];
+    const itemIds = purchases.map((purchase) => purchase.itemId);
     const items = await tx.item.findMany({
       where: { id: { in: itemIds } },
       select: {
@@ -1451,10 +1767,14 @@ export class ItemsService {
       },
     });
     const byId = new Map(items.map((item) => [item.id, item]));
+    const overrideByItemId = new Map(
+      purchases.map((purchase) => [purchase.itemId, purchase.quantityOverride ?? null]),
+    );
     return itemIds.map((itemId) => {
       const item = byId.get(itemId);
       return {
         quantityEst: item?.quantityEst ?? 1,
+        quantityOverride: overrideByItemId.get(itemId) ?? null,
         titleZh: item?.titleZh ?? null,
         titleRaw: item?.titleRaw ?? itemId,
         platform: item?.source.displayName ?? null,
@@ -1475,12 +1795,12 @@ export class ItemsService {
       totalPurchaseAmount: number;
       purchasedAt: Date;
       note: string | null;
-      purchases: Array<{ itemId: string }>;
+      purchases: Array<{ itemId: string; quantityOverride?: number | null }>;
     },
   ) {
     const members = await this.loadBundleMembersForInventory(
       tx,
-      bundle.purchases.map((purchase) => purchase.itemId),
+      bundle.purchases,
     );
     return syncInventoryOrderFromBundle(tx, {
       bundleId: bundle.id,
@@ -1493,11 +1813,15 @@ export class ItemsService {
 
   private async addNewPurchaseToInventory(
     tx: Prisma.TransactionClient,
-    item: { productId: string | null; quantityEst: number | null },
+    item: {
+      productId: string | null;
+      quantityEst: number | null;
+      quantityOverride?: number | null;
+    },
     allocatedAmountYen: number | null,
   ) {
     if (!item.productId) return;
-    const quantity = Math.max(1, item.quantityEst ?? 1);
+    const quantity = effectiveMemberQuantity(item);
     const inventory = await tx.inventory.findUnique({
       where: { productId: item.productId },
     });
@@ -1524,6 +1848,41 @@ export class ItemsService {
         quantity,
         averageCost: allocatedAmountYen / quantity,
       },
+    });
+  }
+
+  /**
+   * Adjusts the product inventory count when an already-recorded purchase
+   * gets a different effective quantity (quantityOverride correction on a
+   * bundle edit or a merged singleton). Only the unit count moves; the
+   * recorded average cost is left alone, matching how price edits on an
+   * existing purchase never rewrote it either. The linked inventory order
+   * is resynced separately under its own not-sold-yet guard.
+   */
+  private async applyPurchaseQuantityDelta(
+    tx: Prisma.TransactionClient,
+    item: { productId: string | null },
+    delta: number,
+  ) {
+    if (!item.productId || delta === 0) return;
+    const inventory = await tx.inventory.findUnique({
+      where: { productId: item.productId },
+    });
+    if (!inventory) {
+      if (delta > 0) {
+        await tx.inventory.upsert({
+          where: { productId: item.productId },
+          update: { quantity: { increment: delta } },
+          create: { productId: item.productId, quantity: delta, averageCost: null },
+        });
+      }
+      return;
+    }
+    const nextQuantity = Math.max(0, inventory.quantity + delta);
+    await tx.inventory.upsert({
+      where: { productId: item.productId },
+      update: { quantity: nextQuantity },
+      create: { productId: item.productId, quantity: nextQuantity, averageCost: null },
     });
   }
 
@@ -1610,6 +1969,8 @@ export class ItemsService {
 
         for (const item of items) {
           const amountYen = normalized.amountByItemId.get(item.id) ?? 0;
+          const quantityOverride =
+            normalized.quantityByItemId.get(item.id) ?? null;
           if (item.purchaseRecord) {
             const sourceBundleId = item.purchaseRecord.bundleId;
             const source = await this.archiveMergedSingletonBundle(
@@ -1618,15 +1979,30 @@ export class ItemsService {
               actor,
               reason,
             );
+            const previousQuantity = effectiveMemberQuantity({
+              quantityEst: item.quantityEst,
+              quantityOverride:
+                (item.purchaseRecord as { quantityOverride?: number | null })
+                  .quantityOverride ?? null,
+            });
             await tx.purchaseRecord.update({
               where: { id: item.purchaseRecord.id },
               data: {
                 bundleId: created.id,
                 purchaseAmount: amountYen,
                 amountAllocated: normalized.amountAllocated,
+                quantityOverride,
                 purchasedAt,
               },
             });
+            await this.applyPurchaseQuantityDelta(
+              tx,
+              item,
+              effectiveMemberQuantity({
+                quantityEst: item.quantityEst,
+                quantityOverride,
+              }) - previousQuantity,
+            );
             const sourceAfter = await this.readPurchaseBundleSnapshot(
               tx,
               sourceBundleId,
@@ -1646,13 +2022,14 @@ export class ItemsService {
                 bundleId: created.id,
                 purchaseAmount: amountYen,
                 amountAllocated: normalized.amountAllocated,
+                quantityOverride,
                 purchasedAt,
                 note: body.note,
               },
             });
             await this.addNewPurchaseToInventory(
               tx,
-              item,
+              { ...item, quantityOverride },
               normalized.amountAllocated ? amountYen : null,
             );
           }
@@ -1677,6 +2054,8 @@ export class ItemsService {
           note: body.note,
           members: items.map((item) => ({
             quantityEst: item.quantityEst,
+            quantityOverride:
+              normalized.quantityByItemId.get(item.id) ?? null,
             titleZh: item.titleZh,
             titleRaw: item.titleRaw,
             platform: item.source.displayName,
@@ -1717,6 +2096,7 @@ export class ItemsService {
       let totalPurchaseAmount = before.row.totalPurchaseAmount;
       let membersChanged = false;
       let memberAmountsChanged = false;
+      let memberQuantitiesChanged = false;
       const purchasedAt = body.purchasedAt
         ? parsedPurchaseDate(body.purchasedAt)
         : before.row.purchasedAt;
@@ -1795,6 +2175,8 @@ export class ItemsService {
 
         for (const item of desiredItems) {
           const amountYen = normalized.amountByItemId.get(item.id) ?? 0;
+          const quantityOverride =
+            normalized.quantityByItemId.get(item.id) ?? null;
           const current = currentByItem.get(item.id);
           if (current) {
             if (
@@ -1802,14 +2184,32 @@ export class ItemsService {
               current.amountAllocated !== normalized.amountAllocated
             )
               memberAmountsChanged = true;
+            const previousQuantity = effectiveMemberQuantity({
+              quantityEst: item.quantityEst,
+              quantityOverride:
+                (current as { quantityOverride?: number | null })
+                  .quantityOverride ?? null,
+            });
+            const nextQuantity = effectiveMemberQuantity({
+              quantityEst: item.quantityEst,
+              quantityOverride,
+            });
+            if (previousQuantity !== nextQuantity)
+              memberQuantitiesChanged = true;
             await tx.purchaseRecord.update({
               where: { id: current.id },
               data: {
                 purchaseAmount: amountYen,
                 amountAllocated: normalized.amountAllocated,
+                quantityOverride,
                 purchasedAt,
               },
             });
+            await this.applyPurchaseQuantityDelta(
+              tx,
+              item,
+              nextQuantity - previousQuantity,
+            );
             continue;
           }
 
@@ -1825,15 +2225,30 @@ export class ItemsService {
               actor,
               reason,
             );
+            const previousQuantity = effectiveMemberQuantity({
+              quantityEst: item.quantityEst,
+              quantityOverride:
+                (item.purchaseRecord as { quantityOverride?: number | null })
+                  .quantityOverride ?? null,
+            });
             await tx.purchaseRecord.update({
               where: { id: item.purchaseRecord.id },
               data: {
                 bundleId: id,
                 purchaseAmount: amountYen,
                 amountAllocated: normalized.amountAllocated,
+                quantityOverride,
                 purchasedAt,
               },
             });
+            await this.applyPurchaseQuantityDelta(
+              tx,
+              item,
+              effectiveMemberQuantity({
+                quantityEst: item.quantityEst,
+                quantityOverride,
+              }) - previousQuantity,
+            );
             const sourceAfter = await this.readPurchaseBundleSnapshot(
               tx,
               sourceBundleId,
@@ -1853,13 +2268,14 @@ export class ItemsService {
                 bundleId: id,
                 purchaseAmount: amountYen,
                 amountAllocated: normalized.amountAllocated,
+                quantityOverride,
                 purchasedAt,
                 note: body.note ?? before.row.note,
               },
             });
             await this.addNewPurchaseToInventory(
               tx,
-              item,
+              { ...item, quantityOverride },
               normalized.amountAllocated ? amountYen : null,
             );
           }
@@ -1893,7 +2309,8 @@ export class ItemsService {
       const priceChanged =
         totalPurchaseAmount !== before.row.totalPurchaseAmount ||
         pricingMode !== before.row.pricingMode ||
-        memberAmountsChanged;
+        memberAmountsChanged ||
+        memberQuantitiesChanged;
       const updated = await tx.purchaseBundle.updateMany({
         where: { id, version: body.expectedVersion, archivedAt: null },
         data: {
@@ -2034,6 +2451,7 @@ export class ItemsService {
             bundleId,
             purchaseAmount: body.purchaseAmount,
             amountAllocated: true,
+            quantityOverride: body.quantity ?? null,
             purchasedAt,
             note: body.note,
             verifiedAt: verified ? new Date() : null,
@@ -2042,7 +2460,11 @@ export class ItemsService {
             bundle: { include: purchaseBundleSnapshotInclude },
           },
         });
-        await this.addNewPurchaseToInventory(tx, current, body.purchaseAmount);
+        await this.addNewPurchaseToInventory(
+          tx,
+          { ...current, quantityOverride: body.quantity ?? null },
+          body.purchaseAmount,
+        );
       } else {
         bundleId = purchase.bundleId;
         beforeSnapshot = purchaseBundleSnapshot(purchase.bundle);
@@ -2073,11 +2495,20 @@ export class ItemsService {
             version: { increment: 1 },
           },
         });
+        const previousQuantity = effectiveMemberQuantity({
+          quantityEst: current.quantityEst,
+          quantityOverride:
+            (purchase as { quantityOverride?: number | null })
+              .quantityOverride ?? null,
+        });
         purchase = await tx.purchaseRecord.update({
           where: { id: purchase.id },
           data: {
             purchaseAmount: body.purchaseAmount,
             amountAllocated: true,
+            ...(body.quantity != null
+              ? { quantityOverride: body.quantity }
+              : {}),
             purchasedAt,
             note: body.note,
             verifiedAt: verified ? new Date() : purchase.verifiedAt,
@@ -2086,6 +2517,16 @@ export class ItemsService {
             bundle: { include: purchaseBundleSnapshotInclude },
           },
         });
+        if (body.quantity != null) {
+          await this.applyPurchaseQuantityDelta(
+            tx,
+            current,
+            effectiveMemberQuantity({
+              quantityEst: current.quantityEst,
+              quantityOverride: body.quantity,
+            }) - previousQuantity,
+          );
+        }
       }
 
       if (body.receiptDataBase64) {

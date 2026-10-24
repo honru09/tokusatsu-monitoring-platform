@@ -52,6 +52,11 @@ export class ItemsController {
     return this.items.getPurchaseLinkAnalysis(jobId);
   }
 
+  @Get("purchases/analyses")
+  purchaseAnalyses() {
+    return this.items.listPurchaseAnalyses();
+  }
+
   @Post("purchases/bundles")
   createPurchaseBundle(@Body() body: CreatePurchaseBundleDto) {
     return this.items.createPurchaseBundle(body);

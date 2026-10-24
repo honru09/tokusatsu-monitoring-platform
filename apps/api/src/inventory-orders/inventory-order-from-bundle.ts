@@ -7,21 +7,28 @@ import { randomUUID } from "node:crypto";
 
 export type BundleMemberForInventory = {
   quantityEst?: number | null;
+  // Operator-confirmed count from the purchase record. Wins over the
+  // recognised quantityEst whenever it is set.
+  quantityOverride?: number | null;
   titleZh?: string | null;
   titleRaw: string;
   platform?: string | null;
   imageUrl?: string | null;
 };
 
+/** Effective purchased units for one member: override, else estimate, else 1. */
+export function effectiveMemberQuantity(
+  member: Pick<BundleMemberForInventory, "quantityEst" | "quantityOverride">,
+): number {
+  return Math.max(1, member.quantityOverride ?? member.quantityEst ?? 1);
+}
+
 export function quantityFromBundleMembers(
   members: BundleMemberForInventory[],
 ): number {
   return Math.max(
     1,
-    members.reduce(
-      (sum, member) => sum + Math.max(1, member.quantityEst ?? 1),
-      0,
-    ),
+    members.reduce((sum, member) => sum + effectiveMemberQuantity(member), 0),
   );
 }
 

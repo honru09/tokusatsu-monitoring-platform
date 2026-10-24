@@ -909,10 +909,19 @@ model UrlImport {
   finishedAt  DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  // "link" for ordinary link-area imports, "purchase" for purchase-link
+  // analyses. Item.importOrigin already marks the resulting listing; this
+  // column marks the import job itself so purchase analyses can be listed
+  // and recovered after the queue result is gone.
+  origin      String    @default("link")
+  // Parsed snapshot for purchase analyses (title, price, seller, adapter,
+  // suggested/paid amounts). Ordinary imports leave this null.
+  resultData  Json?
   item        Item?     @relation(fields: [itemId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([sourceUrl])
+  @@index([origin, createdAt])
 }
 
 model PurchaseRecord {
@@ -923,6 +932,9 @@ model PurchaseRecord {
   /// It is zero when a package price has deliberately not been allocated.
   purchaseAmount  Int
   amountAllocated Boolean           @default(true) @map("amount_allocated")
+  // Operator-confirmed unit count for this purchase. Null means the count
+  // was never corrected and inventory math falls back to Item.quantityEst.
+  quantityOverride Int?
   purchasedAt     DateTime          @default(now())
   note            String?
   verifiedAt      DateTime?

@@ -323,6 +323,7 @@ type PurchaseRecord = {
   bundleId?: string;
   purchaseAmount: number;
   amountAllocated?: boolean;
+  quantityOverride?: number | null;
   purchasedAt: string;
   note?: string | null;
   verifiedAt?: string | null;
@@ -373,6 +374,7 @@ type PurchaseBundle = {
 
 type PurchaseLinkJob = {
   jobId: string;
+  importId?: string | null;
   url: string;
   state: "queued" | "waiting" | "active" | "delayed" | "completed" | "failed";
   progress: number;
@@ -380,6 +382,7 @@ type PurchaseLinkJob = {
   failedReason?: string | null;
   suggestedAmountYen?: number | null;
   suggestedAmountSource?: "actual" | "listing" | null;
+  paidAmountYen?: number | null;
 };
 
 type ExchangeRate = {
@@ -4304,6 +4307,9 @@ function PurchaseDialog({
   const [amount, setAmount] = useState(
     String(item.priceTotalEst ?? item.priceCurrent),
   );
+  const [quantity, setQuantity] = useState(
+    String(item.purchaseRecord?.quantityOverride ?? item.quantityEst ?? 1),
+  );
   const [note, setNote] = useState("");
   const [receipt, setReceipt] = useState<{
     name: string;
@@ -4319,6 +4325,11 @@ function PurchaseDialog({
       setMessage("请输入有效购买金额");
       return;
     }
+    const quantityValue = Number(quantity);
+    if (!Number.isInteger(quantityValue) || quantityValue < 1) {
+      setMessage("请输入有效数量（至少 1）");
+      return;
+    }
     savingRef.current = true;
     setSaving(true);
     setMessage("");
@@ -4328,6 +4339,7 @@ function PurchaseDialog({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           purchaseAmount: value,
+          quantity: quantityValue,
           note,
           receiptFileName: receipt?.name,
           receiptMimeType: receipt?.type,
@@ -4400,6 +4412,17 @@ function PurchaseDialog({
             min="1"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
+            className="min-h-11 rounded-xl border border-ink/15 bg-white px-3 text-base text-ink"
+          />
+        </label>
+        <label className="mt-3 grid gap-1 text-xs font-bold text-ink/60">
+          数量（识别有误时可改，按此数量入库存）
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
             className="min-h-11 rounded-xl border border-ink/15 bg-white px-3 text-base text-ink"
           />
         </label>
@@ -4503,6 +4526,22 @@ function PurchaseBundleEditorDialog({
       }),
     ),
   );
+  // Quantities always submit: the field starts at the current effective
+  // count (recorded override, else the recognised estimate), so an
+  // untouched field simply re-confirms that count as the override.
+  const [quantities, setQuantities] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      availableItems.map((item) => {
+        const purchase = bundle?.purchases.find(
+          (entry) => entry.itemId === item.id,
+        );
+        return [
+          item.id,
+          String(purchase?.quantityOverride ?? item.quantityEst ?? 1),
+        ];
+      }),
+    ),
+  );
   const [total, setTotal] = useState(
     String(
       bundle?.totalPurchaseAmount ??
@@ -4534,10 +4573,20 @@ function PurchaseBundleEditorDialog({
     }
     const members = selectedItems.map((item) => ({
       itemId: item.id,
+      quantity: Number(quantities[item.id]),
       ...(pricingMode === "per_item"
         ? { amountYen: Number(amounts[item.id]) }
         : {}),
     }));
+    if (
+      members.some(
+        (member) =>
+          !Number.isInteger(member.quantity) || member.quantity < 1,
+      )
+    ) {
+      setMessage("请填写每件商品的有效数量（至少 1）");
+      return;
+    }
     if (
       pricingMode === "per_item" &&
       members.some(
@@ -4743,6 +4792,28 @@ function PurchaseBundleEditorDialog({
                         }
                         className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/10 bg-fog/50 px-3 font-mono text-sm text-ink"
                       />
+                    </label>
+                  )}
+                  {selected && (
+                    <label className="mt-1 flex items-center gap-2 text-[11px] text-ink/50">
+                      数量
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={quantities[item.id] ?? ""}
+                        onChange={(event) =>
+                          setQuantities((current) => ({
+                            ...current,
+                            [item.id]: event.target.value,
+                          }))
+                        }
+                        aria-label={`商品数量 ${itemDisplayTitle(item, "zh")}`}
+                        className="min-h-11 w-24 rounded-xl border border-ink/10 bg-fog/50 px-3 font-mono text-sm text-ink"
+                      />
+                      <span className="text-[10px] text-ink/40">
+                        识别 {item.quantityEst ?? 1} 件，可改
+                      </span>
                     </label>
                   )}
                 </div>
@@ -6308,6 +6379,73 @@ export default function Dashboard() {
     [],
   );
 
+  // Purchase analyses are persisted server-side, so rebuild the workspace
+  // list from the database on mount and merge it with whatever polling
+  // state is already in memory instead of starting empty after a refresh.
+  const loadPurchaseAnalyses = useCallback(async () => {
+    try {
+      const response = await fetch(`${API}/items/purchases/analyses`, {
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const payload = (await response.json()) as {
+        analyses?: {
+          id: string;
+          jobId?: string | null;
+          url: string;
+          state?: PurchaseLinkJob["state"];
+          progress?: number;
+          item?: Item | null;
+          failedReason?: string | null;
+          suggestedAmountYen?: number | null;
+          suggestedAmountSource?: "actual" | "listing" | null;
+          paidAmountYen?: number | null;
+        }[];
+      };
+      const rows = payload.analyses ?? [];
+      if (!rows.length) return;
+      setPurchaseLinkJobs((current) => {
+        const byJobId = new Map(current.map((job) => [job.jobId, job]));
+        const merged: PurchaseLinkJob[] = [];
+        for (const row of rows) {
+          if (!row.jobId) continue;
+          const existing = byJobId.get(row.jobId);
+          byJobId.delete(row.jobId);
+          const persistedTerminal =
+            row.state === "completed" || row.state === "failed";
+          merged.push({
+            jobId: row.jobId,
+            importId: row.id,
+            url: row.url,
+            state: existing
+              ? persistedTerminal
+                ? row.state!
+                : existing.state
+              : (row.state ?? "waiting"),
+            progress: persistedTerminal
+              ? (row.progress ?? 100)
+              : Math.max(existing?.progress ?? 0, row.progress ?? 0),
+            item: existing?.item ?? row.item ?? null,
+            failedReason: existing?.failedReason ?? row.failedReason ?? null,
+            suggestedAmountYen:
+              existing?.suggestedAmountYen ?? row.suggestedAmountYen ?? null,
+            suggestedAmountSource:
+              existing?.suggestedAmountSource ??
+              row.suggestedAmountSource ??
+              null,
+            paidAmountYen: row.paidAmountYen ?? existing?.paidAmountYen ?? null,
+          });
+        }
+        // Jobs submitted in this session that the list has not caught up
+        // with yet stay at the front.
+        return [...byJobId.values(), ...merged].slice(0, 40);
+      });
+    } catch {
+      // The persisted list is a recovery aid; live polling still works
+      // without it, so a failed load leaves the current list untouched.
+    }
+  }, []);
+
   const pollPurchaseLinkJob = useCallback(
     async (jobId: string) => {
       try {
@@ -6379,6 +6517,7 @@ export default function Dashboard() {
           url: string;
           accepted: boolean;
           jobId?: string | number;
+          importId?: string;
           error?: string;
         }[];
         acceptedCount?: number;
@@ -6395,11 +6534,13 @@ export default function Dashboard() {
         .filter((entry) => entry.accepted && entry.jobId != null)
         .map((entry) => ({
           jobId: String(entry.jobId),
+          importId: entry.importId ?? null,
           url: entry.url,
           state: "waiting" as const,
           progress: 0,
           item: null,
           failedReason: null,
+          paidAmountYen: amountsByUrl[entry.url] ?? null,
         }));
       if (!acceptedJobs.length)
         throw new Error(
@@ -6627,6 +6768,7 @@ export default function Dashboard() {
       loadDisliked(),
       loadPurchases(),
       loadPurchaseBundles(),
+      loadPurchaseAnalyses(),
     ]);
     const timer = setInterval(
       () =>
@@ -6636,6 +6778,7 @@ export default function Dashboard() {
           loadDisliked(),
           loadPurchases(),
           loadPurchaseBundles(),
+          loadPurchaseAnalyses(),
         ]),
       30_000,
     );
@@ -6646,6 +6789,7 @@ export default function Dashboard() {
     loadDisliked,
     loadPurchases,
     loadPurchaseBundles,
+    loadPurchaseAnalyses,
   ]);
   useEffect(() => {
     void loadExchangeRate();
@@ -8352,7 +8496,7 @@ export default function Dashboard() {
                           title="通过链接登记购买"
                         >
                           <p>
-                            粘贴公开商品链接后，后台只分析商品，不创建链接专区任务记录。
+                            粘贴公开商品链接后，后台只分析商品，不进入链接专区；分析结果会保存，刷新页面不会丢失。
                           </p>
                           <p className="mt-2">
                             已谈好价格时，可在链接后空格加实付金额（如
