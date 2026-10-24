@@ -46,6 +46,50 @@ function absoluteUrl(value: string | undefined, base = ORIGIN) {
 }
 
 /**
+ * Out-of-stock evidence on a catalogue card. Only badge-style markup
+ * counts: an element carrying a stock / sold marker in its class / test
+ * id / aria-label, or a leaf element whose whole text is the marker. The
+ * product name is never scanned, so a title mentioning a sold-out item
+ * elsewhere does not retire this listing. This mirrors how refreshStatus
+ * already treats a catalogue absence ("not in stock") as sold.
+ */
+function surugayaCardStatus(
+  $: cheerio.CheerioAPI,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  card: cheerio.Cheerio<any>,
+): "active" | "sold" {
+  let sold = false;
+  card.find("[aria-label]").each((_, element) => {
+    if (
+      /品切れ|在庫なし|在庫切れ|売り切れ|sold\s*out|out\s*of\s*stock/i.test(
+        $(element).attr("aria-label") ?? "",
+      )
+    )
+      sold = true;
+  });
+  if (sold) return "sold";
+  if (
+    card.find(
+      '[class*="sold" i], [data-testid*="sold" i], [class*="out-of-stock" i], [class*="stockout" i]',
+    ).length > 0
+  )
+    return "sold";
+  card.find("*").each((_, element) => {
+    const node = $(element);
+    if (node.children().length > 0) return;
+    if (node.closest(".product-name").length > 0) return;
+    const text = compact(node.text());
+    if (
+      /^(?:品切れ|在庫なし|在庫切れ|売り切れ(?:ました)?|SOLD(?:\s*OUT)?|OUT\s*OF\s*STOCK)[。.!！]?$/i.test(
+        text,
+      )
+    )
+      sold = true;
+  });
+  return sold ? "sold" : "active";
+}
+
+/**
  * Parse only the public catalogue cards. Surugaya currently blocks its detail
  * pages from this environment, while the catalogue itself exposes the live
  * price, stock, image, maker, release date and shipping rule. Keeping that
@@ -146,7 +190,7 @@ export function parseSurugayaSearchHtml(
         commerceFeeText: feeText,
         catalogueUrl: searchUrl,
       },
-      status: "active",
+      status: surugayaCardStatus($, card),
       channel: "online",
     };
     seen.add(sourceItemId);

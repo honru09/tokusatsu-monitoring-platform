@@ -35,6 +35,41 @@ describe("parseSurugayaSearchHtml", () => {
     expect(results[0].detailHint?.imageUrls).toHaveLength(1);
   });
 
+  it("marks catalogue cards with an out-of-stock marker as sold", () => {
+    const card = (id: string, marker: string) => `
+      <div class="item">
+        <div class="photo_box"><a href="/product/detail/${id}"><img src="https://www.suruga-ya.jp/database/photo.php?shinaban=${id}&size=m"></a></div>
+        <div class="item_detail"><a href="/product/detail/${id}"><h3 class="product-name">仮面ライダー DX変身ベルト</h3></a><p class="condition">おもちゃ</p></div>
+        <div class="item_price"><p class="price_teika">中古：<strong>￥1,100</strong></p>${marker}</div>
+      </div>`;
+    const results = parseSurugayaSearchHtml(
+      card("607224616", `<p class="stock">品切れ</p>`) +
+        card("607224617", `<span class="soldout">在庫なし</span>`) +
+        card("607224618", ""),
+      "https://www.suruga-ya.jp/search?category=50003&search_word=DX",
+    );
+    expect(results.map((result) => result.detailHint?.status)).toEqual([
+      "sold",
+      "sold",
+      "active",
+    ]);
+    expect(results[0].detailHint?.priceCurrent).toBe(1100);
+  });
+
+  it("does not mark a card sold for out-of-stock wording in the product name", () => {
+    const html = `
+      <div class="item">
+        <div class="photo_box"><a href="/product/detail/607224616"><img src="https://www.suruga-ya.jp/database/photo.php?shinaban=607224616&size=m"></a></div>
+        <div class="item_detail"><a href="/product/detail/607224616"><h3 class="product-name">品切れ続出 仮面ライダー DX変身ベルト</h3></a><p class="condition">おもちゃ</p></div>
+        <div class="item_price"><p class="price_teika">中古：<strong>￥1,100</strong></p></div>
+      </div>`;
+    const [result] = parseSurugayaSearchHtml(
+      html,
+      "https://www.suruga-ya.jp/search?category=50003&search_word=DX",
+    );
+    expect(result.detailHint?.status).toBe("active");
+  });
+
   it("marks a catalogue item sold when the public lookup returns 404", async () => {
     const adapter = new SurugayaAdapter();
     vi.spyOn(adapter, "fetchDetail").mockRejectedValue(

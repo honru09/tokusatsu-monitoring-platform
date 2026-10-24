@@ -110,8 +110,12 @@ export function parseMercariSearchResponse(
       if (!row || typeof row !== "object") return [];
       const value = row as Record<string, unknown>;
       // The public search endpoint exposes the marketplace's authoritative
-      // listing status. Never let sold/trading rows consume the crawl window.
-      if (String(value.status ?? "") !== "ITEM_STATUS_ON_SALE") return [];
+      // listing status. Keep on-sale rows as crawl candidates and sold /
+      // trading rows as well, so a stored listing that has since sold can
+      // be retired from the search row itself. Other states stay dropped.
+      const rowStatus = String(value.status ?? "");
+      const isSoldRow = /SOLD|TRADING|STOP/i.test(rowStatus);
+      if (rowStatus !== "ITEM_STATUS_ON_SALE" && !isSoldRow) return [];
       const id = typeof value.id === "string" ? value.id : "";
       const name = typeof value.name === "string" ? value.name : undefined;
       if (!/^[a-z0-9]{8,40}$/i.test(id) || !name) return [];
@@ -160,7 +164,6 @@ export function parseMercariSearchResponse(
       const sellerId = typeof value.sellerId === "string" ? value.sellerId : "";
       const shopName =
         typeof value.shopName === "string" ? value.shopName.trim() : "";
-      const status = String(value.status ?? "");
       const detailHint: RawItemDetail = {
         sourcePlatform: "mercari",
         listingType: auction ? "auction" : "direct",
@@ -193,7 +196,7 @@ export function parseMercariSearchResponse(
             ? `https://jp.mercari.com/user/profile/${sellerId}`
             : undefined,
         },
-        status: /SOLD|TRADING|STOP/i.test(status) ? "sold" : "active",
+        status: isSoldRow ? "sold" : "active",
         channel: "online",
       };
       return [{ sourceItemId: id, sourceUrl, titleHint: name, detailHint }];
@@ -435,7 +438,9 @@ export class MercariAdapter implements SourceAdapter {
           excludeKeyword: "",
           sort: "SORT_SCORE",
           order: "ORDER_DESC",
-          status: ["STATUS_ON_SALE"],
+          // Sold-out rows are requested alongside on-sale rows so the
+          // parser can surface them as sold search rows (see above).
+          status: ["STATUS_ON_SALE", "STATUS_SOLD_OUT"],
           sizeId: [],
           categoryId: [],
           brandId: [],

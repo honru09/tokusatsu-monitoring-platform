@@ -214,7 +214,7 @@ describe("Mercari adapter", () => {
     expect(result.detailHint?.sellerType).toBe("store");
   });
 
-  it("drops non-active rows even if Mercari returns them in a mixed response", () => {
+  it("surfaces sold and trading rows as sold instead of dropping them", () => {
     const results = parseMercariSearchResponse({
       items: [
         {
@@ -240,6 +240,60 @@ describe("Mercari adapter", () => {
 
     expect(results.map((result) => result.sourceItemId)).toEqual([
       "m11111111111",
+      "m22222222222",
+      "m33333333333",
+    ]);
+    expect(results.map((result) => result.detailHint?.status)).toEqual([
+      "active",
+      "sold",
+      "sold",
+    ]);
+    expect(results[1].detailHint).toMatchObject({
+      titleRaw: "仮面ライダー 已售商品",
+      priceCurrent: 1200,
+    });
+  });
+
+  it("still drops rows whose status is neither on sale nor sold", () => {
+    const results = parseMercariSearchResponse({
+      items: [
+        {
+          id: "m11111111111",
+          status: "ITEM_STATUS_ON_SALE",
+          name: "仮面ライダー 在售商品",
+          price: "1000",
+        },
+        {
+          id: "m22222222222",
+          status: "",
+          name: "仮面ライダー 状态不明商品",
+          price: "1200",
+        },
+      ],
+    });
+
+    expect(results.map((result) => result.sourceItemId)).toEqual([
+      "m11111111111",
+    ]);
+  });
+
+  it("asks the search endpoint for sold-out rows as well as on-sale rows", async () => {
+    let requestBody: { searchCondition?: { status?: string[] } } = {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (_input: string | URL | Request, init?: { body?: string }) => {
+          requestBody = JSON.parse(init?.body ?? "{}") as typeof requestBody;
+          return new Response(JSON.stringify({ items: [] }), {
+            status: 200,
+          });
+        },
+      ),
+    );
+    await new MercariAdapter().search({ keyword: "SHF" });
+    expect(requestBody.searchCondition?.status).toEqual([
+      "STATUS_ON_SALE",
+      "STATUS_SOLD_OUT",
     ]);
   });
 

@@ -11,6 +11,7 @@ import type {
   StoredItem,
 } from "@tokusatsu/shared";
 import { sanitizeProductImageUrls } from "./images.js";
+import { ListingUnavailableError } from "./public-listing-status.js";
 import { shippingEvidence } from "./shipping.js";
 
 const SEARCH_ORIGIN = "https://fril.jp";
@@ -67,6 +68,41 @@ function tableDetails($: cheerio.CheerioAPI) {
     if (key && value && !(key in details)) details[key] = value;
   });
   return details;
+}
+
+/**
+ * Sold evidence on a search card. Only badge-style markup counts: an
+ * element carrying a sold marker in its class / test id / aria-label, or a
+ * leaf element whose whole text is the badge. The title link is excluded
+ * from the leaf scan, so a title mentioning a sold-out set elsewhere does
+ * not retire this listing.
+ */
+function rakumaSearchCardStatus(
+  $: cheerio.CheerioAPI,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  card: cheerio.Cheerio<any>,
+): "active" | "sold" {
+  let sold = false;
+  card.find("[aria-label]").each((_, element) => {
+    if (/売り切れ|sold\s*out/i.test($(element).attr("aria-label") ?? ""))
+      sold = true;
+  });
+  if (sold) return "sold";
+  if (card.find('[class*="sold" i], [data-testid*="sold" i]').length > 0)
+    return "sold";
+  card.find("*").each((_, element) => {
+    const node = $(element);
+    if (node.children().length > 0) return;
+    if (node.closest(".link_search_title").length > 0) return;
+    const text = compact(node.text());
+    if (
+      /^(?:SOLD(?:\s*OUT)?|売り切れ(?:ました)?|売り切れです|品切れ)[。.!！]?$/i.test(
+        text,
+      )
+    )
+      sold = true;
+  });
+  return sold ? "sold" : "active";
 }
 
 export function parseRakumaSearchHtml(
@@ -134,7 +170,7 @@ export function parseRakumaSearchHtml(
           sellerTypeText,
         },
       },
-      status: "active",
+      status: rakumaSearchCardStatus($, card),
       channel: "online",
     };
     seen.add(sourceItemId);
@@ -164,8 +200,6 @@ export function parseRakumaDetailHtml(
   const priceCurrent = yen(
     offers.price ?? $('meta[property="product:price:amount"]').attr("content"),
   );
-  if (!titleRaw || priceCurrent == null)
-    throw new Error("Rakuma detail did not contain title and price");
   const descriptionRaw = compact(
     json?.description ?? $('meta[property="og:description"]').attr("content"),
   );
@@ -173,18 +207,31 @@ export function parseRakumaDetailHtml(
   const body = $("body").clone();
   body.find("script, style, noscript, template").remove();
   const bodyText = compact(body.text());
+  // Decide the terminal state before requiring title and price: a sold
+  // page is often stripped of its price (and sometimes its title), and it
+  // should read as sold rather than as a parse failure. Only explicit
+  // evidence counts here -- an availability that is not InStock on its own
+  // is not enough, since a shell or challenge page has no availability
+  // either and must stay on the ordinary error path below.
+  const availability = compact(offers.availability).toLowerCase();
+  const soldWording = /売り切れ|sold\s*out|購入申請できません/i.test(bodyText);
+  const status: ItemStatus =
+    availability.includes("instock") && !soldWording ? "active" : "sold";
+  const explicitTerminal =
+    availability.includes("outofstock") ||
+    availability.includes("soldout") ||
+    availability.includes("discontinued") ||
+    soldWording;
+  if (!titleRaw || priceCurrent == null) {
+    if (explicitTerminal) throw new ListingUnavailableError("sold");
+    throw new Error("Rakuma detail did not contain title and price");
+  }
   const shippingText =
     details["配送料の負担"] ??
     compact($(".item__postage, .postage-included").first().text());
   const shipping = shippingEvidence(offers, shippingText || bodyText);
   const conditionRaw =
     details["商品の状態"] ?? (compact(offers.itemCondition) || undefined);
-  const availability = compact(offers.availability).toLowerCase();
-  const status: ItemStatus =
-    availability.includes("instock") &&
-    !/売り切れ|sold\s*out|購入申請できません/i.test(bodyText)
-      ? "active"
-      : "sold";
   const sellerStructured = objects(offers.seller)[0] ?? {};
   const sellerAnchor = $('a[href*="/shop/"]')
     .filter((_, anchor) => !/review/.test($(anchor).attr("href") ?? ""))
@@ -310,6 +357,8 @@ export class RakumaAdapter implements SourceAdapter {
         shippingFee: detail.shippingFee,
       };
     } catch (error) {
+      if (error instanceof ListingUnavailableError)
+        return { status: error.status, listingType: "direct" };
       if (/Rakuma returned (?:404|410)/i.test(String(error)))
         return { status: "sold", listingType: "direct" };
       throw error;

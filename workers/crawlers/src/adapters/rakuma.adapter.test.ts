@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ListingUnavailableError } from "./public-listing-status.js";
 import {
   RakumaAdapter,
   parseRakumaDetailHtml,
@@ -37,7 +38,36 @@ describe("Rakuma parsing", () => {
       listingType: "direct",
       priceCurrent: 1799,
       sellerType: "individual",
+      status: "active",
     });
+  });
+
+  it("marks a search card sold when it carries a sold-out badge", () => {
+    const card = (id: string, badge: string) => `
+      <div class="item"><div class="item-box">
+        <a class="link_search_image" href="https://item.fril.jp/${id}" data-rat-itemid="seller/123" data-rat-price="1799" data-rat-sgenre="一般"><img data-original="https://img.fril.jp/img/123/m/1.jpg">${badge}</a>
+        <a class="link_search_title" href="https://item.fril.jp/${id}">仮面ライダー ソフビ 5体セット</a>
+      </div></div>`;
+    const results = parseRakumaSearchHtml(
+      card("a".repeat(32), `<span class="soldout">売り切れ</span>`) +
+        card("b".repeat(32), `<span class="item-sold">SOLD</span>`) +
+        card("c".repeat(32), ""),
+    );
+    expect(results.map((result) => result.detailHint?.status)).toEqual([
+      "sold",
+      "sold",
+      "active",
+    ]);
+  });
+
+  it("does not mark a card sold for sold wording inside the title", () => {
+    const html = `
+      <div class="item"><div class="item-box">
+        <a class="link_search_image" href="https://item.fril.jp/${"a".repeat(32)}" data-rat-itemid="seller/123" data-rat-price="1799" data-rat-sgenre="一般"><img data-original="https://img.fril.jp/img/123/m/1.jpg"></a>
+        <a class="link_search_title" href="https://item.fril.jp/${"a".repeat(32)}">売り切れ続出 仮面ライダー ソフビ</a>
+      </div></div>`;
+    const [result] = parseRakumaSearchHtml(html);
+    expect(result.detailHint?.status).toBe("active");
   });
 
   it("extracts complete description, seller, postage and gallery", () => {
@@ -72,5 +102,89 @@ describe("Rakuma parsing", () => {
       status: "active",
     });
     expect(detail.imageUrls).toHaveLength(2);
+  });
+
+  it("reads a sold detail page that still carries a price as sold", () => {
+    const product = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: "仮面ライダー ソフビ 5体セット",
+      offers: {
+        price: 1799,
+        availability: "https://schema.org/OutOfStock",
+      },
+    };
+    const html = `
+      <script type="application/ld+json">${JSON.stringify(product)}</script>
+      <p>売り切れ</p>`;
+    const detail = parseRakumaDetailHtml(
+      html,
+      `https://item.fril.jp/${"a".repeat(32)}`,
+      "a".repeat(32),
+    );
+    expect(detail.status).toBe("sold");
+    expect(detail.priceCurrent).toBe(1799);
+  });
+
+  it("treats a price-less sold detail page as unavailable instead of a parse failure", () => {
+    const product = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: "仮面ライダー ソフビ 5体セット",
+      offers: { availability: "https://schema.org/OutOfStock" },
+    };
+    const html = `
+      <script type="application/ld+json">${JSON.stringify(product)}</script>
+      <p>この商品は売り切れです</p>`;
+    expect(() =>
+      parseRakumaDetailHtml(
+        html,
+        `https://item.fril.jp/${"a".repeat(32)}`,
+        "a".repeat(32),
+      ),
+    ).toThrow(ListingUnavailableError);
+  });
+
+  it("treats a title-less page with sold wording and no price as unavailable", () => {
+    expect(() =>
+      parseRakumaDetailHtml(
+        `<html><body><p>売り切れのため購入申請できません</p></body></html>`,
+        `https://item.fril.jp/${"a".repeat(32)}`,
+        "a".repeat(32),
+      ),
+    ).toThrow(ListingUnavailableError);
+  });
+
+  it("keeps the parse failure for a price-less page without sold evidence", () => {
+    const product = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: "仮面ライダー ソフビ 5体セット",
+      offers: { availability: "https://schema.org/InStock" },
+    };
+    const html = `
+      <script type="application/ld+json">${JSON.stringify(product)}</script>`;
+    expect(() =>
+      parseRakumaDetailHtml(
+        html,
+        `https://item.fril.jp/${"a".repeat(32)}`,
+        "a".repeat(32),
+      ),
+    ).toThrow("Rakuma detail did not contain title and price");
+  });
+
+  it("turns an unavailable sold detail page into a sold refresh status", async () => {
+    const adapter = new RakumaAdapter();
+    (adapter as unknown as { fetchDetail: () => Promise<never> }).fetchDetail =
+      async () => {
+        throw new ListingUnavailableError("sold");
+      };
+    await expect(
+      adapter.refreshStatus({
+        sourceItemId: "a".repeat(32),
+        sourceUrl: `https://item.fril.jp/${"a".repeat(32)}`,
+        status: "active",
+      }),
+    ).resolves.toEqual({ status: "sold", listingType: "direct" });
   });
 });
