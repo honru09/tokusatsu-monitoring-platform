@@ -12,6 +12,7 @@ import { xianyuComparisonEnabled } from "./china-market/xianyu.provider.js";
 import {
   automaticClassificationContentVersion,
   classificationJobId,
+  shouldAbortAiJobForItem,
   shouldQueueAutomaticClassification,
 } from "./automatic-classification.js";
 import {
@@ -471,12 +472,13 @@ export async function compactPendingClassificationJobs() {
           .filter((version): version is string => Boolean(version)),
       );
       currentItems.set(row.id, {
+        // Mirror the run-time gate in processClassification: a purchase
+        // import stays applicable despite its staging archive, while
+        // terminal, archived, ignored, and purchased rows do not.
         applicable:
-          !row.archivedAt &&
-          !row.ignored &&
-          !row.purchaseRecord &&
-          row.importOrigin !== "purchase" &&
-          (row.status === "active" || row.status === "unknown") &&
+          !shouldAbortAiJobForItem(row, {
+            allowArchivedPurchaseImport: true,
+          }) &&
           row.categoryToyType !== "card" &&
           row.images.length > 0 &&
           shouldQueueAutomaticClassification(candidate),
@@ -1154,6 +1156,12 @@ export async function schedulePendingAutomaticClassifications() {
         classifications: {
           none: { classifierType: "vision_ai_gateway" },
         },
+        // Custom general-scope items are skipped by the classification
+        // processor itself; do not spend queue jobs on them here.
+        OR: [
+          { monitoringCategoryId: null },
+          { monitoringCategory: { scope: { not: "general" } } },
+        ],
         ...(cursor ? { id: { gt: cursor } } : {}),
       },
       select: {
@@ -1286,10 +1294,18 @@ export async function scheduleJobs() {
     backgroundAiEnabled &&
     (await prisma.item.count({
       where: {
-        archivedAt: null,
+        // Match the detail-translation backlog query: live listings, plus
+        // purchased items whose inventory translation is still wanted.
         ignored: false,
         categoryToyType: { not: "card" },
         translationStatus: { not: "completed" },
+        OR: [
+          {
+            archivedAt: null,
+            status: { in: ["active", "unknown"] },
+          },
+          { purchaseRecord: { isNot: null } },
+        ],
       },
     })) > 0
   ) {

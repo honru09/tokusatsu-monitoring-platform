@@ -62,6 +62,37 @@ describe("historical item detail translation", () => {
     expect(result).toEqual({ translated: 2, failed: 0, remaining: 91 });
   });
 
+  it("skips items that stopped being eligible after the backlog query", async () => {
+    const fetcher = vi.fn(
+      async (_url: string) =>
+        new Response(JSON.stringify({ translation: { id: "translated" } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    const result = await processDetailTranslationBatch({
+      findPending: async () => [{ id: "item-live" }, { id: "item-sold" }],
+      countPending: async () => 1,
+      revalidateItem: async (item) => item.id === "item-live",
+      fetcher,
+      apiBaseUrl: "http://api:3001",
+      batchSize: 2,
+      wait: async () => undefined,
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+      "http://api:3001/analysis/item/item-live?costPolicy=free_only",
+    ]);
+    expect(result).toEqual({
+      translated: 1,
+      failed: 0,
+      remaining: 1,
+      skippedItems: 1,
+    });
+  });
+
   it("does not multiply a provider-side 503 already handled by the Gateway", async () => {
     const fetcher = vi
       .fn()

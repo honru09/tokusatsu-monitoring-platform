@@ -1055,7 +1055,17 @@ export async function refreshChinaMarketComparison(
   );
   try {
     const loaded = await loadProductReference(productId);
-    if (!loaded || !loaded.reference.listingTitleRaw.trim()) {
+    // loadProductReference only returns listings that are still live
+    // (not archived, not ignored, active/unknown). A queued refresh whose
+    // product has lost every live listing is stale work: record it as
+    // insufficient instead of spending a provider search or AI calls on
+    // the product's canonical name alone. The dispatcher applies the same
+    // live-listing requirement when it enqueues refreshes.
+    if (
+      !loaded ||
+      loaded.product.listings.length === 0 ||
+      !loaded.reference.listingTitleRaw.trim()
+    ) {
       const now = new Date();
       await publishRefresh(
         comparison.id,

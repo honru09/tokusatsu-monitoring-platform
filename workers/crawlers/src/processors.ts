@@ -82,6 +82,7 @@ import {
 import {
   automaticClassificationContentVersion,
   classificationJobId,
+  shouldAbortAiJobForItem,
   shouldQueueAutomaticClassification,
 } from "./automatic-classification.js";
 import {
@@ -1949,6 +1950,8 @@ async function persistNormalized(
     automaticPaidAiEnabled() &&
     monitoringCategory?.scope !== "general" &&
     (saved.status === "active" || saved.status === "unknown") &&
+    !saved.ignored &&
+    (!saved.archivedAt || importOrigin === "purchase") &&
     imageUrls.length > 0 &&
     shouldQueueAutomaticClassification({ ...item, imageUrls })
   ) {
@@ -2025,6 +2028,29 @@ export async function scheduleStatus(
   );
 }
 
+/**
+ * The shared AI guard serializes work across workers, so minutes can pass
+ * between the stages of one classification job. Re-read the item before
+ * the later stages and stop if a status refresh or an operator action
+ * made the listing terminal, archived, ignored, or purchased in between.
+ */
+async function classificationItemStillEligible(itemId: string) {
+  const fresh = await prisma.item.findUnique({
+    where: { id: itemId },
+    select: {
+      status: true,
+      archivedAt: true,
+      ignored: true,
+      importOrigin: true,
+      purchaseRecord: { select: { id: true } },
+    },
+  });
+  return (
+    fresh != null &&
+    !shouldAbortAiJobForItem(fresh, { allowArchivedPurchaseImport: true })
+  );
+}
+
 export async function processClassification(
   job: Job<{ itemId: string; version?: string }>,
 ) {
@@ -2053,10 +2079,7 @@ export async function processClassification(
   // condition still keeps it out. Archived items from any other origin
   // stay skipped.
   if (
-    (item.archivedAt && item.importOrigin !== "purchase") ||
-    item.ignored ||
-    item.purchaseRecord ||
-    (item.status !== "active" && item.status !== "unknown") ||
+    shouldAbortAiJobForItem(item, { allowArchivedPurchaseImport: true }) ||
     item.categoryToyType === "card" ||
     item.images.length === 0
   )
@@ -2284,6 +2307,8 @@ export async function processClassification(
       textClassification?.data,
     );
   }
+  if (!(await classificationItemStillEligible(item.id)))
+    return { skipped: "item_no_longer_eligible" };
   if (!requiresImageAnalysis) {
     await prisma.itemClassification.create({
       data: {
@@ -2407,7 +2432,10 @@ export async function processClassification(
       },
     });
   }
-  if (conflict || item.priceCurrent >= highValueThreshold) {
+  if (
+    (conflict || item.priceCurrent >= highValueThreshold) &&
+    (await classificationItemStillEligible(item.id))
+  ) {
     const advanced = await executeProductOperation(
       "automatic_classification",
       PRODUCT_AI_RESPONSE_SCHEMAS.advancedClassification,

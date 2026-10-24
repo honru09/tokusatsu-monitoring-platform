@@ -72,6 +72,88 @@ export function automaticClassificationContentVersion(
   return createHash("sha256").update(normalized).digest("hex").slice(0, 24);
 }
 
+export type AiJobItemState = {
+  status?: string | null;
+  archivedAt?: Date | string | null;
+  ignored?: boolean | null;
+  importOrigin?: string | null;
+  purchaseRecord?: unknown;
+};
+
+export type AiJobAbortReason =
+  | "item_not_live"
+  | "item_archived"
+  | "item_ignored"
+  | "item_purchased";
+
+/**
+ * Item state can change while a job waits in the queue, and again while
+ * earlier stages of the same job run. Processors re-read the row and
+ * consult this predicate immediately before an AI call so terminal,
+ * archived, ignored, or already-purchased listings stop consuming model
+ * spend. A missing status is treated as live: when in doubt, run the job.
+ *
+ * Purchase imports are the one archive exception: their row is archived
+ * only as staging until the operator confirms the purchase, so callers
+ * that serve that flow pass allowArchivedPurchaseImport. A recorded
+ * purchase still aborts unless the caller passes allowPurchaseRecord.
+ */
+export function aiJobAbortReason(
+  item: AiJobItemState,
+  options: {
+    allowArchivedPurchaseImport?: boolean;
+    allowPurchaseRecord?: boolean;
+  } = {},
+): AiJobAbortReason | null {
+  if (
+    item.status != null &&
+    item.status !== "active" &&
+    item.status !== "unknown"
+  )
+    return "item_not_live";
+  if (
+    item.archivedAt != null &&
+    !(
+      options.allowArchivedPurchaseImport && item.importOrigin === "purchase"
+    )
+  )
+    return "item_archived";
+  if (item.ignored) return "item_ignored";
+  if (item.purchaseRecord != null && !options.allowPurchaseRecord)
+    return "item_purchased";
+  return null;
+}
+
+export function shouldAbortAiJobForItem(
+  item: AiJobItemState,
+  options: {
+    allowArchivedPurchaseImport?: boolean;
+    allowPurchaseRecord?: boolean;
+  } = {},
+) {
+  return aiJobAbortReason(item, options) != null;
+}
+
+/**
+ * Every field the automatic classifier can fill is already established.
+ * Combined with shouldQueueAutomaticClassification returning false, this
+ * is the run-time expression for "the analysis is no longer needed": a
+ * queued job whose item was completed by another pass can stop, while a
+ * high-value or review item still runs despite complete fields.
+ */
+export function hasCompleteClassificationFields(
+  candidate: AutomaticClassificationCandidate,
+) {
+  return (
+    candidate.needsReview !== true &&
+    !unknown(candidate.categoryIp) &&
+    !unknown(candidate.categoryToyType) &&
+    !unknown(candidate.manufacturer) &&
+    !unknown(candidate.conditionGrade) &&
+    candidate.quantityEst != null
+  );
+}
+
 /** One BullMQ de-duplication key per item and classifier-input version. */
 export function classificationJobId(
   itemId: string,

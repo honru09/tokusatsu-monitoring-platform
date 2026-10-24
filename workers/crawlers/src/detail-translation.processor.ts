@@ -14,6 +14,8 @@ type TranslationFetch = (
 type BatchDependencies = {
   findPending: (limit: number) => Promise<Array<{ id: string }>>;
   countPending: () => Promise<number>;
+  /** Re-read one item immediately before its AI call; false skips it. */
+  revalidateItem?: (item: { id: string }) => Promise<boolean>;
   fetcher?: TranslationFetch;
   apiBaseUrl?: string;
   batchSize?: number;
@@ -131,6 +133,13 @@ export async function processDetailTranslationBatch(
   const baseUrl = normalizeHttpBaseUrl(dependencies.apiBaseUrl);
   const results = await Promise.allSettled(
     items.map(async (item) => {
+      // The shared AI guard can hold a call while a status refresh or an
+      // operator action moves the item; re-check it before spending one.
+      if (
+        dependencies.revalidateItem &&
+        !(await dependencies.revalidateItem(item))
+      )
+        return null;
       const response = await runAutomaticAiTask(
         `detail:${item.id}`,
         () =>
@@ -149,9 +158,12 @@ export async function processDetailTranslationBatch(
     }),
   );
   const translated = results.filter(
-    (result) => result.status === "fulfilled",
+    (result) => result.status === "fulfilled" && result.value != null,
   ).length;
-  const failed = results.length - translated;
+  const skippedItems = results.filter(
+    (result) => result.status === "fulfilled" && result.value == null,
+  ).length;
+  const failed = results.length - translated - skippedItems;
   const unavailable = results.find(
     (result) =>
       result.status === "rejected" && isAutomaticAiUnavailable(result.reason),
@@ -171,22 +183,42 @@ export async function processDetailTranslationBatch(
     translated,
     failed,
     remaining,
+    ...(skippedItems ? { skippedItems } : {}),
     ...(unavailable ? { deferred: true } : {}),
   };
 }
 
+/**
+ * Detail translation is wanted for live listings and for purchased items
+ * (inventory data), but never for ignored or card listings, and never for
+ * archived or terminal listings that were not purchased.
+ */
+const detailTranslationItemWhere: Prisma.ItemWhereInput = {
+  ignored: false,
+  categoryToyType: { not: ToyType.card },
+  OR: [
+    {
+      archivedAt: null,
+      status: { in: [ItemStatus.active, ItemStatus.unknown] },
+    },
+    { purchaseRecord: { isNot: null } },
+  ],
+};
+
+async function itemStillEligibleForDetailTranslation(itemId: string) {
+  const row = await prisma.item.findFirst({
+    where: {
+      id: itemId,
+      ...detailTranslationItemWhere,
+      translationStatus: { not: "completed" },
+    },
+    select: { id: true },
+  });
+  return row != null;
+}
+
 async function findPendingHistoricalItems(limit: number) {
-  const commonWhere: Prisma.ItemWhereInput = {
-    ignored: false,
-    categoryToyType: { not: ToyType.card },
-    OR: [
-      {
-        archivedAt: null,
-        status: { in: [ItemStatus.active, ItemStatus.unknown] },
-      },
-      { purchaseRecord: { isNot: null } },
-    ],
-  };
+  const commonWhere = detailTranslationItemWhere;
   const pending = await prisma.item.findMany({
     where: {
       ...commonWhere,
@@ -223,16 +255,8 @@ async function findPendingHistoricalItems(limit: number) {
 async function countPendingHistoricalItems() {
   return prisma.item.count({
     where: {
-      ignored: false,
-      categoryToyType: { not: "card" },
+      ...detailTranslationItemWhere,
       translationStatus: { not: "completed" },
-      OR: [
-        {
-          archivedAt: null,
-          status: { in: [ItemStatus.active, ItemStatus.unknown] },
-        },
-        { purchaseRecord: { isNot: null } },
-      ],
     },
   });
 }
@@ -241,6 +265,7 @@ export async function processDetailTranslation() {
   return processDetailTranslationBatch({
     findPending: findPendingHistoricalItems,
     countPending: countPendingHistoricalItems,
+    revalidateItem: (item) => itemStillEligibleForDetailTranslation(item.id),
     fetcher: fetch,
     apiBaseUrl: normalizeHttpBaseUrl(process.env.API_INTERNAL_URL),
     batchSize: Number(process.env.DETAIL_TRANSLATION_BATCH_SIZE ?? 2),
