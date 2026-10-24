@@ -164,6 +164,52 @@ describe("search results cannot revive confirmed terminal listings", () => {
       archivedAt: null,
     });
   });
+  it("writes the terminal state from a search hint without a detail fetch for a fully enriched listing", async () => {
+    store.findMany.mockResolvedValue([
+      currentItem({
+        imageCount: 3,
+        sourceData: { shippingStatus: "free" },
+        descriptionRaw: "商品説明",
+        sellerId: "seller-1",
+      }),
+    ]);
+    vi.spyOn(MercariAdapter.prototype, "search").mockResolvedValue([
+      {
+        sourceItemId: "m123",
+        sourceUrl: "https://jp.mercari.com/item/m123",
+        detailHint: {
+          titleRaw: "仮面ライダー SHF",
+          status: "sold",
+          priceCurrent: 3500,
+          shippingFee: 0,
+          listingType: "direct",
+        } as never,
+      },
+    ]);
+    const fetchDetail = vi
+      .spyOn(MercariAdapter.prototype, "fetchDetail")
+      .mockRejectedValue(new Error("must not fetch detail for a sold hint"));
+
+    await processSearch({
+      name: "search",
+      id: "job-1",
+      opts: {},
+      attemptsMade: 0,
+      data: { adapterKey: "mercari", query: { keyword: "S.H.Figuarts" } },
+    } as never);
+
+    expect(fetchDetail).not.toHaveBeenCalled();
+    expect(store.createAudit).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actor: "market-search",
+        reason: "search_detail_confirmed_terminal",
+        afterData: expect.objectContaining({
+          status: "sold",
+          priceCurrent: 3500,
+        }),
+      }),
+    });
+  });
   it("does not run a queued job after its keyword was disabled", async () => {
     store.keyword.mockResolvedValue({ enabled: false });
     const search = vi

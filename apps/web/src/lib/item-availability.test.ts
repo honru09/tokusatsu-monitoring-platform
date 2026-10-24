@@ -22,6 +22,20 @@ describe("market listing availability", () => {
     expect(isAvailableMarketListing({ listingType: "direct", auctionEndAt: deadline }, now)).toBe(true);
   });
 
+  it("hides only stale direct listings whose availability was never confirmed", () => {
+    const stale = new Date(now - 13 * 60 * 60 * 1000).toISOString();
+    const fresh = new Date(now - 60 * 60 * 1000).toISOString();
+    const future = new Date(now + 60 * 60 * 1000).toISOString();
+    expect(isAvailableMarketListing({ listingType: "direct", status: "unknown", lastSeenAt: stale }, now)).toBe(false);
+    expect(isAvailableMarketListing({ listingType: "direct", status: "unknown", lastSeenAt: fresh }, now)).toBe(true);
+    expect(isAvailableMarketListing({ listingType: "direct", status: "active", lastSeenAt: stale }, now)).toBe(true);
+    expect(isAvailableMarketListing({ listingType: "auction", status: "unknown", lastSeenAt: stale, auctionEndAt: future }, now)).toBe(true);
+    expect(isAvailableMarketListing({ listingType: "unknown", status: "unknown", lastSeenAt: stale }, now)).toBe(true);
+    // No timestamp means no staleness evidence, so the listing stays.
+    expect(isAvailableMarketListing({ listingType: "direct", status: "unknown" }, now)).toBe(true);
+    expect(isAvailableMarketListing({ listingType: "direct", status: "unknown", lastSeenAt: "invalid" }, now)).toBe(true);
+  });
+
   it("removes unavailable rows without mutating saved purchases or repainting an unchanged grid", () => {
     const purchases = { id: "purchase-1" };
     const rows = [{ status: "active" }, { status: "sold" }, { purchaseRecord: purchases }];

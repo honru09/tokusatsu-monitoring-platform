@@ -303,7 +303,7 @@ describe("auction refresh cadence", () => {
     );
   });
 
-  it("keeps far auctions and buy-now listings inside the two-hour inventory SLA", () => {
+  it("keeps far auctions inside the two-hour SLA and buy-now listings inside one hour", () => {
     const now = new Date("2026-01-01T00:00:00Z");
     expect(auctionRefreshDelay(new Date("2026-01-01T03:00:00Z"), now)).toBe(
       60 * 60 * 1000,
@@ -314,6 +314,7 @@ describe("auction refresh cadence", () => {
     expect(auctionRefreshDelay(new Date("2026-01-03T00:00:00Z"), now)).toBe(
       2 * 60 * 60 * 1000,
     );
-    expect(auctionRefreshDelay(null, now)).toBe(2 * 60 * 60 * 1000);
+    expect(auctionRefreshDelay(null, now)).toBe(1 * 60 * 60 * 1000);
+    expect(auctionRefreshDelay(undefined, now)).toBe(1 * 60 * 60 * 1000);
   });
 });

@@ -20,6 +20,7 @@ function fixture(id: string, fields: Record<string, unknown> = {}) {
     descriptionRaw: null,
     listingType: "direct",
     auctionEndAt: null,
+    lastSeenAt: now,
     source: { key: "mercari", displayName: "Mercari" },
     sourceData: null,
     product: null,
@@ -56,6 +57,9 @@ function matchesWhere(
       if (operator === "gt")
         return actual instanceof Date && value instanceof Date &&
           actual.getTime() > value.getTime();
+      if (operator === "gte")
+        return actual instanceof Date && value instanceof Date &&
+          actual.getTime() >= value.getTime();
       return operator === "mode";
     });
   });
@@ -98,6 +102,55 @@ describe("active market availability", () => {
       .toEqual({ id: "purchase-record" });
     expect(candidates.find((item) => item.id === "expired-auction")?.status)
       .toBe("active");
+  });
+
+  it("hides only stale direct listings whose availability was never confirmed", () => {
+    const stale = new Date(now.getTime() - 13 * 60 * 60 * 1000);
+    const fresh = new Date(now.getTime() - 60 * 60 * 1000);
+    const candidates = [
+      fixture("direct-unknown-stale", { status: "unknown", lastSeenAt: stale }),
+      fixture("direct-unknown-fresh", { status: "unknown", lastSeenAt: fresh }),
+      fixture("direct-active-stale", { status: "active", lastSeenAt: stale }),
+      fixture("auction-unknown-stale", {
+        status: "unknown",
+        listingType: "auction",
+        auctionEndAt: new Date(now.getTime() + 60 * 60 * 1000),
+        lastSeenAt: stale,
+      }),
+      fixture("unknown-type-unknown-stale", {
+        status: "unknown",
+        listingType: "unknown",
+        lastSeenAt: stale,
+      }),
+    ];
+
+    const visible = candidates.filter((item) =>
+      matchesWhere(item, activeMarketItemWhere({ now })),
+    );
+
+    expect(visible.map((item) => item.id)).toEqual([
+      "direct-unknown-fresh",
+      "direct-active-stale",
+      "auction-unknown-stale",
+      "unknown-type-unknown-stale",
+    ]);
+    // Hiding is read-only: the stale row itself is untouched.
+    expect(candidates[0]).toMatchObject({ status: "unknown", archivedAt: null });
+  });
+
+  it("parses MARKET_STALE_HIDE_HOURS defensively", () => {
+    const stale = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    const item = fixture("direct-unknown", { status: "unknown", lastSeenAt: stale });
+    try {
+      process.env.MARKET_STALE_HIDE_HOURS = "2";
+      expect(matchesWhere(item, activeMarketItemWhere({ now }))).toBe(false);
+      process.env.MARKET_STALE_HIDE_HOURS = "not-a-number";
+      expect(matchesWhere(item, activeMarketItemWhere({ now }))).toBe(true);
+      process.env.MARKET_STALE_HIDE_HOURS = "0";
+      expect(matchesWhere(item, activeMarketItemWhere({ now }))).toBe(true);
+    } finally {
+      delete process.env.MARKET_STALE_HIDE_HOURS;
+    }
   });
 
   it("uses the same availability gate for searched favorites, totals and transaction facets", async () => {

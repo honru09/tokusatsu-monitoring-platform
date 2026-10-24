@@ -5,9 +5,14 @@ export type MarketListingAvailability = {
   purchaseRecord?: unknown;
   listingType?: string;
   auctionEndAt?: string | null;
+  lastSeenAt?: string | null;
 };
 
-/** Unknown is not sold: only confirmed terminal state or expiry hides a listing. */
+// Keep in sync with the API MARKET_STALE_HIDE_HOURS default (12h).
+export const marketStaleHideMs = 12 * 60 * 60 * 1000;
+
+/** Unknown is not sold: confirmed terminal state, expiry, or a stale
+ * unconfirmed direct listing hides a listing at read time. */
 export function isAvailableMarketListing(
   item: MarketListingAvailability,
   now = Date.now(),
@@ -18,6 +23,18 @@ export function isAvailableMarketListing(
   if (item.listingType === "auction" && item.auctionEndAt) {
     const deadline = Date.parse(item.auctionEndAt);
     if (Number.isFinite(deadline) && deadline <= now) return false;
+  }
+  // Same read-side staleness rule as the API: a direct listing that was
+  // never confirmed active drops out once it has not been seen for a
+  // while. Missing or unreadable evidence is not staleness.
+  if (
+    item.listingType === "direct" &&
+    item.status === "unknown" &&
+    item.lastSeenAt
+  ) {
+    const seenAt = Date.parse(item.lastSeenAt);
+    if (Number.isFinite(seenAt) && seenAt < now - marketStaleHideMs)
+      return false;
   }
   return true;
 }

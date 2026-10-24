@@ -453,10 +453,11 @@ export function auctionRefreshDelay(
   endAt: Date | null | undefined,
   now = new Date(),
 ): number {
-  // Every live listing participates in the same two-hour availability SLA.
-  // Search loops can discover replacements, but they cannot reliably tell us
-  // that a previously stored buy-now listing was sold or removed.
-  if (!endAt) return 2 * 60 * 60 * 1000;
+  // Buy-now listings have no end time to drive the cadence below, so they
+  // are rechecked on a one-hour availability SLA. Search loops can discover
+  // replacements, but they cannot reliably tell us that a previously stored
+  // buy-now listing was sold or removed.
+  if (!endAt) return 1 * 60 * 60 * 1000;
   const remaining = endAt.getTime() - now.getTime();
   if (remaining <= 0) return 30 * 60 * 1000;
   if (remaining <= 3 * 60 * 1000) return 30 * 1000;

@@ -227,6 +227,50 @@ function updateMarketWithAudit(input: AuditedMarketUpdate) {
   });
 }
 
+type SearchTerminalDetail = {
+  status: "sold" | "ended";
+  priceCurrent: number;
+  shippingFee?: number | null;
+  listingType?: ListingType | null;
+  auctionEndAt?: Date | null;
+  bidCount?: number | null;
+};
+
+/** Write the terminal state a search pass has already confirmed. */
+async function markSearchItemTerminal(
+  itemId: string,
+  detail: SearchTerminalDetail,
+) {
+  const checkedAt = new Date();
+  await updateMarketWithAudit({
+    itemId,
+    where: {
+      archivedAt: null,
+      ignored: false,
+      purchaseRecord: null,
+      status: { in: ["active", "unknown"] },
+    },
+    data: (before) => {
+      const priceCurrent = Number.isFinite(detail.priceCurrent)
+        ? detail.priceCurrent
+        : before.priceCurrent;
+      return {
+        status: detail.status,
+        archivedAt: checkedAt,
+        lastSeenAt: checkedAt,
+        priceCurrent,
+        shippingFee: detail.shippingFee,
+        priceTotalEst:
+          priceCurrent + (detail.shippingFee ?? before.shippingFee ?? 0),
+        ...resolvedMarketSaleMode(detail, before),
+        bidCount: safeBidCount(detail.bidCount),
+      };
+    },
+    actor: "market-search",
+    reason: "search_detail_confirmed_terminal",
+  });
+}
+
 type SearchMetrics = {
   candidates: number;
   duplicatesDropped: number;
@@ -963,6 +1007,17 @@ export async function processSearch(job: Job<SearchJobData>) {
           !isStatusRefreshEligible(known.status)
         )
           continue;
+        // Some search responses already carry a sold/ended signal for a
+        // stored listing. Act on it here instead of spending a detail
+        // fetch on a listing that only needs its terminal state written.
+        const hintedStatus = result.detailHint?.status;
+        if (hintedStatus === "sold" || hintedStatus === "ended") {
+          await markSearchItemTerminal(known.id, {
+            ...result.detailHint!,
+            status: hintedStatus,
+          });
+          continue;
+        }
         const needsEnrichment =
           Boolean(job.data.arbitrageContext) ||
           known.imageCount <= 1 ||
@@ -987,29 +1042,9 @@ export async function processSearch(job: Job<SearchJobData>) {
             const normalized = await adapter.normalize(raw);
             if (!(await refreshMonitoringRule())) break;
             if (normalized.status === "sold" || normalized.status === "ended") {
-              const checkedAt = new Date();
-              await updateMarketWithAudit({
-                itemId: known.id,
-                where: {
-                  archivedAt: null,
-                  ignored: false,
-                  purchaseRecord: null,
-                  status: { in: ["active", "unknown"] },
-                },
-                data: (before) => ({
-                  status: normalized.status,
-                  archivedAt: checkedAt,
-                  lastSeenAt: checkedAt,
-                  priceCurrent: normalized.priceCurrent,
-                  shippingFee: normalized.shippingFee,
-                  priceTotalEst:
-                    normalized.priceCurrent +
-                    (normalized.shippingFee ?? before.shippingFee ?? 0),
-                  ...resolvedMarketSaleMode(normalized, before),
-                  bidCount: safeBidCount(normalized.bidCount),
-                }),
-                actor: "market-search",
-                reason: "search_detail_confirmed_terminal",
+              await markSearchItemTerminal(known.id, {
+                ...normalized,
+                status: normalized.status,
               });
               continue;
             }

@@ -31,6 +31,16 @@ export const excludedProcurementTitleFragments = [
 
 export const excludedProcurementDescriptionFragments = ["カードダス"] as const;
 
+export const defaultMarketStaleHideHours = 12;
+
+/** Hours after which an unconfirmed direct listing is hidden at read time. */
+export function marketStaleHideHours(): number {
+  const parsed = Number(process.env.MARKET_STALE_HIDE_HOURS);
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : defaultMarketStaleHideHours;
+}
+
 /** Canonical read scope for the effective online procurement library. */
 export function activeMarketItemWhere({
   includeIgnored = false,
@@ -39,6 +49,9 @@ export function activeMarketItemWhere({
   includeIgnored?: boolean;
   now?: Date;
 } = {}): Prisma.ItemWhereInput {
+  const staleCutoff = new Date(
+    now.getTime() - marketStaleHideHours() * 60 * 60 * 1000,
+  );
   return {
     status: { in: [ItemStatus.active, ItemStatus.unknown] },
     archivedAt: null,
@@ -55,6 +68,17 @@ export function activeMarketItemWhere({
           { listingType: { not: ListingType.auction } },
           { auctionEndAt: null },
           { auctionEndAt: { gt: now } },
+        ],
+      },
+      {
+        // A direct listing whose availability was never confirmed stops
+        // being shown once it has not been seen for a while. Nothing is
+        // mutated: a later refresh that confirms it or makes it fresh
+        // brings it straight back.
+        OR: [
+          { listingType: { not: ListingType.direct } },
+          { status: ItemStatus.active },
+          { lastSeenAt: { gte: staleCutoff } },
         ],
       },
       ...excludedProcurementDescriptionFragments.map((fragment) => ({
