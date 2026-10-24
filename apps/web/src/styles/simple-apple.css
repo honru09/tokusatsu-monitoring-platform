@@ -468,3 +468,20 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
   .procurement-shell .catalog-mode-switch button {flex:0 0 auto;white-space:nowrap;}
   .procurement-shell .catalog-actions :is(.catalog-filter-button,.catalog-clear-button) {white-space:nowrap;}
 }
+
+/* Home overview selectors on phones: category buttons become wrapping
+   chips at their natural height (the sideways scroll row could stretch
+   into full-height bars), and source stats read as chips instead of
+   full-width rows with an almost invisible bar. */
+@media(max-width:639px) {
+  .procurement-shell .home-category-list>div {flex-wrap:wrap;overflow-x:visible;align-items:flex-start;gap:8px;padding-bottom:0;}
+  .procurement-shell .home-category-list button {flex:1 1 30%;min-width:100px;min-height:52px;height:auto;align-self:flex-start;}
+  .procurement-shell .home-category-list button.home-category-subitem {flex-basis:30%;min-width:100px;}
+  .procurement-shell .home-monitoring-category-group {display:flex;flex:1 1 100%;flex-wrap:wrap;gap:8px;}
+  .procurement-shell .home-monitoring-category-group>h3 {flex:1 1 100%;}
+  .procurement-shell .home-source-list>div {display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
+  .procurement-shell .home-source-row {display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;background:rgba(29,29,31,.045);}
+  .procurement-shell .home-source-row>i {display:none;}
+  .procurement-shell .home-source-row b,
+  .procurement-shell .home-source-row>strong {font-size:11px;}
+}

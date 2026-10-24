@@ -82,6 +82,21 @@ describe("procurement glass layout contracts", () => {
     );
   });
 
+  it("renders home category and source selectors as wrapping chips on phones", () => {
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.home-category-list>div\s*\{[^}]*flex-wrap:\s*wrap[^}]*overflow-x:\s*visible/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.home-category-list button\s*\{[^}]*align-self:\s*flex-start/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.home-source-list>div\s*\{[^}]*display:\s*flex[^}]*flex-wrap:\s*wrap/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.home-source-row>i\s*\{\s*display:\s*none/,
+    );
+  });
+
   it("keeps the card stationary when reaching its gallery arrows", () => {
     for (const source of [globals, polish, finalLayer]) {
       const hover = source.match(/\.product-card:hover\s*\{([^{}]*)\}/)?.[1];
