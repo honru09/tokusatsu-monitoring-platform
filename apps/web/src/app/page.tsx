@@ -45,6 +45,7 @@ import { AssistantChatWorkspace } from "../components/assistant-chat-workspace";
 import {
   CollaborationChatWorkspace,
   buildBundleNegotiationScript,
+  buildBundleShareText,
   type CollaborationItem,
   type PendingCollaborationBundle,
 } from "../components/collaboration-chat-workspace";
@@ -3092,6 +3093,7 @@ function SellerProfileDialog({
   const [targetPrice, setTargetPrice] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [copiedBundleJa, setCopiedBundleJa] = useState(false);
+  const [copiedBundleShare, setCopiedBundleShare] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -3125,6 +3127,14 @@ function SellerProfileDialog({
     void navigator.clipboard?.writeText(script);
     setCopiedBundleJa(true);
     window.setTimeout(() => setCopiedBundleJa(false), 1800);
+  }, [parsedTargetPriceYen, selectedItems]);
+  const copySelectedBundleShareText = useCallback(() => {
+    if (!selectedItems.length) return;
+    void navigator.clipboard?.writeText(
+      buildBundleShareText(selectedItems, null, parsedTargetPriceYen),
+    );
+    setCopiedBundleShare(true);
+    window.setTimeout(() => setCopiedBundleShare(false), 1800);
   }, [parsedTargetPriceYen, selectedItems]);
   const load = useCallback(
     async (price?: string) => {
@@ -3502,6 +3512,15 @@ function SellerProfileDialog({
                     className="min-h-10 rounded-xl border border-black/12 bg-white px-3 text-xs font-semibold text-ink transition active:scale-95 hover:bg-black/[0.04]"
                   >
                     {copiedBundleJa ? "✓ 已复制合并日语" : "📋 复制合并日语"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={copySelectedBundleShareText}
+                    className="min-h-10 rounded-xl border border-black/12 bg-white px-3 text-xs font-semibold text-ink transition active:scale-95 hover:bg-black/[0.04]"
+                  >
+                    {copiedBundleShare
+                      ? "✓ 已复制链接+目标价"
+                      : "复制链接+目标价"}
                   </button>
                   {onSendBundle && (
                     <button

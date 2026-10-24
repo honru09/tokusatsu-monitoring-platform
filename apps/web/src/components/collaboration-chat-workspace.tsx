@@ -70,6 +70,45 @@ export function buildBundleNegotiationScript(
   ].join("\n");
 }
 
+export function buildBundleShareText(
+  items: CollaborationItem[],
+  perItemTargetYen?:
+    | Record<string, number | string | null | undefined>
+    | Map<string, number | string | null | undefined>
+    | null,
+  bundleTargetYen?: number | null,
+): string {
+  if (!items.length) return "";
+  const targetFor = (item: CollaborationItem) => {
+    const raw =
+      perItemTargetYen instanceof Map
+        ? perItemTargetYen.get(item.id)
+        : perItemTargetYen?.[item.id];
+    const parsed = raw == null || raw === "" ? Number.NaN : Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : item.priceCurrent;
+  };
+  const blocks = items.map((item) => {
+    const lines = [itemTitle(item)];
+    const sourceUrl = item.sourceUrl?.trim();
+    if (sourceUrl) lines.push(sourceUrl);
+    lines.push(`现价 ${yen(item.priceCurrent)}`);
+    lines.push(`目标价 ${yen(targetFor(item))}`);
+    return lines.join("\n");
+  });
+  const totalCurrentYen = items.reduce(
+    (sum, item) => sum + item.priceCurrent,
+    0,
+  );
+  const totalTargetYen =
+    bundleTargetYen && bundleTargetYen > 0
+      ? bundleTargetYen
+      : items.reduce((sum, item) => sum + targetFor(item), 0);
+  return [
+    ...blocks,
+    `合计现价 ${yen(totalCurrentYen)}\n合计目标价 ${yen(totalTargetYen)}`,
+  ].join("\n\n");
+}
+
 type MessageReaction = {
   id: string;
   accountId: string;
@@ -449,6 +488,14 @@ function BundleProductReference({
   onOpenItem: (id: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [perItemTargets, setPerItemTargets] = useState<
+    Record<string, string>
+  >(() =>
+    Object.fromEntries(
+      items.map((entry) => [entry.id, String(entry.priceCurrent)]),
+    ),
+  );
   const [showScript, setShowScript] = useState(false);
   const totalOriginalYen = useMemo(
     () => items.reduce((sum, entry) => sum + entry.priceCurrent, 0),
@@ -478,6 +525,13 @@ function BundleProductReference({
     void navigator.clipboard?.writeText(script);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
+  };
+  const copyShareText = () => {
+    void navigator.clipboard?.writeText(
+      buildBundleShareText(items, perItemTargets, effectiveTargetYen),
+    );
+    setShareCopied(true);
+    window.setTimeout(() => setShareCopied(false), 2000);
   };
   const openAllLinks = () => {
     for (const entry of items) {
@@ -553,6 +607,21 @@ function BundleProductReference({
                 {yen(entry.priceCurrent)} · {entry.source.displayName}
               </span>
             </button>
+            <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-ink/55">
+              目标
+              <input
+                inputMode="numeric"
+                aria-label={`目标价：${itemTitle(entry)}`}
+                value={perItemTargets[entry.id] ?? String(entry.priceCurrent)}
+                onChange={(event) =>
+                  setPerItemTargets((current) => ({
+                    ...current,
+                    [entry.id]: event.target.value.replace(/[^\d]/g, ""),
+                  }))
+                }
+                className="h-7 w-[68px] rounded-lg border border-black/[0.12] bg-white px-1.5 font-mono text-[11px] text-ink tabular-nums"
+              />
+            </label>
             <a
               href={entry.sourceUrl}
               target="_blank"
@@ -581,6 +650,13 @@ function BundleProductReference({
           className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition active:scale-[0.97] hover:bg-ink/90"
         >
           {copied ? "✓ 已复制合并砍价日语" : "📋 一键复制合并砍价日语"}
+        </button>
+        <button
+          type="button"
+          onClick={copyShareText}
+          className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold text-ink transition active:scale-[0.97] hover:bg-black/[0.04]"
+        >
+          {shareCopied ? "✓ 已复制链接+目标价" : "复制链接+目标价"}
         </button>
         {primaryItem && (
           <a
@@ -668,6 +744,10 @@ export function CollaborationChatWorkspace({
   const [bundleTargetPrice, setBundleTargetPrice] = useState<string>(() =>
     pendingBundle?.targetPriceYen ? String(pendingBundle.targetPriceYen) : "",
   );
+  const [bundleItemTargets, setBundleItemTargets] = useState<
+    Record<string, string>
+  >({});
+  const [bundleShareCopied, setBundleShareCopied] = useState(false);
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
   const [loading, setLoading] = useState(
@@ -738,6 +818,15 @@ export function CollaborationChatWorkspace({
     }
     setForwardedFrom(null);
   }, [pendingBundle]);
+
+  useEffect(() => {
+    setBundleItemTargets((current) => {
+      const next: Record<string, string> = {};
+      for (const item of attachedBundleItems)
+        next[item.id] = current[item.id] ?? String(item.priceCurrent);
+      return next;
+    });
+  }, [attachedBundleItems]);
 
   const markRead = useCallback(
     async (incoming: DirectMessage[]) => {
@@ -1239,6 +1328,46 @@ export function CollaborationChatWorkspace({
   const visibleNegotiations = negotiationFilter
     ? negotiations.filter((entry) => entry.status === negotiationFilter)
     : [];
+  // The cases already carry item.seller, so grouping is a plain reshape.
+  const visibleNegotiationGroups = (() => {
+    const groups = new Map<
+      string,
+      {
+        key: string;
+        sellerName: string;
+        subtotalYen: number;
+        entries: NegotiationCase[];
+      }
+    >();
+    for (const entry of visibleNegotiations) {
+      const key = entry.item.seller?.id ?? `single:${entry.item.id}`;
+      const group = groups.get(key) ?? {
+        key,
+        sellerName: entry.item.seller?.name?.trim() || "未知卖家",
+        subtotalYen: 0,
+        entries: [],
+      };
+      group.subtotalYen += entry.item.priceCurrent;
+      group.entries.push(entry);
+      groups.set(key, group);
+    }
+    return [...groups.values()];
+  })();
+
+  const copyAttachedBundleShareText = () => {
+    const parsed = bundleTargetPrice.trim()
+      ? Math.round(Number(bundleTargetPrice.trim()))
+      : null;
+    void navigator.clipboard?.writeText(
+      buildBundleShareText(
+        attachedBundleItems,
+        bundleItemTargets,
+        parsed && Number.isFinite(parsed) && parsed > 0 ? parsed : null,
+      ),
+    );
+    setBundleShareCopied(true);
+    window.setTimeout(() => setBundleShareCopied(false), 2000);
+  };
 
   return (
     <section className={`collaboration-chat ${styles.chat}`} aria-label="管理者协作消息" onPointerDownCapture={() => { pointerInputRef.current = true; }} onKeyDownCapture={() => { pointerInputRef.current = false; }}>
@@ -1669,6 +1798,25 @@ export function CollaborationChatWorkspace({
                             {yen(entry.priceCurrent)}
                           </span>
                         </div>
+                        <input
+                          inputMode="numeric"
+                          aria-label={`目标价：${itemTitle(entry)}`}
+                          value={
+                            bundleItemTargets[entry.id] ??
+                            String(entry.priceCurrent)
+                          }
+                          onChange={(event) =>
+                            setBundleItemTargets((current) => ({
+                              ...current,
+                              [entry.id]: event.target.value.replace(
+                                /[^\d]/g,
+                                "",
+                              ),
+                            }))
+                          }
+                          placeholder="目标价"
+                          className="h-7 w-[68px] shrink-0 rounded-lg border border-black/[0.12] bg-white px-1.5 font-mono text-[11px] text-ink tabular-nums"
+                        />
                         <button
                           type="button"
                           aria-label={`移除 ${itemTitle(entry)}`}
@@ -1722,6 +1870,15 @@ export function CollaborationChatWorkspace({
                       placeholder="自定义日元"
                       className="h-7 w-28 rounded-lg border border-black/[0.12] bg-white px-2 font-mono text-xs text-ink tabular-nums"
                     />
+                    <button
+                      type="button"
+                      onClick={copyAttachedBundleShareText}
+                      className="rounded-lg bg-black/[0.05] px-2 py-1 text-[11px] font-semibold text-ink/75 transition active:scale-[0.97] hover:bg-black/[0.09]"
+                    >
+                      {bundleShareCopied
+                        ? "✓ 已复制链接+目标价"
+                        : "复制链接+目标价"}
+                    </button>
                   </div>
                 </>
               );
@@ -1870,7 +2027,18 @@ export function CollaborationChatWorkspace({
                   )}
                 <div className="negotiation-dialog-list">
                   {visibleNegotiations.length ? (
-                    visibleNegotiations.map((entry) => (
+                    visibleNegotiationGroups.map((group) => (
+                      <div key={group.key} className="grid gap-2">
+                        <div className="flex items-center justify-between gap-2 px-1 pt-1">
+                          <strong className="truncate text-xs font-bold text-ink">
+                            {group.sellerName}
+                          </strong>
+                          <span className="shrink-0 font-mono text-[11px] text-ink/55 tabular-nums">
+                            {group.entries.length} 件 · 小计{" "}
+                            {yen(group.subtotalYen)}
+                          </span>
+                        </div>
+                        {group.entries.map((entry) => (
                       <article key={entry.id}>
                         <button
                           type="button"
@@ -1929,6 +2097,8 @@ export function CollaborationChatWorkspace({
                           )}
                         </div>
                       </article>
+                        ))}
+                      </div>
                     ))
                   ) : (
                     <p className="negotiation-dialog-empty">暂无商品</p>

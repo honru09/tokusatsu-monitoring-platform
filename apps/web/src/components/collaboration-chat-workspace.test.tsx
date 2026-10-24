@@ -3,7 +3,11 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CollaborationChatWorkspace } from "./collaboration-chat-workspace";
+import {
+  CollaborationChatWorkspace,
+  buildBundleShareText,
+  type CollaborationItem,
+} from "./collaboration-chat-workspace";
 import type { ManagerAccount } from "./manager-account-gate";
 
 vi.mock("../lib/visibility-poller", () => ({
@@ -542,5 +546,83 @@ describe("Telegram-style collaboration actions", () => {
         String(input).endsWith("/collaboration/negotiations/failed/dislike"),
       ),
     ).toBe(true);
+  });
+});
+
+describe("buildBundleShareText", () => {
+  const shareItem = (
+    overrides: Partial<CollaborationItem> = {},
+  ): CollaborationItem => ({
+    id: "item-1",
+    titleRaw: "仮面ライダー フィギュア",
+    sourceUrl: "https://example.com/item-1",
+    priceCurrent: 3100,
+    source: { key: "mercari", displayName: "Mercari" },
+    images: [],
+    ...overrides,
+  });
+
+  it("多件时逐件列出链接与目标价，并给出合计", () => {
+    const text = buildBundleShareText(
+      [
+        shareItem(),
+        shareItem({
+          id: "item-2",
+          titleRaw: "ベルト",
+          sourceUrl: "https://example.com/item-2",
+          priceCurrent: 5000,
+        }),
+      ],
+      { "item-1": 2800, "item-2": 4000 },
+    );
+
+    expect(text).toContain("仮面ライダー フィギュア");
+    expect(text).toContain("https://example.com/item-1");
+    expect(text).toContain("现价 ¥3,100");
+    expect(text).toContain("目标价 ¥2,800");
+    expect(text).toContain("https://example.com/item-2");
+    expect(text).toContain("目标价 ¥4,000");
+    expect(text).toContain("合计现价 ¥8,100");
+    expect(text).toContain("合计目标价 ¥6,800");
+  });
+
+  it("缺少链接时省略链接行，缺少目标价时回落到现价", () => {
+    const text = buildBundleShareText([shareItem({ sourceUrl: "" })]);
+
+    expect(text).not.toContain("http");
+    expect(text).toContain("现价 ¥3,100");
+    expect(text).toContain("目标价 ¥3,100");
+    expect(text).toContain("合计目标价 ¥3,100");
+  });
+
+  it("给了打包目标价时合计目标价用打包价，逐件仍显示各自目标价", () => {
+    const text = buildBundleShareText(
+      [
+        shareItem(),
+        shareItem({
+          id: "item-2",
+          titleRaw: "ベルト",
+          priceCurrent: 5000,
+        }),
+      ],
+      { "item-1": 2800 },
+      7000,
+    );
+
+    expect(text).toContain("目标价 ¥2,800");
+    // item-2 has no per-item target, so it falls back to its current price.
+    expect(text).toContain("目标价 ¥5,000");
+    expect(text).toContain("合计现价 ¥8,100");
+    expect(text).toContain("合计目标价 ¥7,000");
+  });
+
+  it("空集合返回空字符串，也接受 Map 形式的目标价", () => {
+    expect(buildBundleShareText([])).toBe("");
+    const text = buildBundleShareText(
+      [shareItem()],
+      new Map([["item-1", 2500]]),
+    );
+    expect(text).toContain("目标价 ¥2,500");
+    expect(text).toContain("合计目标价 ¥2,500");
   });
 });
