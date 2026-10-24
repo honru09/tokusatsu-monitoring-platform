@@ -33,6 +33,29 @@ export type CollaborationItem = {
   seller?: { id?: string; name: string } | null;
   images: { url: string; position: number }[];
   product?: { titleZh?: string | null } | null;
+  targetPriceYen?: number | null;
+  copiedAt?: string | null;
+};
+
+export type ShareRoundItemRow = {
+  id: string;
+  roundId: string;
+  itemId: string;
+  targetPriceYen?: number | null;
+  copiedAt?: string | null;
+  item: CollaborationItem;
+};
+
+export type ShareRound = {
+  id: string;
+  note?: string | null;
+  createdAt: string;
+  createdById: string;
+  createdBy?: ManagerAccount | null;
+  items: ShareRoundItemRow[];
+  copiedCount: number;
+  total: number;
+  targetTotalYen?: number | null;
 };
 
 export type PendingCollaborationBundle = {
@@ -174,6 +197,8 @@ type DirectMessage = {
   recipientId: string;
   text?: string | null;
   itemId?: string | null;
+  roundId?: string | null;
+  bundleItemTargets?: Record<string, number | null>;
   replyToId?: string | null;
   forwardedFromId?: string | null;
   readAt?: string | null;
@@ -202,6 +227,89 @@ type NegotiationCase = {
   item: CollaborationItem;
   initiatedBy: ManagerAccount;
 };
+
+export type NegotiationSellerGroup = {
+  key: string;
+  sellerName: string;
+  listedTotalYen: number;
+  targetTotalYen: number | null;
+  entries: NegotiationCase[];
+};
+
+export type NegotiationRoundGroup = {
+  key: string;
+  round: ShareRound | null;
+  sellerGroups: NegotiationSellerGroup[];
+  entries: NegotiationCase[];
+};
+
+// Cases are matched to rounds by item membership: a case belongs to the
+// newest round that contains its item. Cases in no round stay in the final
+// ungrouped bucket so older negotiations keep the flat seller grouping.
+export function groupNegotiationsByRound(
+  cases: NegotiationCase[],
+  rounds: ShareRound[],
+): NegotiationRoundGroup[] {
+  const roundByItemId = new Map<string, ShareRound>();
+  for (const round of rounds) {
+    for (const row of round.items ?? []) {
+      if (!roundByItemId.has(row.itemId)) roundByItemId.set(row.itemId, round);
+    }
+  }
+  const buckets = new Map<string, NegotiationCase[]>();
+  const bucketOrder: string[] = [];
+  for (const round of rounds) {
+    buckets.set(round.id, []);
+    bucketOrder.push(round.id);
+  }
+  buckets.set("ungrouped", []);
+  bucketOrder.push("ungrouped");
+  for (const entry of cases) {
+    const round = roundByItemId.get(entry.item.id);
+    buckets.get(round?.id ?? "ungrouped")?.push(entry);
+  }
+  const toSellerGroups = (
+    entries: NegotiationCase[],
+    round: ShareRound | null,
+  ): NegotiationSellerGroup[] => {
+    const targetByItemId = new Map(
+      (round?.items ?? []).map((row) => [row.itemId, row.targetPriceYen]),
+    );
+    const groups = new Map<string, NegotiationSellerGroup>();
+    for (const entry of entries) {
+      const key = entry.item.seller?.id ?? `single:${entry.item.id}`;
+      const group = groups.get(key) ?? {
+        key,
+        sellerName: entry.item.seller?.name?.trim() || "未知卖家",
+        listedTotalYen: 0,
+        targetTotalYen: 0,
+        entries: [],
+      };
+      group.listedTotalYen += entry.item.priceCurrent;
+      const target = targetByItemId.get(entry.item.id);
+      group.targetTotalYen =
+        group.targetTotalYen === null || target == null
+          ? null
+          : group.targetTotalYen + target;
+      group.entries.push(entry);
+      groups.set(key, group);
+    }
+    return [...groups.values()];
+  };
+  const result: NegotiationRoundGroup[] = [];
+  for (const key of bucketOrder) {
+    const entries = buckets.get(key) ?? [];
+    if (!entries.length) continue;
+    const round = key === "ungrouped" ? null : (rounds.find((entry) => entry.id === key) ?? null);
+    result.push({
+      key,
+      round,
+      sellerGroups: toSellerGroups(entries, round),
+      entries,
+    });
+  }
+  return result;
+}
 
 const reactionMeta = {
   knife: { glyph: "🔪", label: "砍价" },
@@ -493,7 +601,10 @@ function BundleProductReference({
     Record<string, string>
   >(() =>
     Object.fromEntries(
-      items.map((entry) => [entry.id, String(entry.priceCurrent)]),
+      items.map((entry) => [
+        entry.id,
+        String(entry.targetPriceYen ?? entry.priceCurrent),
+      ]),
     ),
   );
   const [showScript, setShowScript] = useState(false);
@@ -687,6 +798,105 @@ function BundleProductReference({
   );
 }
 
+function roundTime(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function ShareRoundPanel({
+  round,
+  onToggleCopied,
+  onSaveTarget,
+}: {
+  round: ShareRound;
+  onToggleCopied: (roundId: string, itemId: string, copied: boolean) => void;
+  onSaveTarget: (roundId: string, itemId: string, value: number | null) => void;
+}) {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  return (
+    <article className="rounded-2xl border border-black/[0.08] bg-white/95 p-3 text-ink shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <strong className="text-xs font-bold text-ink">
+          {roundTime(round.createdAt)}
+          {round.createdBy?.displayName
+            ? ` · ${round.createdBy.displayName}`
+            : ""}
+        </strong>
+        <span className="font-mono text-[11px] text-ink/55 tabular-nums">
+          已复制 {round.copiedCount}/{round.total}
+        </span>
+      </div>
+      {round.note ? (
+        <p className="mt-1 truncate text-[11px] text-ink/60">{round.note}</p>
+      ) : null}
+      <div className="mt-2 divide-y divide-black/[0.05]">
+        {(round.items ?? []).map((row) => {
+          const copied = Boolean(row.copiedAt);
+          const draft =
+            drafts[row.itemId] ??
+            (row.targetPriceYen ? String(row.targetPriceYen) : "");
+          return (
+            <div key={row.id} className="flex items-center gap-2 py-1.5">
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink">
+                {itemTitle(row.item)}
+                <span className="ml-1.5 font-mono text-[11px] text-ink/55 tabular-nums">
+                  {yen(row.item.priceCurrent)}
+                </span>
+              </span>
+              <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-ink/55">
+                目标
+                <input
+                  inputMode="numeric"
+                  aria-label={`轮次目标价：${itemTitle(row.item)}`}
+                  value={draft}
+                  onChange={(event) =>
+                    setDrafts((current) => ({
+                      ...current,
+                      [row.itemId]: event.target.value.replace(/[^\d]/g, ""),
+                    }))
+                  }
+                  onBlur={() => {
+                    const parsed = draft.trim() ? Number(draft.trim()) : null;
+                    const value =
+                      parsed !== null &&
+                      Number.isFinite(parsed) &&
+                      parsed > 0
+                        ? Math.round(parsed)
+                        : null;
+                    if (value !== (row.targetPriceYen ?? null))
+                      onSaveTarget(round.id, row.itemId, value);
+                  }}
+                  placeholder="目标价"
+                  className="h-7 w-[68px] rounded-lg border border-black/[0.12] bg-white px-1.5 font-mono text-[11px] text-ink tabular-nums"
+                />
+              </label>
+              <button
+                type="button"
+                aria-pressed={copied}
+                aria-label={`${copied ? "取消已复制" : "标记已复制"}：${itemTitle(row.item)}`}
+                onClick={() =>
+                  onToggleCopied(round.id, row.itemId, !copied)
+                }
+                className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-semibold transition active:scale-[0.97] ${
+                  copied
+                    ? "bg-emerald-500/15 text-emerald-800"
+                    : "bg-black/[0.05] text-ink/70 hover:bg-black/[0.09]"
+                }`}
+              >
+                {copied ? "✓ 已复制" : "标记复制"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </article>
+  );
+}
+
 export function CollaborationChatWorkspace({
   apiBaseUrl,
   account,
@@ -756,6 +966,7 @@ export function CollaborationChatWorkspace({
   const [error, setError] = useState("");
   const [reactionError, setReactionError] = useState("");
   const [negotiations, setNegotiations] = useState<NegotiationCase[]>([]);
+  const [shareRounds, setShareRounds] = useState<ShareRound[]>([]);
   const [negotiationFilter, setNegotiationFilter] =
     useState<NegotiationStatus | null>(null);
   const [negotiationRailOpen, setNegotiationRailOpen] = useState(false);
@@ -868,6 +1079,77 @@ export function CollaborationChatWorkspace({
     [account.id, apiBaseUrl],
   );
 
+  const loadShareRounds = useCallback(
+    async (signal?: AbortSignal) => {
+      const response = await fetch(
+        `${apiBaseUrl}/collaboration/share-rounds?accountId=${encodeURIComponent(account.id)}`,
+        { cache: "no-store", signal },
+      );
+      const data = await readJsonResponse<{ rounds?: ShareRound[] }>(
+        response,
+        "分享轮次同步失败",
+      );
+      setShareRounds(data.rounds ?? []);
+    },
+    [account.id, apiBaseUrl],
+  );
+
+  const patchShareRoundItem = useCallback(
+    async (
+      roundId: string,
+      itemId: string,
+      patch: { copied?: boolean; targetPriceYen?: number | null },
+    ) => {
+      setShareRounds((current) =>
+        current.map((round) =>
+          round.id !== roundId
+            ? round
+            : {
+                ...round,
+                items: round.items.map((row) =>
+                  row.itemId !== itemId
+                    ? row
+                    : {
+                        ...row,
+                        ...(patch.copied !== undefined
+                          ? {
+                              copiedAt: patch.copied
+                                ? new Date().toISOString()
+                                : null,
+                            }
+                          : {}),
+                        ...(patch.targetPriceYen !== undefined
+                          ? { targetPriceYen: patch.targetPriceYen }
+                          : {}),
+                      },
+                ),
+              },
+        ).map((round) => ({
+          ...round,
+          copiedCount: round.items.filter((row) => row.copiedAt).length,
+        })),
+      );
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/collaboration/share-rounds/${encodeURIComponent(roundId)}/items/${encodeURIComponent(itemId)}`,
+          {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ accountId: account.id, ...patch }),
+          },
+        );
+        await readJsonResponse(response, "分享轮次保存失败");
+        await loadShareRounds();
+      } catch (reason) {
+        setReactionError(
+          reason instanceof Error ? reason.message : "分享轮次保存失败",
+        );
+        await loadShareRounds().catch(() => undefined);
+      }
+    },
+    [account.id, apiBaseUrl, loadShareRounds],
+  );
+
   const loadMessages = useCallback(
     async (signal?: AbortSignal) => {
       const query = new URLSearchParams({ accountId: account.id });
@@ -878,6 +1160,7 @@ export function CollaborationChatWorkspace({
           signal,
         }),
         loadNegotiations(signal),
+        loadShareRounds(signal).catch(() => undefined),
       ]);
       const data = await readJsonResponse<MessageListResponse>(
         response,
@@ -904,7 +1187,14 @@ export function CollaborationChatWorkspace({
       setLoading(false);
       void markRead(data.messages).catch(() => undefined);
     },
-    [account.id, apiBaseUrl, chatCacheKey, loadNegotiations, markRead],
+    [
+      account.id,
+      apiBaseUrl,
+      chatCacheKey,
+      loadNegotiations,
+      loadShareRounds,
+      markRead,
+    ],
   );
 
   useEffect(() => {
@@ -1060,6 +1350,13 @@ export function CollaborationChatWorkspace({
         ? parsedTargetPrice
         : null;
     const primaryItem = activeItems[0] ?? null;
+    const itemTargets: Record<string, number> = {};
+    for (const entry of activeItems) {
+      const raw = bundleItemTargets[entry.id];
+      const parsed = raw?.trim() ? Math.round(Number(raw.trim())) : null;
+      if (parsed && Number.isFinite(parsed) && parsed > 0)
+        itemTargets[entry.id] = parsed;
+    }
     const optimisticId = `optimistic-${Date.now()}`;
     const optimistic: DirectMessage = {
       id: optimisticId,
@@ -1105,6 +1402,8 @@ export function CollaborationChatWorkspace({
               ? activeItems.map((entry) => entry.id)
               : undefined,
           targetPriceYen: validTargetPrice ?? undefined,
+          itemTargets:
+            Object.keys(itemTargets).length > 0 ? itemTargets : undefined,
           replyToId: optimistic.replyToId,
           forwardedFromId: optimistic.forwardedFromId,
         }),
@@ -1328,31 +1627,13 @@ export function CollaborationChatWorkspace({
   const visibleNegotiations = negotiationFilter
     ? negotiations.filter((entry) => entry.status === negotiationFilter)
     : [];
-  // The cases already carry item.seller, so grouping is a plain reshape.
-  const visibleNegotiationGroups = (() => {
-    const groups = new Map<
-      string,
-      {
-        key: string;
-        sellerName: string;
-        subtotalYen: number;
-        entries: NegotiationCase[];
-      }
-    >();
-    for (const entry of visibleNegotiations) {
-      const key = entry.item.seller?.id ?? `single:${entry.item.id}`;
-      const group = groups.get(key) ?? {
-        key,
-        sellerName: entry.item.seller?.name?.trim() || "未知卖家",
-        subtotalYen: 0,
-        entries: [],
-      };
-      group.subtotalYen += entry.item.priceCurrent;
-      group.entries.push(entry);
-      groups.set(key, group);
-    }
-    return [...groups.values()];
-  })();
+  // Primary grouping is the share round; inside a round, cases group by
+  // seller with listed and target subtotals. Ungrouped cases keep the flat
+  // seller grouping under the final history bucket.
+  const visibleRoundGroups = groupNegotiationsByRound(
+    visibleNegotiations,
+    shareRounds,
+  );
 
   const copyAttachedBundleShareText = () => {
     const parsed = bundleTargetPrice.trim()
@@ -1402,6 +1683,30 @@ export function CollaborationChatWorkspace({
         {accounts.map((entry) => (
           <ManagerActivitySummary key={entry.id} account={entry} />
         ))}
+        </section>
+      </details>
+
+      <details className={styles.activityDetails}>
+        <summary>分享轮次<span>逐件目标价 · 复制进度</span></summary>
+        <section className="grid gap-2 p-2" aria-label="分享轮次">
+          {shareRounds.length ? (
+            shareRounds.map((round) => (
+              <ShareRoundPanel
+                key={round.id}
+                round={round}
+                onToggleCopied={(roundId, itemId, copied) =>
+                  void patchShareRoundItem(roundId, itemId, { copied })
+                }
+                onSaveTarget={(roundId, itemId, value) =>
+                  void patchShareRoundItem(roundId, itemId, {
+                    targetPriceYen: value,
+                  })
+                }
+              />
+            ))
+          ) : (
+            <p className="px-1 py-2 text-xs text-ink/55">暂无分享轮次</p>
+          )}
         </section>
       </details>
 
@@ -2027,18 +2332,35 @@ export function CollaborationChatWorkspace({
                   )}
                 <div className="negotiation-dialog-list">
                   {visibleNegotiations.length ? (
-                    visibleNegotiationGroups.map((group) => (
-                      <div key={group.key} className="grid gap-2">
-                        <div className="flex items-center justify-between gap-2 px-1 pt-1">
-                          <strong className="truncate text-xs font-bold text-ink">
-                            {group.sellerName}
+                    visibleRoundGroups.map((roundGroup) => (
+                      <div key={roundGroup.key} className="grid gap-2">
+                        <div className="flex items-center justify-between gap-2 px-1 pt-2">
+                          <strong className="truncate text-sm font-bold text-ink">
+                            {roundGroup.round
+                              ? `分享轮次 · ${roundTime(roundGroup.round.createdAt)}${roundGroup.round.createdBy?.displayName ? ` · ${roundGroup.round.createdBy.displayName}` : ""}`
+                              : "历史 / 未分组"}
                           </strong>
-                          <span className="shrink-0 font-mono text-[11px] text-ink/55 tabular-nums">
-                            {group.entries.length} 件 · 小计{" "}
-                            {yen(group.subtotalYen)}
-                          </span>
+                          {roundGroup.round?.note ? (
+                            <span className="min-w-0 truncate text-[11px] text-ink/55">
+                              {roundGroup.round.note}
+                            </span>
+                          ) : null}
                         </div>
-                        {group.entries.map((entry) => (
+                        {roundGroup.sellerGroups.map((group) => (
+                          <div key={group.key} className="grid gap-2">
+                            <div className="flex items-center justify-between gap-2 px-1 pt-1">
+                              <strong className="truncate text-xs font-bold text-ink">
+                                {group.sellerName}
+                              </strong>
+                              <span className="shrink-0 font-mono text-[11px] text-ink/55 tabular-nums">
+                                {group.entries.length} 件 · 小计{" "}
+                                {yen(group.listedTotalYen)}
+                                {group.targetTotalYen !== null
+                                  ? ` · 目标 ${yen(group.targetTotalYen)}`
+                                  : ""}
+                              </span>
+                            </div>
+                            {group.entries.map((entry) => (
                       <article key={entry.id}>
                         <button
                           type="button"
@@ -2097,6 +2419,8 @@ export function CollaborationChatWorkspace({
                           )}
                         </div>
                       </article>
+                            ))}
+                          </div>
                         ))}
                       </div>
                     ))

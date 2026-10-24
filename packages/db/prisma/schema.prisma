@@ -299,6 +299,7 @@ model Item {
   collaborationMessages    DirectMessage[]
   managerActivities        ManagerActivity[]
   negotiationCase          NegotiationCase?
+  shareRoundItems          ShareRoundItem[]
   logistics                ItemLogistics?
   crossMarketOpportunities CrossMarketOpportunity[]
   monitoringCategoryId     String?                  @map("monitoring_category_id")
@@ -1280,6 +1281,7 @@ model ManagerAccount {
   reactions        MessageReaction[]
   activities       ManagerActivity[]
   negotiationCases NegotiationCase[]
+  shareRounds      ShareRound[]
 
   @@index([active, position])
   @@map("manager_accounts")
@@ -1320,6 +1322,41 @@ model NegotiationCase {
   @@map("negotiation_cases")
 }
 
+/// One batch of items shared by a manager in a single go. Bundle messages
+/// link back to their round instead of encoding membership in the text.
+model ShareRound {
+  id          String           @id @default(uuid())
+  createdById String           @map("created_by_id")
+  note        String?
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy   ManagerAccount   @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  items       ShareRoundItem[]
+  messages    DirectMessage[]
+
+  @@index([createdById, createdAt])
+  @@index([createdAt])
+  @@map("share_rounds")
+}
+
+/// Membership of one item in a share round, with its per-item target price
+/// and whether the buyer has already copied it into a seller thread.
+model ShareRoundItem {
+  id             String     @id @default(uuid())
+  roundId        String     @map("round_id")
+  itemId         String     @map("item_id")
+  targetPriceYen Int?       @map("target_price_yen")
+  copiedAt       DateTime?  @map("copied_at") @db.Timestamptz
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  round          ShareRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  item           Item       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, itemId])
+  @@index([itemId])
+  @@map("share_round_items")
+}
+
 /// Durable one-to-one collaboration stream between the two fixed managers.
 /// Item references survive archive; actual item deletion clears the reference.
 model DirectMessage {
@@ -1328,6 +1365,7 @@ model DirectMessage {
   recipientId     String            @map("recipient_id")
   text            String?
   itemId          String?           @map("item_id")
+  roundId         String?           @map("round_id")
   replyToId       String?           @map("reply_to_id")
   forwardedFromId String?           @map("forwarded_from_id")
   readAt          DateTime?         @map("read_at") @db.Timestamptz
@@ -1336,6 +1374,7 @@ model DirectMessage {
   sender          ManagerAccount    @relation("DirectMessageSender", fields: [senderId], references: [id], onDelete: Restrict)
   recipient       ManagerAccount    @relation("DirectMessageRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
   item            Item?             @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  round           ShareRound?       @relation(fields: [roundId], references: [id], onDelete: SetNull)
   replyTo         DirectMessage?    @relation("DirectMessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies         DirectMessage[]   @relation("DirectMessageReplies")
   forwardedFrom   DirectMessage?    @relation("DirectMessageForwards", fields: [forwardedFromId], references: [id], onDelete: SetNull)
@@ -1345,6 +1384,7 @@ model DirectMessage {
   @@index([senderId, createdAt])
   @@index([recipientId, readAt, createdAt])
   @@index([itemId])
+  @@index([roundId])
   @@index([replyToId])
   @@index([forwardedFromId])
   @@index([createdAt, id])

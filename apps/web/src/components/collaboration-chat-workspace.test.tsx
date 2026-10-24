@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CollaborationChatWorkspace,
   buildBundleShareText,
+  groupNegotiationsByRound,
   type CollaborationItem,
+  type ShareRound,
 } from "./collaboration-chat-workspace";
 import type { ManagerAccount } from "./manager-account-gate";
 
@@ -624,5 +626,98 @@ describe("buildBundleShareText", () => {
     );
     expect(text).toContain("目标价 ¥2,500");
     expect(text).toContain("合计目标价 ¥2,500");
+  });
+});
+
+describe("groupNegotiationsByRound", () => {
+  const negotiationItem = (
+    id: string,
+    sellerId: string | null,
+    priceCurrent: number,
+  ): CollaborationItem => ({
+    id,
+    titleRaw: `title-${id}`,
+    sourceUrl: `https://example.com/${id}`,
+    priceCurrent,
+    source: { key: "mercari", displayName: "Mercari" },
+    seller: sellerId ? { id: sellerId, name: `卖家${sellerId}` } : null,
+    images: [],
+  });
+  const negotiationCase = (id: string, item: CollaborationItem) => ({
+    id,
+    status: "in_progress" as const,
+    statusChangedAt: "2026-09-07T01:00:00.000Z",
+    item,
+    initiatedBy: accounts[0],
+  });
+  const round: ShareRound = {
+    id: "round-1",
+    note: null,
+    createdAt: "2026-09-07T01:00:00.000Z",
+    createdById: "manager-1",
+    createdBy: accounts[0],
+    copiedCount: 0,
+    total: 2,
+    targetTotalYen: 2400,
+    items: [
+      {
+        id: "round-item-1",
+        roundId: "round-1",
+        itemId: "item-1",
+        targetPriceYen: 900,
+        copiedAt: null,
+        item: negotiationItem("item-1", "seller-1", 1000),
+      },
+      {
+        id: "round-item-2",
+        roundId: "round-1",
+        itemId: "item-2",
+        targetPriceYen: 1500,
+        copiedAt: null,
+        item: negotiationItem("item-2", "seller-1", 2000),
+      },
+    ],
+  };
+
+  it("先按轮次分组，轮内再按卖家分组并给出目标小计", () => {
+    const groups = groupNegotiationsByRound(
+      [
+        negotiationCase("case-1", negotiationItem("item-1", "seller-1", 1000)),
+        negotiationCase("case-2", negotiationItem("item-2", "seller-1", 2000)),
+        negotiationCase("case-3", negotiationItem("item-9", "seller-2", 500)),
+      ],
+      [round],
+    );
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.round?.id).toBe("round-1");
+    expect(groups[0]?.sellerGroups).toHaveLength(1);
+    expect(groups[0]?.sellerGroups[0]).toMatchObject({
+      sellerName: "卖家seller-1",
+      listedTotalYen: 3000,
+      targetTotalYen: 2400,
+    });
+    expect(groups[0]?.sellerGroups[0]?.entries).toHaveLength(2);
+    expect(groups[1]?.round).toBeNull();
+    expect(groups[1]?.key).toBe("ungrouped");
+    expect(groups[1]?.entries.map((entry) => entry.id)).toEqual(["case-3"]);
+    expect(groups[1]?.sellerGroups[0]?.targetTotalYen).toBeNull();
+  });
+
+  it("没有轮次时全部落入未分组，仍按卖家给出现价小计", () => {
+    const groups = groupNegotiationsByRound(
+      [
+        negotiationCase("case-1", negotiationItem("item-1", "seller-1", 1000)),
+        negotiationCase("case-2", negotiationItem("item-2", "seller-1", 2000)),
+      ],
+      [],
+    );
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.key).toBe("ungrouped");
+    expect(groups[0]?.sellerGroups[0]).toMatchObject({
+      listedTotalYen: 3000,
+      targetTotalYen: null,
+    });
   });
 });

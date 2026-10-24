@@ -5,11 +5,13 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma.service.js";
 import type {
+  CreateShareRoundDto,
   MarkDirectMessagesReadDto,
   MessageReactionDto,
   SendDirectMessageDto,
   StartNegotiationsDto,
   UpdateNegotiationDto,
+  UpdateShareRoundItemDto,
 } from "./collaboration.dto.js";
 
 const sharedCartKey = "shared-procurement-workspace";
@@ -101,11 +103,55 @@ const messageItemInclude = {
   product: true,
 } as const;
 
+const shareRoundInclude = {
+  createdBy: true,
+  items: {
+    include: { item: { include: messageItemInclude } },
+    orderBy: { createdAt: "asc" as const },
+  },
+} as const;
+
+type ShareRoundRow = {
+  id: string;
+  targetPriceYen: number | null;
+  copiedAt: Date | null;
+  itemId: string;
+  item?: unknown;
+};
+
+type ShareRoundWithItems = {
+  id: string;
+  note: string | null;
+  createdById: string;
+  createdBy?: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  items?: ShareRoundRow[];
+};
+
+function presentShareRound(round: ShareRoundWithItems) {
+  const items = round.items ?? [];
+  const targets = items.map((entry) => entry.targetPriceYen);
+  return {
+    ...round,
+    items,
+    copiedCount: items.filter((entry) => entry.copiedAt).length,
+    total: items.length,
+    targetTotalYen:
+      items.length > 0 && targets.every((value) => typeof value === "number")
+        ? targets.reduce((sum, value) => sum + (value ?? 0), 0)
+        : null,
+  };
+}
+
 const messageInclude = {
   sender: true,
   recipient: true,
   item: {
     include: messageItemInclude,
+  },
+  round: {
+    include: shareRoundInclude,
   },
   replyTo: {
     include: {
@@ -282,19 +328,61 @@ export class CollaborationService {
       "转发消息不存在",
     );
 
-    const encodedText = encodeBundleMessageText(
-      cleanText,
-      requestedItemIds,
-      body.targetPriceYen,
-    );
+    // Per-item targets arrive as a plain map keyed by item id. Keep only
+    // positive whole yen values for items that are actually being sent.
+    const itemTargets = new Map<string, number>();
+    for (const itemId of requestedItemIds) {
+      const raw = body.itemTargets?.[itemId];
+      if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+        itemTargets.set(itemId, Math.round(raw));
+      }
+    }
+    // A bundle (or any send carrying target prices) becomes a share round so
+    // membership and per-item targets live in rows, not in the message text.
+    // Plain single-item shares keep the legacy shape.
+    const useRound =
+      requestedItemIds.length > 0 &&
+      (requestedItemIds.length > 1 ||
+        itemTargets.size > 0 ||
+        Boolean(body.targetPriceYen));
+    if (useRound && body.targetPriceYen && itemTargets.size === 0) {
+      // Legacy callers only know the bundle-level target; keep it on the
+      // primary item so the round rows still carry a target price.
+      const primary = requestedItemIds[0];
+      if (primary) itemTargets.set(primary, Math.round(body.targetPriceYen));
+    }
+
+    const encodedText = useRound
+      ? cleanText
+      : encodeBundleMessageText(
+          cleanText,
+          requestedItemIds,
+          body.targetPriceYen,
+        );
 
     const created = await this.prisma.$transaction(async (tx) => {
+      let roundId: string | undefined;
+      if (useRound) {
+        const round = await tx.shareRound.create({
+          data: {
+            createdById: body.senderId,
+            items: {
+              create: requestedItemIds.map((itemId) => ({
+                itemId,
+                targetPriceYen: itemTargets.get(itemId) ?? null,
+              })),
+            },
+          },
+        });
+        roundId = round.id;
+      }
       const message = await tx.directMessage.create({
         data: {
           senderId: body.senderId,
           recipientId: body.recipientId,
           text: encodedText,
           itemId: primaryItemId,
+          roundId,
           replyToId: body.replyToId,
           forwardedFromId: body.forwardedFromId,
         },
@@ -315,6 +403,102 @@ export class CollaborationService {
     });
     const [hydrated] = await this.hydrateMessages([created]);
     return hydrated;
+  }
+
+  async createShareRound(body: CreateShareRoundDto) {
+    await this.requireAccount(body.accountId);
+    const requested = new Map<string, number | null>();
+    for (const entry of body.items ?? []) {
+      if (!entry?.itemId || requested.has(entry.itemId)) continue;
+      requested.set(
+        entry.itemId,
+        typeof entry.targetPriceYen === "number" &&
+          Number.isFinite(entry.targetPriceYen) &&
+          entry.targetPriceYen > 0
+          ? Math.round(entry.targetPriceYen)
+          : null,
+      );
+    }
+    if (!requested.size) {
+      throw new BadRequestException("分享轮次需要至少一件商品");
+    }
+    const found = await this.prisma.item.findMany({
+      where: { id: { in: [...requested.keys()] } },
+      select: { id: true },
+    });
+    if (found.length !== requested.size) {
+      throw new NotFoundException("商品不存在");
+    }
+    const round = await this.prisma.shareRound.create({
+      data: {
+        createdById: body.accountId,
+        note: body.note?.trim() || null,
+        items: {
+          create: [...requested.entries()].map(([itemId, targetPriceYen]) => ({
+            itemId,
+            targetPriceYen,
+          })),
+        },
+      },
+      include: shareRoundInclude,
+    });
+    return presentShareRound(round as ShareRoundWithItems);
+  }
+
+  async shareRounds(accountId: string) {
+    await this.requireAccount(accountId);
+    const rounds = await this.prisma.shareRound.findMany({
+      include: shareRoundInclude,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 50,
+    });
+    return {
+      rounds: rounds.map((round) =>
+        presentShareRound(round as ShareRoundWithItems),
+      ),
+      serverTime: new Date().toISOString(),
+    };
+  }
+
+  async shareRound(accountId: string, roundId: string) {
+    await this.requireAccount(accountId);
+    const round = await this.prisma.shareRound.findUnique({
+      where: { id: roundId },
+      include: shareRoundInclude,
+    });
+    if (!round) throw new NotFoundException("分享轮次不存在");
+    return presentShareRound(round as ShareRoundWithItems);
+  }
+
+  async updateShareRoundItem(
+    roundId: string,
+    itemId: string,
+    body: UpdateShareRoundItemDto,
+  ) {
+    await this.requireAccount(body.accountId);
+    const current = await this.prisma.shareRoundItem.findUnique({
+      where: { roundId_itemId: { roundId, itemId } },
+      select: { id: true },
+    });
+    if (!current) throw new NotFoundException("分享轮次商品不存在");
+    const data: { copiedAt?: Date | null; targetPriceYen?: number | null } = {};
+    if (typeof body.copied === "boolean") {
+      data.copiedAt = body.copied ? new Date() : null;
+    }
+    if (body.targetPriceYen !== undefined) {
+      data.targetPriceYen =
+        typeof body.targetPriceYen === "number" &&
+        Number.isFinite(body.targetPriceYen) &&
+        body.targetPriceYen > 0
+          ? Math.round(body.targetPriceYen)
+          : null;
+    }
+    const updated = await this.prisma.shareRoundItem.update({
+      where: { roundId_itemId: { roundId, itemId } },
+      data,
+      include: { item: { include: messageItemInclude } },
+    });
+    return updated;
   }
 
   async markRead(body: MarkDirectMessagesReadDto) {
@@ -365,10 +549,13 @@ export class CollaborationService {
             ? "failed"
             : null;
     if (negotiationStatus) {
+      const roundItemIds =
+        message.round?.items?.map((entry) => entry.itemId) ?? [];
       const parsed = parseBundleMessageText(message.text);
       const targetItemIds = [
         ...new Set(
           [
+            ...roundItemIds,
             ...parsed.itemIds,
             ...(message.itemId ? [message.itemId] : []),
           ].filter(Boolean),
@@ -529,12 +716,22 @@ export class CollaborationService {
           groupItemIds.length > 1
             ? `🔪 发起同店合并砍价（共 ${groupItemIds.length} 件）`
             : "🔪 发起砍价";
+        const round = await tx.shareRound.create({
+          data: {
+            createdById: manager.id,
+            note: label,
+            items: {
+              create: groupItemIds.map((itemId) => ({ itemId })),
+            },
+          },
+        });
         await tx.directMessage.create({
           data: {
             senderId: manager.id,
             recipientId: recipient.id,
-            text: encodeBundleMessageText(label, groupItemIds),
+            text: label,
             itemId: primaryItemId,
+            roundId: round.id,
           },
         });
       }
@@ -590,6 +787,8 @@ export class CollaborationService {
       text: string | null;
       itemId: string | null;
       item: unknown;
+      roundId?: string | null;
+      round?: ShareRoundWithItems | null;
       replyTo?: { text: string | null } | null;
     },
   >(messages: T[]) {
@@ -601,6 +800,24 @@ export class CollaborationService {
       if (!parsed) continue;
       for (const id of parsed.itemIds) {
         extraItemIds.add(id);
+      }
+    }
+    // Rounds usually arrive through the message include; fetch any that were
+    // selected without it so hydration works for every caller.
+    const roundsById = new Map<string, ShareRoundWithItems>();
+    const missingRoundIds = new Set<string>();
+    for (const msg of messages) {
+      if (!msg.roundId) continue;
+      if (msg.round?.items) roundsById.set(msg.roundId, msg.round);
+      else missingRoundIds.add(msg.roundId);
+    }
+    if (missingRoundIds.size > 0) {
+      const fetchedRounds = await this.prisma.shareRound.findMany({
+        where: { id: { in: [...missingRoundIds] } },
+        include: shareRoundInclude,
+      });
+      for (const round of fetchedRounds) {
+        roundsById.set(round.id, round as ShareRoundWithItems);
       }
     }
     const itemsById = new Map<string, unknown>();
@@ -619,15 +836,52 @@ export class CollaborationService {
         itemIds: [],
         targetPriceYen: null,
       };
-      const bundleItems = parsed.itemIds
-        .map((id) => itemsById.get(id) ?? (msg.itemId === id ? msg.item : null))
-        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
       const replyTo = msg.replyTo
         ? {
             ...msg.replyTo,
             text: parseBundleMessageText(msg.replyTo.text).cleanText,
           }
         : msg.replyTo;
+      const round = msg.roundId ? roundsById.get(msg.roundId) : undefined;
+      if (round) {
+        const rows = round.items ?? [];
+        const bundleItems = rows
+          .map((row) => {
+            const item =
+              row.item ??
+              itemsById.get(row.itemId) ??
+              (msg.itemId === row.itemId ? msg.item : null);
+            return item
+              ? {
+                  ...(item as Record<string, unknown>),
+                  targetPriceYen: row.targetPriceYen ?? null,
+                  copiedAt: row.copiedAt ?? null,
+                }
+              : null;
+          })
+          .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+        const targets = rows.map((row) => row.targetPriceYen);
+        const bundleTargetPriceYen =
+          parsed.targetPriceYen ??
+          (rows.length > 0 &&
+          targets.every((value) => typeof value === "number")
+            ? targets.reduce((sum, value) => sum + (value ?? 0), 0)
+            : null);
+        return {
+          ...msg,
+          text: parsed.cleanText,
+          replyTo,
+          roundId: round.id,
+          bundleItems,
+          bundleItemTargets: Object.fromEntries(
+            rows.map((row) => [row.itemId, row.targetPriceYen ?? null]),
+          ),
+          targetPriceYen: bundleTargetPriceYen,
+        };
+      }
+      const bundleItems = parsed.itemIds
+        .map((id) => itemsById.get(id) ?? (msg.itemId === id ? msg.item : null))
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
       return {
         ...msg,
         text: parsed.cleanText,
@@ -661,7 +915,13 @@ export class CollaborationService {
         id: messageId,
         OR: [{ senderId: accountId }, { recipientId: accountId }],
       },
-      select: { id: true, itemId: true, text: true },
+      select: {
+        id: true,
+        itemId: true,
+        text: true,
+        roundId: true,
+        round: { select: { items: { select: { itemId: true } } } },
+      },
     });
     if (!message) throw new NotFoundException("消息不存在");
     return message;

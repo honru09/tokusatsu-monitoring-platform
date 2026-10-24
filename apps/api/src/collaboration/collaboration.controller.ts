@@ -4,17 +4,20 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
 } from "@nestjs/common";
 import {
   ClearFailedNegotiationsDto,
+  CreateShareRoundDto,
   MarkDirectMessagesReadDto,
   ManagerPresenceDto,
   MessageReactionDto,
   SendDirectMessageDto,
   StartNegotiationsDto,
   UpdateNegotiationDto,
+  UpdateShareRoundItemDto,
 } from "./collaboration.dto.js";
 import { CollaborationService } from "./collaboration.service.js";
 
@@ -64,6 +67,33 @@ export class CollaborationController {
     @Body() body: MessageReactionDto,
   ) {
     return this.collaboration.removeReaction(messageId, body);
+  }
+
+  @Post("share-rounds")
+  createShareRound(@Body() body: CreateShareRoundDto) {
+    return this.collaboration.createShareRound(body);
+  }
+
+  @Get("share-rounds")
+  shareRounds(@Query("accountId") accountId: string) {
+    return this.collaboration.shareRounds(accountId);
+  }
+
+  @Get("share-rounds/:roundId")
+  shareRound(
+    @Param("roundId") roundId: string,
+    @Query("accountId") accountId: string,
+  ) {
+    return this.collaboration.shareRound(accountId, roundId);
+  }
+
+  @Patch("share-rounds/:roundId/items/:itemId")
+  updateShareRoundItem(
+    @Param("roundId") roundId: string,
+    @Param("itemId") itemId: string,
+    @Body() body: UpdateShareRoundItemDto,
+  ) {
+    return this.collaboration.updateShareRoundItem(roundId, itemId, body);
   }
 
   @Get("negotiations")

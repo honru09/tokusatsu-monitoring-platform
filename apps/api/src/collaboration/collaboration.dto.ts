@@ -1,11 +1,15 @@
+import { Type } from "class-transformer";
 import {
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
   Min,
+  ValidateNested,
 } from "class-validator";
 
 export class SendDirectMessageDto {
@@ -33,6 +37,10 @@ export class SendDirectMessageDto {
   @IsInt()
   @Min(1)
   targetPriceYen?: number;
+
+  @IsOptional()
+  @IsObject()
+  itemTargets?: Record<string, number>;
 
   @IsOptional()
   @IsString()
@@ -104,4 +112,43 @@ export class UpdateNegotiationDto {
 export class ClearFailedNegotiationsDto {
   @IsString()
   accountId!: string;
+}
+
+export class ShareRoundItemDto {
+  @IsString()
+  itemId!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  targetPriceYen?: number;
+}
+
+export class CreateShareRoundDto {
+  @IsString()
+  accountId!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ShareRoundItemDto)
+  items!: ShareRoundItemDto[];
+}
+
+export class UpdateShareRoundItemDto {
+  @IsString()
+  accountId!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  copied?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  targetPriceYen?: number | null;
 }
