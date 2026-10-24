@@ -654,11 +654,11 @@ function ProductReference({
           <ChevronRightIcon />
         </button>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+      <div className="collaboration-product-actions">
         <button
           type="button"
           onClick={copyScript}
-          className="inline-flex min-h-8 items-center gap-1 rounded-full bg-black/[0.06] px-2.5 py-1 text-[11px] font-semibold text-ink transition active:scale-[0.97] hover:bg-black/[0.1]"
+          className="collaboration-product-action is-primary"
         >
           {copied ? "✓ 已复制砍价日语" : "复制砍价日语"}
         </button>
@@ -666,7 +666,7 @@ function ProductReference({
           href={item.sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex min-h-8 items-center gap-1 rounded-full bg-black/[0.06] px-2.5 py-1 text-[11px] font-semibold text-ink transition active:scale-[0.97] hover:bg-black/[0.1]"
+          className="collaboration-product-action is-secondary"
         >
           直达原商品 ↗
         </a>
@@ -843,18 +843,18 @@ function BundleProductReference({
         </pre>
       )}
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-black/[0.06] pt-2.5">
+      <div className="collaboration-bundle-actions mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-black/[0.06] pt-2.5">
         <button
           type="button"
           onClick={copyScript}
-          className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-ink px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition active:scale-[0.97] hover:bg-ink/90"
+          className="collaboration-product-action is-primary flex-1"
         >
           {copied ? "✓ 已复制合并砍价日语" : "📋 一键复制合并砍价日语"}
         </button>
         <button
           type="button"
           onClick={copyShareText}
-          className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold text-ink transition active:scale-[0.97] hover:bg-black/[0.04]"
+          className="collaboration-product-action is-secondary"
         >
           {shareCopied ? "✓ 已复制链接+目标价" : "复制链接+目标价"}
         </button>
@@ -863,7 +863,7 @@ function BundleProductReference({
             href={primaryItem.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold text-ink transition active:scale-[0.97] hover:bg-black/[0.04]"
+            className="collaboration-product-action is-secondary"
           >
             去第 1 件留言 ↗
           </a>
@@ -871,14 +871,14 @@ function BundleProductReference({
         <button
           type="button"
           onClick={() => setShowScript((prev) => !prev)}
-          className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.08] bg-black/[0.03] px-2.5 py-1.5 text-[11px] font-medium text-ink/70 transition active:scale-[0.97] hover:bg-black/[0.06]"
+          className="collaboration-product-action is-tertiary"
         >
           {showScript ? "收起日语" : "预览日语"}
         </button>
         <button
           type="button"
           onClick={openAllLinks}
-          className="inline-flex min-h-9 items-center justify-center rounded-xl border border-black/[0.08] bg-black/[0.03] px-2.5 py-1.5 text-[11px] font-medium text-ink/70 transition active:scale-[0.97] hover:bg-black/[0.06]"
+          className="collaboration-product-action is-tertiary"
         >
           全开 ({items.length})
         </button>

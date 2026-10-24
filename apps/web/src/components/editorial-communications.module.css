@@ -74,7 +74,12 @@
 }
 
 .chat :global(.collaboration-account-button) {
-  padding-inline: 12px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 999px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 550;
   color: var(--communications-secondary);
   background: var(--glass-fill);
   border: 1px solid var(--glass-stroke);
@@ -84,7 +89,14 @@
 .chat :global(.collaboration-account-button > span) {
   color: inherit;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 550;
+}
+
+.chat :global(.collaboration-account-button) :is(small, span) {
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 550;
+  color: inherit;
 }
 
 .activityDetails {
@@ -163,6 +175,12 @@
 .chat :global(.collaboration-product-copy strong) { font-size: 14px; line-height: 1.5; }
 .chat :global(.collaboration-product-copy span) { font-size: 12px; line-height: 1.4; }
 .chat :global(.collaboration-product-open) { border-radius: 12px; }
+.chat :global(.collaboration-product-actions) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 2px; }
+.chat :global(.collaboration-product-action) { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 40px; min-height: 40px; padding: 0 14px; border: 1px solid transparent; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; transition: background-color 180ms var(--ease-out, ease-out), transform 120ms var(--ease-out, ease-out); }
+.chat :global(.collaboration-product-action:active) { transform: scale(.97); }
+.chat :global(.collaboration-product-action.is-primary) { background: var(--glass-ink, #1d1d1f); color: #fff; }
+.chat :global(.collaboration-product-action.is-secondary) { background: #fff; border-color: rgba(29, 29, 31, .12); color: var(--glass-ink, #1d1d1f); }
+.chat :global(.collaboration-product-action.is-tertiary) { background: rgba(29, 29, 31, .05); color: rgba(29, 29, 31, .72); }
 .chat :global(.collaboration-message-actions) { gap: 4px; padding: 6px; border-radius: 18px; border: 1px solid var(--glass-stroke); background: #fffffffa; box-shadow: var(--glass-shadow-lift); backdrop-filter: none; -webkit-backdrop-filter: none; transition: none; }
 .chat :global(.collaboration-message.is-actions-open .collaboration-message-actions) { transform: none; }
 .chat :global(.collaboration-message-actions > button) { height: 44px; min-width: 44px; flex-shrink: 0; }
@@ -263,7 +281,7 @@
   .chat :global(.collaboration-heading) { min-height: 72px; padding: 12px; flex-wrap: wrap; }
   .chat :global(.collaboration-heading h2) { font-size: 22px; }
   .chat :global(.collaboration-heading p) { max-width: 26ch; font-size: 12px; }
-  .chat :global(.collaboration-account-button) { padding-inline: 8px; }
+  .chat :global(.collaboration-account-button) { padding-inline: 12px; }
   .chat :global(.collaboration-account-button small) { display: none; }
   .activityDetails > summary { padding-inline: 12px; gap: 8px; }
   .activityDetails > summary span { font-size: 12px; }
