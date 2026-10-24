@@ -408,11 +408,11 @@ html.manager-gate-open,body.manager-gate-open {background:#e9f2f8 !important;}
   .procurement-shell .procurement-content {padding-inline:12px;}
   .procurement-shell .procurement-header .brand-name {font-size:14px;}
   .procurement-shell .procurement-header-back .exchange-rate-inline {display:none;}
-  .procurement-shell .procurement-grid {grid-template-columns:minmax(0,1fr) !important;}
+  .procurement-shell .procurement-grid {grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
   .procurement-shell .home-market-head {align-items:flex-start;flex-direction:column;}
   .procurement-shell .home-market-head h2 {font-size:26px;}
 }
-@media(max-width:480px) {.procurement-shell .procurement-grid {grid-template-columns:minmax(0,1fr) !important;}}
+@media(max-width:480px) {.procurement-shell .procurement-grid {grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
 @media(prefers-reduced-motion:reduce) {
   .procurement-shell :is(.home-category-drawer,.home-xianyu-drawer)::details-content {transition:none;}
   .procurement-shell :is(.home-category-drawer-chevron,.home-xianyu-chevron) svg {transition:none;}
@@ -427,4 +427,30 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more) {
   :is(.procurement-shell,.shell-overlay-root) [data-apple-feedback-ready] {background-image:var(--apple-rest-image,none) !important;}
   .procurement-shell :is(.procurement-header,.primary-navigation,.catalog-toolbar,.modal-panel) {background:white !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;border-color:#a6afb6 !important;}
+}
+
+/* Mobile market grid: two cards per row on phone portrait. The fixed
+   460px card floor and the fixed media height give way to content-sized
+   cards with a 4/3 image, so roughly two rows fit a phone viewport.
+   Every amount stays on the card; only chrome shrinks. Quantities that
+   are still unknown carry no amount, so that row collapses here only. */
+@media(max-width:639px) {
+  .procurement-shell .procurement-grid {grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;}
+  .procurement-shell .procurement-grid .js-product-card {min-height:0 !important;}
+  .procurement-shell .procurement-grid .product-card-media {height:auto !important;aspect-ratio:4/3 !important;}
+  .procurement-shell .procurement-grid .image-gallery-control {display:none !important;}
+  .procurement-shell .procurement-grid .product-card-media-footer {padding:6px 8px 7px !important;}
+  .procurement-shell .procurement-grid .product-card-body {padding:8px !important;}
+  .procurement-shell .procurement-grid .product-card-title {min-height:33px !important;font-size:12px !important;line-height:1.35 !important;margin-bottom:4px;}
+  .procurement-shell .procurement-grid .product-card-decision {margin-top:6px;padding:7px 8px !important;gap:5px !important;}
+  .procurement-shell .procurement-grid .product-card-decision dl {grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 8px;}
+  .procurement-shell .procurement-grid .product-card-decision .product-card-total {grid-column:1 / -1;}
+  .procurement-shell .procurement-grid .product-card-decision .product-card-total dd {font-size:17px;}
+  .procurement-shell .procurement-grid .product-card-decision dl[data-qty-unknown="true"] .product-card-qty,
+  .procurement-shell .procurement-grid .product-card-decision dl[data-qty-unknown="true"] .product-card-unit {display:none;}
+  .procurement-shell .procurement-grid .product-card-price-split {font-size:10px;line-height:1.45;}
+  .procurement-shell .procurement-grid .product-card-seller {margin-top:6px;}
+  .procurement-shell .procurement-grid .product-card-seller button {min-height:40px;padding-inline:10px;}
+  .procurement-shell .procurement-grid .product-card-actions {gap:5px;padding-top:6px;}
+  .procurement-shell .procurement-grid .product-card-more-actions {right:8px !important;width:calc(100% - 16px) !important;}
 }

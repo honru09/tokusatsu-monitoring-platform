@@ -114,6 +114,35 @@ describe("ProductCard density", () => {
     expect(card?.textContent).toContain("邮费 ¥200");
   });
 
+  it("flags the price facts as quantity-unknown only when no quantity is known", () => {
+    act(() => {
+      root.render(<ProductCard {...cardProps(makeItem())} />);
+    });
+    const known = host.querySelector(".product-card-decision dl");
+    expect(known?.hasAttribute("data-qty-unknown")).toBe(false);
+    expect(known?.querySelector(".product-card-qty dd")?.textContent).toBe(
+      "2 件",
+    );
+    expect(known?.querySelector(".product-card-unit dd")?.textContent).toBe(
+      "¥600",
+    );
+
+    act(() => {
+      root.render(
+        <ProductCard {...cardProps(makeItem({ quantityEst: null }))} />,
+      );
+    });
+    const unknown = host.querySelector(".product-card-decision dl");
+    expect(unknown?.getAttribute("data-qty-unknown")).toBe("true");
+    expect(unknown?.querySelector(".product-card-qty dd")?.textContent).toBe(
+      "待识别",
+    );
+    // Amounts that do exist stay rendered even when quantity is unknown.
+    const decision = host.querySelector(".product-card-decision");
+    expect(decision?.textContent).toContain("¥1,200");
+    expect(decision?.textContent).toContain("标价 ¥1,000");
+  });
+
   it("takes density from context when no prop is passed", () => {
     act(() => {
       root.render(

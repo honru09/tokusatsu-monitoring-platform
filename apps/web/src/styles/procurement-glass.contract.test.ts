@@ -47,6 +47,29 @@ describe("procurement glass layout contracts", () => {
     expect(globals).not.toMatch(/\.product-card-has-note \.product-card-title/);
   });
 
+  it("lays the market grid out in two columns on phone widths", () => {
+    for (const source of [globals, css, polish, finalLayer]) {
+      expect(source).not.toMatch(
+        /\.procurement-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+      );
+    }
+    expect(finalLayer).toMatch(
+      /@media\s*\(max-width:\s*639px\)\s*\{[\s\S]*?\.procurement-shell \.procurement-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*!important/,
+    );
+    // Cards size to their content inside the phone grid instead of the
+    // fixed desktop height floor, with a 4/3 image.
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.procurement-grid \.js-product-card\s*\{[^}]*min-height:\s*0\s*!important/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.procurement-grid \.product-card-media\s*\{[^}]*aspect-ratio:\s*4\/3\s*!important/,
+    );
+    // The unknown-quantity row (no amount) collapses in the phone grid.
+    expect(finalLayer).toMatch(
+      /dl\[data-qty-unknown="true"\] \.product-card-qty/,
+    );
+  });
+
   it("keeps the card stationary when reaching its gallery arrows", () => {
     for (const source of [globals, polish, finalLayer]) {
       const hover = source.match(/\.product-card:hover\s*\{([^{}]*)\}/)?.[1];

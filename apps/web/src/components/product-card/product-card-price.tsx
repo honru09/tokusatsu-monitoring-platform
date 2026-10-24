@@ -33,17 +33,17 @@ export function ProductCardPrice({
   const chinaSourceUrl = chinaComparison.sourceUrl;
   return (
     <div className="product-card-market product-card-decision mt-2">
-      <dl>
+      <dl data-qty-unknown={cost.unit == null || undefined}>
         <div className="product-card-total">
           <dt>{cost.label}</dt>
           <dd>{fmtYen(cost.total)}</dd>
           <small>{fmtCny(cost.total, exchangeRate)}</small>
         </div>
-        <div>
+        <div className="product-card-qty">
           <dt>数量</dt>
           <dd>{item.quantityEst ? `${item.quantityEst} 件` : "待识别"}</dd>
         </div>
-        <div>
+        <div className="product-card-unit">
           <dt>{cost.unitLabel}</dt>
           <dd>{fmtYen(cost.unit)}</dd>
         </div>

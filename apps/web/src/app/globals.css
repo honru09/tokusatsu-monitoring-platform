@@ -4355,8 +4355,8 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
     gap: 3px;
   }
   .procurement-grid {
-    grid-template-columns: minmax(0, 1fr) !important;
-    gap: 10px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
   }
 }
 
