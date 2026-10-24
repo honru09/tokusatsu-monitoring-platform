@@ -42,7 +42,7 @@ export class ItemsController {
 
   @Post("purchases/analyze-links")
   analyzePurchaseLinks(@Body() body: AnalyzePurchaseLinksDto) {
-    return this.items.analyzePurchaseLinks(body.urls);
+    return this.items.analyzePurchaseLinks(body.urls, body.amountsByUrl);
   }
 
   @Get("purchases/analyze-links/:jobId")

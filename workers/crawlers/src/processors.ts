@@ -1937,10 +1937,13 @@ async function persistNormalized(
   });
   await matchOrCreateProduct(saved.id);
   await refreshReadyCrossMarketOpportunitiesForItem(saved.id);
+  // Purchase imports queue the same automatic classification as ordinary
+  // imports (still gated by automaticPaidAiEnabled above), so quantityEst
+  // and the title structure are settled before the operator confirms the
+  // price instead of staying at the rules-only estimate.
   if (
     automaticPaidAiEnabled() &&
     monitoringCategory?.scope !== "general" &&
-    importOrigin !== "purchase" &&
     (saved.status === "active" || saved.status === "unknown") &&
     imageUrls.length > 0 &&
     shouldQueueAutomaticClassification({ ...item, imageUrls })
@@ -2040,11 +2043,15 @@ export async function processClassification(
   if (!item) return { skipped: "missing_item" };
   if (item.monitoringCategory?.scope === "general")
     return { skipped: "custom_general_category" };
+  // A purchase import is archived only as staging until the operator
+  // confirms it, so that archive alone must not block classification;
+  // once a purchase is recorded, the purchaseRecord check in this same
+  // condition still keeps it out. Archived items from any other origin
+  // stay skipped.
   if (
-    item.archivedAt ||
+    (item.archivedAt && item.importOrigin !== "purchase") ||
     item.ignored ||
     item.purchaseRecord ||
-    item.importOrigin === "purchase" ||
     (item.status !== "active" && item.status !== "unknown") ||
     item.categoryToyType === "card" ||
     item.images.length === 0

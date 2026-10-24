@@ -7,6 +7,7 @@ import {
   IsIn,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Length,
@@ -191,6 +192,13 @@ export class AnalyzePurchaseLinksDto {
   @IsString({ each: true })
   @MaxLength(4_096, { each: true })
   urls!: string[];
+
+  // Optional actual paid price per URL, keyed by the URL as submitted.
+  // Values are checked again in the service: only positive integers
+  // up to 100,000,000 are carried into the analysis job.
+  @IsOptional()
+  @IsObject()
+  amountsByUrl?: Record<string, number>;
 }
 
 export class PurchaseBundleMemberDto {

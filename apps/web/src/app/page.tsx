@@ -117,6 +117,7 @@ import {
   mergePurchaseBundlePage,
   standalonePurchaseRecords,
 } from "../lib/purchase-history";
+import { parsePurchaseLinkInput } from "../lib/purchase-link-input";
 import { readFetchError } from "../lib/fetch-error";
 import type { MonitoringCategory } from "../components/monitoring-config-workspace";
 
@@ -376,6 +377,8 @@ type PurchaseLinkJob = {
   progress: number;
   item?: Item | null;
   failedReason?: string | null;
+  suggestedAmountYen?: number | null;
+  suggestedAmountSource?: "actual" | "listing" | null;
 };
 
 type ExchangeRate = {
@@ -6200,6 +6203,12 @@ export default function Dashboard() {
           progress?: number;
           item?: Item | null;
           failedReason?: string | null;
+          pricingOptions?: {
+            perItem?: {
+              suggestedAmountYen?: number | null;
+              suggestedAmountSource?: "actual" | "listing" | null;
+            } | null;
+          } | null;
         };
         if (!response.ok) {
           updatePurchaseLinkJob(jobId, {
@@ -6215,6 +6224,10 @@ export default function Dashboard() {
           progress: Number(payload.progress ?? 0),
           item: payload.item ?? null,
           failedReason: payload.failedReason ?? null,
+          suggestedAmountYen:
+            payload.pricingOptions?.perItem?.suggestedAmountYen ?? null,
+          suggestedAmountSource:
+            payload.pricingOptions?.perItem?.suggestedAmountSource ?? null,
         });
       } catch {
         updatePurchaseLinkJob(jobId, {
@@ -6226,7 +6239,7 @@ export default function Dashboard() {
   );
 
   const submitPurchaseLinks = useCallback(async () => {
-    const urls = publicUrlsFromInput(purchaseLinkInput);
+    const { urls, amountsByUrl } = parsePurchaseLinkInput(purchaseLinkInput);
     if (!urls.length) {
       setPurchaseLinkMessage("请至少输入一个有效的公开商品链接");
       return;
@@ -6237,7 +6250,10 @@ export default function Dashboard() {
       const response = await fetch(`${API}/items/purchases/analyze-links`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ urls }),
+        body: JSON.stringify({
+          urls,
+          ...(Object.keys(amountsByUrl).length ? { amountsByUrl } : {}),
+        }),
       });
       const payload = (await response
         .json()
@@ -6284,7 +6300,11 @@ export default function Dashboard() {
       setPurchaseLinkInput(
         results
           .filter((entry) => !entry.accepted)
-          .map((entry) => entry.url)
+          .map((entry) =>
+            amountsByUrl[entry.url]
+              ? `${entry.url} ${amountsByUrl[entry.url]}`
+              : entry.url,
+          )
           .join("\n"),
       );
       setPurchaseLinkMessage(
@@ -6309,7 +6329,29 @@ export default function Dashboard() {
       .map((job) => job.item)
       .filter((item): item is Item => Boolean(item));
     if (!nextItems.length) return;
-    setPurchaseBundleEditor({ items: nextItems });
+    // Prefill from the price the analysis suggested for each item: the
+    // actual paid amount when one was entered with the link, otherwise
+    // the listing price the API falls back to.
+    const initialAmounts = Object.fromEntries(
+      jobs
+        .filter((job) => job.item && job.suggestedAmountYen != null)
+        .map((job) => [job.item!.id, job.suggestedAmountYen!]),
+    );
+    const everyItemPriced = nextItems.every(
+      (item) => initialAmounts[item.id] != null,
+    );
+    setPurchaseBundleEditor({
+      items: nextItems,
+      ...(Object.keys(initialAmounts).length ? { initialAmounts } : {}),
+      ...(everyItemPriced
+        ? {
+            initialTotal: nextItems.reduce(
+              (sum, item) => sum + initialAmounts[item.id],
+              0,
+            ),
+          }
+        : {}),
+    });
   }, []);
 
   const openExistingPurchaseBundleEditor = useCallback(
@@ -8117,6 +8159,10 @@ export default function Dashboard() {
                             粘贴公开商品链接后，后台只分析商品，不创建链接专区任务记录。
                           </p>
                           <p className="mt-2">
+                            已谈好价格时，可在链接后空格加实付金额（如
+                            12800），登记时会自动预填，不用再改价。
+                          </p>
+                          <p className="mt-2">
                             多个链接完成后可登记为同一购买包，并填写打包价格。
                           </p>
                         </ContextInfo>
@@ -8157,7 +8203,9 @@ export default function Dashboard() {
                           }
                         }}
                         rows={2}
-                        placeholder={"每行一个商品链接\n一次最多 20 个"}
+                        placeholder={
+                          "每行一个商品链接，可在链接后空格加实付金额，如 12800\n一次最多 20 个"
+                        }
                         aria-label="购买商品链接"
                         className="min-h-[72px] resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
                       />
@@ -8230,7 +8278,9 @@ export default function Dashboard() {
                                   {failed
                                     ? friendlyImportError(job.failedReason)
                                     : done
-                                      ? "分析完成，可登记"
+                                      ? job.suggestedAmountYen != null
+                                        ? `分析完成，可登记 · ${job.suggestedAmountSource === "actual" ? "实付" : "挂牌"} ¥${job.suggestedAmountYen.toLocaleString("ja-JP")}`
+                                        : "分析完成，可登记"
                                       : `${job.state === "active" ? "读取商品" : "等待分析"} · ${job.progress}%`}
                                 </p>
                               </div>

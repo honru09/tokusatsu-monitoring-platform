@@ -1257,6 +1257,46 @@ describe("automatic AI classification scheduling", () => {
     );
   });
 
+  it("lets a purchase import past the classification gate despite its staging archive", async () => {
+    const findUnique = vi.spyOn(prisma.item, "findUnique").mockResolvedValue({
+      id: "purchase-item",
+      titleRaw: "仮面ライダー DX変身ベルト",
+      descriptionRaw: "中古品です",
+      conditionRaw: "目立った傷なし",
+      categoryIp: "kamen_rider",
+      categoryToyType: "dx_belt",
+      manufacturer: "bandai",
+      conditionGrade: "used",
+      quantityEst: 1,
+      priceCurrent: 8_000,
+      needsReview: false,
+      confidence: 0.9,
+      status: "active",
+      archivedAt: new Date("2026-09-05T00:00:00.000Z"),
+      ignored: false,
+      purchaseRecord: null,
+      importOrigin: "purchase",
+      images: [{ url: "https://example.com/belt.jpg" }],
+      logistics: null,
+      monitoringCategory: { scope: "tokusatsu" },
+      classifications: [],
+    } as never);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Fully classified by the rules, so the job stops at the deterministic
+    // check. Reaching that check at all is what proves the purchase and
+    // staging-archive exclusions no longer skip it up front, and no AI
+    // call is spent getting there.
+    await expect(
+      processClassification({
+        data: { itemId: "purchase-item" },
+      } as never),
+    ).resolves.toEqual({ skipped: "deterministic_evidence_sufficient" });
+    expect(findUnique).toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("spends AI only on listings whose deterministic evidence needs enrichment", () => {
     expect(shouldQueueAutomaticClassification(classifiedListing)).toBe(false);
     expect(

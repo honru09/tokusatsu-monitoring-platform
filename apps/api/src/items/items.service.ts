@@ -399,6 +399,37 @@ export function splitAnalyzeUrlInputs(input: string | readonly string[]) {
   return [...new Set(values)];
 }
 
+/**
+ * Actual paid amounts keyed by URL. Only positive integers in the same
+ * range as a purchase amount are kept; anything else is treated as if no
+ * amount was entered. Keys are indexed both as submitted and in the
+ * normalized form prepareUrlImport produces, so a trailing-slash
+ * difference does not lose the amount.
+ */
+export function actualAmountsByUrl(
+  amountsByUrl?: Record<string, number> | null,
+) {
+  const amounts = new Map<string, number>();
+  if (!amountsByUrl) return amounts;
+  for (const [key, value] of Object.entries(amountsByUrl)) {
+    if (!Number.isInteger(value) || value <= 0 || value > 100_000_000)
+      continue;
+    amounts.set(key, value);
+    try {
+      amounts.set(new URL(key).href, value);
+    } catch {}
+  }
+  return amounts;
+}
+
+export function actualAmountFromJobData(value: unknown) {
+  return Number.isInteger(value) &&
+    Number(value) > 0 &&
+    Number(value) <= 100_000_000
+    ? Number(value)
+    : null;
+}
+
 function sourceDisplayName(
   key: string,
   fallback: string,
@@ -795,7 +826,11 @@ export class ItemsService {
     }
   }
 
-  async analyzePurchaseLinks(input: readonly string[]) {
+  async analyzePurchaseLinks(
+    input: readonly string[],
+    amountsByUrl?: Record<string, number> | null,
+  ) {
+    const actualAmounts = actualAmountsByUrl(amountsByUrl);
     const rawUrls = splitAnalyzeUrlInputs(input);
     if (rawUrls.length === 0)
       throw new BadRequestException("请输入至少一个完整商品 URL");
@@ -816,12 +851,14 @@ export class ItemsService {
     try {
       for (const candidate of candidates) {
         try {
+          const actualAmountYen = actualAmounts.get(candidate.url);
           const job = await queue.add(
             "analyze-purchase-url",
             {
               adapterKey: candidate.adapterKey,
               sourceUrl: candidate.url,
               importOrigin: "purchase",
+              ...(actualAmountYen != null ? { actualAmountYen } : {}),
             },
             {
               attempts: 3,
@@ -883,6 +920,9 @@ export class ItemsService {
             include,
           })
         : null;
+      const actualAmountYen = actualAmountFromJobData(
+        job.data?.actualAmountYen,
+      );
       return {
         jobId: String(job.id),
         state,
@@ -906,7 +946,9 @@ export class ItemsService {
           ? {
               perItem: {
                 itemId: item.id,
-                suggestedAmountYen: item.priceCurrent,
+                suggestedAmountYen: actualAmountYen ?? item.priceCurrent,
+                suggestedAmountSource:
+                  actualAmountYen != null ? "actual" : "listing",
               },
               bundleTotal: true,
             }

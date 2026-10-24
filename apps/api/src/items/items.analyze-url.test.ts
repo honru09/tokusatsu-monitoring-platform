@@ -23,7 +23,7 @@ vi.mock("ioredis", () => ({
   },
 }));
 
-import { AnalyzeUrlDto } from "./items.dto.js";
+import { AnalyzePurchaseLinksDto, AnalyzeUrlDto } from "./items.dto.js";
 import { ItemsService, splitAnalyzeUrlInputs } from "./items.service.js";
 
 function prismaStub() {
@@ -181,6 +181,137 @@ describe("batch URL imports", () => {
           finishedAt: null,
         }),
       }),
+    );
+  });
+});
+
+describe("purchase link analysis with actual amounts", () => {
+  beforeEach(() => {
+    queueMocks.add.mockReset();
+    queueMocks.close.mockReset().mockResolvedValue(undefined);
+    queueMocks.getJob.mockReset().mockResolvedValue(undefined);
+    queueMocks.quit.mockReset().mockResolvedValue("OK");
+  });
+
+  it("threads the entered amount for each URL into that URL's job only", async () => {
+    queueMocks.add
+      .mockResolvedValueOnce({ id: "job-paid" })
+      .mockResolvedValueOnce({ id: "job-plain" });
+    const service = new ItemsService(prismaStub() as never);
+
+    const result = await service.analyzePurchaseLinks(
+      [
+        "https://paypayfleamarket.yahoo.co.jp/item/z667890666",
+        "https://paypayfleamarket.yahoo.co.jp/item/z670895698",
+      ],
+      {
+        "https://paypayfleamarket.yahoo.co.jp/item/z667890666": 12_800,
+        "https://paypayfleamarket.yahoo.co.jp/item/z670895698": 0,
+      },
+    );
+
+    expect(result).toMatchObject({ accepted: true, acceptedCount: 2 });
+    expect(queueMocks.add).toHaveBeenNthCalledWith(
+      1,
+      "analyze-purchase-url",
+      expect.objectContaining({
+        sourceUrl: "https://paypayfleamarket.yahoo.co.jp/item/z667890666",
+        importOrigin: "purchase",
+        actualAmountYen: 12_800,
+      }),
+      expect.anything(),
+    );
+    // A zero amount is not a real paid price, so the second job stays
+    // without one and falls back to the listing price when polled.
+    expect(queueMocks.add).toHaveBeenNthCalledWith(
+      2,
+      "analyze-purchase-url",
+      expect.not.objectContaining({ actualAmountYen: expect.anything() }),
+      expect.anything(),
+    );
+  });
+
+  it("returns the entered amount as the suggested price when polling", async () => {
+    const item = {
+      id: "item-1",
+      priceCurrent: 15_000,
+      source: { key: "yahoo_fleamarket", displayName: "Yahoo" },
+      sourceData: null,
+    };
+    const prisma = { item: { findUnique: vi.fn(async () => item) } };
+    queueMocks.getJob.mockResolvedValue({
+      id: "job-paid",
+      data: { importOrigin: "purchase", actualAmountYen: 12_800 },
+      getState: vi.fn().mockResolvedValue("completed"),
+      progress: 100,
+      returnvalue: { itemId: "item-1" },
+    });
+    const service = new ItemsService(prisma as never);
+
+    await expect(
+      service.getPurchaseLinkAnalysis("job-paid"),
+    ).resolves.toMatchObject({
+      readyForPricing: true,
+      pricingOptions: {
+        perItem: {
+          itemId: "item-1",
+          suggestedAmountYen: 12_800,
+          suggestedAmountSource: "actual",
+        },
+      },
+    });
+  });
+
+  it("falls back to the listing price when no amount was entered", async () => {
+    const item = {
+      id: "item-2",
+      priceCurrent: 9_800,
+      source: { key: "yahoo_fleamarket", displayName: "Yahoo" },
+      sourceData: null,
+    };
+    const prisma = { item: { findUnique: vi.fn(async () => item) } };
+    queueMocks.getJob.mockResolvedValue({
+      id: "job-plain",
+      data: { importOrigin: "purchase" },
+      getState: vi.fn().mockResolvedValue("completed"),
+      progress: 100,
+      returnvalue: { itemId: "item-2" },
+    });
+    const service = new ItemsService(prisma as never);
+
+    await expect(
+      service.getPurchaseLinkAnalysis("job-plain"),
+    ).resolves.toMatchObject({
+      pricingOptions: {
+        perItem: {
+          suggestedAmountYen: 9_800,
+          suggestedAmountSource: "listing",
+        },
+      },
+    });
+  });
+});
+
+describe("AnalyzePurchaseLinksDto", () => {
+  it("accepts an optional amountsByUrl object and rejects a non-object", async () => {
+    const accepted = Object.assign(new AnalyzePurchaseLinksDto(), {
+      urls: ["https://example.com/one"],
+      amountsByUrl: { "https://example.com/one": 12_800 },
+    });
+    const withoutAmounts = Object.assign(new AnalyzePurchaseLinksDto(), {
+      urls: ["https://example.com/one"],
+    });
+    const rejected = Object.assign(new AnalyzePurchaseLinksDto(), {
+      urls: ["https://example.com/one"],
+      amountsByUrl: "12800",
+    });
+
+    expect(await validate(accepted)).toHaveLength(0);
+    expect(await validate(withoutAmounts)).toHaveLength(0);
+    expect(await validate(rejected)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ property: "amountsByUrl" }),
+      ]),
     );
   });
 });
