@@ -94,7 +94,20 @@ import {
   refreshReadyCrossMarketOpportunitiesForItem,
   type ArbitrageSearchContext,
 } from "./china-market/arbitrage.js";
-import { isStatusRefreshEligible } from "./status-refresh-policy.js";
+import {
+  ABSENCE_RECHECK_THRESHOLD,
+  absenceCountAfterScan,
+  absenceRecheckCrossed,
+  completedRefreshHealth,
+  consecutiveAbsenceCountOf,
+  directListingTtlHours,
+  failedRefreshHealth,
+  isAbsenceCountingScan,
+  isStaleDirectListing,
+  isStatusRefreshEligible,
+  refreshFailureCountOf,
+  shouldUseDetailRefresh,
+} from "./status-refresh-policy.js";
 import { recordMonitoringKeywordMatch } from "./monitoring-keywords.js";
 
 export {
@@ -294,6 +307,9 @@ type SearchMetrics = {
   arbitrageNeedsFacts: number;
   arbitrageIdentityMisses: number;
   qualityRejected: number;
+  absentIncremented: number;
+  absencePresentReset: number;
+  absenceRechecksQueued: number;
 };
 
 type SearchJobData = {
@@ -899,6 +915,9 @@ export async function processSearch(job: Job<SearchJobData>) {
     arbitrageNeedsFacts: 0,
     arbitrageIdentityMisses: 0,
     qualityRejected: 0,
+    absentIncremented: 0,
+    absencePresentReset: 0,
+    absenceRechecksQueued: 0,
   };
   const crawlJob = await prisma.crawlJob.create({
     data: {
@@ -1189,6 +1208,37 @@ export async function processSearch(job: Job<SearchJobData>) {
       throw new Error(
         `${adapter.displayName} reverse search found candidates but no detail could be evaluated`,
       );
+    // Absence bookkeeping runs only after the scan itself succeeded, and
+    // only for passes that provably covered the whole result set for
+    // their query. Every currently scheduled backfill rotates its page
+    // window, so those passes are excluded until a non-rotating full
+    // re-scan exists; see isAbsenceCountingScan.
+    if (
+      !job.data.arbitrageContext &&
+      isAbsenceCountingScan(effectiveQuery)
+    ) {
+      try {
+        const absence = await recordSearchAbsences({
+          sourceId: source.id,
+          adapterKey: adapter.key,
+          presentSourceItemIds: new Set(
+            results.map((result) => result.sourceItemId),
+          ),
+          monitoringKeywordId: monitoringKeyword?.id,
+        });
+        metrics.absentIncremented = absence.absentIncremented;
+        metrics.absencePresentReset = absence.presentReset;
+        metrics.absenceRechecksQueued = absence.rechecksQueued;
+      } catch (absenceError) {
+        console.warn(
+          JSON.stringify({
+            event: "search_absence_count_failed",
+            adapter: adapter.key,
+            error: String(absenceError).slice(0, 240),
+          }),
+        );
+      }
+    }
     await prisma.$transaction([
       prisma.crawlJob.update({
         where: { id: crawlJob.id },
@@ -2031,6 +2081,194 @@ export function statusJobId(itemId: string) {
   return `status-${itemId}`;
 }
 
+/** Distinct from the regular refresh id so a forced recheck can be queued
+ * while the item's normal refresh job is still waiting or delayed. */
+export function forcedStatusJobId(itemId: string) {
+  return `status-force-detail-${itemId}`;
+}
+
+export async function scheduleForcedStatusRecheck(item: {
+  id: string;
+  sourceItemId: string;
+  sourceUrl: string;
+  status: string;
+  auctionEndAt: Date | null;
+  adapterKey: string;
+}) {
+  const jobId = forcedStatusJobId(item.id);
+  const existing = await statusQueue.getJob(jobId);
+  if (existing) {
+    const state = await existing.getState();
+    if (state !== "completed" && state !== "failed") return existing;
+    await existing.remove().catch(() => undefined);
+  }
+  await statusQueue.add(
+    "refresh-status",
+    {
+      itemId: item.id,
+      sourceItemId: item.sourceItemId,
+      sourceUrl: item.sourceUrl,
+      status: item.status,
+      auctionEndAt: item.auctionEndAt,
+      adapterKey: item.adapterKey,
+      forceDetail: true,
+    },
+    {
+      delay: 0,
+      jobId,
+      attempts: 4,
+      backoff: { type: "exponential", delay: 30_000 },
+      removeOnComplete: true,
+      removeOnFail: true,
+    },
+  );
+}
+
+type RefreshHealth = { lastCheckedAt: Date; refreshFailureCount: number };
+
+/**
+ * Attach refresh-health fields to a market update. The health columns are
+ * deliberately kept out of marketAvailabilitySelect: they change on every
+ * probe and would drown the availability audit trail.
+ */
+function withRefreshHealth(
+  data: Prisma.ItemUpdateManyMutationInput,
+  health: RefreshHealth,
+): Prisma.ItemUpdateManyMutationInput {
+  return {
+    ...data,
+    ...health,
+  } as Prisma.ItemUpdateManyMutationInput;
+}
+
+type AbsenceCandidate = {
+  id: string;
+  sourceItemId: string;
+  sourceUrl: string;
+  status: string;
+  auctionEndAt: Date | null;
+  consecutiveAbsenceCount?: unknown;
+};
+
+const absenceCandidateSelect = {
+  id: true,
+  sourceItemId: true,
+  sourceUrl: true,
+  status: true,
+  auctionEndAt: true,
+  consecutiveAbsenceCount: true,
+} as unknown as Prisma.ItemSelect;
+
+/**
+ * Count one completed full re-scan against the listings it did not surface.
+ * Present listings reset to zero; absent listings increment, grouped by
+ * their previous count so each batch is a single update. Reaching the
+ * threshold queues exactly one forced detail recheck — absence alone
+ * never ends a listing here.
+ */
+export async function recordSearchAbsences(input: {
+  sourceId: string;
+  adapterKey: string;
+  presentSourceItemIds: ReadonlySet<string>;
+  monitoringKeywordId?: string;
+}): Promise<{
+  absentIncremented: number;
+  presentReset: number;
+  rechecksQueued: number;
+}> {
+  const totals = { absentIncremented: 0, presentReset: 0, rechecksQueued: 0 };
+  let cursor: string | undefined;
+  for (;;) {
+    const candidates = (await prisma.item.findMany({
+      where: {
+        sourceId: input.sourceId,
+        archivedAt: null,
+        deletedAt: null,
+        ignored: false,
+        purchaseRecord: null,
+        status: { in: ["active", "unknown"] },
+        // lastSeenAt is a non-nullable column, so every stored row was
+        // surfaced by an earlier scan by construction.
+        ...(input.monitoringKeywordId
+          ? {
+              monitoringKeywordMatches: {
+                some: { keywordId: input.monitoringKeywordId },
+              },
+            }
+          : {}),
+        ...(cursor ? { id: { gt: cursor } } : {}),
+      } as Prisma.ItemWhereInput,
+      select: absenceCandidateSelect,
+      orderBy: { id: "asc" },
+      take: 500,
+    })) as unknown as AbsenceCandidate[];
+    if (!candidates.length) break;
+    cursor = candidates.at(-1)?.id;
+
+    const presentToReset = candidates.filter(
+      (item) =>
+        input.presentSourceItemIds.has(item.sourceItemId) &&
+        consecutiveAbsenceCountOf(item) > 0,
+    );
+    if (presentToReset.length) {
+      const reset = await prisma.item.updateMany({
+        where: {
+          id: { in: presentToReset.map((item) => item.id) },
+          archivedAt: null,
+          deletedAt: null,
+          ignored: false,
+          purchaseRecord: null,
+          status: { in: ["active", "unknown"] },
+        },
+        data: {
+          consecutiveAbsenceCount: 0,
+        } as Prisma.ItemUpdateManyMutationInput,
+      });
+      totals.presentReset += reset.count;
+    }
+
+    const absentByPreviousCount = new Map<number, AbsenceCandidate[]>();
+    for (const item of candidates) {
+      if (input.presentSourceItemIds.has(item.sourceItemId)) continue;
+      const previous = consecutiveAbsenceCountOf(item);
+      const group = absentByPreviousCount.get(previous) ?? [];
+      group.push(item);
+      absentByPreviousCount.set(previous, group);
+    }
+    for (const [previous, group] of absentByPreviousCount) {
+      const next = absenceCountAfterScan(previous, false);
+      const updated = await prisma.item.updateMany({
+        where: {
+          id: { in: group.map((item) => item.id) },
+          archivedAt: null,
+          deletedAt: null,
+          ignored: false,
+          purchaseRecord: null,
+          status: { in: ["active", "unknown"] },
+          consecutiveAbsenceCount: previous,
+        } as Prisma.ItemWhereInput,
+        data: {
+          consecutiveAbsenceCount: next,
+        } as Prisma.ItemUpdateManyMutationInput,
+      });
+      totals.absentIncremented += updated.count;
+      if (!absenceRecheckCrossed(previous, next)) continue;
+      for (const item of group) {
+        await scheduleForcedStatusRecheck({
+          id: item.id,
+          sourceItemId: item.sourceItemId,
+          sourceUrl: item.sourceUrl,
+          status: item.status,
+          auctionEndAt: item.auctionEndAt,
+          adapterKey: input.adapterKey,
+        });
+        totals.rechecksQueued += 1;
+      }
+    }
+  }
+  return totals;
+}
+
 export async function scheduleStatus(
   itemId: string,
   sourceItemId: string,
@@ -2736,6 +2974,26 @@ async function upsertAiReview(
   });
 }
 
+/**
+ * Map a full detail fetch onto the status-update shape the cheap probe
+ * returns, so both paths share one status-application flow. A detail page
+ * with no conclusive status is not evidence of anything: it maps to null
+ * and the caller leaves the stored status untouched.
+ */
+export function statusUpdateFromDetail(
+  normalized: NormalizedItem,
+): ItemStatusUpdate | null {
+  if (normalized.status === "unknown") return null;
+  return {
+    status: normalized.status,
+    listingType: normalized.listingType,
+    priceCurrent: normalized.priceCurrent,
+    shippingFee: normalized.shippingFee,
+    auctionEndAt: normalized.auctionEndAt,
+    bidCount: safeBidCount(normalized.bidCount),
+  };
+}
+
 export async function processStatus(
   job: Job<{
     itemId: string;
@@ -2744,6 +3002,7 @@ export async function processStatus(
     status: string;
     auctionEndAt: string | Date | null;
     adapterKey: string;
+    forceDetail?: boolean;
   }>,
 ) {
   const adapter = adapters[job.data.adapterKey];
@@ -2773,13 +3032,76 @@ export async function processStatus(
     return { skipped: "inactive_item" };
   // Availability must come from a fresh marketplace probe, not the search
   // cache used for historical seller/detail enrichment.
-  let update = await adapter.refreshStatus({
-    sourceItemId: current.sourceItemId,
-    sourceUrl: current.sourceUrl,
-    status: current.status,
-    listingType: current.listingType,
-    auctionEndAt: current.auctionEndAt,
+  const attemptStartedAt = new Date();
+  const failureCount = refreshFailureCountOf(current);
+  const useDetail = shouldUseDetailRefresh({
+    refreshFailureCount: failureCount,
+    forceDetail: job.data.forceDetail,
   });
+  let update: ItemStatusUpdate;
+  try {
+    if (useDetail) {
+      const normalized = await adapter.normalize(
+        await adapter.fetchDetail({
+          sourceItemId: current.sourceItemId,
+          sourceUrl: current.sourceUrl,
+        }),
+      );
+      const detailUpdate = statusUpdateFromDetail(normalized);
+      if (!detailUpdate) {
+        // The detail path completed but could not resolve the listing.
+        // That still counts as a completed check: stamp it and clear the
+        // failure streak without claiming a status either way.
+        await prisma.item.updateMany({
+          where: {
+            id: current.id,
+            archivedAt: null,
+            ignored: false,
+            purchaseRecord: null,
+            status: { in: ["active", "unknown"] },
+          },
+          data: completedRefreshHealth(
+            attemptStartedAt,
+          ) as Prisma.ItemUpdateManyMutationInput,
+        });
+        return {
+          status: current.status,
+          detailRefresh: true,
+          inconclusive: true,
+        };
+      }
+      update = detailUpdate;
+    } else {
+      update = await adapter.refreshStatus({
+        sourceItemId: current.sourceItemId,
+        sourceUrl: current.sourceUrl,
+        status: current.status,
+        listingType: current.listingType,
+        auctionEndAt: current.auctionEndAt,
+      });
+    }
+  } catch (error) {
+    // A failed probe is recorded as health, never as a status: throwing
+    // listings look exactly like live ones unless the failure is counted
+    // somewhere. The original error still propagates so BullMQ retries
+    // and rescheduling behave as before.
+    await prisma.item
+      .updateMany({
+        where: {
+          id: current.id,
+          archivedAt: null,
+          ignored: false,
+          purchaseRecord: null,
+          status: { in: ["active", "unknown"] },
+        },
+        data: failedRefreshHealth(
+          failureCount,
+          attemptStartedAt,
+        ) as Prisma.ItemUpdateManyMutationInput,
+      })
+      .catch(() => undefined);
+    throw error;
+  }
   const shouldEnrich =
     job.name === "backfill-public-seller-profile" &&
     update.status === "active" &&
@@ -2813,7 +3135,10 @@ export async function processStatus(
         await updateMarketWithAudit({
           itemId: current.id,
           where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
-          data: { archivedAt: new Date(), lastSeenAt: new Date() },
+          data: withRefreshHealth(
+            { archivedAt: new Date(), lastSeenAt: new Date() },
+            completedRefreshHealth(new Date()),
+          ),
           actor: "inventory-maintenance",
           reason: "excluded_collectible_archived",
         });
@@ -2872,19 +3197,22 @@ export async function processStatus(
       shippingFee = update.shippingFee ?? before.shippingFee;
       ({ auctionEndAt, listingType } = resolvedMarketSaleMode(update, before));
       bidCount = safeBidCount(update.bidCount) ?? before.bidCount;
-      return {
-        status: update.status,
-        priceCurrent,
-        shippingFee,
-        priceTotalEst: priceCurrent + (shippingFee ?? 0),
-        auctionEndAt,
-        listingType,
-        bidCount,
-        ...(update.status !== "unknown" ? { lastSeenAt: checkedAt } : {}),
-        ...(update.status === "sold" || update.status === "ended"
-          ? { archivedAt: checkedAt }
-          : {}),
-      };
+      return withRefreshHealth(
+        {
+          status: update.status,
+          priceCurrent,
+          shippingFee,
+          priceTotalEst: priceCurrent + (shippingFee ?? 0),
+          auctionEndAt,
+          listingType,
+          bidCount,
+          ...(update.status !== "unknown" ? { lastSeenAt: checkedAt } : {}),
+          ...(update.status === "sold" || update.status === "ended"
+            ? { archivedAt: checkedAt }
+            : {}),
+        },
+        completedRefreshHealth(checkedAt),
+      );
     },
   });
   if (!changed.count) return { skipped: "item_changed" };
@@ -3068,6 +3396,78 @@ export async function archiveLowQualitySearchInventory(now = new Date()) {
   return archived;
 }
 
+type TtlCandidate = {
+  id: string;
+  listingType: string;
+  status: string;
+  lastSeenAt: Date | string | null;
+  consecutiveAbsenceCount?: unknown;
+};
+
+const ttlCandidateSelect = {
+  id: true,
+  listingType: true,
+  status: true,
+  lastSeenAt: true,
+  consecutiveAbsenceCount: true,
+} as unknown as Prisma.ItemSelect;
+
+/**
+ * Backstop for buy-now listings whose status probes never resolve: a
+ * listing that stayed `unknown`, dropped out of full search re-scans, and
+ * has not been seen for the whole TTL window is ended and archived with
+ * the same audit trail as other terminal transitions. Auctions are
+ * excluded — they already retire on their own end time.
+ */
+export async function expireStaleDirectListings(
+  now = new Date(),
+  env: Record<string, string | undefined> = process.env,
+) {
+  const ttlHours = directListingTtlHours(env);
+  const cutoff = new Date(now.getTime() - ttlHours * 60 * 60_000);
+  let expired = 0;
+  let cursor: string | undefined;
+  for (;;) {
+    const candidates = (await prisma.item.findMany({
+      where: {
+        archivedAt: null,
+        deletedAt: null,
+        purchaseRecord: null,
+        status: "unknown",
+        listingType: { not: "auction" },
+        lastSeenAt: { lt: cutoff },
+        consecutiveAbsenceCount: { gte: ABSENCE_RECHECK_THRESHOLD },
+        ...(cursor ? { id: { gt: cursor } } : {}),
+      } as Prisma.ItemWhereInput,
+      select: ttlCandidateSelect,
+      orderBy: { id: "asc" },
+      take: 500,
+    })) as unknown as TtlCandidate[];
+    if (!candidates.length) break;
+    cursor = candidates.at(-1)?.id;
+    for (const item of candidates) {
+      if (!isStaleDirectListing(item, now, ttlHours)) continue;
+      const changed = await updateMarketWithAudit({
+        itemId: item.id,
+        where: {
+          archivedAt: null,
+          deletedAt: null,
+          purchaseRecord: null,
+          status: "unknown",
+          listingType: { not: "auction" },
+          lastSeenAt: { lt: cutoff },
+          consecutiveAbsenceCount: { gte: ABSENCE_RECHECK_THRESHOLD },
+        } as Prisma.ItemWhereInput,
+        data: { status: "ended", archivedAt: now },
+        actor: "inventory-maintenance",
+        reason: "direct_listing_ttl_expired",
+      });
+      if (changed.count) expired += 1;
+    }
+  }
+  return expired;
+}
+
 export async function processCleanup() {
   const now = new Date();
   // A process/container restart can leave the historical CrawlJob row in
@@ -3140,6 +3540,7 @@ export async function processCleanup() {
       { timeout: 60_000 },
     );
   }
+  const expiredStaleDirectListings = await expireStaleDirectListings(now);
   const archivedExcluded = await archiveExcludedCollectibles(now);
   const archivedLowQuality = await archiveLowQualitySearchInventory(now);
   const orphanProducts = await prisma.product.deleteMany({
@@ -3150,6 +3551,7 @@ export async function processCleanup() {
   return {
     staleRunsClosed: staleRunning.count,
     archived,
+    expiredStaleDirectListings,
     archivedExcluded,
     archivedLowQuality,
     removedOrphanProducts: orphanProducts.count,

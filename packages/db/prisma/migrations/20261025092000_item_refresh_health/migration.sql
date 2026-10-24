@@ -1,0 +1,4 @@
+ALTER TABLE "Item"
+  ADD COLUMN "consecutiveAbsenceCount" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "lastCheckedAt" TIMESTAMP(3),
+  ADD COLUMN "refreshFailureCount" INTEGER NOT NULL DEFAULT 0;
