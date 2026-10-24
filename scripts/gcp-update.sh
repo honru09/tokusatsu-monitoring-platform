@@ -36,7 +36,7 @@ gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --com
   cp .env infrastructure/.env || true
 
   echo "🔨 重新构建并热更新 api 与 web 容器..."
-  sudo docker compose --env-file .env -f infrastructure/docker-compose.yml up -d --build api web
+  sudo docker compose --env-file .env -f infrastructure/docker-compose.yml up -d --build api web worker
 
   echo "⚙️ 配置 GitHub 自动同步更新脚本 (每 5 分钟检查一次新提交)..."
   cat << "AUTOCD" > ~/auto-cd.sh
@@ -49,7 +49,7 @@ if [ "$LOCAL" != "$REMOTE" ]; then
   echo "[$(date -Is)] Updating from $LOCAL to $REMOTE" >> ~/auto-cd.log
   git reset --hard origin/main >> ~/auto-cd.log 2>&1
   cp .env infrastructure/.env 2>/dev/null || true
-  sudo docker compose --env-file .env -f infrastructure/docker-compose.yml up -d --build api web >> ~/auto-cd.log 2>&1
+  sudo docker compose --env-file .env -f infrastructure/docker-compose.yml up -d --build api web worker >> ~/auto-cd.log 2>&1
 fi
 AUTOCD
   chmod +x ~/auto-cd.sh
