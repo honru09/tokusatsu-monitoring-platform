@@ -60,6 +60,12 @@ export function ProductCardPrice({
             {fmtCny(item.shippingFee, exchangeRate)}
           </small>
         ) : null}
+        {(item.quantityEst || cost.unit != null) && (
+          <span className="product-card-split-facts">
+            {item.quantityEst ? <> · 数量 {item.quantityEst} 件</> : null}
+            {cost.unit != null ? <> · {cost.unitLabel} {fmtYen(cost.unit)}</> : null}
+          </span>
+        )}
       </div>
       <YahooDiscount
         sourceKey={item.source.key}

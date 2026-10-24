@@ -104,4 +104,27 @@ describe("procurement glass layout contracts", () => {
       expect(hover).not.toMatch(/translate|scale/);
     }
   });
+
+  it("keeps phone grid cards content-sized with one tidy action row", () => {
+    // No height:100% stretch and no expanding note row on phones: the
+    // final layer re-stacks the card body and pins actions to content.
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.procurement-grid \.js-product-card\s*\{[^}]*height:\s*auto\s*!important/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.procurement-grid \.product-card-body:has\(\> \.product-card-seller\)/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.procurement-grid \.product-card-actions\s*\{[^}]*display:\s*flex\s*!important[^}]*margin-top:\s*0\s*!important/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.procurement-grid \.product-card-title\s*\{[^}]*-webkit-line-clamp:\s*2\s*!important/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.product-card-split-facts\s*\{\s*display:\s*none/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.catalog-toolbar h2\s*\{[^}]*scroll-margin-top:\s*calc\(var\(--app-header-height\)/,
+    );
+  });
 });

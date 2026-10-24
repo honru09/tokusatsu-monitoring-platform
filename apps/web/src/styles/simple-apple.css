@@ -485,3 +485,64 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
   .procurement-shell .home-source-row b,
   .procurement-shell .home-source-row>strong {font-size:11px;}
 }
+
+/* Quantity/unit facts ride along in the price split line on phones;
+   the dl keeps its own copies everywhere else. */
+.procurement-shell .product-card-split-facts {display:none;}
+
+/* Round-2 mobile grid: content-sized cards. Rows hug the tallest
+   card's content instead of stretching every card to a shared height,
+   the card body goes back to a plain stack, and the price block reads
+   as three compact lines with every amount still present. */
+@media(max-width:639px) {
+  /* Rows hug the tallest card's content; nothing stretches a card. */
+  .procurement-shell .procurement-grid {grid-auto-rows:auto !important;align-items:start !important;}
+  .procurement-shell .procurement-grid .js-product-card {height:auto !important;}
+
+  /* Body becomes a plain stack again: the named-area grid's expanding
+     1fr note row is what opened the void under the prices. With the
+     bundle toggle present, seller + actions share one bottom row. */
+  .procurement-shell .procurement-grid .product-card-body {display:grid !important;flex:none !important;grid-template:"tags" auto "title" auto "decision" auto "note" auto "actions" auto / minmax(0,1fr);row-gap:3px;}
+  .procurement-shell .procurement-grid .product-card-body:has(> .product-card-seller) {grid-template:"tags tags" auto "title title" auto "decision decision" auto "note note" auto "seller actions" auto / auto minmax(0,1fr);}
+  .procurement-shell .procurement-grid .product-card-note {min-height:0 !important;}
+  .procurement-shell .procurement-grid .product-card-seller {grid-area:seller;align-self:center;margin-top:0 !important;justify-content:flex-start;}
+  .procurement-shell .procurement-grid .product-card-seller button {height:40px;min-height:40px;border-radius:12px;font-size:11px;}
+
+  /* Title: two lines, small, no reserved third line. */
+  .procurement-shell .procurement-grid .product-card-title {display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:2 !important;overflow:hidden !important;min-height:0 !important;max-height:34px;font-size:12.5px !important;line-height:1.35 !important;margin-bottom:0;}
+
+  /* Price block: three compact lines, every amount still present.
+     Line 1 total + CNY, line 2 list price/shipping + qty/unit facts,
+     line 3 the Yahoo discount estimate + its CNY. */
+  .procurement-shell .procurement-grid .product-card-decision {display:flex !important;flex-direction:column;gap:2px !important;margin-top:2px !important;padding:6px 7px !important;}
+  .procurement-shell .procurement-grid .product-card-decision dl {display:flex !important;flex-wrap:wrap;align-items:baseline;gap:1px 6px;}
+  .procurement-shell .procurement-grid .product-card-decision .product-card-total {display:flex !important;align-items:baseline;gap:5px;flex:1 1 100%;}
+  .procurement-shell .procurement-grid .product-card-decision .product-card-total dt {font-size:10px;}
+  .procurement-shell .procurement-grid .product-card-decision .product-card-total dd {font-size:16px !important;font-weight:700;}
+  .procurement-shell .procurement-grid .product-card-decision .product-card-total > small {font-size:10px;}
+  .procurement-shell .procurement-grid .product-card-decision dl .product-card-qty,
+  .procurement-shell .procurement-grid .product-card-decision dl .product-card-unit {display:none !important;}
+  .procurement-shell .procurement-grid .product-card-split-facts {display:inline;}
+  .procurement-shell .procurement-grid .product-card-price-split {font-size:10px;line-height:1.4;}
+  .procurement-shell .procurement-grid .product-card-decision > .yahoo-discount {display:flex !important;flex-wrap:wrap;align-items:baseline;gap:1px 5px;padding-block:2px;font-size:10px;line-height:1.35;}
+  .procurement-shell .procurement-grid .product-card-decision > .yahoo-discount > span {display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:4px;}
+  .procurement-shell .procurement-grid .product-card-decision > .yahoo-discount > strong {font-size:12px;text-align:left;}
+  .procurement-shell .procurement-grid .product-card-decision > .yahoo-discount > small {font-size:10px;}
+  .procurement-shell .procurement-grid .product-card-cost-evidence {font-size:10px;padding-top:2px;}
+
+  /* One action row at the bottom of the content: the three icon
+     buttons stop spreading across the card and sit beside the
+     bundle toggle at a matching 40px height. */
+  .procurement-shell .procurement-grid .product-card-actions {display:flex !important;align-items:center;justify-content:flex-end;gap:5px;min-height:40px;margin-top:0 !important;padding-top:0 !important;}
+  .procurement-shell .procurement-grid .product-card-actions > button {flex:0 0 auto;width:40px;height:40px;min-height:40px;border-radius:12px;}
+  .procurement-shell .procurement-grid .product-card-more-actions {bottom:52px !important;}
+
+  /* The sticky toolbar is 98px tall on phones (8px padding, 28px
+     heading row, 12px gap, 40px actions, borders) and pins at
+     header + 8px; size anchor jumps and the bar itself to match so
+     the first row never tucks underneath it. */
+  .procurement-shell .catalog-toolbar {padding-block:8px;scroll-margin-top:calc(var(--app-header-height) + 8px);}
+  .procurement-shell .catalog-toolbar h2 {scroll-margin-top:calc(var(--app-header-height) + 118px);}
+  .procurement-shell .catalog-actions :is(.catalog-mode-switch button, .catalog-filter-button, .catalog-clear-button) {min-height:40px;}
+  .procurement-shell .catalog-actions .catalog-refresh-button {width:40px;height:40px;min-height:40px;}
+}
