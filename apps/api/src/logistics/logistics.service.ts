@@ -196,7 +196,9 @@ export class LogisticsService {
       publicImageUrlsVerified: true,
       costPolicy: "free_first",
       itemId: item.id,
-      imageUrls: item.images.map((image) => image.url),
+      // The gateway reads at most two images per request; like readItem,
+      // send the first two in listing order.
+      imageUrls: item.images.slice(0, 2).map((image) => image.url),
       maxTokens: 2_000,
       temperature: 0.1,
       cacheTtlMs: 7 * 24 * 60 * 60_000,

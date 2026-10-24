@@ -91,6 +91,49 @@ function normalizeProviderResult(value: unknown): unknown {
   };
 }
 
+/**
+ * The AI gateway reads at most two images per request. Selection follows
+ * the API's own item reader (readItem): the first images in listing order,
+ * cover first.
+ */
+export const MAX_IMAGE_ANALYSIS_URLS = 2;
+
+export function selectImageAnalysisUrls(
+  imageUrls: readonly string[],
+): string[] {
+  return imageUrls.slice(0, MAX_IMAGE_ANALYSIS_URLS);
+}
+
+export class ImageAnalysisError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly retryable?: boolean;
+
+  constructor(
+    status: number,
+    detail: { code?: string; message?: string; retryable?: boolean } = {},
+  ) {
+    super(
+      `AI Gateway vision returned ${status}${detail.message ? `: ${detail.message}` : ""}`,
+    );
+    this.name = "ImageAnalysisError";
+    this.status = status;
+    if (detail.code) this.code = detail.code;
+    if (detail.retryable !== undefined) this.retryable = detail.retryable;
+  }
+}
+
+/**
+ * Gateway assertion failures (image-count limit, disabled scope) fail the
+ * same way on every retry, so queue jobs must not retry them.
+ */
+export function isNonRetryableImageAnalysisError(error: unknown): boolean {
+  return (
+    error instanceof ImageAnalysisError &&
+    (error.status === 400 || error.retryable === false)
+  );
+}
+
 export async function classifyImages(input: {
   title: string;
   description?: string | null;
@@ -98,7 +141,8 @@ export async function classifyImages(input: {
   itemId?: string;
 }): Promise<{ provider: string; result: VisionClassification }> {
   const apiBase = normalizeHttpBaseUrl(process.env.API_INTERNAL_URL);
-  if (input.imageUrls.length === 0) {
+  const imageUrls = selectImageAnalysisUrls(input.imageUrls);
+  if (imageUrls.length === 0) {
     return { provider: "unconfigured", result: conservativeFallback };
   }
   const internalToken = process.env.AI_INTERNAL_TOKEN?.trim();
@@ -115,7 +159,7 @@ export async function classifyImages(input: {
       body: JSON.stringify({
         title: input.title,
         description: input.description,
-        imageUrls: input.imageUrls,
+        imageUrls,
       }),
       signal: AbortSignal.timeout(
         Math.max(
@@ -128,8 +172,20 @@ export async function classifyImages(input: {
       ),
     },
   );
-  if (!response.ok)
-    throw new Error(`AI Gateway vision returned ${response.status}`);
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => null)) as {
+      code?: unknown;
+      message?: unknown;
+      retryable?: unknown;
+    } | null;
+    throw new ImageAnalysisError(response.status, {
+      code: typeof detail?.code === "string" ? detail.code : undefined,
+      message:
+        typeof detail?.message === "string" ? detail.message : undefined,
+      retryable:
+        typeof detail?.retryable === "boolean" ? detail.retryable : undefined,
+    });
+  }
   const payload = (await response.json()) as {
     data?: unknown;
     model?: unknown;

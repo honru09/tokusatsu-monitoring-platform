@@ -1,4 +1,8 @@
-import { classifyImages } from "@tokusatsu/classification";
+import {
+  classifyImages,
+  isNonRetryableImageAnalysisError,
+  selectImageAnalysisUrls,
+} from "@tokusatsu/classification";
 import { prisma, Prisma } from "@tokusatsu/db";
 import {
   matchOrCreateProduct,
@@ -38,7 +42,7 @@ import type {
   SourceAdapter,
   ToyType,
 } from "@tokusatsu/shared";
-import type { Job } from "bullmq";
+import { UnrecoverableError, type Job } from "bullmq";
 import { createHash } from "node:crypto";
 import { ApifyEcommerceAdapter } from "./adapters/apify-ecommerce.adapter.js";
 import { FirecrawlMarketplaceAdapter } from "./adapters/firecrawl-market.adapter.js";
@@ -2297,19 +2301,35 @@ export async function processClassification(
     });
     return { skipped: "text_evidence_sufficient" };
   }
-  const { provider, result } = await runAutomaticAiTask(
-    `vision:${item.id}:${automaticClassificationContentVersion({
-      ...item,
-      imageUrls: item.images.map((image) => image.url),
-    })}`,
-    () =>
-      classifyImages({
-        title: item.titleRaw,
-        description: item.descriptionRaw,
+  let vision: Awaited<ReturnType<typeof classifyImages>>;
+  try {
+    vision = await runAutomaticAiTask(
+      `vision:${item.id}:${automaticClassificationContentVersion({
+        ...item,
         imageUrls: item.images.map((image) => image.url),
-        itemId: item.id,
-      }),
-  );
+      })}`,
+      () =>
+        classifyImages({
+          title: item.titleRaw,
+          description: item.descriptionRaw,
+          // The gateway reads at most two images. The content version above
+          // still covers every image, so a changed gallery re-runs the job.
+          imageUrls: selectImageAnalysisUrls(
+            item.images.map((image) => image.url),
+          ),
+          itemId: item.id,
+        }),
+    );
+  } catch (error) {
+    // Gateway assertion failures (image-count limit, disabled scope) fail
+    // identically on every attempt; do not burn the job's retries on them.
+    if (isNonRetryableImageAnalysisError(error))
+      throw new UnrecoverableError(
+        error instanceof Error ? error.message : String(error),
+      );
+    throw error;
+  }
+  const { provider, result } = vision;
   const visionIps = result.franchise.value ?? [];
   const visionCondition = result.condition.value;
   const conflict =

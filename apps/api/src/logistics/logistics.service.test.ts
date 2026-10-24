@@ -147,6 +147,58 @@ describe("LogisticsService", () => {
     expect(result.model).toBe("deepseek-v4-flash-vision-exp");
   });
 
+  it("sends only the first two images to the visual model", async () => {
+    const prisma = {
+      item: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "item-many-images",
+          titleRaw: "仮面ライダー DX ベルト",
+          titleZh: null,
+          descriptionRaw: null,
+          descriptionZh: null,
+          priceCurrent: 4_000,
+          shippingFee: 800,
+          favorite: true,
+          purchaseRecord: null,
+          images: [
+            { url: "https://example.com/one.jpg" },
+            { url: "https://example.com/two.jpg" },
+            { url: "https://example.com/three.jpg" },
+          ],
+          logistics: null,
+        }),
+      },
+      itemLogistics: {
+        upsert: vi.fn(),
+      },
+    };
+    const productAi = {
+      execute: vi.fn().mockResolvedValue({
+        data: { weightGrams: 620 },
+        model: "fixture-vision",
+        cached: false,
+        fallbackUsed: false,
+      }),
+    };
+    const service = new LogisticsService(
+      prisma as never,
+      {} as never,
+      productAi as never,
+    );
+
+    await service.predictItem("item-many-images");
+
+    expect(productAi.execute).toHaveBeenCalledWith(
+      "image_analysis",
+      expect.objectContaining({
+        imageUrls: [
+          "https://example.com/one.jpg",
+          "https://example.com/two.jpg",
+        ],
+      }),
+    );
+  });
+
   it("keeps the unverified marker when AI fills a missing field beside manual notes", async () => {
     const prisma = {
       item: {
