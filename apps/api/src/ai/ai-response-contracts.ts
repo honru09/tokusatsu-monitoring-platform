@@ -58,6 +58,11 @@ export type SellerProfileResponse = {
   suggestedPrice: number | null;
 };
 
+export type BundleNegotiationResponse = {
+  scriptJa: string;
+  scriptZh: string;
+};
+
 export type VisionClassificationResponse = VisionClassification &
   Record<string, unknown>;
 
@@ -689,6 +694,28 @@ export const SELLER_PROFILE_SCHEMA = recordResponseSchema(
         0,
         100_000_000,
       ) as number | null,
+    })),
+);
+
+export const BUNDLE_NEGOTIATION_SCHEMA = recordResponseSchema(
+  "bundle.negotiation",
+  1,
+  (value) =>
+    validateRecord<BundleNegotiationResponse>(value, (record, issues) => ({
+      scriptJa: requiredString(
+        record,
+        "scriptJa",
+        "scriptJa",
+        issues,
+        MAX_LONG_TEXT,
+      ) as string,
+      scriptZh: requiredString(
+        record,
+        "scriptZh",
+        "scriptZh",
+        issues,
+        MAX_LONG_TEXT,
+      ) as string,
     })),
 );
 

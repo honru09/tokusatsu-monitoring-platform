@@ -20,10 +20,19 @@ import {
   UpdateShareRoundItemDto,
 } from "./collaboration.dto.js";
 import { CollaborationService } from "./collaboration.service.js";
+import { NegotiationScriptService } from "./negotiation-script.service.js";
 
 @Controller("collaboration")
 export class CollaborationController {
-  constructor(private readonly collaboration: CollaborationService) {}
+  constructor(
+    private readonly collaboration: CollaborationService,
+    private readonly negotiationScript: NegotiationScriptService,
+  ) {}
+
+  @Post("share-rounds/:id/negotiation-script")
+  shareRoundNegotiationScript(@Param("id") id: string) {
+    return this.negotiationScript.negotiationScript(id);
+  }
 
   @Get("accounts")
   accounts(@Query("accountId") accountId?: string) {

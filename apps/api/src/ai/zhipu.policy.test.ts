@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { assertAiScope, conservativeTokenReservation, imageReservationTokens, normalizeScopedRequest, zhipuResourcePolicy } from "./zhipu.policy.js";
-import { candidatesForTask, routeForProvider } from "./ai-router.js";
+import { assertAiScope, conservativeTokenReservation, extendedAiScopesEnabled, imageReservationTokens, normalizeScopedRequest, zhipuResourcePolicy } from "./zhipu.policy.js";
+import { candidatesForTask, routeFor, routeForProvider } from "./ai-router.js";
 import { configuredProviderRuntimes } from "./ai-provider-registry.js";
 afterEach(()=>vi.unstubAllEnvs());
 describe("scoped Zhipu resource policy",()=>{
@@ -8,6 +8,37 @@ describe("scoped Zhipu resource policy",()=>{
     for(const task of ["market_analysis","crawler_diagnosis","seller_analysis","logistics_analysis","bulk_filter","cross_validation"] as const) expect(()=>assertAiScope(task)).toThrow(/仅用于/);
     expect(()=>assertAiScope("complex_analysis")).toThrow();
     expect(()=>assertAiScope("complex_analysis","product_reading")).not.toThrow();
+  });
+  it("keeps extended scopes off unless the flag is explicitly enabled",()=>{
+    expect(extendedAiScopesEnabled()).toBe(false);
+    for(const task of ["seller_analysis","bundle_negotiation"] as const){
+      expect(()=>assertAiScope(task)).toThrow(/仅用于/);
+      expect(routeFor(task)).toEqual([]);
+      expect(routeForProvider(task,"zhipu")).toEqual([]);
+      expect(candidatesForTask(task,["zhipu"],{costPolicy:"free_first",requiresVision:false})).toEqual([]);
+    }
+    vi.stubEnv("AI_EXTENDED_SCOPES_ENABLED","false");
+    expect(extendedAiScopesEnabled()).toBe(false);
+    expect(()=>assertAiScope("seller_analysis")).toThrow(/仅用于/);
+    expect(()=>assertAiScope("bundle_negotiation")).toThrow(/仅用于/);
+  });
+  it("allows extended scopes only when the flag is on",()=>{
+    for(const value of ["true","1"]){
+      vi.stubEnv("AI_EXTENDED_SCOPES_ENABLED",value);
+      expect(extendedAiScopesEnabled()).toBe(true);
+      expect(()=>assertAiScope("seller_analysis")).not.toThrow();
+      expect(()=>assertAiScope("bundle_negotiation")).not.toThrow();
+      expect(routeFor("seller_analysis")).toEqual(["glm-5.3-flash"]);
+      expect(routeFor("bundle_negotiation")).toEqual(["glm-5.3-flash"]);
+      expect(candidatesForTask("seller_analysis",["zhipu"],{costPolicy:"free_first",requiresVision:false})).toEqual([{provider:"zhipu",model:"glm-5.3-flash",costTier:"promotion"}]);
+      expect(candidatesForTask("bundle_negotiation",["zhipu"],{costPolicy:"free_first",requiresVision:false})).toEqual([{provider:"zhipu",model:"glm-5.3-flash",costTier:"promotion"}]);
+      // The flag does not widen any other task.
+      for(const task of ["market_analysis","crawler_diagnosis","logistics_analysis","bulk_filter","cross_validation"] as const) expect(()=>assertAiScope(task)).toThrow(/仅用于/);
+      expect(routeFor("market_analysis")).toEqual([]);
+      expect(()=>assertAiScope("translation")).not.toThrow();
+      expect(()=>assertAiScope("assistant_chat")).not.toThrow();
+      vi.unstubAllEnvs();
+    }
   });
   it("does not restore removed providers, wildcard routes or paid models from stale env",()=>{
     vi.stubEnv("BAI_API_KEY","fixture");vi.stubEnv("AI_PROVIDER_ORDER","ovo|bai");vi.stubEnv("AI_ROUTE_ZHIPU_TRANSLATION","*");

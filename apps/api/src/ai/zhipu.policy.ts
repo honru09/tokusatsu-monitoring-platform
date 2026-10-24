@@ -1,9 +1,17 @@
 import { ServiceUnavailableException, BadRequestException } from "@nestjs/common";
 import type { AiTask } from "./ai-router.js";
 export type AiPurpose = "product_reading" | "translation" | "assistant_chat";
+// Extended scopes (seller analysis and bundle negotiation scripts) stay off
+// unless the operator explicitly opts in; the gift resource package is only
+// approved for product reading, translation and chat.
+export function extendedAiScopesEnabled() {
+  const value = process.env.AI_EXTENDED_SCOPES_ENABLED;
+  return value === "true" || value === "1";
+}
 export function assertAiScope(task: AiTask, purpose?: AiPurpose) {
   if (task === "translation" || task === "assistant_chat") return;
   if (purpose === "product_reading" && ["complex_analysis", "image_analysis", "classification"].includes(task)) return;
+  if (extendedAiScopesEnabled() && (task === "seller_analysis" || task === "bundle_negotiation")) return;
   throw new ServiceUnavailableException({ code: "AI_SCOPE_DISABLED", message: "当前 AI 仅用于商品读取、翻译和聊天", retryable: false });
 }
 export function zhipuResourcePolicy() {

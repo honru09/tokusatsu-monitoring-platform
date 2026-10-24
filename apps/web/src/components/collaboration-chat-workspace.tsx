@@ -132,6 +132,95 @@ export function buildBundleShareText(
   ].join("\n\n");
 }
 
+export type NegotiationScriptGroupResult = {
+  sellerId: string | null;
+  sellerName: string | null;
+  itemIds: string[];
+  script: string;
+  fallback: boolean;
+};
+
+export function NegotiationScriptPanel({
+  roundId,
+  apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001",
+}: {
+  roundId: string;
+  apiBaseUrl?: string;
+}) {
+  const [groups, setGroups] = useState<NegotiationScriptGroupResult[] | null>(
+    null,
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  async function generate() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/collaboration/share-rounds/${encodeURIComponent(roundId)}/negotiation-script`,
+        { method: "POST" },
+      );
+      const payload = await readJsonResponse<{
+        roundId: string;
+        groups: NegotiationScriptGroupResult[];
+      }>(response, "生成讲价话术失败");
+      setGroups(payload.groups);
+    } catch {
+      setError("生成失败，请稍后重试");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copyScript(group: NegotiationScriptGroupResult) {
+    void navigator.clipboard?.writeText(group.script);
+    const key = group.sellerId ?? group.itemIds[0] ?? "group";
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey(null), 2000);
+  }
+
+  return (
+    <div className="negotiation-script-panel">
+      <button
+        type="button"
+        className="negotiation-script-generate"
+        disabled={busy}
+        onClick={() => void generate()}
+      >
+        {busy ? "生成中…" : "生成讲价话术"}
+      </button>
+      {error ? <p className="negotiation-script-error">{error}</p> : null}
+      {groups?.length === 0 ? (
+        <p className="negotiation-script-empty">本轮暂无可生成话术的商品</p>
+      ) : null}
+      {groups?.map((group) => {
+        const key = group.sellerId ?? group.itemIds[0] ?? "group";
+        return (
+          <div key={key} className="negotiation-script-group">
+            <div className="negotiation-script-group-head">
+              <strong>{group.sellerName ?? "卖家未知"}</strong>
+              <span>{group.itemIds.length} 件</span>
+              {group.fallback ? (
+                <span className="negotiation-script-fallback-badge">模板</span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => copyScript(group)}
+              >
+                {copiedKey === key ? "已复制" : "复制"}
+              </button>
+            </div>
+            <pre className="negotiation-script-text">{group.script}</pre>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 type MessageReaction = {
   id: string;
   accountId: string;
@@ -913,6 +1002,7 @@ export function CollaborationChatWorkspace({
   onActivityChanged,
   active = true,
   onOpenOperations,
+  shareRoundId = null,
 }: {
   apiBaseUrl: string;
   account: ManagerAccount;
@@ -929,6 +1019,7 @@ export function CollaborationChatWorkspace({
   onActivityChanged: () => void;
   active?: boolean;
   onOpenOperations?: () => void;
+  shareRoundId?: string | null;
 }) {
   const other = accounts.find((entry) => entry.id !== account.id) ?? null;
   const reduceMotion = useReducedMotion();
@@ -1634,6 +1725,14 @@ export function CollaborationChatWorkspace({
     visibleNegotiations,
     shareRounds,
   );
+  // The script panel acts on one round: an explicit prop wins, otherwise
+  // the newest round that has cases in this dialog, otherwise the newest
+  // round overall.
+  const negotiationScriptRoundId =
+    shareRoundId ??
+    visibleRoundGroups.find((group) => group.round)?.round?.id ??
+    shareRounds[0]?.id ??
+    null;
 
   const copyAttachedBundleShareText = () => {
     const parsed = bundleTargetPrice.trim()
@@ -2330,6 +2429,12 @@ export function CollaborationChatWorkspace({
                       全部移入不感兴趣
                     </button>
                   )}
+                {negotiationScriptRoundId ? (
+                  <NegotiationScriptPanel
+                    roundId={negotiationScriptRoundId}
+                    apiBaseUrl={apiBaseUrl}
+                  />
+                ) : null}
                 <div className="negotiation-dialog-list">
                   {visibleNegotiations.length ? (
                     visibleRoundGroups.map((roundGroup) => (

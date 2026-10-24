@@ -27,6 +27,7 @@ import { LogisticsModule } from "./logistics/logistics.module.js";
 import { InventoryOrdersModule } from "./inventory-orders/inventory-orders.module.js";
 import { CollaborationController } from "./collaboration/collaboration.controller.js";
 import { CollaborationService } from "./collaboration/collaboration.service.js";
+import { NegotiationScriptService } from "./collaboration/negotiation-script.service.js";
 import { ResaleModule } from "./resale/resale.module.js";
 
 @Module({
@@ -59,6 +60,7 @@ import { ResaleModule } from "./resale/resale.module.js";
     CartService,
     ExchangeRateService,
     CollaborationService,
+    NegotiationScriptService,
   ],
 })
 export class AppModule {}
