@@ -778,13 +778,18 @@ export function providerCredentialEnvironmentName(
   return runtimePrimaryCredential(spec).environmentName;
 }
 
-function activationReason(spec: ProviderSpec) {
+function credentialConfiguredFor(spec: ProviderSpec) {
   const primary = runtimePrimaryCredential(spec);
-  const credentialConfigured = Boolean(
+  return Boolean(
     primary.key ||
       (spec.translationKeyEnv && process.env[spec.translationKeyEnv]?.trim()) ||
       (spec.secondaryKeyEnv && process.env[spec.secondaryKeyEnv]?.trim()),
   );
+}
+
+function activationReason(spec: ProviderSpec) {
+  const primary = runtimePrimaryCredential(spec);
+  const credentialConfigured = credentialConfiguredFor(spec);
   if (!credentialConfigured) return "missing_credentials" as const;
   if (!validAccountId(spec)) return "invalid_or_missing_account_id" as const;
   if (!resolveApiUrl(spec, primary.configuredApiUrl))
@@ -846,4 +851,36 @@ export function providerConfigurationStatuses(): ProviderConfigurationStatus[] {
 
 export function providerLabel(provider: AiProvider) {
   return PROVIDER_SPECS[provider].label;
+}
+
+/** Whether a provider id has a runtime spec in this registry at all. */
+export function providerIsRegistered(provider: string): provider is AiProvider {
+  return Object.prototype.hasOwnProperty.call(PROVIDER_SPECS, provider);
+}
+
+/**
+ * Presence check only: whether any credential for the provider resolves
+ * through the same environment names the runtime uses. This does not build
+ * a runtime and does not apply the activation gate; routing stays fail
+ * closed elsewhere.
+ */
+export function providerCredentialConfigured(provider: AiProvider) {
+  const spec = PROVIDER_SPECS[provider];
+  return spec ? credentialConfiguredFor(spec) : false;
+}
+
+/**
+ * Model ids the repository itself can name for a provider without asking
+ * the provider: the spec's static route, or its catalogue fallbacks (the
+ * operator-configured fallback list first, mirroring runtimeFor).
+ */
+export function providerSpecModelIds(provider: AiProvider) {
+  const spec = PROVIDER_SPECS[provider];
+  if (!spec) return [];
+  if (spec.staticModelIds?.length) return [...spec.staticModelIds];
+  const configured = configuredModelList(
+    `AI_${spec.id.toUpperCase()}_CATALOGUE_FALLBACK_MODELS`,
+  );
+  if (configured.size > 0) return [...configured];
+  return [...(spec.catalogueFallbackModelIds ?? [])];
 }

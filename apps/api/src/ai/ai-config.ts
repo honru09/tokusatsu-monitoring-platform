@@ -46,6 +46,17 @@ export const AI_PRODUCT_READING_TASKS: readonly AiTask[] = ["complex_analysis", 
 // Extended scopes stay off unless the operator explicitly opts in; the gift
 // resource package is only approved for product reading, translation and chat.
 export const AI_EXTENDED_TASKS: readonly AiTask[] = ["seller_analysis", "bundle_negotiation"];
+
+// Routing tiers. Bulk work is exactly the scoped set above (the title_parsing
+// operation rides on the classification task, so it is bulk through it);
+// high-value work is exactly the extended scopes. Tasks in neither list have
+// no tier and no route.
+export type AiTaskTier = "bulk" | "high_value";
+export const AI_BULK_TASKS: readonly AiTask[] = AI_SCOPED_TASKS;
+export const AI_HIGH_VALUE_TASKS: readonly AiTask[] = AI_EXTENDED_TASKS;
+// Optional operator setting: the provider id that should take high-value
+// tasks when it is fully configured (see ai-router.ts). Unset in production.
+export const AI_PREMIUM_PROVIDER_ID_ENV = "AI_PREMIUM_PROVIDER_ID";
 export function extendedAiScopesEnabled() {
   const value = process.env.AI_EXTENDED_SCOPES_ENABLED;
   return value === "true" || value === "1";
