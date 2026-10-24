@@ -454,3 +454,17 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
   .procurement-shell .procurement-grid .product-card-actions {gap:5px;padding-top:6px;}
   .procurement-shell .procurement-grid .product-card-more-actions {right:8px !important;width:calc(100% - 16px) !important;}
 }
+
+/* Catalog toolbar on phones: the actions row stays on one line and
+   scrolls sideways instead of wrapping over itself (the mode pill and
+   the filter count used to collide), and the sticky bar gets an opaque
+   surface so cards no longer show through it while scrolling. */
+@media(max-width:639px) {
+  .procurement-shell .catalog-toolbar {background:#fff !important;}
+  .procurement-shell .catalog-actions {flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
+  .procurement-shell .catalog-actions::-webkit-scrollbar {display:none;}
+  .procurement-shell .catalog-actions>* {flex:0 0 auto;}
+  .procurement-shell .catalog-mode-switch {flex:0 0 auto;}
+  .procurement-shell .catalog-mode-switch button {flex:0 0 auto;white-space:nowrap;}
+  .procurement-shell .catalog-actions :is(.catalog-filter-button,.catalog-clear-button) {white-space:nowrap;}
+}

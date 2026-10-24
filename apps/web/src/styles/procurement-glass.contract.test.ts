@@ -70,6 +70,18 @@ describe("procurement glass layout contracts", () => {
     );
   });
 
+  it("keeps the catalog toolbar on one scrollable line with an opaque surface on phones", () => {
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.catalog-toolbar\s*\{\s*background:\s*#fff\s*!important/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.catalog-actions\s*\{[^}]*flex-wrap:\s*nowrap[^}]*overflow-x:\s*auto/,
+    );
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.catalog-mode-switch\s*\{\s*flex:\s*0 0 auto/,
+    );
+  });
+
   it("keeps the card stationary when reaching its gallery arrows", () => {
     for (const source of [globals, polish, finalLayer]) {
       const hover = source.match(/\.product-card:hover\s*\{([^{}]*)\}/)?.[1];
