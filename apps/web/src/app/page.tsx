@@ -1404,7 +1404,6 @@ function ProductCard({
   onPatch,
   onIgnore,
   onPurchase,
-  onSeller,
   exchangeRate,
   inCart,
   onCart,
@@ -1422,7 +1421,6 @@ function ProductCard({
   onPatch: (patch: Partial<Item>) => void | Promise<void | boolean>;
   onIgnore: () => void;
   onPurchase: () => void;
-  onSeller: (sellerId: string) => void;
   exchangeRate?: number;
   inCart: boolean;
   onCart: () => void | Promise<void | boolean>;
@@ -1456,6 +1454,10 @@ function ProductCard({
     finally { actionInFlightRef.current = false; setPendingAction(null); feedbackTimerRef.current = setTimeout(()=>setActionFeedback(null),2400); }
   }
   const cost = listingCostSummary(item);
+  const knownShipping =
+    item.shippingFee != null &&
+    Number.isFinite(item.shippingFee) &&
+    item.shippingFee >= 0;
   const auction = useLiveAuctionTimeline(item, serverOffset, nowTick);
   const displayTitle = itemDisplayTitle(
     item,
@@ -1465,6 +1467,9 @@ function ProductCard({
   const productTags = Array.from(
     new Set(
       [
+        item.categoryIp && item.categoryIp !== "unknown"
+          ? labels[item.categoryIp]
+          : null,
         item.listingType === "unknown" ? "交易方式待识别" : null,
         item.shfLine ? labels[item.shfLine] : null,
         item.product?.series?.nameZh,
@@ -1560,6 +1565,11 @@ function ProductCard({
               {tag}
             </span>
           ))}
+          {item.needsReview && (
+            <span className="rounded bg-amber-100 px-1.5 py-1 text-[10px] font-bold text-amber-800">
+              待复核
+            </span>
+          )}
         </div>
         <button
           onClick={onOpen}
@@ -1567,13 +1577,6 @@ function ProductCard({
         >
           {displayTitle}
         </button>
-        {item.product && (
-          <div className="product-card-standard mt-1 flex items-center justify-between gap-2 text-[10px] text-ink/50">
-            <span className="truncate">
-              关联来源 · {item.product._count?.listings ?? 1} 条记录
-            </span>
-          </div>
-        )}
         <div className="product-card-market product-card-decision mt-2">
           <dl>
             <div className="product-card-total">
@@ -1590,60 +1593,52 @@ function ProductCard({
               <dd>{fmtYen(cost.unit)}</dd>
             </div>
           </dl>
+          <div className="product-card-price-split text-[11px] tabular-nums text-ink/55">
+            标价 {fmtYen(item.priceCurrent)}
+            {knownShipping
+              ? item.shippingFee === 0
+                ? " · 包邮"
+                : ` + 邮费 ${fmtYen(item.shippingFee)}`
+              : ` · 邮费${shippingLabel(item)}`}
+            {knownShipping && item.shippingFee ? (
+              <small className="ml-1">
+                {fmtCny(item.shippingFee, exchangeRate)}
+              </small>
+            ) : null}
+          </div>
           <YahooDiscount
             sourceKey={item.source.key}
             priceYen={item.priceCurrent}
             exchangeRate={exchangeRate}
           />
-          <div className="product-card-cost-evidence">
-            <span>
-              邮费 {shippingLabel(item)}
-              {item.shippingFee != null && (
-                <small>{fmtCny(item.shippingFee, exchangeRate)}</small>
-              )}
-            </span>
-            {item.valueKing ? (
-              <span
-                className="product-card-value-king"
-                title={item.valueKing.facts.join(" · ")}
-              >
-                <b aria-hidden="true">♛</b>
-                {item.valueKing.label}
-              </span>
-            ) : chinaPrice && chinaSourceUrl ? (
-              <a
-                className="product-card-china-reference"
-                href={chinaSourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`打开${chinaComparison.platformName}原商品，中国参考价 ${chinaPrice}`}
-                title={`${chinaComparison.platformName}参考价 ${chinaPrice}`}
-              >
-                {chinaComparison.platformName}同款 {chinaPrice}
-              </a>
-            ) : null}
-          </div>
+          {(item.valueKing || (chinaPrice && chinaSourceUrl)) && (
+            <div className="product-card-cost-evidence">
+              {item.valueKing ? (
+                <span
+                  className="product-card-value-king"
+                  title={item.valueKing.facts.join(" · ")}
+                >
+                  <b aria-hidden="true">♛</b>
+                  {item.valueKing.label}
+                </span>
+              ) : chinaPrice && chinaSourceUrl ? (
+                <a
+                  className="product-card-china-reference"
+                  href={chinaSourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`打开${chinaComparison.platformName}原商品，中国参考价 ${chinaPrice}`}
+                  title={`${chinaComparison.platformName}参考价 ${chinaPrice}`}
+                >
+                  {chinaComparison.platformName}同款 {chinaPrice}
+                </a>
+              ) : null}
+            </div>
+          )}
         </div>
-        <div className="product-card-seller mt-2 flex items-center justify-between gap-1.5 text-[10px] text-ink/50">
-          <button
-            type="button"
-            disabled={!item.seller?.id}
-            aria-label={
-              item.seller?.id
-                ? `查看卖家：${item.seller.name}`
-                : "卖家信息不可用"
-            }
-            onClick={(event) => {
-              event.stopPropagation();
-              if (item.seller?.id) onSeller(item.seller.id);
-            }}
-            className="min-w-0 flex-1 truncate text-left transition-colors hover:text-ink disabled:cursor-default"
-          >
-            <span className="mr-1 text-ink/35">卖家</span>
-            {item.seller?.name ?? "卖家未知"}
-          </button>
-          <div className="flex shrink-0 items-center gap-1">
-            {onToggleBundleShare && (
+        {onToggleBundleShare && (
+          <div className="product-card-seller mt-2 flex items-center justify-end gap-1.5 text-[10px] text-ink/50">
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 onClick={(event) => {
@@ -1667,21 +1662,9 @@ function ProductCard({
               >
                 {inBundleShare ? "✓ 已凑" : "+ 凑单"}
               </button>
-            )}
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setShowOriginal((current) => !current);
-              }}
-              aria-label={showOriginal ? "切换为中文" : "切换为原文"}
-              title={showOriginal ? "中文" : "原文"}
-              className="product-card-language-toggle shrink-0"
-            >
-              {showOriginal ? "中" : "原"}
-            </button>
+            </div>
           </div>
-        </div>
+        )}
         {item.note && (
           <div className="product-card-note mt-1">
             <button
@@ -1704,15 +1687,6 @@ function ProductCard({
           </div>
         )}
         <div className="product-card-actions relative mt-auto grid grid-cols-3 gap-1.5 pt-1">
-          {chinaPrice && chinaSourceUrl && (
-            <span
-              className="xianyu-card-logo"
-              aria-label="已有可信闲鱼同款对比"
-              title="已有可信闲鱼同款对比"
-            >
-              闲鱼
-            </span>
-          )}
           <button
             onClick={() => void runAction("favorite",()=>onPatch({ favorite: !item.favorite }),item.favorite ? "已取消收藏" : "已收藏")}
             disabled={pendingAction !== null}
@@ -8070,7 +8044,6 @@ export default function Dashboard() {
                           onPatch={(patch) => patchItem(item.id, patch)}
                           onIgnore={() => setIgnoreItem(item)}
                           onPurchase={() => setPurchaseItem(item)}
-                          onSeller={(sellerId) => setSellerId(sellerId)}
                           exchangeRate={exchangeRate?.rate}
                           inCart={cart.items.some(
                             (entry) => entry.id === item.id,
@@ -8954,7 +8927,6 @@ export default function Dashboard() {
                         onPatch={(patch) => patchItem(item.id, patch)}
                         onIgnore={() => setIgnoreItem(item)}
                         onPurchase={() => setPurchaseItem(item)}
-                        onSeller={(sellerId) => setSellerId(sellerId)}
                         exchangeRate={exchangeRate?.rate}
                         inCart={cart.items.some(
                           (entry) => entry.id === item.id,
@@ -9175,7 +9147,6 @@ export default function Dashboard() {
                         onPatch={(patch) => patchItem(item.id, patch)}
                         onIgnore={() => setIgnoreItem(item)}
                         onPurchase={() => setPurchaseItem(item)}
-                        onSeller={(sellerId) => setSellerId(sellerId)}
                         exchangeRate={exchangeRate?.rate}
                         inCart={cart.items.some(
                           (entry) => entry.id === item.id,

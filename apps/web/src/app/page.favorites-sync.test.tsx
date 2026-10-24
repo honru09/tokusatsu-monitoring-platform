@@ -1048,10 +1048,22 @@ describe("Dashboard favorite synchronization", () => {
 
     await renderAsManager({ catalog: true });
     await waitFor(() => expect(host.textContent).toContain("进入卖家页"));
-    const sellerButton = host.querySelector(
-      'button[aria-label="查看卖家：测试卖家"]',
+    // Cards no longer carry a seller entry; it lives in the detail drawer.
+    expect(
+      host.querySelector('button[aria-label="查看卖家：测试卖家"]'),
+    ).toBeNull();
+    const titleButton = [...host.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "进入卖家页",
     ) as HTMLButtonElement;
-    expect(sellerButton).not.toBeNull();
+    expect(titleButton).toBeDefined();
+    act(() => titleButton.click());
+    await waitFor(() =>
+      expect(document.body.textContent).toContain("查看同店商品 / 凑单"),
+    );
+    const sellerButton = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent?.includes("查看同店商品 / 凑单"),
+    ) as HTMLButtonElement;
+    expect(sellerButton).toBeDefined();
     act(() => sellerButton.click());
     await waitFor(() =>
       expect(document.body.textContent).toContain(
@@ -1080,6 +1092,62 @@ describe("Dashboard favorite synchronization", () => {
       path: `/items/${sellerItem.id}`,
       cache: "no-store",
     });
+  });
+
+  it("slims the card: IP tag first, review marker, split price, bundle kept, no seller row or per-card language toggle", async () => {
+    const item = makeItem({
+      id: "card-slim",
+      titleRaw: "カード スリム",
+      titleZh: "卡片精简验收",
+      favorite: false,
+      priceCurrent: 1_000,
+      shippingFee: 500,
+      categoryIp: "kamen_rider",
+      needsReview: true,
+      seller: {
+        id: "seller-1",
+        name: "测试卖家",
+        sellerType: "individual",
+      },
+    });
+    createApi({ inventory: [item], favorites: [] });
+
+    await renderAsManager({ catalog: true });
+    await waitFor(() =>
+      expect(host.querySelector('[data-item-id="card-slim"]')).not.toBeNull(),
+    );
+    const card = host.querySelector(
+      '[data-item-id="card-slim"]',
+    ) as HTMLElement;
+
+    const tags = card.querySelector(".product-card-tags");
+    expect(tags?.textContent).toContain("假面骑士");
+    expect(
+      tags?.querySelector("span")?.textContent?.trim(),
+    ).toBe("假面骑士");
+    expect(tags?.textContent).toContain("待复核");
+
+    // Total stays prominent and the split line shows both of its parts.
+    expect(card.textContent).toContain("¥1,500");
+    expect(card.textContent).toContain("标价 ¥1,000 + 邮费 ¥500");
+    // Shipping is not shown twice.
+    expect(card.textContent?.match(/邮费/g)).toHaveLength(1);
+
+    // The bundle toggle survives the seller-row removal.
+    expect(
+      card.querySelector('button[aria-label="加入集合分享篮"]'),
+    ).not.toBeNull();
+    expect(card.textContent).toContain("+ 凑单");
+
+    // Removed rows stay removed on the card itself.
+    expect(card.textContent).not.toContain("测试卖家");
+    expect(card.textContent).not.toContain("卖家未知");
+    expect(
+      card.querySelector('button[aria-label="查看卖家：测试卖家"]'),
+    ).toBeNull();
+    expect(card.querySelector(".product-card-language-toggle")).toBeNull();
+    expect(card.querySelector(".product-card-standard")).toBeNull();
+    expect(card.querySelector(".xianyu-card-logo")).toBeNull();
   });
 
   it("keeps detail editing collapsed, validates quantity, and recovers from save failures", async () => {
