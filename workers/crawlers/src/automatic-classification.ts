@@ -75,6 +75,7 @@ export function automaticClassificationContentVersion(
 export type AiJobItemState = {
   status?: string | null;
   archivedAt?: Date | string | null;
+  deletedAt?: Date | string | null;
   ignored?: boolean | null;
   importOrigin?: string | null;
   purchaseRecord?: unknown;
@@ -83,6 +84,7 @@ export type AiJobItemState = {
 export type AiJobAbortReason =
   | "item_not_live"
   | "item_archived"
+  | "item_deleted"
   | "item_ignored"
   | "item_purchased";
 
@@ -118,6 +120,7 @@ export function aiJobAbortReason(
     )
   )
     return "item_archived";
+  if (item.deletedAt != null) return "item_deleted";
   if (item.ignored) return "item_ignored";
   if (item.purchaseRecord != null && !options.allowPurchaseRecord)
     return "item_purchased";

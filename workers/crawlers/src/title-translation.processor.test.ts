@@ -63,6 +63,16 @@ describe("automatic title translation", () => {
       "http://api:3001/analysis/translate?costPolicy=free_only",
       expect.objectContaining({ method: "POST" }),
     );
+    expect(dbMock.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ deletedAt: null }),
+      }),
+    );
+    expect(dbMock.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ deletedAt: null }),
+      }),
+    );
   });
 });
 

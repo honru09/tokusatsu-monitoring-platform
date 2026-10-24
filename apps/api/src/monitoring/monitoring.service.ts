@@ -181,6 +181,7 @@ export class MonitoringService {
         WHERE item."detectedAt" >= ${trendSince}
           AND item."status"::text IN ('active', 'unknown')
           AND item."archivedAt" IS NULL
+          AND item."deleted_at" IS NULL
           AND item."ignored" = FALSE
           AND item."channel"::text = 'online'
           AND item."categoryToyType"::text <> 'card'

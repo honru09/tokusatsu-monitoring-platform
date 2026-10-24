@@ -277,6 +277,7 @@ export class AnalysisService {
   async market() {
     const where = {
       archivedAt: null,
+      deletedAt: null,
       channel: "online",
       purchaseRecord: null,
       ignored: false,

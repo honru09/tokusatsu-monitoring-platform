@@ -97,6 +97,7 @@ const collaborationSelect = {
   ignored: true,
   ignoredAt: true,
   archivedAt: true,
+  deletedAt: true,
   status: true,
   purchaseRecord: { select: { id: true } },
   note: true,
@@ -154,6 +155,7 @@ function samePreferenceState(
 function canReturnToDiscovery(item: CollaborationItem) {
   return (
     !item.archivedAt &&
+    !item.deletedAt &&
     !item.purchaseRecord &&
     (item.status === ItemStatus.active || item.status === ItemStatus.unknown) &&
     !item.favorite &&
@@ -552,7 +554,7 @@ export class DiscoveryService {
         where: { id: body.listingId },
         select: collaborationSelect,
       });
-      if (!listing || listing.archivedAt)
+      if (!listing || listing.archivedAt || listing.deletedAt)
         throw new NotFoundException("商品已下架或不存在");
       const record = await tx.discoveryFeedback.create({
         data: {
@@ -695,6 +697,8 @@ export class DiscoveryService {
           if (!before) throw new NotFoundException("商品已不存在");
           if (before.archivedAt)
             throw new ConflictException("商品已归档，不能恢复到发现页");
+          if (before.deletedAt)
+            throw new ConflictException("商品已被删除，不能恢复到发现页");
           if (before.purchaseRecord)
             throw new ConflictException("已购买商品不能恢复到发现页");
           if (
@@ -725,6 +729,7 @@ export class DiscoveryService {
                 ? new Date(appliedState.ignoredAt)
                 : null,
               archivedAt: null,
+              deletedAt: null,
               status: { in: [ItemStatus.active, ItemStatus.unknown] },
               purchaseRecord: { is: null },
             },

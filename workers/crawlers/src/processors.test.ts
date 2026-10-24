@@ -955,7 +955,7 @@ describe("excluded collectible maintenance", () => {
       }),
     );
     expect(updateMany).toHaveBeenCalledWith({
-      where: { id: "book-1", archivedAt: null, purchaseRecord: null },
+      where: { id: "book-1", archivedAt: null, deletedAt: null, purchaseRecord: null },
       data: { archivedAt: now },
     });
     expect(createAudit).toHaveBeenCalledWith({

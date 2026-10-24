@@ -1467,3 +1467,183 @@ describe("ItemsService.purchase receipt limits", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
+
+describe("ItemsService.removeItem", () => {
+  const liveItem = {
+    id: "deleted-item",
+    favorite: false,
+    ignored: false,
+    ignoredAt: null,
+    ignoredReason: null,
+    archivedAt: null,
+    deletedAt: null,
+    status: "active",
+    productId: "product-1",
+    note: null,
+    updatedAt: new Date("2026-10-24T00:00:00.000Z"),
+  };
+
+  function deleteHarness(current: unknown, txItemRow: unknown) {
+    const updated = {
+      id: "deleted-item",
+      favorite: false,
+      ignored: false,
+      ignoredAt: null,
+      ignoredReason: null,
+      archivedAt: null,
+      deletedAt: new Date("2026-10-25T00:00:00.000Z"),
+      note: null,
+      updatedAt: new Date("2026-10-25T00:00:00.000Z"),
+      product: { marketComparisons: [] },
+    };
+    const tx = {
+      item: {
+        findUnique: vi.fn().mockResolvedValue(txItemRow),
+        update: vi.fn().mockResolvedValue(updated),
+      },
+      shoppingCartItem: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 2 }),
+      },
+      manualReview: { create: vi.fn().mockResolvedValue({}) },
+      managerActivity: { create: vi.fn().mockResolvedValue({}) },
+      discoveryFeedback: { create: vi.fn().mockResolvedValue({}) },
+    };
+    const prisma = {
+      item: { findUnique: vi.fn().mockResolvedValue(current) },
+      $transaction: vi.fn(
+        async (callback: (client: typeof tx) => unknown) => callback(tx),
+      ),
+    };
+    return { tx, prisma, service: new ItemsService(prisma as never) };
+  }
+
+  it("stamps only the tombstone, clears cart rows and writes a plain audit row", async () => {
+    const { tx, service } = deleteHarness(liveItem, {
+      deletedAt: null,
+      purchaseRecord: null,
+      resaleListing: null,
+    });
+
+    await expect(
+      service.removeItem("deleted-item", { actor: "manager-1" }),
+    ).resolves.toMatchObject({ deleted: true });
+
+    expect(tx.item.update).toHaveBeenCalledTimes(1);
+    expect(tx.item.update).toHaveBeenCalledWith({
+      where: { id: "deleted-item" },
+      data: { deletedAt: expect.any(Date) },
+      select: expect.objectContaining({ deletedAt: true }),
+    });
+    expect(tx.shoppingCartItem.deleteMany).toHaveBeenCalledWith({
+      where: { itemId: "deleted-item" },
+    });
+    expect(tx.manualReview.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        itemId: "deleted-item",
+        actor: "manager-1",
+        reason: "manual_delete",
+      }),
+    });
+    // Pure delete is not a preference signal.
+    expect(tx.managerActivity.create).not.toHaveBeenCalled();
+    expect(tx.discoveryFeedback.create).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent for an already deleted item", async () => {
+    const { tx, prisma, service } = deleteHarness(
+      { ...liveItem, deletedAt: new Date("2026-10-25T00:00:00.000Z") },
+      null,
+    );
+
+    await expect(service.removeItem("deleted-item")).resolves.toMatchObject({
+      deleted: true,
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.item.update).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for an unknown item", async () => {
+    const { service } = deleteHarness(null, null);
+    await expect(service.removeItem("missing-item")).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+
+  it.each([
+    ["a purchase record", { purchaseRecord: { id: "purchase-1" }, resaleListing: null }],
+    ["a resale listing", { purchaseRecord: null, resaleListing: { id: "resale-1" } }],
+  ])("refuses to delete an item with %s", async (_label, relations) => {
+    const { tx, service } = deleteHarness(liveItem, {
+      deletedAt: null,
+      ...relations,
+    });
+    await expect(service.removeItem("deleted-item")).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(tx.item.update).not.toHaveBeenCalled();
+    expect(tx.shoppingCartItem.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("hides a deleted item from get while the audit trail stays readable", async () => {
+    const prisma = {
+      item: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValue({ ...liveItem, deletedAt: new Date() }),
+      },
+      manualReview: { findMany: vi.fn().mockResolvedValue([{ id: "review-1" }]) },
+    };
+    const service = new ItemsService(prisma as never);
+    await expect(service.get("deleted-item")).rejects.toMatchObject({
+      status: 404,
+    });
+    await expect(service.audit("deleted-item")).resolves.toEqual([
+      { id: "review-1" },
+    ]);
+  });
+
+  it("keeps deleted rows out of the list query", async () => {
+    const prisma = {
+      item: {
+        findMany: vi.fn().mockResolvedValue([]),
+        count: vi.fn().mockResolvedValue(0),
+      },
+      $transaction: vi.fn(async (queries: Promise<unknown>[]) =>
+        Promise.all(queries),
+      ),
+    };
+    const service = new ItemsService(prisma as never);
+    await service.list({ limit: 40, offset: 0 } as ListItemsQuery);
+    expect(prisma.item.findMany.mock.calls[0][0].where).toMatchObject({
+      deletedAt: null,
+    });
+  });
+
+  it("publishes the tombstone through the collaborative changes feed", async () => {
+    const createdAt = new Date("2026-10-25T00:00:00.000Z");
+    const service = new ItemsService({
+      manualReview: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "review-delete",
+            itemId: "deleted-item",
+            createdAt,
+            beforeData: { id: "deleted-item", deletedAt: null },
+            afterData: {
+              id: "deleted-item",
+              deletedAt: "2026-10-25T00:00:00.000Z",
+            },
+          },
+        ]),
+      },
+    } as never);
+    const result = await service.changes("2026-10-24T00:00:00.000Z");
+    expect(result.changes).toEqual([
+      {
+        id: "deleted-item",
+        deletedAt: "2026-10-25T00:00:00.000Z",
+        updatedAt: createdAt.toISOString(),
+      },
+    ]);
+  });
+});

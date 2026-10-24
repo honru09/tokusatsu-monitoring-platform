@@ -1,6 +1,7 @@
 export type MarketListingAvailability = {
   status?: string | null;
   archivedAt?: string | null;
+  deletedAt?: string | null;
   ignored?: boolean;
   purchaseRecord?: unknown;
   listingType?: string;
@@ -17,7 +18,8 @@ export function isAvailableMarketListing(
   item: MarketListingAvailability,
   now = Date.now(),
 ): boolean {
-  if (item.ignored || item.archivedAt || item.purchaseRecord) return false;
+  if (item.ignored || item.archivedAt || item.deletedAt || item.purchaseRecord)
+    return false;
   if (item.status && item.status !== "active" && item.status !== "unknown")
     return false;
   if (item.listingType === "auction" && item.auctionEndAt) {

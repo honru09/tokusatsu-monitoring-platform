@@ -11,6 +11,7 @@ const now = new Date("2026-10-09T02:00:00Z");
 const source = {
   status: "active" as const,
   archivedAt: null,
+  deletedAt: null,
   ignored: false,
   listingType: "direct" as const,
   lastSeenAt: now,
@@ -43,6 +44,11 @@ describe("resale publication eligibility", () => {
       ),
     ).toContain("过期");
     expect(source.status).toBe("active");
+  });
+  it("blocks a deleted source with its own reason", () => {
+    expect(
+      sourceBlockReason({ ...source, deletedAt: now }, listing, 10, now),
+    ).toBe("货源已被删除");
   });
   it("blocks auctions and archived sources", () => {
     expect(

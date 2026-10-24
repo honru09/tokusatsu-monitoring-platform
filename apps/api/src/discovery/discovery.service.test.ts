@@ -1225,3 +1225,78 @@ describe("DiscoveryService", () => {
     expect(prisma.item.updateMany).not.toHaveBeenCalled();
   });
 });
+
+describe("DiscoveryService deleted listings", () => {
+  const deletedListing = {
+    id: "listing-deleted",
+    productId: null,
+    favorite: false,
+    ignored: true,
+    ignoredAt: new Date("2026-09-05T08:00:00.000Z"),
+    archivedAt: null,
+    deletedAt: new Date("2026-10-25T00:00:00.000Z"),
+    status: "active",
+    purchaseRecord: null,
+    note: null,
+    updatedAt: new Date(),
+  };
+
+  it("rejects feedback for a deleted listing without writing a feedback row", async () => {
+    const { prisma, service } = serviceWith();
+    prisma.item.findUnique.mockResolvedValue({ ...deletedListing });
+
+    await expect(
+      service.feedback({
+        listingId: "listing-deleted",
+        action: "dislike",
+        position: 0,
+      }),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(prisma.discoveryFeedback.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps deleted listings out of the feed query", async () => {
+    const { prisma, service } = serviceWith();
+    prisma.item.findMany.mockResolvedValue([]);
+    prisma.item.count.mockResolvedValue(0);
+
+    await service.feed(12, "direct");
+
+    const wheres = prisma.item.findMany.mock.calls
+      .map(
+        (call: unknown[]) =>
+          (call[0] as { where?: unknown } | undefined)?.where,
+      )
+      .filter(Boolean);
+    expect(wheres.length).toBeGreaterThan(0);
+    for (const where of wheres)
+      expect(where).toMatchObject({ deletedAt: null });
+  });
+
+  it("cannot undo a dislike back onto a deleted listing", async () => {
+    const { prisma, service } = serviceWith();
+    prisma.discoveryFeedback.findUnique.mockResolvedValue({
+      id: "feedback-dislike",
+      listingId: "listing-deleted",
+      productId: null,
+      action: DiscoveryAction.dislike,
+      position: 3,
+      undoEvents: [],
+    });
+    prisma.manualReview.findFirst.mockResolvedValue({
+      beforeData: { favorite: false, ignored: false, ignoredAt: null },
+      afterData: {
+        favorite: false,
+        ignored: true,
+        ignoredAt: deletedListing.ignoredAt.toISOString(),
+      },
+    });
+    prisma.item.findUnique.mockResolvedValue({ ...deletedListing });
+
+    await expect(service.undo("feedback-dislike")).rejects.toThrow(
+      "商品已被删除，不能恢复到发现页",
+    );
+    expect(prisma.item.updateMany).not.toHaveBeenCalled();
+    expect(prisma.discoveryFeedback.create).not.toHaveBeenCalled();
+  });
+});

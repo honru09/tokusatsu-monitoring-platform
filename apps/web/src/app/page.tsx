@@ -165,6 +165,7 @@ type Item = {
   ignoredReason?: string | null;
   importOrigin?: "search" | "url";
   archivedAt?: string | null;
+  deletedAt?: string | null;
   normalizedTitle?: string | null;
   fieldConfidences?: Record<string, unknown> | null;
   extractionEvidence?: Record<string, unknown> | null;
@@ -979,6 +980,23 @@ function ArchiveIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
+function TrashIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
 function BagIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg
@@ -1406,6 +1424,7 @@ function ProductCard({
   onOpen,
   onPatch,
   onIgnore,
+  onDelete,
   onPurchase,
   exchangeRate,
   inCart,
@@ -1423,6 +1442,7 @@ function ProductCard({
   onOpen: () => void;
   onPatch: (patch: Partial<Item>) => void | Promise<void | boolean>;
   onIgnore: () => void;
+  onDelete: () => void;
   onPurchase: () => void;
   exchangeRate?: number;
   inCart: boolean;
@@ -1727,7 +1747,7 @@ function ProductCard({
           </button>
         </div>
         {moreActionsOpen && (
-          <motion.div data-apple-motion-owned className={`product-card-more-actions ${transactionStyles.moreMenu} absolute bottom-[68px] right-3 z-30 grid w-[204px] grid-cols-4 gap-1.5 rounded-2xl border border-ink/10 bg-white/95 p-2 shadow-modal`} initial={reduceMotion || !pointerInputRef.current ? false : {opacity:0,transform:"translateY(10px) scale(.94)"}} animate={{opacity:1,transform:"translateY(0px) scale(1)"}} transition={reduceMotion || !pointerInputRef.current ? {duration:0} : springs.appleSpatial}>
+          <motion.div data-apple-motion-owned className={`product-card-more-actions ${transactionStyles.moreMenu} absolute bottom-[68px] right-3 z-30 grid w-[248px] grid-cols-5 gap-1.5 rounded-2xl border border-ink/10 bg-white/95 p-2 shadow-modal`} initial={reduceMotion || !pointerInputRef.current ? false : {opacity:0,transform:"translateY(10px) scale(.94)"}} animate={{opacity:1,transform:"translateY(0px) scale(1)"}} transition={reduceMotion || !pointerInputRef.current ? {duration:0} : springs.appleSpatial}>
             <button
               onClick={() => {
                 setMoreActionsOpen(false);
@@ -1738,6 +1758,17 @@ function ProductCard({
               className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-rust/40 hover:text-rust"
             >
               <ArchiveIcon />
+            </button>
+            <button
+              onClick={() => {
+                setMoreActionsOpen(false);
+                onDelete();
+              }}
+              aria-label="删除商品"
+              title="删除"
+              className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-rust/40 hover:text-rust"
+            >
+              <TrashIcon />
             </button>
             <button
               onClick={() => {
@@ -5218,6 +5249,91 @@ function IgnoreConfirmationDialog({
   );
 }
 
+function DeleteConfirmationDialog({
+  item,
+  translatedTitle,
+  onCancel,
+  onConfirm,
+}: {
+  item: Item;
+  translatedTitle?: string;
+  onCancel: () => void;
+  onConfirm: () => Promise<void | boolean>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  async function confirm() {
+    setSaving(true);
+    setFailed(false);
+    try {
+      const ok = await onConfirm();
+      if (ok === false) {
+        setFailed(true);
+        return;
+      }
+      onCancel();
+    } finally {
+      setSaving(false);
+    }
+  }
+  return createPortal(
+    <div
+      className="modal-backdrop absolute inset-0 z-[70] grid place-items-center bg-ink/60 p-4"
+      onMouseDown={saving ? undefined : onCancel}
+    >
+      <section
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+        className="modal-panel w-full max-w-sm rounded-3xl bg-paper p-5 shadow-modal"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="grid h-11 w-11 place-items-center rounded-full bg-rust/10 text-rust">
+          <TrashIcon className="h-5 w-5" />
+        </div>
+        <h2 id="delete-dialog-title" className="mt-4 text-lg font-black">
+          删除这件商品？
+        </h2>
+        <p
+          id="delete-dialog-description"
+          className="mt-2 line-clamp-2 text-sm leading-6 text-ink/60"
+        >
+          {itemDisplayTitle(item, "zh", translatedTitle)}
+        </p>
+        <p className="mt-3 text-sm leading-6 text-ink/60">
+          删除只把这件商品从平台移除，不影响扫描与推荐，也不会进入不感兴趣列表；删除后无法恢复。
+        </p>
+        {failed && (
+          <p role="alert" className="mt-3 text-sm font-bold text-rust">
+            删除失败，商品已恢复显示，请重试。
+          </p>
+        )}
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            autoFocus
+            disabled={saving}
+            onClick={onCancel}
+            className="min-h-11 rounded-lg border border-ink/15 bg-white px-4 text-sm font-bold text-ink transition-colors hover:bg-fog disabled:opacity-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void confirm()}
+            className="min-h-11 rounded-lg bg-rust px-4 text-sm font-black text-white transition-colors hover:bg-rust/90 disabled:opacity-50"
+          >
+            {saving ? "处理中…" : "确认删除"}
+          </button>
+        </div>
+      </section>
+    </div>,
+    getShellOverlayRoot(),
+  );
+}
+
 export default function Dashboard() {
   const dashboardRef = useRef<HTMLElement>(null);
   const analyzedUrlTimerRef = useRef<number | null>(null);
@@ -5373,6 +5489,7 @@ export default function Dashboard() {
   const [analysis, setAnalysis] = useState<MarketAnalysis | null>(null);
   const [purchaseItem, setPurchaseItem] = useState<Item | null>(null);
   const [ignoreItem, setIgnoreItem] = useState<Item | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Item | null>(null);
   const [dislikedItems, setDislikedItems] = useState<Item[]>([]);
   const [dislikedTotal, setDislikedTotal] = useState(0);
   const [dislikedPage, setDislikedPage] = useState(1);
@@ -6654,6 +6771,7 @@ export default function Dashboard() {
       !filtersOpen &&
       !selected &&
       !purchaseItem &&
+      !deleteItem &&
       !ignoreItem &&
       !analysisOpen &&
       !settingsOpen &&
@@ -6671,6 +6789,7 @@ export default function Dashboard() {
       if (filtersOpen) setFiltersOpen(false);
       else if (selected) return;
       else if (purchaseItem) setPurchaseItem(null);
+      else if (deleteItem) setDeleteItem(null);
       else if (ignoreItem) setIgnoreItem(null);
       else if (analysisOpen) setAnalysisOpen(false);
       else if (settingsOpen) setSettingsOpen(false);
@@ -6691,6 +6810,7 @@ export default function Dashboard() {
     settingsOpen,
     purchaseReceiptPreview,
     filtersOpen,
+    deleteItem,
     ignoreItem,
     purchaseItem,
     selected,
@@ -7307,6 +7427,81 @@ export default function Dashboard() {
       apply(previous);
       publishFavoriteChanges([{ item: previous, patch: previous }]);
       setError(reason instanceof Error ? reason.message : "保存失败");
+      return false;
+    }
+  }
+
+  async function deleteItemRequest(id: string): Promise<boolean> {
+    const previous =
+      items.find((item) => item.id === id) ??
+      linkItems.find((item) => item.id === id) ??
+      urgentAuctionPool.find((item) => item.id === id) ??
+      cart.items.find((item) => item.id === id) ??
+      (selected?.id === id ? selected : undefined);
+    if (!previous) return false;
+    const optimistic = {
+      ...previous,
+      deletedAt: new Date().toISOString(),
+    } as Item;
+    const apply = (value: Item) => {
+      setItems((current) =>
+        current
+          .map((item) => (item.id === id ? { ...item, ...value } : item))
+          .filter((item) => isAvailableMarketListing(item)),
+      );
+      setLinkItems((current) =>
+        current
+          .map((item) => (item.id === id ? { ...item, ...value } : item))
+          .filter((item) => isAvailableMarketListing(item)),
+      );
+      setUrgentAuctionPool((current) =>
+        current
+          .map((item) => (item.id === id ? { ...item, ...value } : item))
+          .filter((item) => isAvailableMarketListing(item)),
+      );
+      setCart((current) => ({
+        ...current,
+        items: current.items.filter((item) => item.id !== id),
+      }));
+      setBundleShareItems((current) =>
+        current.filter((item) => item.id !== id),
+      );
+      if (value.deletedAt) {
+        setSelected((current) => (current?.id === id ? null : current));
+      } else {
+        setSelected((current) =>
+          current?.id === id ? { ...current, ...value } : current,
+        );
+      }
+    };
+    const restore = () => {
+      setItems((current) =>
+        current.some((item) => item.id === id) ? current : [previous, ...current],
+      );
+      apply({ ...previous, deletedAt: null });
+      setCart((current) =>
+        current.items.some((item) => item.id === id)
+          ? current
+          : { ...current, items: [...current.items, previous] },
+      );
+    };
+    apply(optimistic);
+    publishFavoriteChanges([{ item: optimistic, patch: optimistic }]);
+    try {
+      const response = await fetch(`${API}/items/${id}`, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          actor: activeManagerId || "dashboard-operator",
+        }),
+      });
+      if (!response.ok) throw new Error(`删除失败（API ${response.status}）`);
+      publishFavoriteChanges([{ item: optimistic, patch: optimistic }]);
+      return true;
+    } catch (reason) {
+      restore();
+      publishFavoriteChanges([{ item: previous, patch: previous }]);
+      setError(reason instanceof Error ? reason.message : "删除失败");
       return false;
     }
   }
@@ -8085,6 +8280,7 @@ export default function Dashboard() {
                           onOpen={() => openItemDetail(item)}
                           onPatch={(patch) => patchItem(item.id, patch)}
                           onIgnore={() => setIgnoreItem(item)}
+                          onDelete={() => setDeleteItem(item)}
                           onPurchase={() => setPurchaseItem(item)}
                           exchangeRate={exchangeRate?.rate}
                           inCart={cart.items.some(
@@ -8976,6 +9172,7 @@ export default function Dashboard() {
                         onOpen={() => openItemDetail(item)}
                         onPatch={(patch) => patchItem(item.id, patch)}
                         onIgnore={() => setIgnoreItem(item)}
+                        onDelete={() => setDeleteItem(item)}
                         onPurchase={() => setPurchaseItem(item)}
                         exchangeRate={exchangeRate?.rate}
                         inCart={cart.items.some(
@@ -9196,6 +9393,7 @@ export default function Dashboard() {
                         onOpen={() => openItemDetail(item)}
                         onPatch={(patch) => patchItem(item.id, patch)}
                         onIgnore={() => setIgnoreItem(item)}
+                        onDelete={() => setDeleteItem(item)}
                         onPurchase={() => setPurchaseItem(item)}
                         exchangeRate={exchangeRate?.rate}
                         inCart={cart.items.some(
@@ -9521,6 +9719,18 @@ export default function Dashboard() {
         request={purchaseReceiptPreview}
         onClose={() => setPurchaseReceiptPreview(null)}
       />
+      {deleteItem && (
+        <DeleteConfirmationDialog
+          item={deleteItem}
+          translatedTitle={translations[`${deleteItem.id}:title`]}
+          onCancel={() => setDeleteItem(null)}
+          onConfirm={async () => {
+            const ok = await deleteItemRequest(deleteItem.id);
+            if (ok) await syncChanges().catch(() => undefined);
+            return ok;
+          }}
+        />
+      )}
       {ignoreItem && (
         <IgnoreConfirmationDialog
           item={ignoreItem}

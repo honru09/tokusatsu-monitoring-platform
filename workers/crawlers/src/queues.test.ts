@@ -259,6 +259,7 @@ describe("status refresh queue compaction", () => {
       where: {
         id: { in: ["item-active", "item-inactive"] },
         archivedAt: null,
+        deletedAt: null,
         ignored: false,
         status: { in: ["active", "unknown"] },
         channel: "online",
@@ -313,6 +314,7 @@ describe("status refresh queue compaction", () => {
     expect(dbMock.findItems).toHaveBeenCalledWith({
       where: {
         archivedAt: null,
+        deletedAt: null,
         ignored: false,
         status: { in: ["active", "unknown"] },
         channel: "online",
@@ -621,6 +623,7 @@ describe("Mercari historical seller backfill", () => {
           },
         ],
         archivedAt: null,
+        deletedAt: null,
         status: { in: ["active", "unknown"] },
       },
       orderBy: { id: "asc" },

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -11,6 +12,7 @@ import { ItemsService } from "./items.service.js";
 import {
   AnalyzePurchaseLinksDto,
   AnalyzeUrlDto,
+  DeleteItemDto,
   CreatePurchaseBundleDto,
   ItemChangesQuery,
   ListItemsQuery,
@@ -120,6 +122,11 @@ export class ItemsController {
   @Patch(":id")
   update(@Param("id") id: string, @Body() body: UpdateItemDto) {
     return this.items.update(id, body);
+  }
+
+  @Delete(":id")
+  remove(@Param("id") id: string, @Body() body: DeleteItemDto) {
+    return this.items.removeItem(id, body ?? {});
   }
 
   @Post(":id/purchase")

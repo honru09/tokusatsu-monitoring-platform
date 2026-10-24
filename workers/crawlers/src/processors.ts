@@ -251,6 +251,7 @@ async function markSearchItemTerminal(
     itemId,
     where: {
       archivedAt: null,
+      deletedAt: null,
       ignored: false,
       purchaseRecord: null,
       status: { in: ["active", "unknown"] },
@@ -942,6 +943,7 @@ export async function processSearch(job: Job<SearchJobData>) {
         sourceItemId: true,
         status: true,
         archivedAt: true,
+        deletedAt: true,
         ignored: true,
         purchaseRecord: { select: { id: true } },
         imageCount: true,
@@ -981,6 +983,7 @@ export async function processSearch(job: Job<SearchJobData>) {
             itemId: known.id,
             where: {
               archivedAt: null,
+              deletedAt: null,
               status: "unknown",
               ignored: false,
               purchaseRecord: null,
@@ -999,7 +1002,10 @@ export async function processSearch(job: Job<SearchJobData>) {
       if (!(await refreshMonitoringRule())) break;
       const known = existingBySourceId.get(result.sourceItemId);
       if (known) {
-        if (monitoringKeyword)
+        // A deleted listing leaves no trace at all: no keyword-match record
+        // and no further processing. Other known rows keep recording their
+        // match before the eligibility skip below.
+        if (monitoringKeyword && !known.deletedAt)
           await recordMonitoringKeywordMatch(
             known.id,
             monitoringKeyword.id,
@@ -1007,6 +1013,7 @@ export async function processSearch(job: Job<SearchJobData>) {
           );
         if (
           known.archivedAt ||
+          known.deletedAt ||
           known.ignored ||
           known.purchaseRecord ||
           !isStatusRefreshEligible(known.status)
@@ -1065,6 +1072,7 @@ export async function processSearch(job: Job<SearchJobData>) {
                 itemId: known.id,
                 where: {
                   archivedAt: null,
+                  deletedAt: null,
                   ignored: false,
                   favorite: false,
                   purchaseRecord: null,
@@ -1277,6 +1285,7 @@ export async function backfillMissingItemImages() {
     const candidates = await prisma.item.findMany({
       where: {
         images: { none: {} },
+        deletedAt: null,
         OR: [{ archivedAt: null }, { purchaseRecord: { isNot: null } }],
         ...(cursor ? { id: { gt: cursor } } : {}),
       },
@@ -1521,6 +1530,7 @@ async function enrichKnownItem(
     itemId,
     where: {
       archivedAt: null,
+      deletedAt: null,
       ignored: false,
       purchaseRecord: null,
       status: { in: ["active", "unknown"] },
@@ -1696,6 +1706,34 @@ export async function processUrlAnalysis(
         where: { id: job.data.importId },
         data: { progress: 75, currentStep: "商品已解析，正在写入链接专区" },
       });
+    const existingRow = await prisma.item.findUnique({
+      where: {
+        sourceId_sourceItemId: {
+          sourceId: source.id,
+          sourceItemId: normalized.sourceItemId,
+        },
+      },
+      select: { id: true, deletedAt: true },
+    });
+    if (existingRow?.deletedAt) {
+      await prisma.crawlJob.update({
+        where: { id: crawlJob.id },
+        data: { status: "succeeded", finishedAt: new Date() },
+      });
+      if (job.data.importId)
+        await prisma.urlImport.update({
+          where: { id: job.data.importId },
+          data: {
+            status: "failed",
+            progress: 100,
+            currentStep: "商品已被删除",
+            errorText: "该商品已被删除，不会重新导入",
+            finishedAt: new Date(),
+            itemId: existingRow.id,
+          },
+        });
+      return { itemId: existingRow.id, skipped: "deleted" as const };
+    }
     const saved = await persistNormalized(
       source.id,
       normalized,
@@ -1951,6 +1989,7 @@ async function persistNormalized(
     monitoringCategory?.scope !== "general" &&
     (saved.status === "active" || saved.status === "unknown") &&
     !saved.ignored &&
+    !saved.deletedAt &&
     (!saved.archivedAt || importOrigin === "purchase") &&
     imageUrls.length > 0 &&
     shouldQueueAutomaticClassification({ ...item, imageUrls })
@@ -2040,6 +2079,7 @@ async function classificationItemStillEligible(itemId: string) {
     select: {
       status: true,
       archivedAt: true,
+      deletedAt: true,
       ignored: true,
       importOrigin: true,
       purchaseRecord: { select: { id: true } },
@@ -2725,6 +2765,7 @@ export async function processStatus(
   if (!current) return { skipped: "missing_item" };
   if (
     current.archivedAt ||
+    current.deletedAt ||
     current.ignored ||
     current.purchaseRecord ||
     !isStatusRefreshEligible(current.status)
@@ -2771,7 +2812,7 @@ export async function processStatus(
       if (isExcludedNormalizedItem(normalized)) {
         await updateMarketWithAudit({
           itemId: current.id,
-          where: { archivedAt: null, ignored: false, purchaseRecord: null },
+          where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
           data: { archivedAt: new Date(), lastSeenAt: new Date() },
           actor: "inventory-maintenance",
           reason: "excluded_collectible_archived",
@@ -2816,6 +2857,7 @@ export async function processStatus(
     itemId: current.id,
     where: {
       archivedAt: null,
+      deletedAt: null,
       ignored: false,
       purchaseRecord: null,
       status: { in: ["active", "unknown"] },
@@ -2872,6 +2914,7 @@ export async function archiveExcludedCollectibles(now = new Date()) {
     const candidates = await prisma.item.findMany({
       where: {
         archivedAt: null,
+        deletedAt: null,
         purchaseRecord: null,
         ...(cursor ? { id: { gt: cursor } } : {}),
       },
@@ -2884,6 +2927,7 @@ export async function archiveExcludedCollectibles(now = new Date()) {
         ignored: true,
         ignoredAt: true,
         archivedAt: true,
+        deletedAt: true,
       },
       orderBy: { id: "asc" },
       take: 5000,
@@ -2906,6 +2950,7 @@ export async function archiveExcludedCollectibles(now = new Date()) {
           where: {
             id: item.id,
             archivedAt: null,
+            deletedAt: null,
             purchaseRecord: null,
           },
           data: { archivedAt: now },
@@ -2939,6 +2984,7 @@ export async function archiveLowQualitySearchInventory(now = new Date()) {
       where: {
         importOrigin: "search",
         archivedAt: null,
+        deletedAt: null,
         ignored: false,
         favorite: false,
         purchaseRecord: null,
@@ -2984,6 +3030,7 @@ export async function archiveLowQualitySearchInventory(now = new Date()) {
             importOrigin: "search",
             monitoringCategoryId: item.monitoringCategoryId,
             archivedAt: null,
+            deletedAt: null,
             ignored: false,
             favorite: false,
             purchaseRecord: null,
@@ -3042,6 +3089,7 @@ export async function processCleanup() {
     const terminal = await prisma.item.findMany({
       where: {
         archivedAt: null,
+        deletedAt: null,
         purchaseRecord: null,
         OR: [
           { status: { in: ["sold", "ended"] } },
@@ -3063,6 +3111,7 @@ export async function processCleanup() {
             itemId: item.id,
             where: {
               archivedAt: null,
+              deletedAt: null,
               purchaseRecord: null,
               OR: [
                 { status: { in: ["sold", "ended"] } },

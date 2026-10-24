@@ -250,6 +250,7 @@ export class ResaleService implements OnModuleInit, OnModuleDestroy {
       status: "active",
       listingType: "direct",
       archivedAt: null,
+      deletedAt: null,
       ignored: false,
       purchaseRecord: null,
       resaleListing: null,

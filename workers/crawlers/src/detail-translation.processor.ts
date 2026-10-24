@@ -194,6 +194,7 @@ export async function processDetailTranslationBatch(
  * archived or terminal listings that were not purchased.
  */
 const detailTranslationItemWhere: Prisma.ItemWhereInput = {
+  deletedAt: null,
   ignored: false,
   categoryToyType: { not: ToyType.card },
   OR: [

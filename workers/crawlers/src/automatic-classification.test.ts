@@ -75,6 +75,16 @@ describe("run-time AI job abort predicate", () => {
     expect(aiJobAbortReason({})).toBeNull();
   });
 
+  it("aborts a deleted listing even when it otherwise looks live", () => {
+    expect(
+      aiJobAbortReason({ ...liveItem, deletedAt: new Date() }),
+    ).toBe("item_deleted");
+    expect(
+      shouldAbortAiJobForItem({ ...liveItem, deletedAt: new Date() }),
+    ).toBe(true);
+    expect(aiJobAbortReason({ ...liveItem, deletedAt: null })).toBeNull();
+  });
+
   it("aborts terminal, archived, ignored, and purchased listings", () => {
     expect(aiJobAbortReason({ ...liveItem, status: "sold" })).toBe(
       "item_not_live",

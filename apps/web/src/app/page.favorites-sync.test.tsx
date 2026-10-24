@@ -71,6 +71,7 @@ type TestItem = {
   listingType: "direct" | "auction";
   auctionEndAt?: string | null;
   archivedAt?: string | null;
+  deletedAt?: string | null;
   categoryIp: string;
   categoryToyType: string;
   manufacturer: string;
@@ -606,6 +607,20 @@ describe("Dashboard favorite synchronization", () => {
     const listRequests = api.fetchMock.mock.calls.filter(([input]) => new URL(String(input), "http://localhost").pathname === "/items").length;
 
     await api.sync([{ id: item.id, status: "sold", updatedAt: "2026-09-01T00:00:03.000Z" }]);
+
+    await waitFor(() => expect(host.textContent).not.toContain(item.titleZh));
+    expect(host.querySelector("#inventory")?.textContent).toContain("0 件");
+    expect(api.fetchMock.mock.calls.filter(([input]) => new URL(String(input), "http://localhost").pathname === "/items").length).toBe(listRequests);
+  });
+
+  it("removes a deleted inventory item from a tombstone sync without reloading the page", async () => {
+    const item = makeItem({ titleZh: "已被删除的商品", titleRaw: "已被删除的商品" });
+    const api = createApi({ inventory: [item], favorites: [] });
+    await renderAsManager({ catalog: true });
+    await waitFor(() => expect(host.textContent).toContain(item.titleZh));
+    const listRequests = api.fetchMock.mock.calls.filter(([input]) => new URL(String(input), "http://localhost").pathname === "/items").length;
+
+    await api.sync([{ id: item.id, deletedAt: "2026-09-01T00:00:03.000Z", updatedAt: "2026-09-01T00:00:03.000Z" }]);
 
     await waitFor(() => expect(host.textContent).not.toContain(item.titleZh));
     expect(host.querySelector("#inventory")?.textContent).toContain("0 件");

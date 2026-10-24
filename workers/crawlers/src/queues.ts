@@ -154,6 +154,7 @@ export async function compactPendingStatusJobs() {
       where: {
         id: { in: pendingItemIds.slice(index, index + 5000) },
         archivedAt: null,
+        deletedAt: null,
         ignored: false,
         status: { in: ["active", "unknown"] },
         channel: "online",
@@ -263,6 +264,7 @@ async function repairStatusRefreshCoverage() {
     const items = await prisma.item.findMany({
       where: {
         archivedAt: null,
+        deletedAt: null,
         ignored: false,
         status: { in: ["active", "unknown"] },
         channel: "online",
@@ -440,6 +442,7 @@ export async function compactPendingClassificationJobs() {
       select: {
         id: true,
         archivedAt: true,
+        deletedAt: true,
         ignored: true,
         importOrigin: true,
         status: true,
@@ -689,6 +692,7 @@ async function scheduleYahooSellerBackfill() {
       sourceId: yahooSource.id,
       seller: { name: "Yahoo!オークション出品者" },
       archivedAt: null,
+      deletedAt: null,
       status: { in: ["active", "unknown"] },
     },
     select: {
@@ -756,6 +760,7 @@ async function scheduleYahooSellerBackfill() {
       items: {
         where: {
           archivedAt: null,
+          deletedAt: null,
           status: { in: ["active", "unknown"] },
         },
         orderBy: { lastSeenAt: "desc" },
@@ -784,6 +789,7 @@ async function scheduleYahooSellerBackfill() {
       source: { key: "yahoo_auctions" },
       seller: { name: "Yahoo!オークション出品者" },
       archivedAt: null,
+      deletedAt: null,
       status: { in: ["active", "unknown"] },
     },
     select: {
@@ -877,6 +883,7 @@ export async function scheduleMercariSellerBackfill() {
           },
         ],
         archivedAt: null,
+        deletedAt: null,
         status: { in: ["active", "unknown"] },
         ...(cursor ? { id: { gt: cursor } } : {}),
       },
@@ -969,6 +976,7 @@ async function scheduleYahooFleamarketSellerBackfill() {
           },
         ],
         archivedAt: null,
+        deletedAt: null,
         status: { in: ["active", "unknown"] },
         ...(cursor ? { id: { gt: cursor } } : {}),
       },
@@ -1148,6 +1156,7 @@ export async function schedulePendingAutomaticClassifications() {
     const items = await prisma.item.findMany({
       where: {
         archivedAt: null,
+        deletedAt: null,
         ignored: false,
         purchaseRecord: null,
         status: { in: ["active", "unknown"] },
@@ -1296,6 +1305,7 @@ export async function scheduleJobs() {
       where: {
         // Match the detail-translation backlog query: live listings, plus
         // purchased items whose inventory translation is still wanted.
+        deletedAt: null,
         ignored: false,
         categoryToyType: { not: "card" },
         translationStatus: { not: "completed" },
@@ -1325,6 +1335,7 @@ export async function scheduleJobs() {
       where: {
         titleZh: null,
         archivedAt: null,
+        deletedAt: null,
         ignored: false,
         purchaseRecord: null,
         status: { in: ["active", "unknown"] },

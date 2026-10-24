@@ -278,6 +278,7 @@ model Item {
   matchConfidence          Float?                   @map("match_confidence")
   matchDecision            MatchDecision            @default(unmatched) @map("match_decision")
   archivedAt               DateTime?
+  deletedAt                DateTime?                @map("deleted_at")
   note                     String?
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
@@ -317,6 +318,7 @@ model Item {
   @@index([detectedAt])
   @@index([listedAt])
   @@index([archivedAt, status])
+  @@index([deletedAt, status])
   @@index([importOrigin, createdAt])
   @@index([productId])
   @@index([sellerId])

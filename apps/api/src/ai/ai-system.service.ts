@@ -280,6 +280,7 @@ export class AiSystemService {
         this.prisma.item.count({
           where: {
             archivedAt: null,
+            deletedAt: null,
             ignored: false,
             translationStatus: { not: "completed" },
             categoryToyType: { not: "card" },
@@ -677,6 +678,7 @@ export class AiSystemService {
     const asksCheap = /便宜|最低|低价|性价比|划算|预算|价格/i.test(message);
     const itemWhere: Prisma.ItemWhereInput = {
       archivedAt: null,
+      deletedAt: null,
       ignored: false,
       channel: "online",
       purchaseRecord: null,

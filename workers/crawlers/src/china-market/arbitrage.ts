@@ -151,6 +151,7 @@ async function loadJapanReverseSearchReference(productId: string) {
       listings: {
         where: {
           archivedAt: null,
+          deletedAt: null,
           ignored: false,
           status: { in: ["active", "unknown"] },
           source: { comparisonOnly: false },
@@ -573,6 +574,7 @@ export async function refreshCrossMarketOpportunitiesForProduct(
       where: {
         productId,
         archivedAt: null,
+        deletedAt: null,
         ignored: false,
         status: { in: ["active", "unknown"] },
         source: {
@@ -614,6 +616,7 @@ export async function refreshReadyCrossMarketOpportunitiesForItem(
     select: {
       productId: true,
       archivedAt: true,
+      deletedAt: true,
       ignored: true,
       status: true,
       source: { select: { key: true, comparisonOnly: true } },
@@ -622,6 +625,7 @@ export async function refreshReadyCrossMarketOpportunitiesForItem(
   if (
     !item?.productId ||
     item.archivedAt != null ||
+    item.deletedAt != null ||
     item.ignored ||
     !["active", "unknown"].includes(item.status) ||
     item.source.comparisonOnly ||

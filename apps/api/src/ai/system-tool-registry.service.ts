@@ -213,7 +213,7 @@ export class SystemToolRegistryService {
             manufacturerEntity: true,
             toyTypeEntity: true,
             listings: {
-              where: { archivedAt: null },
+              where: { archivedAt: null, deletedAt: null },
               take: 12,
               select: this.itemProjection(),
             },
@@ -253,7 +253,7 @@ export class SystemToolRegistryService {
             _count: { _all: true },
           }),
           this.prisma.item.count({
-            where: { archivedAt: null, ignored: false, purchaseRecord: null },
+            where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
           }),
           this.prisma.purchaseRecord.count(),
         ]);
@@ -261,12 +261,12 @@ export class SystemToolRegistryService {
         return Promise.all([
           this.prisma.item.groupBy({
             by: ["listingType"],
-            where: { archivedAt: null, ignored: false, purchaseRecord: null },
+            where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
             _count: { _all: true },
           }),
           this.prisma.item.groupBy({
             by: ["categoryIp", "categoryToyType"],
-            where: { archivedAt: null, ignored: false, purchaseRecord: null },
+            where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
             _count: { _all: true },
             orderBy: { _count: { categoryIp: "desc" } },
             take: 30,
@@ -311,7 +311,7 @@ export class SystemToolRegistryService {
       case "category_stats":
         return this.prisma.item.groupBy({
           by: ["categoryIp", "categoryToyType"],
-          where: { archivedAt: null, ignored: false },
+          where: { archivedAt: null, deletedAt: null, ignored: false },
           _count: { _all: true },
           _avg: { priceCurrent: true, quantityEst: true },
           orderBy: { _count: { categoryIp: "desc" } },
@@ -749,6 +749,7 @@ export class SystemToolRegistryService {
   private listingWhere(terms: string[]): Prisma.ItemWhereInput {
     return {
       archivedAt: null,
+      deletedAt: null,
       ignored: false,
       channel: "online",
       categoryToyType: { not: "card" },

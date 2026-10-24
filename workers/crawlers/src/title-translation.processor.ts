@@ -58,6 +58,7 @@ export async function processTitleTranslation() {
     where: {
       titleZh: null,
       archivedAt: null,
+      deletedAt: null,
       ignored: false,
       purchaseRecord: null,
       status: { in: ["active", "unknown"] },
@@ -135,6 +136,7 @@ function countPending() {
     where: {
       titleZh: null,
       archivedAt: null,
+      deletedAt: null,
       ignored: false,
       purchaseRecord: null,
       status: { in: ["active", "unknown"] },

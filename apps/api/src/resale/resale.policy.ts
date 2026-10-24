@@ -36,6 +36,7 @@ export function sourceBlockReason(
     Item,
     | "status"
     | "archivedAt"
+    | "deletedAt"
     | "ignored"
     | "listingType"
     | "lastSeenAt"
@@ -46,6 +47,7 @@ export function sourceBlockReason(
   freshMinutes: number,
   now = new Date(),
 ) {
+  if (item.deletedAt) return "货源已被删除";
   if (item.archivedAt || item.ignored)
     return "货源已归档或忽略，请重新选择货源";
   if (terminalSourceStatuses.has(item.status))

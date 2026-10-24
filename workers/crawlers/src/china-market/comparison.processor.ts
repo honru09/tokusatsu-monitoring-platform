@@ -348,6 +348,7 @@ async function loadProductReference(productId: string) {
       listings: {
         where: {
           archivedAt: null,
+          deletedAt: null,
           ignored: false,
           status: { in: ["active", "unknown"] },
           source: { key: { in: [...JAPAN_REFERENCE_SOURCE_KEYS] } },
@@ -556,6 +557,7 @@ export async function dispatchChinaMarketComparisons() {
   );
   const listingEvidence: Prisma.ItemWhereInput = {
     archivedAt: null,
+    deletedAt: null,
     ignored: false,
     status: { in: ["active", "unknown"] },
     source: { key: { in: [...JAPAN_REFERENCE_SOURCE_KEYS] } },

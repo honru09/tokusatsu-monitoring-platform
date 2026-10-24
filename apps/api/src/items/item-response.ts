@@ -443,6 +443,7 @@ function xianyuValueKingOpportunityResponse(
     listingType?: string | null;
     status?: string | null;
     archivedAt?: Date | string | null;
+    deletedAt?: Date | string | null;
     ignored?: boolean | null;
     purchaseRecord?: unknown;
     priceCurrent?: number | null;
@@ -459,6 +460,7 @@ function xianyuValueKingOpportunityResponse(
     item.listingType !== "direct" ||
     item.status !== "active" ||
     item.archivedAt ||
+    item.deletedAt ||
     item.ignored ||
     item.purchaseRecord ||
     item.shippingFee == null ||

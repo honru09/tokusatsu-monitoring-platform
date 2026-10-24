@@ -151,6 +151,10 @@ export class UpdateItemDto {
   @IsOptional() @IsString() actor?: string;
 }
 
+export class DeleteItemDto {
+  @IsOptional() @IsString() @Length(1, 120) actor?: string;
+}
+
 export class AnalyzeUrlDto {
   @IsOptional() @IsString() @MaxLength(20_000) url?: string;
   @IsOptional()

@@ -1,14 +1,14 @@
 import type { Prisma } from '@tokusatsu/db';
 
 export const valueKingPeerRelation = {
-  where:{listingType:'direct',status:'active',channel:'online',archivedAt:null,ignored:false,purchaseRecord:null,quantityEst:1,shippingFee:{not:null},sellerId:{not:null}},
+  where:{listingType:'direct',status:'active',channel:'online',archivedAt:null,deletedAt:null,ignored:false,purchaseRecord:null,quantityEst:1,shippingFee:{not:null},sellerId:{not:null}},
   select:{id:true,sellerId:true,priceCurrent:true,shippingFee:true,quantityEst:true,conditionGrade:true,lastSeenAt:true,shfLine:true,shfEdition:true,shfRegion:true,shfReleaseChannel:true},
   orderBy:{lastSeenAt:'desc'},take:20,
 } satisfies Prisma.ItemFindManyArgs;
 
 type Peer={id?:string;sellerId?:string|null;priceCurrent?:number|null;shippingFee?:number|null;quantityEst?:number|null;conditionGrade?:string|null;lastSeenAt?:Date|string|null;shfLine?:string|null;shfEdition?:string|null;shfRegion?:string|null;shfReleaseChannel?:string|null};
 export type ValueKingListing=Peer&{
-  listingType?:string;status?:string;channel?:string;archivedAt?:Date|string|null;ignored?:boolean;purchaseRecord?:unknown;
+  listingType?:string;status?:string;channel?:string;archivedAt?:Date|string|null;deletedAt?:Date|string|null;ignored?:boolean;purchaseRecord?:unknown;
   titleRaw?:string;descriptionRaw?:string|null;conditionRaw?:string|null;categoryIp?:string;categoryToyType?:string;collectibleSeries?:string|null;
   images?:unknown[];product?:{listings?:Peer[]}|null;
 };
@@ -22,7 +22,7 @@ const knownShipping=(value:unknown)=>typeof value==='number'&&Number.isFinite(va
 export function independentValueKing(item:ValueKingListing,now=new Date()) {
   const quantity=Number(item.quantityEst),text=`${item.titleRaw??''}\n${item.descriptionRaw??''}\n${item.conditionRaw??''}`;
   const observed=time(item.lastSeenAt),expires=observed+DAY;
-  if(item.listingType!=='direct'||item.status!=='active'||item.channel!=='online'||item.archivedAt||item.ignored||item.purchaseRecord||item.categoryToyType==='card'||
+  if(item.listingType!=='direct'||item.status!=='active'||item.channel!=='online'||item.archivedAt||item.deletedAt||item.ignored||item.purchaseRecord||item.categoryToyType==='card'||
     !goodPrice(item.priceCurrent)||!knownShipping(item.shippingFee)||!Number.isInteger(quantity)||quantity<1||
     !['new_sealed','like_new','used'].includes(item.conditionGrade??'')||!item.images?.length||
     (item.descriptionRaw?.trim().length??0)<24||!identity.test(text)||risk.test(text)||

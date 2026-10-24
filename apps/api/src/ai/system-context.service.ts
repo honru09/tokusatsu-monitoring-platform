@@ -51,12 +51,12 @@ export class SystemContextService {
     ] = await Promise.all([
       this.prisma.item.count(),
       this.prisma.item.count({
-        where: { archivedAt: null, ignored: false, purchaseRecord: null },
+        where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
       }),
       this.prisma.item.count({ where: { detectedAt: { gte: since24h } } }),
       this.prisma.item.groupBy({
         by: ["listingType"],
-        where: { archivedAt: null, ignored: false, purchaseRecord: null },
+        where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
         _count: { _all: true },
       }),
       this.prisma.source.findMany({

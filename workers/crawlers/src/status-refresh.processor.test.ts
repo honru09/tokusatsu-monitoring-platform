@@ -519,3 +519,57 @@ describe("authoritative availability refresh", () => {
     expect(store.refreshOpportunities).not.toHaveBeenCalled();
   });
 });
+
+describe("deleted listings stay out of every worker path", () => {
+  it("skips a status refresh for a deleted listing without probing the source", async () => {
+    store.findUnique.mockResolvedValue(
+      currentItem({ deletedAt: new Date("2026-10-08T00:00:00.000Z") }),
+    );
+    const refresh = vi
+      .spyOn(MercariAdapter.prototype, "refreshStatus")
+      .mockResolvedValue({ status: "active" });
+    await expect(processStatus(job())).resolves.toEqual({
+      skipped: "inactive_item",
+    });
+    expect(refresh).not.toHaveBeenCalled();
+    expect(store.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not record a keyword match or revive a deleted listing from search", async () => {
+    store.keyword.mockResolvedValue({
+      id: "keyword-1",
+      keyword: "new-brand",
+      normalizedKeyword: "new-brand",
+      enabled: true,
+      sourceKeys: [],
+      category: { scope: "general" },
+    });
+    store.findMany.mockResolvedValue([
+      currentItem({
+        status: "unknown",
+        deletedAt: new Date("2026-10-08T00:00:00.000Z"),
+      }),
+    ]);
+    vi.spyOn(MercariAdapter.prototype, "search").mockResolvedValue([
+      {
+        sourceItemId: "m123",
+        sourceUrl: "https://jp.mercari.com/item/m123",
+        detailHint: { status: "active" } as never,
+      } as never,
+    ]);
+    await processSearch({
+      name: "search",
+      id: "job-1",
+      opts: {},
+      attemptsMade: 0,
+      data: {
+        adapterKey: "mercari",
+        monitoringKeywordId: "keyword-1",
+        query: { keyword: "old-brand" },
+      },
+    } as never);
+    expect(store.recordMatch).not.toHaveBeenCalled();
+    expect(store.createAudit).not.toHaveBeenCalled();
+    expect(store.updateMany).not.toHaveBeenCalled();
+  });
+});

@@ -631,6 +631,7 @@ export class CollaborationService {
         where: {
           id: { in: itemIds },
           archivedAt: null,
+          deletedAt: null,
           purchaseRecord: null,
         },
         data: {

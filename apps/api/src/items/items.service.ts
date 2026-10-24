@@ -119,6 +119,7 @@ const syncSelect = {
   ignoredAt: true,
   ignoredReason: true,
   archivedAt: true,
+  deletedAt: true,
   note: true,
   updatedAt: true,
   product: {
@@ -138,6 +139,7 @@ const collaborativeSyncFields = [
   "note",
   "status",
   "archivedAt",
+  "deletedAt",
   "auctionEndAt",
   "listingType",
   "priceCurrent",
@@ -216,6 +218,9 @@ function collaborativeChangeFromReview(review: {
       : {}),
     ...(Object.hasOwn(after, "archivedAt")
       ? { archivedAt: typeof after.archivedAt === "string" ? after.archivedAt : null }
+      : {}),
+    ...(Object.hasOwn(after, "deletedAt")
+      ? { deletedAt: typeof after.deletedAt === "string" ? after.deletedAt : null }
       : {}),
     ...(Object.hasOwn(after, "note")
       ? { note: typeof after.note === "string" ? after.note : null }
@@ -1363,7 +1368,7 @@ export class ItemsService {
         reviewQueue: { orderBy: { createdAt: "desc" } },
       },
     });
-    if (!item) throw new NotFoundException("Item not found");
+    if (!item || item.deletedAt) throw new NotFoundException("Item not found");
     return {
       item: itemResponseWithChinaComparison(
         {
@@ -2483,6 +2488,57 @@ export class ItemsService {
         serverTime: new Date().toISOString(),
       };
     });
+  }
+
+  // Pure delete: stamp the tombstone only. The row stays as the
+  // (sourceId, sourceItemId) marker so the listing never comes back, and
+  // nothing here touches ignored/archivedAt/status or any preference log.
+  async removeItem(
+    id: string,
+    body: { actor?: string } = {},
+  ) {
+    const current = await this.ensureExists(id);
+    if (current.deletedAt) {
+      return { deleted: true, serverTime: new Date().toISOString() };
+    }
+    const actor = body.actor?.trim() || "operator";
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.item.findUnique({
+        where: { id },
+        select: {
+          deletedAt: true,
+          purchaseRecord: { select: { id: true } },
+          resaleListing: { select: { id: true } },
+        },
+      });
+      if (!existing) throw new NotFoundException("Item not found");
+      if (existing.deletedAt) return;
+      if (existing.purchaseRecord || existing.resaleListing)
+        throw new ConflictException(
+          "已购买或已建转售记录的商品不能删除",
+        );
+      const deletedAt = new Date();
+      const updated = await tx.item.update({
+        where: { id },
+        data: { deletedAt },
+        select: syncSelect,
+      });
+      await tx.shoppingCartItem.deleteMany({ where: { itemId: id } });
+      await tx.manualReview.create({
+        data: {
+          itemId: id,
+          actor,
+          reason: "manual_delete",
+          beforeData: JSON.parse(
+            JSON.stringify(current),
+          ) as Prisma.InputJsonValue,
+          afterData: JSON.parse(
+            JSON.stringify(updated),
+          ) as Prisma.InputJsonValue,
+        },
+      });
+    });
+    return { deleted: true, serverTime: new Date().toISOString() };
   }
 
   private async ensureExists(id: string) {

@@ -73,6 +73,7 @@ const chinaComparisonRpm = Math.min(
 const activeStatusItems = await prisma.item.count({
   where: {
     archivedAt: null,
+    deletedAt: null,
     ignored: false,
     status: { in: ["active", "unknown"] },
     channel: "online",

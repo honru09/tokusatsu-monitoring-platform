@@ -55,6 +55,7 @@ export function activeMarketItemWhere({
   return {
     status: { in: [ItemStatus.active, ItemStatus.unknown] },
     archivedAt: null,
+    deletedAt: null,
     channel: SourceChannel.online,
     purchaseRecord: null,
     categoryToyType: { not: ToyType.card },

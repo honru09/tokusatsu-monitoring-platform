@@ -11,6 +11,7 @@ function fixture(id: string, fields: Record<string, unknown> = {}) {
     id,
     status: "active",
     archivedAt: null,
+    deletedAt: null,
     channel: "online",
     purchaseRecord: null,
     categoryToyType: "figure",
@@ -89,6 +90,7 @@ describe("active market availability", () => {
       fixture("removed", { status: "removed" }),
       fixture("purchased", { purchaseRecord: { id: "purchase-record" } }),
       fixture("archived", { archivedAt: now }),
+      fixture("deleted", { deletedAt: now }),
     ];
 
     const visible = candidates.filter((item) =>
