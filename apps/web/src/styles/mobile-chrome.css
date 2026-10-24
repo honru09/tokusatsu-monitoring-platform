@@ -345,6 +345,48 @@
     padding-bottom: 8px !important;
   }
 }
+@media (max-width: 699px) {
+  /* Collaboration workspace: the history orb and the negotiation
+     button dock as one stack at the bottom right, above the composer,
+     instead of floating wherever they were last dragged. While a drag
+     is in progress the pointer position wins; on release the control
+     settles back into the stack. The feed gets enough bottom padding
+     for the last message to scroll clear of the stack. */
+  .workspace-collaboration
+    .floating-control.workspace-history-orb:not(.is-dragging) {
+    transform: translate3d(
+        calc(100vw - 56px),
+        calc(var(--visible-height) - var(--app-nav-clearance) - 172px),
+        0
+      )
+      !important;
+  }
+  .workspace-collaboration
+    .floating-control.collaboration-negotiation-float:not(.is-dragging) {
+    transform: translate3d(
+        calc(100vw - 56px),
+        calc(var(--visible-height) - var(--app-nav-clearance) - 120px),
+        0
+      )
+      !important;
+  }
+  .workspace-collaboration .workspace-history-orb > [role="menu"] {
+    right: 0;
+    left: auto;
+  }
+  .workspace-collaboration
+    .floating-control.collaboration-negotiation-float
+    .negotiation-status-rail {
+    top: auto;
+    right: 0;
+    bottom: 54px;
+    left: auto;
+    transform-origin: right bottom;
+  }
+  .workspace-collaboration .collaboration-feed {
+    padding-bottom: 128px;
+  }
+}
 @media (max-width: 359px) {
   .header-tools .exchange-rate-chip {
     display: none !important;
