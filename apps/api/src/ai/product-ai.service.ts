@@ -25,6 +25,15 @@ export const PRODUCT_AI_OPERATIONS: readonly ProductAiOperation[] = [
   "translation",
 ];
 
+// Operations the scoped route actually serves; the rest of
+// PRODUCT_AI_OPERATIONS stays defined for callers but is refused in execute.
+export const PRODUCT_AI_SCOPED_OPERATIONS: readonly ProductAiOperation[] = [
+  "product_identification",
+  "image_analysis",
+  "title_parsing",
+  "translation",
+];
+
 export type ProductAiInput<
   T extends Record<string, unknown> = Record<string, unknown>,
 > = Omit<
@@ -110,7 +119,7 @@ export class ProductAiService {
     operation: ProductAiOperation,
     input: ProductAiInput<T>,
   ): Promise<AiGatewayResult<T>> {
-    if (!["product_identification", "image_analysis", "title_parsing", "translation"].includes(operation))
+    if (!PRODUCT_AI_SCOPED_OPERATIONS.includes(operation))
       throw new ServiceUnavailableException("当前 AI 仅用于商品读取、翻译和聊天");
     const defaults = PRODUCT_AI_OPERATION_DEFAULTS[operation];
     const hasImages = Boolean(input.imageUrls?.length);

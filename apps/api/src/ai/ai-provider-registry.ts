@@ -1,5 +1,6 @@
 import {
   AI_PROVIDER_IDS,
+  ZHIPU_MODEL,
   modelDefinition,
   type AiDataClass,
   type AiModelCostTier,
@@ -102,7 +103,7 @@ const PROVIDER_SPECS: Record<AiProvider, ProviderSpec> = {
     defaultTier: "promotion", quotaScope: "account", officialHosts: ["open.bigmodel.cn"],
     customEndpointAuthorizationEnv: "ZHIPU_CUSTOM_ENDPOINT_AUTHORIZED",
     privateDataAuthorizationEnv: "ZHIPU_PRIVATE_DATA_AUTHORIZED",
-    staticModelIds: ["glm-5.3-flash"],
+    staticModelIds: [ZHIPU_MODEL],
   },
   litellm: {
     id: "litellm",
@@ -718,7 +719,7 @@ function runtimeFor(
     normalizeCatalogueModelId: (modelId) =>
       spec.id === "gemini" ? modelId.replace(/^models\//, "") : modelId,
     normalizeRequestBody: (body) => {
-      if (spec.id === "zhipu") return { ...body, model: "glm-5.3-flash", stream: false, response_format: { type: "json_object" }, thinking: { type: "enabled" }, reasoning_effort: "low" };
+      if (spec.id === "zhipu") return { ...body, model: ZHIPU_MODEL, stream: false, response_format: { type: "json_object" }, thinking: { type: "enabled" }, reasoning_effort: "low" };
       if (spec.id === "groq") return { ...body, temperature: 0 };
       if (spec.id === "cerebras" || spec.id === "cohere")
         return { ...body, response_format: { type: "json_object" } };

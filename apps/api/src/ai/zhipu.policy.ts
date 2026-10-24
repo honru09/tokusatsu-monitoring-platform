@@ -1,17 +1,11 @@
 import { ServiceUnavailableException, BadRequestException } from "@nestjs/common";
-import type { AiTask } from "./ai-router.js";
+import { AI_EXTENDED_TASKS, AI_PRODUCT_READING_TASKS, ZHIPU_GIFT_ALLOWED_USES, ZHIPU_GIFT_DAILY_TOKEN_LIMIT, ZHIPU_GIFT_EXPIRES_AT, ZHIPU_GIFT_GROUP, ZHIPU_GIFT_TOKEN_LIMIT, ZHIPU_MAX_IMAGES_PER_REQUEST, ZHIPU_MODEL, extendedAiScopesEnabled, type AiTask } from "./ai-config.js";
+export { extendedAiScopesEnabled };
 export type AiPurpose = "product_reading" | "translation" | "assistant_chat";
-// Extended scopes (seller analysis and bundle negotiation scripts) stay off
-// unless the operator explicitly opts in; the gift resource package is only
-// approved for product reading, translation and chat.
-export function extendedAiScopesEnabled() {
-  const value = process.env.AI_EXTENDED_SCOPES_ENABLED;
-  return value === "true" || value === "1";
-}
 export function assertAiScope(task: AiTask, purpose?: AiPurpose) {
   if (task === "translation" || task === "assistant_chat") return;
-  if (purpose === "product_reading" && ["complex_analysis", "image_analysis", "classification"].includes(task)) return;
-  if (extendedAiScopesEnabled() && (task === "seller_analysis" || task === "bundle_negotiation")) return;
+  if (purpose === "product_reading" && (AI_PRODUCT_READING_TASKS as readonly string[]).includes(task)) return;
+  if (extendedAiScopesEnabled() && (AI_EXTENDED_TASKS as readonly string[]).includes(task)) return;
   throw new ServiceUnavailableException({ code: "AI_SCOPE_DISABLED", message: "当前 AI 仅用于商品读取、翻译和聊天", retryable: false });
 }
 export function zhipuResourcePolicy() {
@@ -19,20 +13,20 @@ export function zhipuResourcePolicy() {
     const value = Number(process.env[name] ?? fallback);
     return Number.isFinite(value) && value > 0 ? Math.min(Math.floor(value), ceiling) : 0;
   };
-  const resourceExpiry = Date.parse("2026-11-09T14:35:56+08:00");
-  const configuredExpiry = Date.parse(process.env.ZHIPU_FREE_RESOURCE_EXPIRES_AT ?? "2026-11-09T14:35:56+08:00");
+  const resourceExpiry = Date.parse(ZHIPU_GIFT_EXPIRES_AT);
+  const configuredExpiry = Date.parse(process.env.ZHIPU_FREE_RESOURCE_EXPIRES_AT ?? ZHIPU_GIFT_EXPIRES_AT);
   return {
-    group: "zhipu-gift-20261009",
-    tokenLimit: bounded("ZHIPU_FREE_TOKEN_LIMIT", 14_000_000, 14_000_000),
-    dailyTokenLimit: bounded("ZHIPU_DAILY_TOKEN_LIMIT", 200_000, 200_000),
+    group: ZHIPU_GIFT_GROUP,
+    tokenLimit: bounded("ZHIPU_FREE_TOKEN_LIMIT", ZHIPU_GIFT_TOKEN_LIMIT, ZHIPU_GIFT_TOKEN_LIMIT),
+    dailyTokenLimit: bounded("ZHIPU_DAILY_TOKEN_LIMIT", ZHIPU_GIFT_DAILY_TOKEN_LIMIT, ZHIPU_GIFT_DAILY_TOKEN_LIMIT),
     expiresAt: new Date(Number.isFinite(configuredExpiry) ? Math.min(configuredExpiry, resourceExpiry) : 0),
-    model: "glm-5.3-flash", allowedUses: ["商品读取", "商品翻译", "AI 聊天"],
+    model: ZHIPU_MODEL, allowedUses: [...ZHIPU_GIFT_ALLOWED_USES],
     accounting: "local_reservation", paidFallback: false, backgroundAi: false,
   };
 }
 export function normalizeScopedRequest<T extends { task: AiTask; messages: { role: "system" | "user" | "assistant"; content: string }[]; maxTokens: number; imageUrls?: string[]; purpose?: AiPurpose }>(request: T): T {
   assertAiScope(request.task, request.purpose);
-  if ((request.imageUrls?.length ?? 0) > 2) throw new BadRequestException("一次最多读取两张商品图片");
+  if ((request.imageUrls?.length ?? 0) > ZHIPU_MAX_IMAGES_PER_REQUEST) throw new BadRequestException("一次最多读取两张商品图片");
   const contextChars = request.messages.reduce((n, m) => n + m.content.length, 0);
   if (request.messages.length > 24 || contextChars > 60_000)
     throw new BadRequestException("上下文过长，请缩短问题或重新开启聊天");
