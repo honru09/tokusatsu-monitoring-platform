@@ -304,15 +304,8 @@ describe("Dashboard load error states", () => {
   }
 
   async function openFavorites() {
-    await waitFor(() =>
-      expect(host.querySelector('button[aria-label="工作台"]')).not.toBeNull(),
-    );
-    await act(async () => {
-      (
-        host.querySelector('button[aria-label="工作台"]') as HTMLButtonElement
-      ).click();
-      await Promise.resolve();
-    });
+    // Favorites is reached from the home overview's 收藏与流转 group;
+    // the workbench no longer carries a favorites entry.
     await waitFor(() =>
       expect(
         [...host.querySelectorAll("button")].some(

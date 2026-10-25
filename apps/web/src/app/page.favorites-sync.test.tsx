@@ -269,22 +269,30 @@ describe("Dashboard favorite synchronization", () => {
   }
 
   async function openFavorites() {
+    // Favorites is reached from the home overview's 收藏与流转 group;
+    // go home first (the workbench no longer carries a favorites entry).
     await waitFor(() =>
-      expect(host.querySelector('button[aria-label="工作台"]')).not.toBeNull(),
+      expect(host.querySelector('button[aria-label="待办"]')).not.toBeNull(),
     );
     await act(async () => {
       (
-        host.querySelector('button[aria-label="工作台"]') as HTMLButtonElement
+        host.querySelector('button[aria-label="待办"]') as HTMLButtonElement
       ).click();
       await Promise.resolve();
     });
-    await waitFor(() =>
-      expect(
-        [...host.querySelectorAll("button")].some(
-          (button) =>
-            button.querySelector("strong")?.textContent?.trim() === "收藏",
-        ),
-      ).toBe(true),
+
+    // Favorites is reached from the home overview's 收藏与流转 group,
+    // which renders once the overview data lands; the workbench no
+    // longer carries a favorites entry.
+    await waitFor(
+      () =>
+        expect(
+          [...host.querySelectorAll("button")].some(
+            (button) =>
+              button.querySelector("strong")?.textContent?.trim() === "收藏",
+          ),
+        ).toBe(true),
+      5000,
     );
     const favoriteButton = [...host.querySelectorAll("button")].find(
       (button) =>
