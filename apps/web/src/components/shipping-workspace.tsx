@@ -468,7 +468,7 @@ export function ShippingWorkspace({
               aria-hidden="true"
             />
           </div>
-          <div className="mt-1.5 flex items-baseline justify-between font-mono text-[11px] tabular-nums text-ink/60">
+          <div className="mt-2 flex items-baseline justify-between font-mono text-[11px] tabular-nums text-ink/60">
             <span>
               申报合计{" "}
               <strong className={`text-[13px] ${overCap ? "text-[#ff3b30]" : "text-ink"}`}>
@@ -504,7 +504,7 @@ export function ShippingWorkspace({
                   return (
                     <li
                       key={line.orderId}
-                      className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-white px-2.5 py-2"
+                      className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-white px-3 py-2"
                     >
                       <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-black/5">
                         <SafeItemImage
@@ -639,7 +639,7 @@ export function ShippingWorkspace({
                     return (
                       <li
                         key={order.id}
-                        className="flex items-center gap-2 rounded-xl bg-black/[0.03] px-2.5 py-2"
+                        className="flex items-center gap-2 rounded-xl bg-black/[0.03] px-3 py-2"
                       >
                         <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-black/5">
                           <SafeItemImage

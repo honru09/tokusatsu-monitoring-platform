@@ -2105,7 +2105,7 @@ function SellerProfileDialog({
             </p>
             <h2
               id="seller-profile-title"
-              className="mt-0.5 font-heading text-xl font-black text-ink"
+              className="mt-0.5 font-heading text-xl font-bold text-ink"
             >
               {data?.seller.name ?? "正在读取商家…"}
             </h2>
@@ -2147,7 +2147,7 @@ function SellerProfileDialog({
             <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1.2fr]">
               <div className="rounded-2xl border border-black/[0.07] bg-white p-4">
                 <div className="text-xs font-semibold text-ink/50">类型</div>
-                <div className="mt-1 text-lg font-black text-ink">
+                <div className="mt-1 text-lg font-bold text-ink">
                   {data.analysis.sellerType}
                 </div>
                 <p className="mt-2.5 text-sm leading-6 text-ink/75">
@@ -2248,7 +2248,7 @@ function SellerProfileDialog({
             </div>
             <div className="mt-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-heading text-sm font-black text-ink">
+                <h3 className="font-heading text-sm font-bold text-ink">
                   该商家全部商品（勾选多件可集合分享）
                 </h3>
                 <div className="flex items-center gap-1.5">
@@ -2358,7 +2358,7 @@ function SellerProfileDialog({
                     <span className="inline-flex items-center rounded-full bg-ink px-2.5 py-0.5 text-xs font-bold text-white">
                       已选 {selectedItems.length} 件同店商品
                     </span>
-                    <strong className="font-mono text-sm font-black text-ink tabular-nums">
+                    <strong className="font-mono text-sm font-bold text-ink tabular-nums">
                       合计 {fmtYen(selectedTotalYen)}
                     </strong>
                     <span className="font-mono text-xs text-ink/50 tabular-nums">
@@ -3117,7 +3117,7 @@ function DetailDrawer({
               <button
                 disabled={saving}
                 onClick={() => void save()}
-                className="mt-4 min-h-12 w-full rounded-xl bg-moss px-4 py-3 font-black text-white disabled:opacity-50"
+                className="mt-4 min-h-12 w-full rounded-xl bg-moss px-4 py-3 font-bold text-white disabled:opacity-50"
               >
                 {saving ? "保存中…" : "保存修改"}
               </button>
@@ -3459,7 +3459,7 @@ function PurchaseRecordsPanel({
         <div>
           <h2
             id="purchase-records-title"
-            className="font-heading text-xl font-black text-ink"
+            className="font-heading text-xl font-bold text-ink"
           >
             购买记录
           </h2>
@@ -3641,7 +3641,7 @@ function IgnoreConfirmationDialog({
         <div className="grid h-11 w-11 place-items-center rounded-full bg-rust/10 text-rust">
           <ArchiveIcon className="h-5 w-5" />
         </div>
-        <h2 id="ignore-dialog-title" className="mt-4 text-lg font-black">
+        <h2 id="ignore-dialog-title" className="mt-4 text-lg font-bold">
           移入不感兴趣？
         </h2>
         <p
@@ -3664,7 +3664,7 @@ function IgnoreConfirmationDialog({
             type="button"
             disabled={saving}
             onClick={() => void confirm()}
-            className="min-h-11 rounded-lg bg-rust px-4 text-sm font-black text-white transition-colors hover:bg-rust/90 disabled:opacity-50"
+            className="min-h-11 rounded-lg bg-rust px-4 text-sm font-bold text-white transition-colors hover:bg-rust/90 disabled:opacity-50"
           >
             {saving ? "处理中…" : "确认移入"}
           </button>
@@ -3718,7 +3718,7 @@ function DeleteConfirmationDialog({
         <div className="grid h-11 w-11 place-items-center rounded-full bg-rust/10 text-rust">
           <TrashIcon className="h-5 w-5" />
         </div>
-        <h2 id="delete-dialog-title" className="mt-4 text-lg font-black">
+        <h2 id="delete-dialog-title" className="mt-4 text-lg font-bold">
           删除这件商品？
         </h2>
         <p
@@ -3749,7 +3749,7 @@ function DeleteConfirmationDialog({
             type="button"
             disabled={saving}
             onClick={() => void confirm()}
-            className="min-h-11 rounded-lg bg-rust px-4 text-sm font-black text-white transition-colors hover:bg-rust/90 disabled:opacity-50"
+            className="min-h-11 rounded-lg bg-rust px-4 text-sm font-bold text-white transition-colors hover:bg-rust/90 disabled:opacity-50"
           >
             {saving ? "处理中…" : "确认删除"}
           </button>
@@ -3925,7 +3925,10 @@ export default function Dashboard() {
             data.dailyTokenLimit ?? 0
           ).toLocaleString("zh-CN")} tokens · 剩余约 ${remaining.toLocaleString("zh-CN")} tokens${
             expiry
-              ? ` · 赠送包 ${expiry.getMonth() + 1} 月 ${expiry.getDate()} 日到期`
+              ? ` · 赠送包 ${new Intl.DateTimeFormat("zh-CN", {
+                  month: "long",
+                  day: "numeric",
+                }).format(expiry)}到期`
               : ""
           }`,
         );
@@ -6934,7 +6937,7 @@ export default function Dashboard() {
               <RiderLogo />
             </div>
             <div className="header-brand-copy min-w-0">
-              <h1 className="brand-name truncate font-heading text-base font-black tracking-tight sm:text-lg">
+              <h1 className="brand-name truncate font-heading text-base font-bold tracking-tight sm:text-lg">
                 假面采购
               </h1>
               {exchangeRate && (
@@ -7064,7 +7067,7 @@ export default function Dashboard() {
         {workspace === "purchases" && (
           <div className="procurement-workspace">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="font-heading text-xl font-black">
+              <h2 className="font-heading text-xl font-bold">
                 {TERMS.procurement}
               </h2>
             </div>
@@ -7190,12 +7193,12 @@ export default function Dashboard() {
               <div className="ios-surface rounded-2xl border border-blue-100 p-4 shadow-panel">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="text-[10px] font-black uppercase tracking-[.2em] text-moss">
+                    <div className="text-[10px] font-bold uppercase tracking-[.2em] text-moss">
                       实时运营
                     </div>
                     <h2
                       id="ops-heading"
-                      className="font-heading text-lg font-black"
+                      className="font-heading text-lg font-bold"
                     >
                       实时监控与存量搜罗
                     </h2>
@@ -7353,7 +7356,7 @@ export default function Dashboard() {
                       <div>
                         <h2
                           id="filter-dialog-title"
-                          className="font-heading text-lg font-black"
+                          className="font-heading text-lg font-bold"
                         >
                           采购筛选器
                         </h2>
@@ -7643,7 +7646,7 @@ export default function Dashboard() {
                       </button>
                       <button
                         onClick={() => setFiltersOpen(false)}
-                        className="min-h-11 rounded-lg bg-moss px-5 text-xs font-black text-white transition-colors hover:bg-blue-800"
+                        className="min-h-11 rounded-lg bg-moss px-5 text-xs font-bold text-white transition-colors hover:bg-blue-800"
                       >
                         应用并关闭
                       </button>
@@ -7770,7 +7773,7 @@ export default function Dashboard() {
                 <div className="flex min-w-0 flex-1 items-center gap-1">
                   <h2
                     id="inventory"
-                    className="font-heading text-lg font-black"
+                    className="font-heading text-lg font-bold"
                   >
                     {filters.monitoringCategoryId
                       ? `${monitoringCategories.find((category) => category.id === filters.monitoringCategoryId)?.name ?? "监控分类"} · ${listingTypeLabel(listingMode)} · ${total} 件`
@@ -7837,7 +7840,7 @@ export default function Dashboard() {
                         type="button"
                         aria-pressed={listingMode === "auction"}
                         onClick={() => changeListingMode("auction")}
-                        className={`min-h-11 rounded-lg border px-3 text-xs font-black transition-colors ${listingMode === "auction" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
+                        className={`min-h-11 rounded-lg border px-3 text-xs font-bold transition-colors ${listingMode === "auction" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
                       >
                         拍卖 · {listingCounts.auction}
                       </button>
@@ -7845,7 +7848,7 @@ export default function Dashboard() {
                         type="button"
                         aria-pressed={listingMode === "direct"}
                         onClick={() => changeListingMode("direct")}
-                        className={`min-h-11 rounded-lg border px-3 text-xs font-black transition-colors ${listingMode === "direct" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
+                        className={`min-h-11 rounded-lg border px-3 text-xs font-bold transition-colors ${listingMode === "direct" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
                       >
                         直购 · {listingCounts.direct}
                       </button>
@@ -8121,7 +8124,7 @@ export default function Dashboard() {
                 <section className="ios-surface workspace-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel">
                 <div className="link-editorial-heading">
                   <div className="flex min-w-0 items-center gap-1">
-                    <h2 className="font-heading text-xl font-black">
+                    <h2 className="font-heading text-xl font-bold">
                       链接导入
                     </h2>
                     <ContextInfo
@@ -8329,7 +8332,7 @@ export default function Dashboard() {
                   )}
                 </div>
                 <div className="mt-5 flex items-center justify-between gap-3">
-                  <h3 className="font-heading text-base font-black">
+                  <h3 className="font-heading text-base font-bold">
                     已导入商品 · {linkTotal}
                   </h3>
                 </div>
@@ -8423,7 +8426,7 @@ export default function Dashboard() {
             {catalogView === "disliked" && (
               <section className="ios-surface js-shell-reveal rounded-2xl border border-blue-100 p-4 shadow-panel">
                 <div className="flex items-center justify-between gap-3 border-b border-blue-100 pb-3">
-                  <h2 className="font-heading text-lg font-black">
+                  <h2 className="font-heading text-lg font-bold">
                     不感兴趣 · {dislikedTotal}
                   </h2>
                   <button
@@ -8583,7 +8586,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between gap-3">
                 <h2
                   id="settings-dialog-title"
-                  className="font-heading text-xl font-black text-ink"
+                  className="font-heading text-xl font-bold text-ink"
                 >
                   设置
                 </h2>
