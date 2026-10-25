@@ -6879,11 +6879,12 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 
 .negotiation-script-generate {
   min-height: 44px;
-  border-radius: 13px;
-  background: #07080a;
+  border-radius: 9999px;
+  background: #101014;
   color: #fff;
   font-size: 13px;
   font-weight: 650;
+  transition: opacity 150ms ease;
 }
 
 .negotiation-script-generate:disabled {
@@ -6892,10 +6893,10 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 
 .negotiation-script-error {
   margin: 0;
-  padding: 10px 12px;
-  border-radius: 13px;
+  padding: 10px 14px;
+  border-radius: 16px;
   background: rgba(255, 59, 48, 0.09);
-  color: #c92d25;
+  color: #ff3b30;
   font-size: 13px;
   font-weight: 650;
 }
@@ -6903,10 +6904,11 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 .negotiation-script-group {
   display: grid;
   gap: 8px;
-  padding: 10px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.74);
-  box-shadow: 0 0 0 1px rgba(7, 8, 10, 0.045);
+  padding: 12px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .negotiation-script-group-head {
@@ -6933,7 +6935,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 
 .negotiation-script-group-head button {
   min-height: 36px;
-  padding-inline: 12px;
+  padding-inline: 14px;
   border-radius: 999px;
   background: rgba(7, 8, 10, 0.06);
   font-size: 12px;
@@ -6951,10 +6953,10 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 
 .negotiation-script-text {
   margin: 0;
-  padding: 10px;
-  border-radius: 12px;
-  background: rgba(7, 8, 10, 0.04);
-  color: rgba(7, 8, 10, 0.85);
+  padding: 12px;
+  border-radius: 14px;
+  background: #f4f4f5;
+  color: #1d1d1f;
   font-family: inherit;
   font-size: 12px;
   line-height: 1.625;

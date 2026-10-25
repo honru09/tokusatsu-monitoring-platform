@@ -249,7 +249,7 @@ export function NegotiationAnalysisPanel({
   }
   return (
     <section
-      className="negotiation-analysis-panel mx-2 mb-2 grid max-h-[62dvh] gap-2 overflow-y-auto rounded-2xl border border-black/[0.08] bg-[#f7f7f9] p-2"
+      className="negotiation-analysis-panel mx-2 mb-2 grid max-h-[62dvh] gap-2 overflow-y-auto rounded-[20px] border border-black/[0.06] bg-[#f4f4f5] p-2.5"
       aria-label="合并砍价分析结果"
     >
       <div className="flex items-center justify-between px-1 pt-1">
@@ -259,7 +259,7 @@ export function NegotiationAnalysisPanel({
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-semibold text-ink/60 transition hover:bg-black/[0.05]"
+          className="inline-flex min-h-9 items-center rounded-full px-3 text-xs font-semibold text-ink/60 transition hover:bg-black/[0.05]"
         >
           关闭
         </button>
@@ -272,7 +272,7 @@ export function NegotiationAnalysisPanel({
         return (
           <article
             key={key}
-            className="rounded-xl border border-black/[0.06] bg-white p-3 shadow-sm"
+            className="rounded-[20px] border border-black/[0.06] bg-white p-3.5 shadow-sm"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <strong className="text-[13px] font-bold text-ink">
