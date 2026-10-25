@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -157,6 +158,28 @@ export class CreateShareRoundDto {
   @ValidateNested({ each: true })
   @Type(() => ShareRoundItemDto)
   items!: ShareRoundItemDto[];
+}
+
+export class AnalyzeSelectionItemDto {
+  @IsString()
+  itemId!: string;
+
+  @IsOptional()
+  @IsString()
+  roundId?: string | null;
+}
+
+export class AnalyzeSelectionDto {
+  // Present so the session guard can overwrite it with the token identity;
+  // the analysis itself does not depend on who asks.
+  @IsString()
+  accountId!: string;
+
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => AnalyzeSelectionItemDto)
+  items!: AnalyzeSelectionItemDto[];
 }
 
 export class MarkShareRoundCopiedDto {

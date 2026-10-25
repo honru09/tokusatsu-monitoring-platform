@@ -21,6 +21,26 @@ export type NegotiationScriptGroup = {
   fallback: boolean;
 };
 
+export type NegotiationAnalysisItem = NegotiationScriptItem & {
+  targetMissing: boolean;
+};
+
+export type NegotiationAnalysisGroup = NegotiationScriptGroup & {
+  items: NegotiationAnalysisItem[];
+  targetTotalYen: number;
+  listedTotalYen: number;
+  firstItemUrl: string;
+};
+
+// An item with everything the grouping logic needs resolved: its script
+// fields plus the seller relation and its source (the source key is the
+// fallback grouping dimension when a seller name exists without an id).
+type ResolvedNegotiationItem = NegotiationScriptItem & {
+  sellerId: string | null;
+  seller: { id: string; name: string } | null;
+  source: { id: string; key: string } | null;
+};
+
 // Server copy of the fixed template used by the web workspace
 // (buildBundleNegotiationScript in collaboration-chat-workspace.tsx). Keep
 // the wording in sync: this is what buyers paste when no script is generated.
@@ -75,6 +95,7 @@ type RoundItemRow = {
   sourceUrl: string;
   sellerId: string | null;
   seller: { id: string; name: string } | null;
+  source: { id: string; key: string } | null;
 };
 
 // ShareRound / ShareRoundItem are read through a narrow structural view so
@@ -84,7 +105,11 @@ type ShareRoundPrisma = {
     findUnique(args: { where: { id: string } }): Promise<ShareRoundRow | null>;
   };
   shareRoundItem: {
-    findMany(args: { where: { roundId: string } }): Promise<ShareRoundItemRow[]>;
+    findMany(args: {
+      where: { roundId?: string; itemId?: string };
+      orderBy?: { createdAt: "desc" };
+      take?: number;
+    }): Promise<ShareRoundItemRow[]>;
   };
   item: {
     findMany(args: {
@@ -97,6 +122,7 @@ type ShareRoundPrisma = {
         sourceUrl: true;
         sellerId: true;
         seller: { select: { id: true; name: true } };
+        source: { select: { id: true; key: true } };
       };
     }): Promise<RoundItemRow[]>;
   };
@@ -136,6 +162,7 @@ export class NegotiationScriptService {
         sourceUrl: true,
         sellerId: true,
         seller: { select: { id: true, name: true } },
+        source: { select: { id: true, key: true } },
       },
     });
     const targetByItemId = new Map(
@@ -143,31 +170,129 @@ export class NegotiationScriptService {
     );
     const byId = new Map(items.map((item) => [item.id, item]));
     // Keep the round's own ordering for items that still exist.
-    const ordered: NegotiationScriptItem[] = roundItems.flatMap((entry) => {
+    const ordered: ResolvedNegotiationItem[] = roundItems.flatMap((entry) => {
       const item = byId.get(entry.itemId);
       if (!item) return [];
-      return [
-        {
+      return [this.resolveItem(item, targetByItemId.get(entry.itemId) ?? null)];
+    });
+
+    const result: NegotiationScriptGroup[] = [];
+    for (const group of this.groupResolvedItems(ordered)) {
+      result.push(await this.scriptForGroup(group));
+    }
+    return { roundId, groups: result };
+  }
+
+  /**
+   * Negotiation analysis for an arbitrary multi-selection (e.g. items picked
+   * across messages / the cart), not tied to a single share round. Targets
+   * come from the given round when one is supplied per item, otherwise from
+   * the item's most recent share round, otherwise the item has no target.
+   */
+  async analyzeSelection(
+    entries: Array<{ itemId: string; roundId?: string | null }>,
+  ): Promise<{ groups: NegotiationAnalysisGroup[] }> {
+    const prisma = this.rounds();
+    // Dedupe by itemId, keeping the first occurrence (and its roundId).
+    const deduped: Array<{ itemId: string; roundId?: string | null }> = [];
+    const seen = new Set<string>();
+    for (const entry of entries) {
+      if (seen.has(entry.itemId)) continue;
+      seen.add(entry.itemId);
+      deduped.push(entry);
+    }
+    if (!deduped.length) return { groups: [] };
+
+    const targetByItemId = new Map<string, number | null>();
+    for (const entry of deduped) {
+      const rows = entry.roundId
+        ? await prisma.shareRoundItem.findMany({
+            where: { roundId: entry.roundId, itemId: entry.itemId },
+          })
+        : await prisma.shareRoundItem.findMany({
+            where: { itemId: entry.itemId },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          });
+      targetByItemId.set(entry.itemId, rows[0]?.targetPriceYen ?? null);
+    }
+
+    const items = await prisma.item.findMany({
+      where: { id: { in: deduped.map((entry) => entry.itemId) } },
+      select: {
+        id: true,
+        titleRaw: true,
+        priceCurrent: true,
+        shippingFee: true,
+        sourceUrl: true,
+        sellerId: true,
+        seller: { select: { id: true, name: true } },
+        source: { select: { id: true, key: true } },
+      },
+    });
+    const byId = new Map(items.map((item) => [item.id, item]));
+    // Keep the caller's selection ordering for items that still exist.
+    const ordered: ResolvedNegotiationItem[] = deduped.flatMap((entry) => {
+      const item = byId.get(entry.itemId);
+      if (!item) return [];
+      return [this.resolveItem(item, targetByItemId.get(entry.itemId) ?? null)];
+    });
+
+    const groups: NegotiationAnalysisGroup[] = [];
+    for (const group of this.groupResolvedItems(ordered)) {
+      const scripted = await this.scriptForGroup(group);
+      groups.push({
+        ...scripted,
+        items: group.items.map((item) => ({
           id: item.id,
           titleRaw: item.titleRaw,
           priceCurrent: item.priceCurrent,
           shippingFee: item.shippingFee,
           sourceUrl: item.sourceUrl,
-          targetPriceYen: targetByItemId.get(entry.itemId) ?? null,
-        },
-      ];
-    });
-    const sellerByItemId = new Map(
-      items.map((item) => [
-        item.id,
-        item.sellerId && item.seller
-          ? { id: item.seller.id, name: item.seller.name }
-          : null,
-      ]),
-    );
+          targetPriceYen: item.targetPriceYen,
+          targetMissing: item.targetPriceYen == null,
+        })),
+        targetTotalYen: group.items.reduce(
+          (sum, item) => sum + (item.targetPriceYen ?? item.priceCurrent),
+          0,
+        ),
+        listedTotalYen: group.items.reduce(
+          (sum, item) => sum + item.priceCurrent,
+          0,
+        ),
+        firstItemUrl: group.items[0]?.sourceUrl ?? "",
+      });
+    }
+    return { groups };
+  }
 
-    // Group by seller. Items without a seller each form their own group,
-    // matching how cart negotiations split seller-less items.
+  private resolveItem(
+    item: RoundItemRow,
+    targetPriceYen: number | null,
+  ): ResolvedNegotiationItem {
+    return {
+      id: item.id,
+      titleRaw: item.titleRaw,
+      priceCurrent: item.priceCurrent,
+      shippingFee: item.shippingFee,
+      sourceUrl: item.sourceUrl,
+      targetPriceYen,
+      sellerId: item.sellerId ?? null,
+      seller: item.seller ?? null,
+      source: item.source ?? null,
+    };
+  }
+
+  // Group by seller, preserving input order. Items whose seller relation is
+  // present group under that seller; a seller name without a usable id
+  // groups by source + name (defensive — the schema FK normally yields the
+  // row); items without any seller each form their own group, matching how
+  // cart negotiations split seller-less items.
+  private groupResolvedItems(items: ResolvedNegotiationItem[]): Array<{
+    sellerId: string | null;
+    sellerName: string | null;
+    items: NegotiationScriptItem[];
+  }> {
     const groups = new Map<
       string,
       {
@@ -176,23 +301,35 @@ export class NegotiationScriptService {
         items: NegotiationScriptItem[];
       }
     >();
-    for (const item of ordered) {
-      const seller = sellerByItemId.get(item.id) ?? null;
-      const key = seller ? `seller:${seller.id}` : `single:${item.id}`;
-      const group = groups.get(key) ?? {
-        sellerId: seller?.id ?? null,
-        sellerName: seller?.name ?? null,
-        items: [],
-      };
-      group.items.push(item);
+    for (const item of items) {
+      let key: string;
+      let sellerId: string | null;
+      let sellerName: string | null;
+      if (item.sellerId && item.seller) {
+        key = `seller:${item.seller.id}`;
+        sellerId = item.seller.id;
+        sellerName = item.seller.name;
+      } else if (item.seller?.name) {
+        key = `name:${item.source?.key ?? "unknown"}:${item.seller.name}`;
+        sellerId = null;
+        sellerName = item.seller.name;
+      } else {
+        key = `single:${item.id}`;
+        sellerId = null;
+        sellerName = null;
+      }
+      const group = groups.get(key) ?? { sellerId, sellerName, items: [] };
+      group.items.push({
+        id: item.id,
+        titleRaw: item.titleRaw,
+        priceCurrent: item.priceCurrent,
+        shippingFee: item.shippingFee,
+        sourceUrl: item.sourceUrl,
+        targetPriceYen: item.targetPriceYen,
+      });
       groups.set(key, group);
     }
-
-    const result: NegotiationScriptGroup[] = [];
-    for (const group of groups.values()) {
-      result.push(await this.scriptForGroup(group));
-    }
-    return { roundId, groups: result };
+    return [...groups.values()];
   }
 
   private async scriptForGroup(group: {

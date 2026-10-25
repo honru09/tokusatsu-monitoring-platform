@@ -1,4 +1,7 @@
 import { Module } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
+import { AuthModule } from "./auth/auth.module.js";
+import { AccountSessionGuard } from "./auth/session.guard.js";
 import { HealthController } from "./health/health.controller.js";
 import { HealthService } from "./health/health.service.js";
 import { ItemsController } from "./items/items.controller.js";
@@ -34,6 +37,7 @@ import { ResaleModule } from "./resale/resale.module.js";
 @Module({
   imports: [
     AiModule,
+    AuthModule,
     LogisticsModule,
     InventoryOrdersModule,
     ResaleModule,
@@ -55,6 +59,7 @@ import { ResaleModule } from "./resale/resale.module.js";
     PushController,
   ],
   providers: [
+    { provide: APP_GUARD, useClass: AccountSessionGuard },
     PrismaService,
     HealthService,
     ItemsService,

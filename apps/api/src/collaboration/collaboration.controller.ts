@@ -9,6 +9,7 @@ import {
   Query,
 } from "@nestjs/common";
 import {
+  AnalyzeSelectionDto,
   ClearFailedNegotiationsDto,
   CreateShareRoundDto,
   MarkDirectMessagesReadDto,
@@ -34,6 +35,11 @@ export class CollaborationController {
   @Post("share-rounds/:id/negotiation-script")
   shareRoundNegotiationScript(@Param("id") id: string) {
     return this.negotiationScript.negotiationScript(id);
+  }
+
+  @Post("negotiation-analysis")
+  negotiationAnalysis(@Body() body: AnalyzeSelectionDto) {
+    return this.negotiationScript.analyzeSelection(body.items);
   }
 
   @Get("accounts")
