@@ -5,6 +5,10 @@ import {
   parseMercariDetailHtml,
   parseMercariSearchResponse,
 } from "./mercari.adapter.js";
+import {
+  ListingUnavailableError,
+  NoPublicPriceError,
+} from "./public-listing-status.js";
 
 describe("Mercari adapter", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -359,5 +363,83 @@ describe("Mercari adapter", () => {
       sellerProfileUrl: "https://jp.mercari.com/user/profile/407612843",
     });
     expect(merged.imageUrls).toHaveLength(2);
+  });
+
+  it("falls back to the JSON-LD offers price when the price meta is absent", () => {
+    const detail = parseMercariDetailHtml(
+      `<meta property="og:title" content="SHF 仮面ライダー" />
+       <script type="application/ld+json">{"@type":"Product","offers":{"price":"2500","availability":"https://schema.org/InStock"}}</script>`,
+      "https://jp.mercari.com/item/m123",
+      "m123",
+    );
+    expect(detail.priceCurrent).toBe(2500);
+    expect(detail.status).toBe("active");
+  });
+
+  it("falls back to the visible price element when meta and JSON-LD prices are absent", () => {
+    const detail = parseMercariDetailHtml(
+      `<meta property="og:title" content="SHF 仮面ライダー" />
+       <body><div data-testid="price">¥3,200</div></body>`,
+      "https://jp.mercari.com/item/m123",
+      "m123",
+    );
+    expect(detail.priceCurrent).toBe(3200);
+  });
+
+  it("treats a sold page without any price as unavailable, not as a parse failure", async () => {
+    expect(() =>
+      parseMercariDetailHtml(
+        `<meta property="og:title" content="SHF 仮面ライダー" />
+         <script type="application/ld+json">{"@type":"Product","offers":{"availability":"https://schema.org/SoldOut"}}</script>`,
+        "https://jp.mercari.com/item/m123",
+        "m123",
+      ),
+    ).toThrow(ListingUnavailableError);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (input: string | URL | Request) =>
+          new Response(
+            String(input).endsWith("robots.txt")
+              ? "User-agent: *\nAllow: /"
+              : `<meta property="og:title" content="SHF 仮面ライダー" />
+                 <script type="application/ld+json">{"@type":"Product","offers":{"availability":"https://schema.org/SoldOut"}}</script>`,
+            { status: 200 },
+          ),
+      ),
+    );
+    await expect(
+      new MercariAdapter().refreshStatus({
+        sourceItemId: "m12345678",
+        sourceUrl: "https://jp.mercari.com/item/m12345678",
+        status: "active",
+      }),
+    ).resolves.toEqual({ status: "sold", listingType: "unknown" });
+  });
+
+  it("reports a price-less shell page as a typed no-public-price outcome", async () => {
+    const shell = `<meta property="og:title" content="SHF 仮面ライダー" /><body><main>読み込み中</main></body>`;
+    expect(() =>
+      parseMercariDetailHtml(shell, "https://jp.mercari.com/item/m123", "m123"),
+    ).toThrow(NoPublicPriceError);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (input: string | URL | Request) =>
+          new Response(
+            String(input).endsWith("robots.txt")
+              ? "User-agent: *\nAllow: /"
+              : shell,
+            { status: 200 },
+          ),
+      ),
+    );
+    await expect(
+      new MercariAdapter().refreshStatus({
+        sourceItemId: "m12345678",
+        sourceUrl: "https://jp.mercari.com/item/m12345678",
+        status: "active",
+      }),
+    ).rejects.toBeInstanceOf(NoPublicPriceError);
   });
 });

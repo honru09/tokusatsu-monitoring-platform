@@ -15,7 +15,9 @@ import { sanitizeProductImageUrls } from "./images.js";
 import { shippingEvidence } from "./shipping.js";
 import {
   ListingUnavailableError,
+  NoPublicPriceError,
   publicListingUiStatus,
+  schemaListingPrice,
   schemaListingStatus,
 } from "./public-listing-status.js";
 
@@ -292,13 +294,24 @@ export function parseMercariDetailHtml(
   ) {
     descriptionRaw = undefined;
   }
-  const priceCurrent = yen(
-    $("meta[name='product:price:amount']").attr("content"),
-  );
+  // Price sources, most authoritative first: the product meta, the JSON-LD
+  // offers block the status already comes from, then the visible price
+  // element. Mercari serves page variants that drop the meta (shell pages,
+  // Shops layouts); a single-source parse turned every such variant into a
+  // permanently failing refresh.
+  const priceCurrent =
+    yen($("meta[name='product:price:amount']").attr("content")) ??
+    schemaListingPrice(structuredData) ??
+    yen($("meta[itemprop='price']").attr("content")) ??
+    yen(
+      $("[data-testid*='price' i], [itemprop='price']").first().text(),
+    );
   if (priceCurrent == null) {
     if (status === "sold" || status === "ended")
       throw new ListingUnavailableError(status);
-    throw new Error("Mercari detail page did not contain a public price");
+    throw new NoPublicPriceError(
+      "Mercari detail page did not contain a public price",
+    );
   }
   const imageSet = new Set<string>();
   const addImages = (value: unknown) => {

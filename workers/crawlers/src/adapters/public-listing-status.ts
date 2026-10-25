@@ -9,6 +9,55 @@ export class ListingUnavailableError extends Error {
   }
 }
 
+/**
+ * The page loaded and parsed, but none of the known public price sources
+ * is present (challenge/shell pages, and sold pages whose sold signal the
+ * status detectors did not recognise). Distinct from a fetch failure:
+ * retrying the same page cannot produce a price that is not on it, so the
+ * refresh pipeline counts it as a failed check and moves on instead of
+ * burning its retry budget.
+ */
+export class NoPublicPriceError extends Error {
+  constructor(message = "Detail page did not contain a public price") {
+    super(message);
+    this.name = "NoPublicPriceError";
+  }
+}
+
+function yenAmount(value: unknown): number | undefined {
+  if (typeof value === "number")
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
+  const match = String(value ?? "")
+    .replace(/,/g, "")
+    .match(/(?:¥|￥|JPY)?\s*(\d{1,9})/i);
+  return match ? Number(match[1]) : undefined;
+}
+
+/** The offers price from the same JSON-LD Product block the status comes from. */
+export function schemaListingPrice(value: unknown): number | undefined {
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const price = schemaListingPrice(entry);
+      if (price != null) return price;
+    }
+    return undefined;
+  }
+  if (!value || typeof value !== "object") return undefined;
+  const entry = value as Record<string, unknown>;
+  if (entry["@graph"]) return schemaListingPrice(entry["@graph"]);
+  const types = Array.isArray(entry["@type"])
+    ? entry["@type"]
+    : [entry["@type"]];
+  if (!types.includes("Product")) return undefined;
+  const offers = Array.isArray(entry.offers) ? entry.offers : [entry.offers];
+  for (const offer of offers) {
+    if (!offer || typeof offer !== "object") continue;
+    const price = yenAmount((offer as Record<string, unknown>).price);
+    if (price != null) return price;
+  }
+  return undefined;
+}
+
 export function schemaListingStatus(value: unknown): ItemStatus | undefined {
   if (Array.isArray(value)) {
     const states = value.map(schemaListingStatus).filter(Boolean);

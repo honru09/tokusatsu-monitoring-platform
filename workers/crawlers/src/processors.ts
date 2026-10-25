@@ -56,6 +56,7 @@ import {
 } from "./adapters/images.js";
 import { MandarakeAdapter } from "./adapters/mandarake.adapter.js";
 import { MercariAdapter } from "./adapters/mercari.adapter.js";
+import { NoPublicPriceError } from "./adapters/public-listing-status.js";
 import { MockAdapter } from "./adapters/mock.adapter.js";
 import { PlaywrightPageAdapter } from "./adapters/playwright-page.adapter.js";
 import { PublicPageAdapter } from "./adapters/public-page.adapter.js";
@@ -3101,6 +3102,20 @@ export async function processStatus(
         ) as Prisma.ItemUpdateManyMutationInput,
       })
       .catch(() => undefined);
+    if (error instanceof NoPublicPriceError) {
+      // The page has no public price in any known source (challenge/shell
+      // variant, or a sold page whose sold signal was not recognised).
+      // The failed check is stamped above, so the streak still escalates
+      // to the detail path and the read-side stale cap still applies -
+      // but retrying this same page inside the job cannot conjure a
+      // price, so the job concludes instead of burning its retry budget.
+      return {
+        status: current.status,
+        detailRefresh: useDetail,
+        inconclusive: true,
+        noPublicPrice: true,
+      };
+    }
     throw error;
   }
   const shouldEnrich =

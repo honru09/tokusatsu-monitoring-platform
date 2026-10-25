@@ -59,6 +59,7 @@ vi.mock("./china-market/arbitrage.js", () => ({
 }));
 
 import { MercariAdapter } from "./adapters/mercari.adapter.js";
+import { NoPublicPriceError } from "./adapters/public-listing-status.js";
 import {
   expireStaleDirectListings,
   processSearch,
@@ -194,6 +195,57 @@ describe("status refresh health", () => {
       }),
     );
     expect(store.createAudit).not.toHaveBeenCalled();
+  });
+
+  it("counts a no-public-price probe without rethrowing it into the retry loop", async () => {
+    store.findUnique.mockResolvedValue(currentItem({ refreshFailureCount: 2 }));
+    vi.spyOn(MercariAdapter.prototype, "refreshStatus").mockRejectedValue(
+      new NoPublicPriceError(
+        "Mercari detail page did not contain a public price",
+      ),
+    );
+
+    await expect(processStatus(statusJob())).resolves.toMatchObject({
+      status: "active",
+      inconclusive: true,
+      noPublicPrice: true,
+    });
+
+    expect(store.updateMany).toHaveBeenCalledTimes(1);
+    expect(store.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          refreshFailureCount: 3,
+          lastCheckedAt: expect.any(Date),
+        },
+      }),
+    );
+    expect(store.createAudit).not.toHaveBeenCalled();
+  });
+
+  it("counts a no-public-price detail escalation the same way", async () => {
+    store.findUnique.mockResolvedValue(currentItem({ refreshFailureCount: 3 }));
+    vi.spyOn(MercariAdapter.prototype, "fetchDetail").mockRejectedValue(
+      new NoPublicPriceError(
+        "Mercari detail page did not contain a public price",
+      ),
+    );
+
+    await expect(processStatus(statusJob())).resolves.toMatchObject({
+      status: "active",
+      detailRefresh: true,
+      inconclusive: true,
+      noPublicPrice: true,
+    });
+
+    expect(store.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          refreshFailureCount: 4,
+          lastCheckedAt: expect.any(Date),
+        },
+      }),
+    );
   });
 
   it("escalates to the detail path once the failure threshold is reached", async () => {
