@@ -4,16 +4,13 @@ import {
   routeFor,
   routeForProvider,
   taskTier,
+  type AiProvider,
   type AiTask,
 } from "./ai-router.js";
 
 const TOUCHED_ENV = [
   "AI_EXTENDED_SCOPES_ENABLED",
-  "AI_PREMIUM_PROVIDER_ID",
-  "GEMINI_API_KEY",
-  "AI_GEMINI_CATALOGUE_FALLBACK_MODELS",
   "ZHIPU_API_KEY",
-  "OVO_API_KEY",
 ] as const;
 const originalEnv = new Map(TOUCHED_ENV.map((name) => [name, process.env[name]]));
 
@@ -51,12 +48,6 @@ const PRE_TIER_FLAG_ON: Record<AiTask, unknown> = {
   seller_analysis: ZHIPU_CANDIDATE, bundle_negotiation: ZHIPU_CANDIDATE,
 };
 
-function configureGeminiPremium() {
-  vi.stubEnv("AI_PREMIUM_PROVIDER_ID", "gemini");
-  vi.stubEnv("GEMINI_API_KEY", "fixture");
-  vi.stubEnv("AI_GEMINI_CATALOGUE_FALLBACK_MODELS", "gemini-3.1-flash-lite");
-}
-
 describe("task tiers", () => {
   it("classes the scoped product-reading tasks as bulk and the extended scopes as high-value", () => {
     for (const task of ["translation", "classification", "image_analysis", "complex_analysis", "assistant_chat"] as const)
@@ -82,10 +73,12 @@ describe("tiered routing equivalence with no premium provider configured", () =>
       expect(routeFor(task)).toEqual((PRE_TIER_FLAG_ON[task] as unknown[]).length > 0 ? ["glm-5.3-flash"] : []);
   });
 
-  it("stays equivalent even when a premium provider is named but the flag is off", () => {
-    configureGeminiPremium();
+  it("stays equivalent when the provider list contains an unknown id", () => {
+    // Unknown ids are not part of the AiProvider type anymore; one arriving
+    // as a plain string changes nothing.
+    const unknown = "gemini" as unknown as AiProvider;
     for (const task of ALL_TASKS)
-      expect(candidatesForTask(task, ["zhipu", "gemini"], { costPolicy: "free_first", requiresVision: false })).toEqual(PRE_TIER_FLAG_OFF[task]);
-    expect(routeForProvider("seller_analysis", "gemini")).toEqual([]);
+      expect(candidatesForTask(task, ["zhipu", unknown], { costPolicy: "free_first", requiresVision: false })).toEqual(PRE_TIER_FLAG_OFF[task]);
+    expect(routeForProvider("seller_analysis", unknown)).toEqual([]);
   });
 });

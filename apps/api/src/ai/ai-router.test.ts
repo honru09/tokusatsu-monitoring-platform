@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   AI_MODEL_ALLOWLIST,
   AI_PROVIDER_IDS,
-  OPENROUTER_MODEL_ALLOWLIST,
   PROVIDER_MODEL_ALLOWLIST,
   candidatesForTask,
   modelAcceptsImages,
@@ -11,6 +10,7 @@ import {
   providerOrder,
   routeFor,
   routeForProvider,
+  type AiProvider,
 } from "./ai-router.js";
 import { ZHIPU_MODEL } from "./ai-config.js";
 
@@ -69,21 +69,11 @@ describe("assistant AI route", () => {
     }
   });
 
-  it("routes no task to a legacy provider", () => {
-    for (const provider of [
-      "litellm",
-      "bai",
-      "gemini",
-      "groq",
-      "siliconflow",
-      "cerebras",
-      "cloudflare",
-      "cohere",
-      "nvidia",
-      "sensenova",
-      "openrouter",
-      "ovo",
-    ] as const) {
+  it("routes no task to an unknown provider id", () => {
+    // Removed providers are not part of the AiProvider type anymore; an id
+    // arriving as a plain string (stale config, an old audit row) routes
+    // nowhere.
+    for (const provider of ["litellm", "bai", "gemini", "ovo"] as unknown as AiProvider[]) {
       expect(routeForProvider("assistant_chat", provider)).toEqual([]);
       expect(routeForProvider("translation", provider)).toEqual([]);
       expect(routeForProvider("image_analysis", provider)).toEqual([]);
@@ -126,23 +116,7 @@ describe("assistant AI route", () => {
   it("keeps every allowlist scoped to the Zhipu model", () => {
     expect(AI_MODEL_ALLOWLIST).toEqual(new Set([ZHIPU_MODEL]));
     expect(PROVIDER_MODEL_ALLOWLIST.zhipu).toEqual(new Set([ZHIPU_MODEL]));
-    expect(OPENROUTER_MODEL_ALLOWLIST).toEqual(new Set());
-    for (const provider of [
-      "litellm",
-      "bai",
-      "gemini",
-      "groq",
-      "siliconflow",
-      "cerebras",
-      "cloudflare",
-      "cohere",
-      "nvidia",
-      "sensenova",
-      "openrouter",
-      "ovo",
-    ] as const) {
-      expect(PROVIDER_MODEL_ALLOWLIST[provider]).toEqual(new Set());
-    }
+    expect(Object.keys(PROVIDER_MODEL_ALLOWLIST)).toEqual(["zhipu"]);
   });
 
   it("describes the Zhipu model in the catalog", () => {
@@ -176,7 +150,7 @@ describe("assistant AI route", () => {
 
   it("offers no candidate when Zhipu is not among the providers", () => {
     expect(
-      candidatesForTask("assistant_chat", ["gemini", "ovo"], {
+      candidatesForTask("assistant_chat", ["gemini", "ovo"] as unknown as AiProvider[], {
         costPolicy: "paid_allowed",
         requiresVision: false,
       }),

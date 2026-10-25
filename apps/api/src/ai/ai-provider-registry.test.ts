@@ -4,7 +4,7 @@ import {
   providerConfigurationStatuses,
   providerCredentialEnvironmentName,
 } from "./ai-provider-registry.js";
-import { ZHIPU_MODEL } from "./ai-config.js";
+import { ZHIPU_MODEL, type AiProvider } from "./ai-config.js";
 
 const originalEnvironment = { ...process.env };
 
@@ -156,21 +156,15 @@ describe("AI provider registry", () => {
     process.env.OVO_INTERNAL_EVALUATION = "true";
 
     expect(configuredProviderRuntimes()).toEqual([]);
+    // Removed provider ids are not part of the AiProvider type anymore;
+    // passed as plain strings they are simply not configured.
     expect(
       configuredProviderRuntimes([
         "litellm",
         "bai",
         "gemini",
-        "groq",
-        "siliconflow",
-        "cerebras",
-        "cloudflare",
-        "cohere",
-        "nvidia",
-        "sensenova",
-        "openrouter",
         "ovo",
-      ]),
+      ] as unknown as AiProvider[]),
     ).toEqual([]);
     expect(providerConfigurationStatuses().map(({ provider }) => provider)).toEqual(
       ["zhipu"],

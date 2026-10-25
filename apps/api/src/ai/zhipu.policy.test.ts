@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assertAiScope, conservativeTokenReservation, extendedAiScopesEnabled, imageReservationTokens, normalizeScopedRequest, zhipuResourcePolicy } from "./zhipu.policy.js";
-import { candidatesForTask, routeFor, routeForProvider } from "./ai-router.js";
+import { candidatesForTask, routeFor, routeForProvider, type AiProvider } from "./ai-router.js";
 import { configuredProviderRuntimes } from "./ai-provider-registry.js";
 afterEach(()=>vi.unstubAllEnvs());
 describe("scoped Zhipu resource policy",()=>{
@@ -42,8 +42,8 @@ describe("scoped Zhipu resource policy",()=>{
   });
   it("does not restore removed providers, wildcard routes or paid models from stale env",()=>{
     vi.stubEnv("BAI_API_KEY","fixture");vi.stubEnv("AI_PROVIDER_ORDER","ovo|bai");vi.stubEnv("AI_ROUTE_ZHIPU_TRANSLATION","*");
-    expect(configuredProviderRuntimes(["bai","ovo"])).toEqual([]);
-    expect(routeForProvider("translation","bai")).toEqual([]);
+    expect(configuredProviderRuntimes(["bai","ovo"] as unknown as AiProvider[])).toEqual([]);
+    expect(routeForProvider("translation","bai" as unknown as AiProvider)).toEqual([]);
     expect(candidatesForTask("translation",["zhipu"],{costPolicy:"paid_allowed",requiresVision:false,availableModels:new Map([["zhipu",new Set(["glm-5.3-flashx"]) ]])})).toEqual([{provider:"zhipu",model:"glm-5.3-flash",costTier:"promotion"}]);
   });
   it("rejects key forwarding to a custom endpoint",()=>{

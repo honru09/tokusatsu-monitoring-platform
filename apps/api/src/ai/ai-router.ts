@@ -2,8 +2,6 @@ import { AI_BULK_TASKS, AI_EXTENDED_TASKS, AI_HIGH_VALUE_TASKS, AI_MODELS, AI_PR
 export * from "./ai-model-catalog.js";
 export type { AiTask, AiTaskTier };
 export const AI_MODEL_ALLOWLIST = PROVIDER_MODEL_ALLOWLIST.zhipu;
-export const OPENROUTER_MODEL_ALLOWLIST = new Set<string>();
-export const OPENROUTER_PAID_MODELS = new Set<string>();
 const scopedTasks = new Set<AiTask>(AI_SCOPED_TASKS);
 const extendedTasks = new Set<AiTask>(AI_EXTENDED_TASKS);
 const bulkTasks = new Set<AiTask>(AI_BULK_TASKS);

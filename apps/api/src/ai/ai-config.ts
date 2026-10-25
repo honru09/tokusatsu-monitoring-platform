@@ -13,9 +13,9 @@
 // ai-provider-registry.ts. Nothing else should need a new copy of the
 // provider or model names.
 
-// Historical provider names are retained only for reading existing audit records.
-export const LEGACY_AI_PROVIDER_IDS = ["litellm", "bai", "gemini", "groq", "siliconflow", "cerebras", "cloudflare", "cohere", "nvidia", "sensenova", "openrouter", "ovo"] as const;
-export type AiProvider = "zhipu" | (typeof LEGACY_AI_PROVIDER_IDS)[number];
+// Audit rows store the provider as a plain string; this type only names
+// the providers the code can still run.
+export type AiProvider = "zhipu";
 export const AI_PROVIDER_IDS: readonly AiProvider[] = ["zhipu"];
 export type AiDataClass = "public_market" | "user_private" | "sensitive_image";
 export type AiCostPolicy = "free_only" | "free_first" | "paid_allowed";
