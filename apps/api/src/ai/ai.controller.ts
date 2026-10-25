@@ -14,7 +14,6 @@ import { AiGatewayService } from "./ai-gateway.service.js";
 import {
   AiFeedbackDto,
   AssistantChatDto,
-  DiagnosisDto,
   ImageAnalysisDto,
   InternalExecuteDto,
   InternalProductExecuteDto,
@@ -34,11 +33,6 @@ export class AiController {
     private readonly gateway: AiGatewayService,
     private readonly productAi: ProductAiService,
   ) {}
-
-  @Get("system")
-  overview() {
-    return this.system.overview();
-  }
 
   @Get("resources")
   resources() { return this.gateway.resourceStatus(); }
@@ -61,18 +55,6 @@ export class AiController {
   @Post("feedback/:itemId")
   feedback(@Param("itemId") itemId: string, @Body() body: AiFeedbackDto) {
     return this.system.feedback(itemId, body);
-  }
-
-  @Get("market-memory/:productId")
-  productMemory(@Param("productId") productId: string) {
-    return this.system.productMemory(productId);
-  }
-
-  @Post("system/diagnose")
-  @HttpCode(200)
-  @PublicAiAccess("diagnose")
-  diagnose(@Body() body: DiagnosisDto) {
-    return this.system.diagnose(body.source);
   }
 
   @Post("chat")

@@ -29,7 +29,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function createGuard(endpoint: "chat" | "diagnose" = "chat") {
+function createGuard(endpoint: "chat" = "chat") {
   const guard = new PublicAiAccessGuard({
     get: vi.fn().mockReturnValue(endpoint),
   } as never);
