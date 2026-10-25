@@ -32,6 +32,10 @@ function fixture() {
     managerActivity: {
       create: vi.fn().mockResolvedValue({ id: "activity-1" }),
     },
+    itemDecision: {
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue({}),
+    },
     item: {
       findMany: vi.fn(({ where }: { where: { id: { in: string[] } } }) =>
         Promise.resolve(where.id.in.map((id) => itemShape(id))),

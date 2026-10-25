@@ -632,7 +632,7 @@ export class CollaborationService {
     const account = await this.requireAccount(body.accountId);
     const item = await this.prisma.item.findUnique({
       where: { id: body.itemId },
-      select: { id: true, ignored: true },
+      select: { id: true, ignored: true, titleZh: true, titleRaw: true },
     });
     if (!item) throw new NotFoundException("商品不存在");
     if (body.roundId) {
@@ -722,6 +722,29 @@ export class CollaborationService {
       }
       return decision;
     });
+    // Fire-and-forget Web Push to the other manager(s): a decision on a
+    // shared item is the event the partner is waiting on. Like the share
+    // notifications, a push failure never fails the decision itself.
+    if (this.push) {
+      const push = this.push;
+      const itemTitle = item.titleZh?.trim() || item.titleRaw?.trim() || "商品";
+      void (async () => {
+        const others = await this.prisma.managerAccount.findMany({
+          where: { active: true, id: { not: account.id } },
+          select: { id: true },
+        });
+        for (const recipient of others) {
+          await push
+            .notifyDecision({
+              itemTitle,
+              status: body.status,
+              deciderName: account.displayName,
+              recipientAccountId: recipient.id,
+            })
+            .catch(() => {});
+        }
+      })().catch(() => {});
+    }
     return presentDecision(saved);
   }
 
