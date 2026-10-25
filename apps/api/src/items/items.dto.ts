@@ -215,7 +215,15 @@ export class AnalyzePurchaseLinksDto {
 }
 
 export class PurchaseBundleMemberDto {
-  @IsString() @Length(1, 200) itemId!: string;
+  // Catalog members carry an itemId. Off-catalog members (a buy that never
+  // went through link analysis or monitoring) omit it and carry a title
+  // instead; the service creates the item row inside the same transaction.
+  @IsOptional() @IsString() @Length(1, 200) itemId?: string;
+
+  @IsOptional() @IsString() @MaxLength(300) title?: string;
+  @IsOptional() @IsString() @MaxLength(80) platform?: string;
+  @IsOptional() @IsString() @MaxLength(2_000) imageUrl?: string;
+  @IsOptional() @IsString() @MaxLength(4_096) sourceUrl?: string;
 
   @IsOptional()
   @Type(() => Number)
@@ -254,6 +262,9 @@ export class CreatePurchaseBundleDto {
 
   @IsOptional() @IsString() purchasedAt?: string;
   @IsOptional() @IsString() @MaxLength(1000) note?: string;
+  // Source/platform label for the whole registration (mainly off-catalog
+  // buys); catalog members keep the platform of their own listing source.
+  @IsOptional() @IsString() @MaxLength(80) platform?: string;
   @IsString() @Length(1, 120) actor!: string;
   @IsString() @Length(1, 1000) reason!: string;
 }

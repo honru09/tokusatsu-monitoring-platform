@@ -202,6 +202,9 @@ function purchaseHarness() {
         return { id: `audit-${audits.length}`, ...data };
       }),
     },
+    negotiationCase: {
+      updateMany: vi.fn(async () => ({ count: 0 })),
+    },
     inventory: {
       findUnique: vi.fn(),
       upsert: vi.fn(),

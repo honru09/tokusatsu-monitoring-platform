@@ -24,6 +24,7 @@ import {
 } from "@tokusatsu/shared";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
+import { randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma.service.js";
 import { valueKingPeerRelation } from './value-king.js';
 import {
@@ -1784,6 +1785,23 @@ export class ItemsService {
   }
 
   /**
+   * A registered purchase closes the negotiation for that item: a case that
+   * was still in progress reads as a success from now on. Cases already
+   * marked success keep their original statusChangedAt, and failed cases
+   * are left alone (the purchase may belong to a different listing round).
+   */
+  private async closeNegotiationCasesForPurchasedItems(
+    tx: Prisma.TransactionClient,
+    itemIds: string[],
+  ) {
+    if (!itemIds.length) return;
+    await tx.negotiationCase.updateMany({
+      where: { itemId: { in: itemIds }, status: "in_progress" },
+      data: { status: "success", statusChangedAt: new Date() },
+    });
+  }
+
+  /**
    * Dual-write purchase bundle → inventory order.
    * Cost/qty resync only when remaining===initial and no sales yet; otherwise
    * metadata may update but sold state is never clobbered.
@@ -1912,8 +1930,40 @@ export class ItemsService {
   }
 
   async createPurchaseBundle(body: CreatePurchaseBundleDto) {
+    // Off-catalog members have no itemId: they get a placeholder id here so
+    // the normalisation below treats them like any other member, and the
+    // item row itself is created inside the transaction further down.
+    const offCatalogByItemId = new Map<
+      string,
+      {
+        title: string;
+        platform: string | null;
+        imageUrl: string | null;
+        sourceUrl: string | null;
+        amountYen: number | null;
+        quantity: number | null;
+      }
+    >();
+    const resolvedMembers = body.members.map((member) => {
+      if (member.itemId?.trim()) return member;
+      const title = member.title?.trim();
+      if (!title)
+        throw new BadRequestException(
+          "站外购买的商品需要填写名称，或先通过链接分析生成商品",
+        );
+      const placeholderId = randomUUID();
+      offCatalogByItemId.set(placeholderId, {
+        title,
+        platform: member.platform?.trim() || body.platform?.trim() || null,
+        imageUrl: member.imageUrl?.trim() || null,
+        sourceUrl: member.sourceUrl?.trim() || null,
+        amountYen: member.amountYen ?? null,
+        quantity: member.quantity ?? null,
+      });
+      return { ...member, itemId: placeholderId };
+    });
     const normalized = normalizePurchaseMembers(
-      body.members,
+      resolvedMembers,
       body.pricingMode,
       body.totalPurchaseAmountYen,
     );
@@ -1923,6 +1973,34 @@ export class ItemsService {
 
     try {
       const bundle = await this.prisma.$transaction(async (tx) => {
+        for (const [placeholderId, offCatalog] of offCatalogByItemId) {
+          const source = await tx.source.upsert({
+            where: { key: "manual_purchase" },
+            create: { key: "manual_purchase", displayName: "站外购买" },
+            update: {},
+          });
+          await tx.item.create({
+            data: {
+              id: placeholderId,
+              sourceId: source.id,
+              sourceItemId: `manual-${placeholderId}`,
+              sourceUrl: offCatalog.sourceUrl ?? "",
+              titleRaw: offCatalog.title,
+              titleZh: offCatalog.title,
+              priceCurrent: offCatalog.amountYen ?? 0,
+              priceTotalEst: offCatalog.amountYen ?? 0,
+              quantityEst: offCatalog.quantity ?? 1,
+              importOrigin: "purchase",
+              ...(offCatalog.imageUrl
+                ? {
+                    images: {
+                      create: [{ url: offCatalog.imageUrl, position: 0 }],
+                    },
+                  }
+                : {}),
+            },
+          });
+        }
         const items = await tx.item.findMany({
           where: { id: { in: normalized.itemIds } },
           select: {
@@ -2047,6 +2125,10 @@ export class ItemsService {
           reason,
           after: after.snapshot,
         });
+        await this.closeNegotiationCasesForPurchasedItems(
+          tx,
+          normalized.itemIds,
+        );
         await ensureInventoryOrderFromBundle(tx, {
           bundleId: created.id,
           purchaseCost: normalized.totalPurchaseAmountYen,
@@ -2058,7 +2140,9 @@ export class ItemsService {
               normalized.quantityByItemId.get(item.id) ?? null,
             titleZh: item.titleZh,
             titleRaw: item.titleRaw,
-            platform: item.source.displayName,
+            platform:
+              offCatalogByItemId.get(item.id)?.platform ??
+              item.source.displayName,
             imageUrl: item.images[0]?.url ?? null,
           })),
         });
@@ -2284,6 +2368,12 @@ export class ItemsService {
             data: { favorite: false, ignored: false, archivedAt: new Date() },
           });
         }
+        // Members (re)confirmed by an edit are purchases too: close any
+        // negotiation that is still open for them, same as on create.
+        await this.closeNegotiationCasesForPurchasedItems(
+          tx,
+          normalized.itemIds,
+        );
       } else {
         if (pricingMode !== before.row.pricingMode)
           throw new BadRequestException(
@@ -2394,8 +2484,11 @@ export class ItemsService {
     return { bundle, serverTime: new Date().toISOString() };
   }
 
+  // Legacy single-item endpoint. Registration itself goes through
+  // createPurchaseBundle so both entry points share one field handling,
+  // one inventory dual-write and one negotiation auto-close; this method
+  // only adds the receipt attachment the bundle API does not carry.
   async purchase(id: string, body: PurchaseDto) {
-    const purchasedAt = parsedPurchaseDate(body.purchasedAt);
     const receiptSize = body.receiptDataBase64
       ? Buffer.byteLength(body.receiptDataBase64, "base64")
       : 0;
@@ -2403,161 +2496,48 @@ export class ItemsService {
       throw new BadRequestException("购买凭证图片不能超过 3MB");
     if (body.receiptDataBase64 && !body.receiptMimeType?.startsWith("image/"))
       throw new BadRequestException("购买凭证必须是图片文件");
-    const actor = body.actor?.trim() || "shared-user";
-    const reason =
-      body.reason?.trim() || "通过单商品购买接口记录或更新购买信息";
     const verified = receiptSize > 0;
 
-    const record = await this.prisma.$transaction(async (tx) => {
-      const current = await tx.item.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          productId: true,
-          quantityEst: true,
-          titleRaw: true,
-          titleZh: true,
-          source: { select: { displayName: true } },
-          images: {
-            orderBy: { position: "asc" as const },
-            take: 1,
-            select: { url: true },
-          },
-          purchaseRecord: {
-            include: {
-              bundle: { include: purchaseBundleSnapshotInclude },
-            },
-          },
+    const { bundle } = await this.createPurchaseBundle({
+      pricingMode: "per_item",
+      members: [
+        {
+          itemId: id,
+          amountYen: body.purchaseAmount,
+          ...(body.quantity != null ? { quantity: body.quantity } : {}),
         },
-      });
-      if (!current) throw new NotFoundException("Item not found");
+      ],
+      totalPurchaseAmountYen: body.purchaseAmount,
+      purchasedAt: body.purchasedAt,
+      note: body.note,
+      actor: body.actor?.trim() || "shared-user",
+      reason:
+        body.reason?.trim() || "通过单商品购买接口记录或更新购买信息",
+    } as CreatePurchaseBundleDto);
+    const recordSummary = bundle.purchases.find(
+      (entry) => entry.itemId === id,
+    );
+    if (!recordSummary) throw new NotFoundException("Item not found");
 
-      let purchase = current.purchaseRecord;
-      let bundleId: string;
-      let beforeSnapshot: ReturnType<typeof purchaseBundleSnapshot> | undefined;
-      if (!purchase) {
-        const bundle = await tx.purchaseBundle.create({
-          data: {
-            pricingMode: "per_item",
-            totalPurchaseAmount: body.purchaseAmount,
-            purchasedAt,
-            note: body.note,
-          },
-        });
-        bundleId = bundle.id;
-        purchase = await tx.purchaseRecord.create({
-          data: {
-            itemId: id,
-            bundleId,
-            purchaseAmount: body.purchaseAmount,
-            amountAllocated: true,
-            quantityOverride: body.quantity ?? null,
-            purchasedAt,
-            note: body.note,
-            verifiedAt: verified ? new Date() : null,
-          },
-          include: {
-            bundle: { include: purchaseBundleSnapshotInclude },
-          },
-        });
-        await this.addNewPurchaseToInventory(
-          tx,
-          { ...current, quantityOverride: body.quantity ?? null },
-          body.purchaseAmount,
-        );
-      } else {
-        bundleId = purchase.bundleId;
-        beforeSnapshot = purchaseBundleSnapshot(purchase.bundle);
-        if (
-          purchase.bundle.pricingMode === "bundle_total" &&
-          purchase.bundle.purchases.length > 1
-        )
-          throw new BadRequestException(
-            "该商品属于打包总价批次，请在购买批次中修改价格",
-          );
-        const previousAllocatedAmount = purchase.amountAllocated
-          ? purchase.purchaseAmount
-          : purchase.bundle.totalPurchaseAmount;
-        const nextBundleTotal =
-          purchase.bundle.purchases.length === 1
-            ? body.purchaseAmount
-            : purchase.bundle.totalPurchaseAmount -
-              previousAllocatedAmount +
-              body.purchaseAmount;
-        await tx.purchaseBundle.update({
-          where: { id: bundleId },
-          data: {
-            pricingMode: "per_item",
-            totalPurchaseAmount: nextBundleTotal,
-            ...(purchase.bundle.purchases.length === 1
-              ? { purchasedAt, note: body.note }
-              : {}),
-            version: { increment: 1 },
-          },
-        });
-        const previousQuantity = effectiveMemberQuantity({
-          quantityEst: current.quantityEst,
-          quantityOverride:
-            (purchase as { quantityOverride?: number | null })
-              .quantityOverride ?? null,
-        });
-        purchase = await tx.purchaseRecord.update({
-          where: { id: purchase.id },
-          data: {
-            purchaseAmount: body.purchaseAmount,
-            amountAllocated: true,
-            ...(body.quantity != null
-              ? { quantityOverride: body.quantity }
-              : {}),
-            purchasedAt,
-            note: body.note,
-            verifiedAt: verified ? new Date() : purchase.verifiedAt,
-          },
-          include: {
-            bundle: { include: purchaseBundleSnapshotInclude },
-          },
-        });
-        if (body.quantity != null) {
-          await this.applyPurchaseQuantityDelta(
-            tx,
-            current,
-            effectiveMemberQuantity({
-              quantityEst: current.quantityEst,
-              quantityOverride: body.quantity,
-            }) - previousQuantity,
-          );
-        }
-      }
-
+    const record = await this.prisma.$transaction(async (tx) => {
       if (body.receiptDataBase64) {
+        await tx.purchaseRecord.update({
+          where: { id: recordSummary.id },
+          data: { verifiedAt: new Date() },
+        });
         await tx.purchaseReceipt.create({
           data: {
-            purchaseId: purchase.id,
+            purchaseId: recordSummary.id,
             fileName:
               body.receiptFileName?.slice(0, 200) ?? "purchase-receipt.png",
             mimeType: body.receiptMimeType!,
             sizeBytes: receiptSize,
-            dataBase64: body.receiptDataBase64,
+            dataBase64: body.receiptDataBase64!,
           },
         });
       }
-      await tx.item.update({
-        where: { id },
-        data: { favorite: false, ignored: false, archivedAt: new Date() },
-      });
-      const after = await this.readPurchaseBundleSnapshot(tx, bundleId);
-      await this.appendPurchaseBundleAudit(tx, {
-        bundleId,
-        eventType: beforeSnapshot ? "price_changed" : "created",
-        actor,
-        reason,
-        ...(beforeSnapshot ? { before: beforeSnapshot } : {}),
-        after: after.snapshot,
-      });
-      // Dual-write on create and amount updates; cost/qty skipped if sold.
-      await this.syncLinkedInventoryOrder(tx, after.row);
       return tx.purchaseRecord.findUniqueOrThrow({
-        where: { id: purchase.id },
+        where: { id: recordSummary.id },
         include: {
           receipts: { select: purchaseReceiptSelect },
           bundle: true,
@@ -2567,7 +2547,7 @@ export class ItemsService {
     });
     return {
       purchase: record,
-      verified: Boolean(record.verifiedAt),
+      verified,
       serverTime: new Date().toISOString(),
     };
   }

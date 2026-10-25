@@ -1369,6 +1369,17 @@ describe("ItemsService.purchase receipt limits", () => {
     const tx = {
       purchaseBundle: {
         create: vi.fn().mockResolvedValue({ id: "bundle-1" }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          id: "bundle-1",
+          version: 1,
+          pricingMode: "per_item",
+          totalPurchaseAmount: 1_000,
+          currency: "JPY",
+          purchasedAt: now,
+          note: null,
+          archivedAt: null,
+          purchases: [purchase],
+        }),
         findUnique: vi.fn().mockResolvedValue({
           id: "bundle-1",
           version: 1,
@@ -1383,10 +1394,14 @@ describe("ItemsService.purchase receipt limits", () => {
       },
       purchaseRecord: {
         create: vi.fn().mockResolvedValue(purchase),
+        update: vi.fn().mockResolvedValue(purchase),
         findUniqueOrThrow: vi.fn().mockResolvedValue({
           ...purchase,
           receipts: [],
         }),
+      },
+      negotiationCase: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       purchaseBundleAudit: {
         create: vi.fn().mockResolvedValue({ id: "audit-1" }),

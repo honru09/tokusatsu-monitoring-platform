@@ -231,6 +231,9 @@ function quantityHarness() {
         ...data,
       })),
     },
+    negotiationCase: {
+      updateMany: vi.fn(async () => ({ count: 0 })),
+    },
     inventory: {
       findUnique: vi.fn(
         async ({ where }: { where: { productId: string } }) =>
