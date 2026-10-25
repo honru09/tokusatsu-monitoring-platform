@@ -136,6 +136,7 @@ import {
   restoreWorkspaceScroll,
 } from "../lib/workspace-scroll";
 import {
+  applyViewStateSearchParams,
   applyWorkspaceSearchParam,
   DEFAULT_WORKSPACE,
   goBackWorkspaceState,
@@ -144,6 +145,8 @@ import {
   legacyWorkspaceRedirect,
   legacyPurchasesTab,
   navigateWorkspaceState,
+  parseCatalogSortParam,
+  parseCatalogViewParam,
   parsePurchasesTabParam,
   parseRecentWorkspaceEntries,
   parseWorkspaceHistoryState,
@@ -4388,6 +4391,22 @@ export default function Dashboard() {
         );
         if (tabParam) setPurchasesTab(tabParam);
       }
+      if (fromUrl === "catalog" && !legacyView) {
+        const viewParam = parseCatalogViewParam(
+          new URLSearchParams(window.location.search).get("view"),
+        );
+        if (viewParam) setCatalogView(viewParam);
+        const sortParam = parseCatalogSortParam(
+          new URLSearchParams(window.location.search).get("sort"),
+        );
+        if (sortParam) {
+          setFilters((current) => ({
+            ...current,
+            sortBy: sortParam.sortBy,
+            sortOrder: sortParam.sortOrder,
+          }));
+        }
+      }
       const initial = initialWorkspaceNavigationState(fromUrl);
       workspaceStateRef.current = initial;
       workspaceHistoryDepthRef.current = 0;
@@ -4482,6 +4501,22 @@ export default function Dashboard() {
         );
         if (tabParam) setPurchasesTab(tabParam);
       }
+      if (fromUrl === "catalog" && !legacyView) {
+        const viewParam = parseCatalogViewParam(
+          new URLSearchParams(window.location.search).get("view"),
+        );
+        if (viewParam) setCatalogView(viewParam);
+        const sortParam = parseCatalogSortParam(
+          new URLSearchParams(window.location.search).get("sort"),
+        );
+        if (sortParam) {
+          setFilters((current) => ({
+            ...current,
+            sortBy: sortParam.sortBy,
+            sortOrder: sortParam.sortOrder,
+          }));
+        }
+      }
       const next = fromHistory ?? {
         ...initialWorkspaceNavigationState(fromUrl),
         depth: 0,
@@ -4522,6 +4557,34 @@ export default function Dashboard() {
   useEffect(() => {
     workspaceStateRef.current = { workspace, trail: workspaceTrail };
   }, [workspace, workspaceTrail]);
+
+  // Keep the shareable view state (catalog view + sort, purchases tab)
+  // in the URL via replaceState: refresh and copied links land on the
+  // same view, while workspace pushes stay the only history entries.
+  useEffect(() => {
+    if (!workspaceUrlSyncedRef.current) return;
+    const url = applyViewStateSearchParams(
+      applyWorkspaceSearchParam(new URL(window.location.href), workspace),
+      {
+        workspace,
+        view: catalogView,
+        tab: purchasesTab,
+        sortBy: filters.sortBy ?? null,
+        sortOrder: filters.sortOrder ?? null,
+      },
+    );
+    const nextHref = `${url.pathname}${url.search}${url.hash}`;
+    const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextHref !== currentHref) {
+      window.history.replaceState(window.history.state, "", nextHref);
+    }
+  }, [
+    workspace,
+    catalogView,
+    purchasesTab,
+    filters.sortBy,
+    filters.sortOrder,
+  ]);
 
   useLayoutEffect(() => {
     const pending = pendingWorkspaceScrollRestoreRef.current;

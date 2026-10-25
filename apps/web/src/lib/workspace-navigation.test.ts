@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyViewStateSearchParams,
   applyWorkspaceSearchParam,
   goBackWorkspaceState,
   initialWorkspaceNavigationState,
   legacyCatalogView,
   legacyPurchasesTab,
   legacyWorkspaceRedirect,
+  parseCatalogSortParam,
+  parseCatalogViewParam,
   parsePurchasesTabParam,
   navigateWorkspaceState,
   parseWorkspaceHistoryState,
@@ -270,5 +273,61 @@ describe("workspace URL deep-link", () => {
         },
       }),
     ).toBeNull();
+  });
+});
+
+describe("view state search params", () => {
+  it("writes non-default catalog view and sort, and reads them back", () => {
+    const url = applyViewStateSearchParams(new URL("http://127.0.0.1:3002/"), {
+      workspace: "catalog",
+      view: "favorites",
+      sortBy: "xianyuPrice",
+      sortOrder: "desc",
+    });
+    expect(url.searchParams.get("view")).toBe("favorites");
+    expect(url.searchParams.get("sort")).toBe("xianyuPrice:desc");
+    expect(parseCatalogViewParam(url.searchParams.get("view"))).toBe(
+      "favorites",
+    );
+    expect(parseCatalogSortParam(url.searchParams.get("sort"))).toEqual({
+      sortBy: "xianyuPrice",
+      sortOrder: "desc",
+    });
+  });
+
+  it("keeps defaults out of the URL", () => {
+    const url = applyViewStateSearchParams(
+      new URL("http://127.0.0.1:3002/?view=favorites&sort=xianyuPrice:desc&tab=orders"),
+      { workspace: "catalog", view: "browse", sortBy: null, tab: "orders" },
+    );
+    expect(url.search).toBe("");
+    const purchases = applyViewStateSearchParams(
+      new URL("http://127.0.0.1:3002/?tab=shipping"),
+      { workspace: "purchases", tab: "records" },
+    );
+    expect(purchases.searchParams.has("tab")).toBe(false);
+  });
+
+  it("writes the purchases tab only on the purchases workspace", () => {
+    const url = applyViewStateSearchParams(new URL("http://127.0.0.1:3002/"), {
+      workspace: "purchases",
+      tab: "shipping",
+      view: "favorites",
+    });
+    expect(url.searchParams.get("tab")).toBe("shipping");
+    expect(url.searchParams.has("view")).toBe(false);
+    expect(parsePurchasesTabParam(url.searchParams.get("tab"))).toBe(
+      "shipping",
+    );
+  });
+
+  it("rejects unknown views and sort fields", () => {
+    expect(parseCatalogViewParam("settings")).toBeNull();
+    expect(parseCatalogSortParam("price:asc")).toBeNull();
+    expect(parseCatalogSortParam("xianyuPrice")).toEqual({
+      sortBy: "xianyuPrice",
+      sortOrder: "asc",
+    });
+    expect(parseCatalogSortParam(null)).toBeNull();
   });
 });

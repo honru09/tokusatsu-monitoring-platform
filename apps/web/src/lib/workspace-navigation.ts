@@ -101,6 +101,88 @@ export function parsePurchasesTabParam(
     : null;
 }
 
+/** Parse the optional `?view=` companion of `?workspace=catalog`. */
+export function parseCatalogViewParam(
+  value: string | null | undefined,
+): CatalogView | null {
+  if (typeof value !== "string") return null;
+  return (CATALOG_VIEWS as readonly string[]).includes(value)
+    ? (value as CatalogView)
+    : null;
+}
+
+/**
+ * Sort fields a shared catalog link may carry. These are the two sorts
+ * the app itself applies programmatically (urgent auctions, the xianyu
+ * comparison view); the plain grid default needs no param at all.
+ */
+export const CATALOG_SORT_FIELDS: readonly string[] = [
+  "auctionEndAt",
+  "xianyuPrice",
+];
+
+export type CatalogSort = { sortBy: string; sortOrder: "asc" | "desc" };
+
+/** Parse the optional `?sort=<field>:<asc|desc>` catalog companion. */
+export function parseCatalogSortParam(
+  value: string | null | undefined,
+): CatalogSort | null {
+  if (typeof value !== "string") return null;
+  const [sortBy, sortOrder] = value.split(":");
+  if (!CATALOG_SORT_FIELDS.includes(sortBy)) return null;
+  return { sortBy, sortOrder: sortOrder === "desc" ? "desc" : "asc" };
+}
+
+export type ViewStateSearchParams = {
+  workspace: Workspace;
+  view?: CatalogView | null;
+  tab?: PurchasesTab | null;
+  sortBy?: string | null;
+  sortOrder?: string | null;
+};
+
+/**
+ * Fold the in-workspace view state (catalog view + sort, purchases tab)
+ * into a URL next to the `workspace` param. Defaults are omitted so the
+ * plain URL stays clean, and params belonging to other workspaces are
+ * removed, so a copied link always reproduces exactly one view.
+ */
+export function applyViewStateSearchParams(
+  url: URL,
+  state: ViewStateSearchParams,
+): URL {
+  const next = new URL(url.href);
+  if (
+    state.workspace === "catalog" &&
+    state.view &&
+    state.view !== "browse"
+  ) {
+    next.searchParams.set("view", state.view);
+  } else {
+    next.searchParams.delete("view");
+  }
+  if (
+    state.workspace === "catalog" &&
+    state.sortBy &&
+    CATALOG_SORT_FIELDS.includes(state.sortBy)
+  ) {
+    const order = state.sortOrder === "desc" ? "desc" : "asc";
+    next.searchParams.set("sort", `${state.sortBy}:${order}`);
+  } else {
+    next.searchParams.delete("sort");
+  }
+  if (
+    state.workspace === "purchases" &&
+    state.tab &&
+    state.tab !== "records"
+  ) {
+    next.searchParams.set("tab", state.tab);
+  } else {
+    next.searchParams.delete("tab");
+  }
+  return next;
+}
+
 export type WorkspaceNavigationState = {
   workspace: Workspace;
   trail: Workspace[];
