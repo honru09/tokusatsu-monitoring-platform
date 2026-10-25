@@ -20,7 +20,7 @@ const entries: RecentWorkspaceEntry[] = [
     visitedAt: 2,
   },
   {
-    workspace: "favorites",
+    workspace: "purchases",
     trail: ["workbench"],
     scrollY: 120,
     visitedAt: 1,

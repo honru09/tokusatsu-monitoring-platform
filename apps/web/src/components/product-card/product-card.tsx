@@ -20,6 +20,14 @@ export type { ProductCardItem, ProductCardPatch, ProductCardProps } from "./prod
  * Card shell: owns the per-card state (note dialog, more menu, pending
  * action feedback, title language) and composes the media, tags, price
  * and actions blocks, rendering exactly the classes the inline card used.
+ *
+ * This is the ONE card for market items: catalog grid, the folded
+ * favorites / link-import / disliked views, search results and the
+ * urgent-auction zone all render it, so no surface invents its own price
+ * or title presentation. The only sanctioned non-card rendering is the
+ * compact checkbox row inside SellerProfileDialog (multi-select for
+ * bundle sending) and the read-only public share snapshot; both are
+ * selection/snapshot surfaces, not browsing cards.
  */
 export function ProductCard({
   item,

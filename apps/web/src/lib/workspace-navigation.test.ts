@@ -3,6 +3,7 @@ import {
   applyWorkspaceSearchParam,
   goBackWorkspaceState,
   initialWorkspaceNavigationState,
+  legacyCatalogView,
   navigateWorkspaceState,
   parseWorkspaceHistoryState,
   parseRecentWorkspaceEntries,
@@ -116,7 +117,7 @@ describe("workspace navigation stack", () => {
 
   it("treats collaboration as a primary destination and profile as a nested page", () => {
     const state = navigateWorkspaceState(
-      { workspace: "favorites", trail: ["workbench"] },
+      { workspace: "purchases", trail: ["workbench"] },
       "collaboration",
     );
     expect(state).toEqual({ workspace: "collaboration", trail: [] });
@@ -128,7 +129,7 @@ describe("workspace navigation stack", () => {
   it("returns secondary and tertiary pages one level at a time", () => {
     const secondary = navigateWorkspaceState(
       { workspace: "workbench", trail: [] },
-      "links",
+      "purchases",
     );
     const tertiary = navigateWorkspaceState(secondary, "logistics");
 
@@ -142,12 +143,12 @@ describe("workspace navigation stack", () => {
 
 describe("workspace URL deep-link", () => {
   it("gives secondary deep-links a parent while primary destinations have no back button", () => {
-    expect(initialWorkspaceNavigationState("favorites")).toEqual({
-      workspace: "favorites",
+    expect(initialWorkspaceNavigationState("purchases")).toEqual({
+      workspace: "purchases",
       trail: ["workbench"],
     });
     expect(
-      goBackWorkspaceState(initialWorkspaceNavigationState("favorites")),
+      goBackWorkspaceState(initialWorkspaceNavigationState("purchases")),
     ).toEqual({ workspace: "workbench", trail: [] });
     expect(initialWorkspaceNavigationState("collaboration").trail).toEqual([]);
     expect(initialWorkspaceNavigationState("profile").trail).toEqual([
@@ -164,6 +165,20 @@ describe("workspace URL deep-link", () => {
     expect(parseWorkspaceParam("orders")).toBe("orders");
     expect(parseWorkspaceParam("not-a-workspace")).toBeNull();
     expect(parseWorkspaceParam(null)).toBeNull();
+  });
+
+  it("maps pre-fold workspace ids to their catalog view", () => {
+    // Favorites, links and disliked are catalog views now, not pages.
+    expect(parseWorkspaceParam("favorites")).toBeNull();
+    expect(parseWorkspaceParam("links")).toBeNull();
+    expect(parseWorkspaceParam("disliked")).toBeNull();
+    expect(parseWorkspaceParam("sellers")).toBeNull();
+    expect(legacyCatalogView("favorites")).toBe("favorites");
+    expect(legacyCatalogView("links")).toBe("links");
+    expect(legacyCatalogView("disliked")).toBe("disliked");
+    expect(legacyCatalogView("sellers")).toBe("browse");
+    expect(legacyCatalogView("catalog")).toBeNull();
+    expect(legacyCatalogView(null)).toBeNull();
   });
 
   it("treats inventory orders as a workbench child", () => {
@@ -191,7 +206,7 @@ describe("workspace URL deep-link", () => {
   it("round-trips nested navigation through browser history without discarding framework state", () => {
     const entry = {
       workspace: "logistics" as const,
-      trail: ["workbench", "favorites"] as const,
+      trail: ["workbench", "purchases"] as const,
       depth: 2,
       scrollY: 318,
     };

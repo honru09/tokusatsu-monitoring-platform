@@ -12,6 +12,7 @@ import {
   MessageIcon,
   MoneyIcon,
   MoreIcon,
+  RestoreIcon,
   ShareIcon,
   TrashIcon,
 } from "./product-card-icons";
@@ -118,17 +119,31 @@ export function ProductCardActions({
       </div>
       {moreActionsOpen && (
         <motion.div data-apple-motion-owned className={`product-card-more-actions ${transactionStyles.moreMenu} absolute bottom-[68px] right-3 z-30 grid w-[200px] grid-cols-4 gap-1.5 rounded-2xl border border-ink/10 bg-white/95 p-2 shadow-modal`} initial={reduceMotion || !pointerInputRef.current ? false : {opacity:0,transform:"translateY(10px) scale(.94)"}} animate={{opacity:1,transform:"translateY(0px) scale(1)"}} transition={reduceMotion || !pointerInputRef.current ? {duration:0} : springs.appleSpatial}>
-          <button
-            onClick={() => {
-              onCloseMore();
-              onIgnore();
-            }}
-            aria-label="标记为不感兴趣"
-            title="不感兴趣"
-            className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-rust/40 hover:text-rust"
-          >
-            <ArchiveIcon />
-          </button>
+          {item.ignored ? (
+            <button
+              onClick={() => {
+                onCloseMore();
+                onIgnore();
+              }}
+              aria-label="恢复到在售商品"
+              title="恢复"
+              className="grid min-h-11 place-items-center rounded-lg border border-moss/25 bg-moss/5 text-moss transition-colors hover:bg-moss/10"
+            >
+              <RestoreIcon />
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                onCloseMore();
+                onIgnore();
+              }}
+              aria-label="标记为不感兴趣"
+              title="不感兴趣"
+              className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-rust/40 hover:text-rust"
+            >
+              <ArchiveIcon />
+            </button>
+          )}
           <button
             onClick={() => {
               onCloseMore();

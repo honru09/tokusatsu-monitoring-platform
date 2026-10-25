@@ -44,6 +44,11 @@ export function ProductCardTags({ item }: { item: ProductCardItem }) {
           暂无法核验
         </span>
       )}
+      {item.ignoredReason === "negotiation_failed" && (
+        <span className="rounded bg-red-50 px-1.5 py-1 text-[10px] font-bold text-red-600">
+          砍价失败
+        </span>
+      )}
     </div>
   );
 }

@@ -28,11 +28,8 @@ export type MarketOverviewData = {
 };
 
 export type HomeWorkspaceEntry =
-  | "links"
   | "purchases"
   | "orders"
-  | "favorites"
-  | "sellers"
   | "intel"
   | "logistics"
   | "resale"
@@ -59,6 +56,8 @@ type Props = {
     sortOrder?: "asc" | "desc",
   ) => void;
   onOpenWorkspace: (workspace: HomeWorkspaceEntry) => void;
+  /** Favorites and link imports are catalog views now, not pages. */
+  onOpenCatalogView: (view: "favorites" | "links") => void;
   onOpenAnalysis: () => void;
   hasAnalysis: boolean;
   urgentAuctionCount?: number;
@@ -306,6 +305,7 @@ export function HomeMarketOverview({
   onOpenUrgentAuctions,
   onOpenXianyuComparison,
   onOpenWorkspace,
+  onOpenCatalogView,
   onOpenAnalysis,
   hasAnalysis,
   urgentAuctionCount = 0,
@@ -769,12 +769,12 @@ export function HomeMarketOverview({
               <HomeMenuEntry
                 icon="heart"
                 label="收藏"
-                onClick={() => onOpenWorkspace("favorites")}
+                onClick={() => onOpenCatalogView("favorites")}
               />
               <HomeMenuEntry
                 icon="link"
-                label="链接专区"
-                onClick={() => onOpenWorkspace("links")}
+                label="链接导入"
+                onClick={() => onOpenCatalogView("links")}
               />
               <HomeMenuEntry
                 icon="receipt"
@@ -795,11 +795,6 @@ export function HomeMarketOverview({
           >
             <h3 id="home-research-title">发现与研究</h3>
             <div className="home-menu-group">
-              <HomeMenuEntry
-                icon="seller"
-                label="卖家目录"
-                onClick={() => onOpenWorkspace("sellers")}
-              />
               <HomeMenuEntry
                 icon="news"
                 label="资讯专区"

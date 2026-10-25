@@ -110,6 +110,7 @@ import {
   DEFAULT_WORKSPACE,
   goBackWorkspaceState,
   initialWorkspaceNavigationState,
+  legacyCatalogView,
   navigateWorkspaceState,
   parseRecentWorkspaceEntries,
   parseWorkspaceHistoryState,
@@ -117,6 +118,7 @@ import {
   RECENT_WORKSPACES_STORAGE_KEY,
   recordRecentWorkspace,
   withWorkspaceHistoryState,
+  type CatalogView,
   type RecentWorkspaceEntry,
   type Workspace,
   type WorkspaceNavigationState,
@@ -507,25 +509,6 @@ type SellerAnalysis = {
     confidence?: string;
   };
   mode: "rules" | "ai";
-};
-
-type SellerSummary = {
-  id: string;
-  name: string;
-  sellerType: string;
-  locationText?: string | null;
-  profileUrl?: string | null;
-  source: { key: string; displayName: string };
-  _count: { items: number };
-  segment?: SellerSegment;
-};
-
-type SellerSegment = {
-  key: string;
-  label: string;
-  description: string;
-  count?: number;
-  reasons?: string[];
 };
 
 type Filters = Record<string, string>;
@@ -1250,157 +1233,54 @@ function CartDialog({
   );
 }
 
-function FavoriteMiniCard({
-  item,
-  language,
-  translatedTitle,
-  exchangeRate,
-  serverOffset,
-  nowTick,
-  purchased,
-  onOpen,
-  onPurchase,
-  onSaveNote,
-}: {
-  item: Item;
-  language: "zh" | "original";
-  translatedTitle?: string;
-  exchangeRate?: number;
-  serverOffset: number;
-  nowTick: number;
-  purchased: boolean;
-  onOpen: () => void;
-  onPurchase: () => void;
-  onSaveNote: (note: string | null) => Promise<void>;
-}) {
-  const [noteOpen, setNoteOpen] = useState(false);
-  const title = itemDisplayTitle(item, language, translatedTitle);
-  const unverifiable = isUnverifiableListing(item);
-  const auctionRemaining = useMemo(
-    () =>
-      item.listingType === "auction" && item.auctionEndAt
-        ? countdown(item.auctionEndAt, serverOffset)
-        : null,
-    [item.auctionEndAt, item.listingType, nowTick, serverOffset],
-  );
-  return (
-    <article className="favorite-mini-card grid min-h-28 w-full grid-cols-[72px_minmax(0,1fr)_44px] items-center gap-3 overflow-hidden rounded-xl p-2 text-left">
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`查看 ${title}`}
-        className="h-[72px] w-[72px] overflow-hidden rounded-lg bg-ink outline-none focus-visible:ring-4 focus-visible:ring-moss/30"
-      >
-        {item.images[0] ? (
-          <img
-            src={item.images[0].url}
-            alt=""
-            loading="lazy"
-            className={`h-full w-full object-cover ${unverifiable ? "saturate-[.45]" : ""}`}
-          />
-        ) : (
-          <span className="grid h-full place-items-center font-heading text-2xl font-black text-lime">
-            特
-          </span>
-        )}
-      </button>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="min-w-0 text-left outline-none focus-visible:ring-4 focus-visible:ring-moss/20"
-      >
-        <span className="line-clamp-2 text-xs font-black leading-5 text-ink">
-          {title}
-        </span>
-        <span className="mt-1 flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 font-mono text-[10px] text-ink/70">
-          <b className="text-[color:var(--color-danger-ink)]">
-            {fmtYen(item.priceCurrent)}
-          </b>
-          <span className="text-[9px] text-ink/65">
-            {fmtCny(item.priceCurrent, exchangeRate)}
-          </span>
-          <span>
-            {sourceName(
-              item.source.key,
-              item.source.displayName,
-              item.sourceUrl,
-            )}
-          </span>
-          <span>{listingTypeLabel(item.listingType)}</span>
-          {auctionRemaining && (
-            <b className="text-amber-700">剩 {auctionRemaining}</b>
-          )}
-          {unverifiable && (
-            <b className="text-zinc-500">暂无法核验</b>
-          )}
-        </span>
-        <YahooDiscount
-          sourceKey={item.source.key}
-          priceYen={item.priceCurrent}
-          exchangeRate={exchangeRate}
-        />
-        <span
-          className={`mt-0.5 flex h-4 min-w-0 items-center gap-1 text-[10px] text-ink/70 ${item.note ? "" : "invisible"}`}
-          title={item.note ?? undefined}
-        >
-          <CommentIcon className="h-3 w-3 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">
-            {item.note ?? "无备注"}
-          </span>
-        </span>
-      </button>
-      <div className="grid justify-items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onPurchase}
-          disabled={purchased}
-          aria-label={purchased ? "已登记购买" : "标记为已购入"}
-          title={purchased ? "已登记购买" : "标记为已购入"}
-          className={`favorite-purchase-button grid h-11 w-11 place-items-center rounded-full transition-[background-color,color,transform,box-shadow] active:scale-95 motion-reduce:active:scale-100 ${purchased ? "bg-emerald-50 text-[color:var(--color-success-ink)] ring-1 ring-emerald-200" : "bg-amber-50 text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100"}`}
-        >
-          <MoneyIcon className="h-5 w-5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setNoteOpen(true)}
-          aria-label={item.note ? `编辑采购备注：${item.note}` : "添加采购备注"}
-          title={item.note ? "编辑采购备注" : "添加采购备注"}
-          className={`grid h-11 w-11 place-items-center rounded-full text-ink/65 ring-1 transition-[background-color,color,transform,box-shadow] active:scale-95 motion-reduce:active:scale-100 ${item.note ? "bg-blue-50 text-moss ring-blue-200" : "bg-white/70 ring-ink/10 hover:bg-fog"}`}
-        >
-          <CommentIcon className="h-5 w-5" />
-        </button>
-      </div>
-      <NoteDialog
-        open={noteOpen}
-        value={item.note}
-        title="收藏商品备注"
-        onClose={() => setNoteOpen(false)}
-        onSave={onSaveNote}
-      />
-    </article>
-  );
-}
-
+/**
+ * Favorites as a catalog view: this component keeps the collection's own
+ * sync engine (full-load + change journal + targeted refetch) but renders
+ * the shared ProductCard grid, so favorites behave and look exactly like
+ * every other item surface. Card patches stay on the engine's journal
+ * path; cart/share/ignore/delete/bundle actions delegate to the
+ * dashboard handlers through props.
+ */
 function FavoritesWorkspace({
   apiBaseUrl,
   actor,
   language,
+  translations,
+  nowTick: nowTickMs,
   exchangeRate,
   serverOffset,
   changeBatch,
-  purchasedItemIds,
+  onPublishChanges,
+  cartItemIds,
+  bundleShareItemIds,
   onOpenItem,
   onPurchaseItem,
+  onCartItem,
+  onShareItem,
+  onIgnoreItem,
+  onDeleteItem,
+  onSendToManagerItem,
+  onToggleBundleShareItem,
 }: {
   apiBaseUrl: string;
   actor?: string;
   language: "zh" | "original";
+  translations: Record<string, string>;
+  nowTick: number;
   exchangeRate?: number;
   serverOffset: number;
   changeBatch?: FavoriteChangeBatch;
-  purchasedItemIds: ReadonlySet<string>;
+  onPublishChanges: (changes: FavoriteSyncChange[]) => void;
+  cartItemIds: ReadonlySet<string>;
+  bundleShareItemIds: ReadonlySet<string>;
   onOpenItem: (item: Item) => void;
   onPurchaseItem: (item: Item) => void;
+  onCartItem: (item: Item) => void;
+  onShareItem: (item: Item) => void;
+  onIgnoreItem: (item: Item) => void;
+  onDeleteItem: (item: Item) => void;
+  onSendToManagerItem: (item: Item) => void;
+  onToggleBundleShareItem: (item: Item) => void;
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [total, setTotal] = useState(0);
@@ -1741,6 +1621,35 @@ function FavoritesWorkspace({
       throw reason;
     }
   }
+  async function patchFavoriteItem(
+    item: Item,
+    patch: { favorite?: boolean; note?: string | null },
+  ) {
+    if (patch.note !== undefined) {
+      await saveNote(item, patch.note);
+      return true;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/items/${item.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...patch,
+          actor: actor || "favorites-workspace",
+        }),
+      });
+      if (!response.ok) return false;
+      const payload = (await response.json()) as { item?: Item };
+      if (payload.item) {
+        const change = { item: payload.item, patch: payload.item };
+        applyFavoriteChanges([change]);
+        onPublishChanges([change]);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
   return (
     <section
       className="favorites-workspace portal-page"
@@ -1829,25 +1738,32 @@ function FavoritesWorkspace({
               </select>
             </label>
           </div>
-          <div className="favorites-editorial-grid mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="procurement-grid mt-6 grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
             {visibleItems.length ? (
               visibleItems.map((item) => (
-                <FavoriteMiniCard
+                <ProductCard
                   key={item.id}
                   item={item}
                   language={language}
-                  translatedTitle={item.titleZh ?? undefined}
+                  translatedTitle={translations[`${item.id}:title`]}
                   exchangeRate={exchangeRate}
                   serverOffset={serverOffset}
-                  nowTick={nowTick}
-                  purchased={purchasedItemIds.has(item.id)}
+                  nowTick={nowTickMs}
                   onOpen={() => onOpenItem(item)}
+                  onPatch={(patch) => patchFavoriteItem(item, patch)}
+                  onIgnore={() => onIgnoreItem(item)}
+                  onDelete={() => onDeleteItem(item)}
                   onPurchase={() => onPurchaseItem(item)}
-                  onSaveNote={(note) => saveNote(item, note)}
+                  inCart={cartItemIds.has(item.id)}
+                  onCart={() => onCartItem(item)}
+                  onShare={() => onShareItem(item)}
+                  onSendToManager={() => onSendToManagerItem(item)}
+                  inBundleShare={bundleShareItemIds.has(item.id)}
+                  onToggleBundleShare={() => onToggleBundleShareItem(item)}
                 />
               ))
             ) : (
-              <p className="favorites-empty rounded-2xl p-8 text-center text-sm sm:col-span-2 lg:col-span-3 xl:col-span-4">
+              <p className="favorites-empty rounded-2xl p-8 text-center text-sm col-span-2 md:col-span-3 lg:col-span-4 2xl:col-span-5">
                 收藏中暂无{listingTypeLabel(listingMode)}商品
               </p>
             )}
@@ -2083,218 +1999,6 @@ function MarketAnalysisDialog({
       </section>
     </div>,
     getShellOverlayRoot(),
-  );
-}
-
-function SellerDirectory({
-  apiBaseUrl,
-  onOpenSeller,
-}: {
-  apiBaseUrl: string;
-  onOpenSeller: (sellerId: string) => void;
-}) {
-  const [sellers, setSellers] = useState<SellerSummary[]>([]);
-  const [search, setSearch] = useState("");
-  const [sellerPage, setSellerPage] = useState(1);
-  const [sellerPageCount, setSellerPageCount] = useState(1);
-  const [sellerTotal, setSellerTotal] = useState(0);
-  const [segments, setSegments] = useState<SellerSegment[]>([]);
-  const [activeSegment, setActiveSegment] = useState("");
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const load = useCallback(
-    async (
-      query: string,
-      nextPage = 1,
-      append = false,
-      segment = activeSegment,
-    ) => {
-      if (append) setLoadingMore(true);
-      else setLoading(true);
-      setError("");
-      try {
-        const params = new URLSearchParams({
-          page: String(nextPage),
-          limit: "60",
-        });
-        if (query.trim()) params.set("search", query.trim());
-        if (segment) params.set("segment", segment);
-        const response = await fetch(
-          `${apiBaseUrl}/items/sellers?${params.toString()}`,
-          {
-            cache: "no-store",
-          },
-        );
-        if (!response.ok) throw new Error(`API ${response.status}`);
-        const data = (await response.json()) as {
-          sellers?: SellerSummary[];
-          segments?: SellerSegment[];
-          activeSegment?: string | null;
-          total?: number;
-          page?: number;
-          pageCount?: number;
-        };
-        setSellers((current) =>
-          append ? [...current, ...(data.sellers ?? [])] : (data.sellers ?? []),
-        );
-        setSegments(data.segments ?? []);
-        setActiveSegment(data.activeSegment ?? segment);
-        setSellerTotal(data.total ?? 0);
-        setSellerPage(data.page ?? nextPage);
-        setSellerPageCount(data.pageCount ?? 1);
-      } catch (reason) {
-        setError(reason instanceof Error ? reason.message : "商家目录加载失败");
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    },
-    [activeSegment, apiBaseUrl],
-  );
-  useEffect(() => {
-    const timer = window.setTimeout(
-      () => void load(search, 1, false, activeSegment),
-      220,
-    );
-    return () => window.clearTimeout(timer);
-  }, [activeSegment, load, search]);
-  const activeSegmentDefinition = segments.find(
-    (segment) => segment.key === activeSegment,
-  );
-  return (
-    <section
-      className="seller-directory ios-surface mt-3 rounded-2xl border border-white/70 p-4 shadow-panel"
-      aria-labelledby="seller-directory-heading"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3
-            id="seller-directory-heading"
-            className="font-heading text-lg font-black"
-          >
-            商家目录
-          </h3>
-          <p className="mt-1 text-xs text-ink/55">{sellerTotal} 位卖家</p>
-        </div>
-        <label className="relative min-w-[220px] flex-1 sm:max-w-xs">
-          <span className="sr-only">搜索商家</span>
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="搜索卖家名称"
-            className="h-11 w-full rounded-xl border border-ink/10 bg-white/75 px-3 text-sm transition focus-visible:border-moss/40 focus-visible:ring-2 focus-visible:ring-moss/20"
-          />
-        </label>
-      </div>
-      {segments.length > 0 && (
-        <div className="seller-segment-section mt-4">
-          <div
-            className="seller-segment-strip"
-            role="group"
-            aria-label="卖家群体分类"
-          >
-            <button
-              type="button"
-              aria-pressed={!activeSegment}
-              onClick={() => setActiveSegment("")}
-              className="seller-segment-chip"
-            >
-              全部
-            </button>
-            {segments.map((segment) => (
-              <button
-                key={segment.key}
-                type="button"
-                aria-pressed={activeSegment === segment.key}
-                onClick={() => setActiveSegment(segment.key)}
-                className="seller-segment-chip"
-                title={segment.description}
-              >
-                <span>{segment.label}</span>
-                <b>{segment.count ?? 0}</b>
-              </button>
-            ))}
-          </div>
-          {activeSegmentDefinition && (
-            <p className="seller-segment-description" aria-live="polite">
-              {activeSegmentDefinition.description}
-            </p>
-          )}
-        </div>
-      )}
-      {error && (
-        <LoadError
-          message={error}
-          onRetry={() => void load(search, 1, false, activeSegment)}
-          retryTestId="retry-sellers"
-          className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-rust px-3 py-2 text-xs font-bold text-white"
-          actionClassName="shrink-0 rounded-lg bg-white/20 px-3 py-1 text-xs font-bold text-white"
-        />
-      )}
-      {loading ? (
-        <p className="mt-4 rounded-xl border border-dashed border-ink/10 p-6 text-center text-xs text-ink/50">
-          正在读取商家…
-        </p>
-      ) : sellers.length === 0 ? (
-        error ? null : (
-          <p className="mt-4 rounded-xl border border-dashed border-ink/10 p-6 text-center text-xs text-ink/50">
-            暂无匹配商家
-          </p>
-        )
-      ) : (
-        <div className="seller-editorial-grid mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {sellers.map((seller) => (
-            <button
-              type="button"
-              key={seller.id}
-              onClick={() => onOpenSeller(seller.id)}
-              className="seller-directory-card group min-w-0 rounded-xl p-3 text-left"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <b className="line-clamp-2 min-w-0 text-sm text-ink">
-                  {seller.name}
-                </b>
-                <span className="seller-count-chip shrink-0 rounded-full px-2 py-1 text-[10px] font-bold">
-                  {seller._count.items} 件
-                </span>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-ink/55">
-                <span className="seller-meta-chip rounded-md px-1.5 py-1">
-                  {sourceName(seller.source.key, seller.source.displayName)}
-                </span>
-                <span className="seller-meta-chip rounded-md px-1.5 py-1">
-                  {seller.segment?.label ??
-                    (seller.sellerType === "store"
-                      ? "专业售卖"
-                      : seller.sellerType === "individual"
-                        ? "个人卖家"
-                        : "待分析")}
-                </span>
-                {seller.locationText && (
-                  <span className="seller-meta-chip rounded-md px-1.5 py-1">
-                    {seller.locationText}
-                  </span>
-                )}
-              </div>
-              <span className="mt-3 inline-flex items-center gap-1 text-[10px] font-bold text-moss opacity-75 transition group-hover:opacity-100">
-                查看商家画像 <ExternalLinkIcon className="h-3 w-3" />
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-      {!loading && sellerPage < sellerPageCount && (
-        <button
-          type="button"
-          onClick={() => void load(search, sellerPage + 1, true, activeSegment)}
-          disabled={loadingMore}
-          className="mt-3 min-h-10 w-full rounded-xl border border-moss/25 bg-moss/5 text-xs font-bold text-moss transition hover:bg-moss/10 disabled:opacity-50"
-        >
-          {loadingMore ? "正在加载…" : "加载更多商家"}
-        </button>
-      )}
-    </section>
   );
 }
 
@@ -4815,6 +4519,7 @@ export default function Dashboard() {
   const inventoryQueryKeyRef = useRef(inventoryQueryKey);
   inventoryQueryKeyRef.current = inventoryQueryKey;
   const [workspace, setWorkspace] = useState<Workspace>(DEFAULT_WORKSPACE);
+  const [catalogView, setCatalogView] = useState<CatalogView>("browse");
   const chatVisitedRef = useRef(false);
   if (workspace === "collaboration") chatVisitedRef.current = true;
   const [workspaceTrail, setWorkspaceTrail] = useState<Workspace[]>([]);
@@ -5085,10 +4790,18 @@ export default function Dashboard() {
 
     if (!workspaceUrlSyncedRef.current) {
       workspaceUrlSyncedRef.current = true;
+      // Pre-fold deep links (?workspace=favorites etc.) land on the
+      // catalog with the matching view preselected.
+      const legacyView = legacyCatalogView(
+        new URLSearchParams(window.location.search).get("workspace"),
+      );
       const fromUrl =
         parseWorkspaceParam(
           new URLSearchParams(window.location.search).get("workspace"),
-        ) ?? DEFAULT_WORKSPACE;
+        ) ??
+        (legacyView ? ("catalog" as const) : null) ??
+        DEFAULT_WORKSPACE;
+      if (legacyView) setCatalogView(legacyView);
       const initial = initialWorkspaceNavigationState(fromUrl);
       workspaceStateRef.current = initial;
       workspaceHistoryDepthRef.current = 0;
@@ -5151,10 +4864,16 @@ export default function Dashboard() {
         ),
       );
       const fromHistory = parseWorkspaceHistoryState(event.state);
+      const legacyView = legacyCatalogView(
+        new URLSearchParams(window.location.search).get("workspace"),
+      );
       const fromUrl =
         parseWorkspaceParam(
           new URLSearchParams(window.location.search).get("workspace"),
-        ) ?? DEFAULT_WORKSPACE;
+        ) ??
+        (legacyView ? ("catalog" as const) : null) ??
+        DEFAULT_WORKSPACE;
+      if (legacyView) setCatalogView(legacyView);
       const next = fromHistory ?? {
         ...initialWorkspaceNavigationState(fromUrl),
         depth: 0,
@@ -6214,8 +5933,6 @@ export default function Dashboard() {
     const needsLiveClock =
       workspace === "inventory" ||
       workspace === "catalog" ||
-      workspace === "links" ||
-      workspace === "favorites" ||
       urgentAuctionPool.some(
         (item) => item.listingType === "auction" && item.auctionEndAt,
       );
@@ -6430,14 +6147,17 @@ export default function Dashboard() {
       delete next.valueKing;
       return next;
     });
+    setCatalogView("browse");
     navigateWorkspace("catalog");
   }
   function openCatalogCategory(key: string) {
     selectHomeCategory(key);
+    setCatalogView("browse");
     navigateWorkspace("catalog");
   }
   function openCatalogCollection(key: string, categoryIp: string) {
     selectHomeCollection(key, categoryIp);
+    setCatalogView("browse");
     navigateWorkspace("catalog");
   }
   function openMonitoringCategory(id: string) {
@@ -6448,6 +6168,7 @@ export default function Dashboard() {
       ...(current.sortBy ? { sortBy: current.sortBy } : {}),
       ...(current.sortOrder ? { sortOrder: current.sortOrder } : {}),
     }));
+    setCatalogView("browse");
     navigateWorkspace("catalog");
   }
   function monitoringConfigChanged() {
@@ -6456,6 +6177,7 @@ export default function Dashboard() {
   }
   function openCatalogListingMode(mode: ListingType) {
     changeListingMode(mode);
+    setCatalogView("browse");
     navigateWorkspace("catalog");
   }
   function openUrgentAuctionCatalog() {
@@ -6467,6 +6189,7 @@ export default function Dashboard() {
       sortBy: "auctionEndAt",
       sortOrder: "asc",
     });
+    setCatalogView("browse");
     navigateWorkspace("catalog");
   }
   function openValueKingCatalog() {
@@ -6474,6 +6197,7 @@ export default function Dashboard() {
     setPage(1);
     setListingMode("direct");
     setFilters({ valueKing: "true" });
+    setCatalogView("browse");
     navigateWorkspace("catalog");
   }
   function openXianyuComparisonCatalog(
@@ -6488,6 +6212,7 @@ export default function Dashboard() {
       sortBy: "xianyuPrice",
       sortOrder,
     });
+    setCatalogView("browse");
     navigateWorkspace("catalog");
   }
   function currentWorkspaceScrollTop() {
@@ -6567,6 +6292,12 @@ export default function Dashboard() {
     if (mode === "push") window.history.pushState(historyState, "", nextHref);
     else window.history.replaceState(historyState, "", nextHref);
   }
+  /** Open the catalog with a folded filter view preselected. */
+  function openCatalogView(view: CatalogView) {
+    setCatalogView(view);
+    if (workspace !== "catalog") navigateWorkspace("catalog");
+  }
+
   function navigateWorkspace(next: Workspace) {
     if (next === workspace) return;
     workspaceHasNavigatedRef.current = true;
@@ -7327,6 +7058,14 @@ export default function Dashboard() {
         ((overview?.totals24h.succeeded ?? 0) / completedJobs24h) * 100,
       )
     : 100;
+  const cartItemIdSet = useMemo(
+    () => new Set(cart.items.map((item) => item.id)),
+    [cart.items],
+  );
+  const bundleShareItemIdSet = useMemo(
+    () => new Set(bundleShareItems.map((item) => item.id)),
+    [bundleShareItems],
+  );
   const navigationWorkspace:
     | "inventory"
     | "catalog"
@@ -7334,7 +7073,7 @@ export default function Dashboard() {
     | "workbench" =
     workspace === "collaboration"
       ? "collaboration"
-      : ["catalog", "links", "favorites", "sellers"].includes(workspace)
+      : workspace === "catalog"
         ? "catalog"
         : [
               "purchases",
@@ -7344,7 +7083,6 @@ export default function Dashboard() {
               "calculator",
               "operations",
               "workbench",
-              "disliked",
               "monitoring",
               "resale",
               "ai",
@@ -7489,6 +7227,7 @@ export default function Dashboard() {
         {workspace === "workbench" && (
           <WorkbenchWorkspace
             onNavigate={navigateWorkspace}
+            onOpenDisliked={() => openCatalogView("disliked")}
             accountName={activeManager?.displayName}
             position={activeManager?.position}
             activeCount={overview?.market?.activeTotal}
@@ -7507,7 +7246,7 @@ export default function Dashboard() {
           />
         )}
         {workspace === "intel" && <MarketIntelWorkspace apiBaseUrl={API} />}
-        {workspace === "ai" && <AiSystemWorkspace apiBaseUrl={API} onOpenChat={()=>navigateWorkspace("assistant")} onOpenProducts={()=>navigateWorkspace("catalog")} />}
+        {workspace === "ai" && <AiSystemWorkspace apiBaseUrl={API} onOpenChat={()=>navigateWorkspace("assistant")} onOpenProducts={()=>openCatalogView("browse")} />}
         {workspace === "logistics" && (
           <LogisticsWorkspace
             apiBaseUrl={API}
@@ -7520,25 +7259,6 @@ export default function Dashboard() {
             key={activeManagerId}
             managerId={activeManagerId}
             exchangeRate={exchangeRate?.rate}
-          />
-        )}
-        {workspace === "favorites" && (
-          <FavoritesWorkspace
-            apiBaseUrl={API}
-            actor={activeManagerId || undefined}
-            language={language}
-            exchangeRate={exchangeRate?.rate}
-            serverOffset={serverOffset}
-            changeBatch={favoriteChangeBatch}
-            purchasedItemIds={purchasedItemIds}
-            onOpenItem={openItemDetail}
-            onPurchaseItem={(item) => setPurchaseItem(item)}
-          />
-        )}
-        {workspace === "sellers" && (
-          <SellerDirectory
-            apiBaseUrl={API}
-            onOpenSeller={(id) => setSellerId(id)}
           />
         )}
         {workspace === "inventory" && (
@@ -7576,6 +7296,7 @@ export default function Dashboard() {
                 onOpenUrgentAuctions={openUrgentAuctionCatalog}
                 onOpenXianyuComparison={openXianyuComparisonCatalog}
                 onOpenWorkspace={navigateWorkspace}
+                onOpenCatalogView={openCatalogView}
                 onOpenAnalysis={() => setAnalysisOpen(true)}
                 hasAnalysis={Boolean(analysis)}
                 urgentAuctionCount={urgentCount}
@@ -7583,515 +7304,206 @@ export default function Dashboard() {
             </details>
           </TodoHome>
         )}
-        {(workspace === "links" || workspace === "purchases") && (
-          <div
-            className={
-              workspace === "purchases" ? "purchases-workspace" : "link-editorial-layout"
-            }
-          >
+        {workspace === "purchases" && (
+          <div className="purchases-workspace">
             <section className="ios-surface workspace-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel">
-              {workspace === "links" ? (
-                <>
-                  <div className="link-editorial-heading">
+              <>
+                <div className="mb-4 rounded-2xl border border-white/60 bg-white/45 p-3 shadow-sm ring-1 ring-ink/5 backdrop-blur-none">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-1">
-                      <h2 className="font-heading text-xl font-black">
-                        链接专区
+                      <h2 className="text-sm font-bold text-ink">
+                        链接登记购买
                       </h2>
                       <ContextInfo
-                        label="查看链接专区说明"
-                        title="链接导入说明"
+                        label="查看购买链接说明"
+                        title="通过链接登记购买"
                       >
                         <p>
-                          每行可粘贴一个公开商品链接，一次最多导入
-                          {URL_IMPORT_LIMIT}{" "}
-                          个。系统会自动识别来源并在后台分析。
+                          粘贴公开商品链接后，后台只分析商品，不进入链接专区；分析结果会保存，刷新页面不会丢失。
                         </p>
                         <p className="mt-2">
-                          分析完成后会生成标准商品卡，不会自动加入收藏夹。
+                          已谈好价格时，可在链接后空格加实付金额（如
+                          12800），登记时会自动预填，不用再改价。
+                        </p>
+                        <p className="mt-2">
+                          多个链接完成后可登记为同一购买包，并填写打包价格。
                         </p>
                       </ContextInfo>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void Promise.all([loadImports(), loadLinkItems()])
-                      }
-                      aria-label="刷新链接专区"
-                      title="刷新"
-                      className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-moss shadow-sm transition-colors hover:bg-blue-50"
-                    >
-                      <RefreshIcon />
-                    </button>
-                  </div>
-                  <div className="link-entry-form link-import-plane">
-                    <div className="flex items-center justify-between gap-3">
-                      <label
-                        htmlFor="product-url-links"
-                        className="text-sm font-bold text-ink"
-                      >
-                        商品链接
-                      </label>
-                      <span
-                        className={`font-mono text-[11px] tabular-nums ${urlInputCount > URL_IMPORT_LIMIT ? "font-semibold text-moss" : "text-ink/45"}`}
-                      >
-                        {urlInputCount} 个
-                      </span>
-                    </div>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                      <textarea
-                        id="product-url-links"
-                        inputMode="url"
-                        rows={3}
-                        value={urlInput}
-                        onChange={(event) => setUrlInput(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (
-                            event.key === "Enter" &&
-                            (event.ctrlKey || event.metaKey)
-                          ) {
-                            event.preventDefault();
-                            void analyzeUrl();
-                          }
-                        }}
-                        aria-describedby="url-help-links"
-                        placeholder={"粘贴商品链接，每行一个"}
-                        className="min-h-[92px] min-w-0 resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
-                      />
+                    {completedPurchaseJobs.length > 0 && (
                       <button
                         type="button"
-                        disabled={urlSubmitting || urlInputCount === 0}
-                        onClick={() => void analyzeUrl()}
-                        className="min-h-11 shrink-0 rounded-xl bg-moss px-4 text-sm font-bold text-white transition-[background-color,transform] hover:bg-blue-800 disabled:opacity-45"
-                      >
-                        {urlSubmitting ? "提交中…" : "开始导入"}
-                      </button>
-                    </div>
-                    <div
-                      id="url-help-links"
-                      className={`mt-2 min-h-5 text-xs ${urlMessage ? "font-semibold text-moss" : "text-ink/45"}`}
-                      aria-live="polite"
-                    >
-                      {urlMessage}
-                    </div>
-                  </div>
-                  <div className="link-task-list mt-3 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-ink/5">
-                    <button
-                      type="button"
-                      aria-expanded={importsExpanded}
-                      aria-controls="link-import-tasks"
-                      onClick={() => setImportsExpanded((value) => !value)}
-                      className="flex min-h-12 w-full items-center justify-between gap-3 px-3 text-left transition-colors hover:bg-fog/45"
-                    >
-                      <span className="min-w-0">
-                        <span className="block text-sm font-bold text-ink">
-                          导入任务 · {imports.length}
-                        </span>
-                        <span className="block truncate text-[11px] text-ink/45">
-                          {importSummary.active
-                            ? `${importSummary.active} 个进行中`
-                            : `${importSummary.succeeded} 个完成`}
-                          {importSummary.failed
-                            ? ` · ${importSummary.failed} 个待重试`
-                            : ""}
-                        </span>
-                      </span>
-                      <ChevronDownIcon
-                        className={`h-4 w-4 shrink-0 text-ink/45 transition-transform duration-200 ${importsExpanded ? "rotate-180" : ""}`}
-                      />
-                    </button>
-                    {importsError && (
-                      <div className="border-t border-ink/8 bg-white px-3 py-2">
-                        <LoadError
-                          message={importsError}
-                          onRetry={() => void loadImports()}
-                          retryTestId="retry-imports"
-                          className="quiet-inline-alert"
-                        />
-                      </div>
-                    )}
-                    {importsExpanded && (
-                      <div
-                        id="link-import-tasks"
-                        className="grid gap-px border-t border-ink/8 bg-ink/8"
-                      >
-                        {imports.length === 0 ? (
-                          importsError ? null : (
-                            <p className="bg-white px-3 py-6 text-center text-sm text-ink/45">
-                              暂无导入任务
-                            </p>
+                        onClick={() =>
+                          openPurchaseBundleEditor(
+                            completedPurchaseJobs.filter((job) =>
+                              selectedPurchaseJobIds.length
+                                ? selectedPurchaseJobIds.includes(job.jobId)
+                                : true,
+                            ),
                           )
-                        ) : (
-                          imports.map((entry) => {
-                            const active =
-                              entry.status === "queued" ||
-                              entry.status === "running";
-                            const failed = entry.status === "failed";
-                            return (
-                              <article
-                                key={entry.id}
-                                className="grid min-w-0 gap-2 bg-white px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                              >
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      aria-hidden="true"
-                                      className={`h-2 w-2 shrink-0 rounded-full ${failed ? "bg-rust" : active ? "bg-amber-500" : "bg-emerald-400"}`}
-                                    />
-                                    <span className="text-[11px] font-semibold text-ink/60">
-                                      {entry.status === "queued"
-                                        ? "排队中"
-                                        : entry.status === "running"
-                                          ? "分析中"
-                                          : entry.status === "succeeded"
-                                            ? "已完成"
-                                            : "失败"}
-                                    </span>
-                                    <span className="font-mono text-[11px] tabular-nums text-ink/40">
-                                      {entry.progress}%
-                                    </span>
-                                  </div>
-                                  <p
-                                    className="mt-1 truncate text-xs font-semibold text-ink"
-                                    title={entry.sourceUrl}
-                                  >
-                                    {entry.sourceUrl}
-                                  </p>
-                                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-fog">
-                                    <div
-                                      className={`h-full rounded-full transition-[width] duration-300 ${failed ? "bg-rust" : "bg-moss"}`}
-                                      style={{
-                                        width: `${Math.min(100, Math.max(0, entry.progress))}%`,
-                                      }}
-                                    />
-                                  </div>
-                                  <p className="mt-1 truncate text-[10px] text-ink/45">
-                                    {entry.errorText
-                                      ? friendlyImportError(entry.errorText)
-                                      : (entry.currentStep ?? "等待任务状态")}
-                                  </p>
-                                </div>
-                                <div className="flex min-h-11 items-center justify-end gap-2">
-                                  {failed && (
-                                    <button
-                                      type="button"
-                                      disabled={importActionId === entry.id}
-                                      onClick={() => void retryImport(entry.id)}
-                                      className="min-h-11 rounded-xl bg-moss px-3 text-xs font-semibold text-white disabled:opacity-45"
-                                    >
-                                      重试
-                                    </button>
-                                  )}
-                                  {!active && (
-                                    <button
-                                      type="button"
-                                      disabled={importActionId === entry.id}
-                                      onClick={() =>
-                                        void removeImport(entry.id)
-                                      }
-                                      className="min-h-11 rounded-xl bg-fog px-3 text-xs font-semibold text-ink/60 disabled:opacity-45"
-                                    >
-                                      清除
-                                    </button>
-                                  )}
-                                </div>
-                              </article>
-                            );
-                          })
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-5 flex items-center justify-between gap-3">
-                    <h3 className="font-heading text-base font-black">
-                      已导入商品 · {linkTotal}
-                    </h3>
-                  </div>
-                  {linkError && (
-                    <LoadError
-                      message={linkError}
-                      onRetry={() => void loadLinkItems()}
-                      retryTestId="retry-link-items"
-                    />
-                  )}
-                  <div className="mt-2 grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {linkItems.length === 0 ? (
-                      linkError ? null : (
-                        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
-                          分析完成后商品会显示在这里
-                        </p>
-                      )
-                    ) : (
-                      linkItems.map((item) => (
-                        <ProductCard
-                          key={`link-${item.id}`}
-                          item={item}
-                          serverOffset={serverOffset}
-                          nowTick={nowTick}
-                          language={language}
-                          translatedTitle={translations[`${item.id}:title`]}
-                          onOpen={() => openItemDetail(item)}
-                          onPatch={(patch) => patchItem(item.id, patch)}
-                          onIgnore={() => setIgnoreItem(item)}
-                          onDelete={() => setDeleteItem(item)}
-                          onPurchase={() => setPurchaseItem(item)}
-                          exchangeRate={exchangeRate?.rate}
-                          inCart={cart.items.some(
-                            (entry) => entry.id === item.id,
-                          )}
-                          onCart={() =>
-                            updateCart(
-                              item.id,
-                              !cart.items.some((entry) => entry.id === item.id),
-                            )
-                          }
-                          onShare={() => void shareItems([item.id])}
-                          onSendToManager={() => openManagerConversation(item)}
-                          inBundleShare={bundleShareItems.some(
-                            (entry) => entry.id === item.id,
-                          )}
-                          onToggleBundleShare={() => toggleBundleShareItem(item)}
-                        />
-                      ))
-                    )}
-                  </div>
-                  {linkTotal > 0 && linkPageCount > 1 && (
-                    <nav
-                      aria-label="链接商品分页"
-                      className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2"
-                    >
-                      <span className="text-[10px] text-ink/50">
-                        第 {linkPage} / {linkPageCount} 页 · 共 {linkTotal} 条
-                      </span>
-                      <div className="flex gap-1.5">
-                        <button
-                          type="button"
-                          disabled={linkPage <= 1}
-                          onClick={() => {
-                            const next = Math.max(1, linkPage - 1);
-                            setLinkPage(next);
-                            void loadLinkItems(next);
-                          }}
-                          className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
-                        >
-                          上一页
-                        </button>
-                        <button
-                          type="button"
-                          disabled={linkPage >= linkPageCount}
-                          onClick={() => {
-                            const next = Math.min(linkPageCount, linkPage + 1);
-                            setLinkPage(next);
-                            void loadLinkItems(next);
-                          }}
-                          className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
-                        >
-                          下一页
-                        </button>
-                      </div>
-                    </nav>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="mb-4 rounded-2xl border border-white/60 bg-white/45 p-3 shadow-sm ring-1 ring-ink/5 backdrop-blur-none">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-1">
-                        <h2 className="text-sm font-bold text-ink">
-                          链接登记购买
-                        </h2>
-                        <ContextInfo
-                          label="查看购买链接说明"
-                          title="通过链接登记购买"
-                        >
-                          <p>
-                            粘贴公开商品链接后，后台只分析商品，不进入链接专区；分析结果会保存，刷新页面不会丢失。
-                          </p>
-                          <p className="mt-2">
-                            已谈好价格时，可在链接后空格加实付金额（如
-                            12800），登记时会自动预填，不用再改价。
-                          </p>
-                          <p className="mt-2">
-                            多个链接完成后可登记为同一购买包，并填写打包价格。
-                          </p>
-                        </ContextInfo>
-                      </div>
-                      {completedPurchaseJobs.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openPurchaseBundleEditor(
-                              completedPurchaseJobs.filter((job) =>
-                                selectedPurchaseJobIds.length
-                                  ? selectedPurchaseJobIds.includes(job.jobId)
-                                  : true,
-                              ),
-                            )
-                          }
-                          className="min-h-11 rounded-xl bg-moss px-3 text-xs font-bold text-white"
-                        >
-                          {selectedPurchaseJobIds.length > 1
-                            ? `打包登记 · ${selectedPurchaseJobIds.length}`
-                            : "登记已完成"}
-                        </button>
-                      )}
-                    </div>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                      <textarea
-                        value={purchaseLinkInput}
-                        onChange={(event) =>
-                          setPurchaseLinkInput(event.target.value)
                         }
-                        onKeyDown={(event) => {
-                          if (
-                            event.key === "Enter" &&
-                            (event.ctrlKey || event.metaKey)
-                          ) {
-                            event.preventDefault();
-                            void submitPurchaseLinks();
-                          }
-                        }}
-                        rows={2}
-                        placeholder={
-                          "每行一个商品链接，可在链接后空格加实付金额，如 12800\n一次最多 20 个"
-                        }
-                        aria-label="购买商品链接"
-                        className="min-h-[72px] resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
-                      />
-                      <button
-                        type="button"
-                        disabled={
-                          purchaseLinkSubmitting ||
-                          publicUrlsFromInput(purchaseLinkInput).length === 0
-                        }
-                        onClick={() => void submitPurchaseLinks()}
-                        className="min-h-11 rounded-xl bg-ink px-4 text-xs font-bold text-white disabled:opacity-40"
+                        className="min-h-11 rounded-xl bg-moss px-3 text-xs font-bold text-white"
                       >
-                        {purchaseLinkSubmitting ? "分析中…" : "分析链接"}
+                        {selectedPurchaseJobIds.length > 1
+                          ? `打包登记 · ${selectedPurchaseJobIds.length}`
+                          : "登记已完成"}
                       </button>
-                    </div>
-                    {purchaseLinkMessage && (
-                      <p
-                        role="status"
-                        className="mt-2 text-xs font-semibold text-moss"
-                      >
-                        {purchaseLinkMessage}
-                      </p>
-                    )}
-                    {purchaseLinkJobs.length > 0 && (
-                      <div className="mt-3 grid gap-1.5">
-                        {purchaseLinkJobs.slice(0, 12).map((job) => {
-                          const done = job.state === "completed" && job.item;
-                          const failed = job.state === "failed";
-                          const checked = selectedPurchaseJobIds.includes(
-                            job.jobId,
-                          );
-                          return (
-                            <div
-                              key={job.jobId}
-                              className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl bg-fog/45 px-2 py-1.5"
-                            >
-                              {done ? (
-                                <label className="grid h-11 w-11 place-items-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() =>
-                                      setSelectedPurchaseJobIds((current) =>
-                                        checked
-                                          ? current.filter(
-                                              (id) => id !== job.jobId,
-                                            )
-                                          : [...current, job.jobId],
-                                      )
-                                    }
-                                    aria-label="选择加入购买包"
-                                    className="h-5 w-5 accent-moss"
-                                  />
-                                </label>
-                              ) : (
-                                <span
-                                  aria-hidden="true"
-                                  className={`mx-auto h-2.5 w-2.5 rounded-full ${failed ? "bg-rust" : "bg-amber-500"}`}
-                                />
-                              )}
-                              <div className="min-w-0">
-                                <p className="truncate text-xs font-semibold text-ink">
-                                  {job.item
-                                    ? (job.item.titleZh ??
-                                      job.item.product?.titleZh ??
-                                      job.item.titleRaw)
-                                    : job.url}
-                                </p>
-                                <p className="truncate text-[10px] text-ink/45">
-                                  {failed
-                                    ? friendlyImportError(job.failedReason)
-                                    : done
-                                      ? job.suggestedAmountYen != null
-                                        ? `分析完成，可登记 · ${job.suggestedAmountSource === "actual" ? "实付" : "挂牌"} ¥${job.suggestedAmountYen.toLocaleString("ja-JP")}`
-                                        : "分析完成，可登记"
-                                      : `${job.state === "active" ? "读取商品" : "等待分析"} · ${job.progress}%`}
-                                </p>
-                              </div>
-                              {done ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    openPurchaseBundleEditor([job])
-                                  }
-                                  className="min-h-11 rounded-xl bg-white px-3 text-xs font-semibold text-moss shadow-sm"
-                                >
-                                  登记
-                                </button>
-                              ) : (
-                                <span className="font-mono text-[10px] tabular-nums text-ink/40">
-                                  {job.progress}%
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
                     )}
                   </div>
-                </>
-              )}
-            </section>
-            {workspace === "purchases" && (
-              <>
-                <div className="purchases-next-step"><span>登记完成后，继续跟踪到货与库存。</span><button type="button" onClick={()=>navigateWorkspace("orders")}>查看库存订单 <span aria-hidden="true">↗</span></button></div>
-                {purchasesError && (
-                  <LoadError
-                    message={purchasesError}
-                    onRetry={() => void loadPurchases()}
-                    retryTestId="retry-purchases"
-                  />
-                )}
-                <PurchaseRecordsPanel
-                  purchases={purchases}
-                  bundles={purchaseBundles}
-                  bundleCount={purchaseBundlesTotal}
-                  bundleGrandTotal={purchaseGrandTotal}
-                  bundlePage={purchaseBundlesPage}
-                  bundlePageCount={purchaseBundlesPageCount}
-                  bundlesLoading={purchaseBundlesLoading}
-                  bundlesError={purchaseBundlesError}
-                  exchangeRate={exchangeRate?.rate}
-                  onOpenItem={(item) => void openAnalysisItem(item.id)}
-                  onOpenImages={(item) => setPurchaseGallery(item)}
-                  onViewReceipt={(purchase, receiptId) =>
-                    void viewReceipt(purchase, receiptId)
-                  }
-                  onEditBundle={openExistingPurchaseBundleEditor}
-                  onOpenHistory={(bundle) => void openPurchaseHistory(bundle)}
-                  onLoadMoreBundles={() =>
-                    void loadPurchaseBundles(purchaseBundlesPage + 1)
-                  }
-                  onRetryBundles={() =>
-                    void loadPurchaseBundles(purchaseBundlesPage)
-                  }
-                />
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <textarea
+                      value={purchaseLinkInput}
+                      onChange={(event) =>
+                        setPurchaseLinkInput(event.target.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Enter" &&
+                          (event.ctrlKey || event.metaKey)
+                        ) {
+                          event.preventDefault();
+                          void submitPurchaseLinks();
+                        }
+                      }}
+                      rows={2}
+                      placeholder={
+                        "每行一个商品链接，可在链接后空格加实付金额，如 12800\n一次最多 20 个"
+                      }
+                      aria-label="购买商品链接"
+                      className="min-h-[72px] resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
+                    />
+                    <button
+                      type="button"
+                      disabled={
+                        purchaseLinkSubmitting ||
+                        publicUrlsFromInput(purchaseLinkInput).length === 0
+                      }
+                      onClick={() => void submitPurchaseLinks()}
+                      className="min-h-11 rounded-xl bg-ink px-4 text-xs font-bold text-white disabled:opacity-40"
+                    >
+                      {purchaseLinkSubmitting ? "分析中…" : "分析链接"}
+                    </button>
+                  </div>
+                  {purchaseLinkMessage && (
+                    <p
+                      role="status"
+                      className="mt-2 text-xs font-semibold text-moss"
+                    >
+                      {purchaseLinkMessage}
+                    </p>
+                  )}
+                  {purchaseLinkJobs.length > 0 && (
+                    <div className="mt-3 grid gap-1.5">
+                      {purchaseLinkJobs.slice(0, 12).map((job) => {
+                        const done = job.state === "completed" && job.item;
+                        const failed = job.state === "failed";
+                        const checked = selectedPurchaseJobIds.includes(
+                          job.jobId,
+                        );
+                        return (
+                          <div
+                            key={job.jobId}
+                            className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl bg-fog/45 px-2 py-1.5"
+                          >
+                            {done ? (
+                              <label className="grid h-11 w-11 place-items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() =>
+                                    setSelectedPurchaseJobIds((current) =>
+                                      checked
+                                        ? current.filter(
+                                            (id) => id !== job.jobId,
+                                          )
+                                        : [...current, job.jobId],
+                                    )
+                                  }
+                                  aria-label="选择加入购买包"
+                                  className="h-5 w-5 accent-moss"
+                                />
+                              </label>
+                            ) : (
+                              <span
+                                aria-hidden="true"
+                                className={`mx-auto h-2.5 w-2.5 rounded-full ${failed ? "bg-rust" : "bg-amber-500"}`}
+                              />
+                            )}
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold text-ink">
+                                {job.item
+                                  ? (job.item.titleZh ??
+                                    job.item.product?.titleZh ??
+                                    job.item.titleRaw)
+                                  : job.url}
+                              </p>
+                              <p className="truncate text-[10px] text-ink/45">
+                                {failed
+                                  ? friendlyImportError(job.failedReason)
+                                  : done
+                                    ? job.suggestedAmountYen != null
+                                      ? `分析完成，可登记 · ${job.suggestedAmountSource === "actual" ? "实付" : "挂牌"} ¥${job.suggestedAmountYen.toLocaleString("ja-JP")}`
+                                      : "分析完成，可登记"
+                                    : `${job.state === "active" ? "读取商品" : "等待分析"} · ${job.progress}%`}
+                              </p>
+                            </div>
+                            {done ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openPurchaseBundleEditor([job])
+                                }
+                                className="min-h-11 rounded-xl bg-white px-3 text-xs font-semibold text-moss shadow-sm"
+                              >
+                                登记
+                              </button>
+                            ) : (
+                              <span className="font-mono text-[10px] tabular-nums text-ink/40">
+                                {job.progress}%
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </>
-            )}
+            </section>
+            <>
+              <div className="purchases-next-step"><span>登记完成后，继续跟踪到货与库存。</span><button type="button" onClick={()=>navigateWorkspace("orders")}>查看库存订单 <span aria-hidden="true">↗</span></button></div>
+              {purchasesError && (
+                <LoadError
+                  message={purchasesError}
+                  onRetry={() => void loadPurchases()}
+                  retryTestId="retry-purchases"
+                />
+              )}
+              <PurchaseRecordsPanel
+                purchases={purchases}
+                bundles={purchaseBundles}
+                bundleCount={purchaseBundlesTotal}
+                bundleGrandTotal={purchaseGrandTotal}
+                bundlePage={purchaseBundlesPage}
+                bundlePageCount={purchaseBundlesPageCount}
+                bundlesLoading={purchaseBundlesLoading}
+                bundlesError={purchaseBundlesError}
+                exchangeRate={exchangeRate?.rate}
+                onOpenItem={(item) => void openAnalysisItem(item.id)}
+                onOpenImages={(item) => setPurchaseGallery(item)}
+                onViewReceipt={(purchase, receiptId) =>
+                  void viewReceipt(purchase, receiptId)
+                }
+                onEditBundle={openExistingPurchaseBundleEditor}
+                onOpenHistory={(bundle) => void openPurchaseHistory(bundle)}
+                onLoadMoreBundles={() =>
+                  void loadPurchaseBundles(purchaseBundlesPage + 1)
+                }
+                onRetryBundles={() =>
+                  void loadPurchaseBundles(purchaseBundlesPage)
+                }
+              />
+            </>
           </div>
         )}
         {workspace === "orders" && (
@@ -8100,131 +7512,6 @@ export default function Dashboard() {
               apiBaseUrl={API}
               exchangeRate={exchangeRate?.rate}
             />
-          </section>
-        )}
-        {workspace === "disliked" && (
-          <section className="ios-surface js-shell-reveal rounded-2xl border border-blue-100 p-4 shadow-panel">
-            <div className="flex items-center justify-between gap-3 border-b border-blue-100 pb-3">
-              <h2 className="font-heading text-lg font-black">
-                不感兴趣 · {dislikedTotal}
-              </h2>
-              <button
-                type="button"
-                onClick={() => void loadDisliked()}
-                aria-label="刷新不感兴趣商品"
-                title="刷新"
-                className="grid h-11 w-11 place-items-center rounded-lg border border-blue-200 text-moss hover:bg-blue-50"
-              >
-                <RefreshIcon />
-              </button>
-            </div>
-            {dislikedError && (
-              <LoadError
-                message={dislikedError}
-                onRetry={() => void loadDisliked()}
-                retryTestId="retry-disliked"
-              />
-            )}
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {dislikedItems.length === 0 ? (
-                dislikedError ? null : (
-                  <p className="rounded-xl border border-dashed border-blue-200 p-8 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
-                    暂无商品
-                  </p>
-                )
-              ) : (
-                dislikedItems.map((item) => {
-                  const dislikedTitle = itemDisplayTitle(
-                    item,
-                    language,
-                    translations[`${item.id}:title`],
-                  );
-                  return (
-                    <article
-                      key={`disliked-${item.id}`}
-                      className="grid grid-cols-[88px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-ink/10 p-2"
-                    >
-                      <ImageGallery
-                        images={item.images}
-                        alt={dislikedTitle}
-                        className="h-[72px] w-[88px] rounded-lg bg-ink"
-                      />
-                      <div className="min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => openItemDetail(item)}
-                          className="line-clamp-2 text-left text-xs font-black leading-5 hover:text-moss"
-                        >
-                          {dislikedTitle}
-                        </button>
-                        <span className="mt-1 block font-mono text-xs font-black text-rust">
-                          {fmtYen(item.priceCurrent)}
-                        </span>
-                        <span className="block font-mono text-[9px] text-ink/45">
-                          {fmtCny(item.priceCurrent, exchangeRate?.rate)}
-                        </span>
-                        {item.ignoredReason === "negotiation_failed" && (
-                          <span className="mt-1 inline-flex rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-semibold text-red-600">
-                            砍价失败
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void patchItem(item.id, { ignored: false })
-                        }
-                        aria-label="恢复到在售商品"
-                        title="恢复"
-                        className="grid h-11 w-11 place-items-center rounded-full border border-moss/20 text-moss hover:bg-blue-50"
-                      >
-                        <RefreshIcon />
-                      </button>
-                    </article>
-                  );
-                })
-              )}
-            </div>
-            {dislikedTotal > 0 && dislikedPageCount > 1 && (
-              <nav
-                aria-label="不感兴趣商品分页"
-                className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2"
-              >
-                <span className="text-[10px] text-ink/50">
-                  第 {dislikedPage} / {dislikedPageCount} 页 · 共{" "}
-                  {dislikedTotal} 条
-                </span>
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    disabled={dislikedPage <= 1}
-                    onClick={() => {
-                      const next = Math.max(1, dislikedPage - 1);
-                      setDislikedPage(next);
-                      void loadDisliked(next);
-                    }}
-                    className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
-                  >
-                    上一页
-                  </button>
-                  <button
-                    type="button"
-                    disabled={dislikedPage >= dislikedPageCount}
-                    onClick={() => {
-                      const next = Math.min(
-                        dislikedPageCount,
-                        dislikedPage + 1,
-                      );
-                      setDislikedPage(next);
-                      void loadDisliked(next);
-                    }}
-                    className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
-                  >
-                    下一页
-                  </button>
-                </div>
-              </nav>
-            )}
           </section>
         )}
         <ResaleWorkspace
@@ -8345,6 +7632,36 @@ export default function Dashboard() {
 
         {workspace === "catalog" && (
           <>
+            <div
+              className="catalog-view-switcher mb-3 flex gap-1 overflow-x-auto rounded-2xl border border-blue-100 bg-white p-1"
+              role="tablist"
+              aria-label="选货视图"
+            >
+              {(
+                [
+                  ["browse", "全部"],
+                  ["favorites", TERMS.favorites],
+                  ["links", TERMS.links],
+                  ["disliked", TERMS.disliked],
+                ] as const
+              ).map(([view, label]) => (
+                <button
+                  key={view}
+                  type="button"
+                  role="tab"
+                  aria-selected={catalogView === view}
+                  onClick={() => setCatalogView(view)}
+                  className={`min-h-11 flex-1 whitespace-nowrap rounded-xl px-3 text-xs font-bold transition ${catalogView === view ? "bg-ink text-white" : "text-ink/55 hover:bg-fog"}`}
+                >
+                  {label}
+                  {view === "disliked" && dislikedTotal > 0
+                    ? ` · ${dislikedTotal}`
+                    : ""}
+                </button>
+              ))}
+            </div>
+            {catalogView === "browse" && (
+              <>
             {filtersOpen &&
               createPortal(
                 <div
@@ -9057,6 +8374,444 @@ export default function Dashboard() {
               <div className="mt-3 rounded-2xl border border-dashed border-blue-200 bg-white py-16 text-center text-sm font-bold text-slate-500">
                 当前筛选条件下没有商品。请清除筛选或稍后刷新。
               </div>
+            )}
+              </>
+            )}
+            {catalogView === "favorites" && (
+              <FavoritesWorkspace
+                apiBaseUrl={API}
+                actor={activeManagerId || undefined}
+                language={language}
+                translations={translations}
+                nowTick={nowTick}
+                exchangeRate={exchangeRate?.rate}
+                serverOffset={serverOffset}
+                changeBatch={favoriteChangeBatch}
+                onPublishChanges={publishFavoriteChanges}
+                cartItemIds={cartItemIdSet}
+                bundleShareItemIds={bundleShareItemIdSet}
+                onOpenItem={openItemDetail}
+                onPurchaseItem={(item) => setPurchaseItem(item)}
+                onCartItem={(item) =>
+                  void updateCart(item.id, !cartItemIdSet.has(item.id), item)
+                }
+                onShareItem={(item) => void shareItems([item.id])}
+                onIgnoreItem={(item) => setIgnoreItem(item)}
+                onDeleteItem={(item) => setDeleteItem(item)}
+                onSendToManagerItem={(item) => openManagerConversation(item)}
+                onToggleBundleShareItem={toggleBundleShareItem}
+              />
+            )}
+            {catalogView === "links" && (
+              <div className="link-editorial-layout">
+                <section className="ios-surface workspace-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel">
+                <div className="link-editorial-heading">
+                  <div className="flex min-w-0 items-center gap-1">
+                    <h2 className="font-heading text-xl font-black">
+                      链接导入
+                    </h2>
+                    <ContextInfo
+                      label="查看链接导入说明"
+                      title="链接导入说明"
+                    >
+                      <p>
+                        每行可粘贴一个公开商品链接，一次最多导入
+                        {URL_IMPORT_LIMIT}{" "}
+                        个。系统会自动识别来源并在后台分析。
+                      </p>
+                      <p className="mt-2">
+                        分析完成后会生成标准商品卡，不会自动加入收藏夹。
+                      </p>
+                    </ContextInfo>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void Promise.all([loadImports(), loadLinkItems()])
+                    }
+                    aria-label="刷新链接专区"
+                    title="刷新"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-moss shadow-sm transition-colors hover:bg-blue-50"
+                  >
+                    <RefreshIcon />
+                  </button>
+                </div>
+                <div className="link-entry-form link-import-plane">
+                  <div className="flex items-center justify-between gap-3">
+                    <label
+                      htmlFor="product-url-links"
+                      className="text-sm font-bold text-ink"
+                    >
+                      商品链接
+                    </label>
+                    <span
+                      className={`font-mono text-[11px] tabular-nums ${urlInputCount > URL_IMPORT_LIMIT ? "font-semibold text-moss" : "text-ink/45"}`}
+                    >
+                      {urlInputCount} 个
+                    </span>
+                  </div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <textarea
+                      id="product-url-links"
+                      inputMode="url"
+                      rows={3}
+                      value={urlInput}
+                      onChange={(event) => setUrlInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Enter" &&
+                          (event.ctrlKey || event.metaKey)
+                        ) {
+                          event.preventDefault();
+                          void analyzeUrl();
+                        }
+                      }}
+                      aria-describedby="url-help-links"
+                      placeholder={"粘贴商品链接，每行一个"}
+                      className="min-h-[92px] min-w-0 resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
+                    />
+                    <button
+                      type="button"
+                      disabled={urlSubmitting || urlInputCount === 0}
+                      onClick={() => void analyzeUrl()}
+                      className="min-h-11 shrink-0 rounded-xl bg-moss px-4 text-sm font-bold text-white transition-[background-color,transform] hover:bg-blue-800 disabled:opacity-45"
+                    >
+                      {urlSubmitting ? "提交中…" : "开始导入"}
+                    </button>
+                  </div>
+                  <div
+                    id="url-help-links"
+                    className={`mt-2 min-h-5 text-xs ${urlMessage ? "font-semibold text-moss" : "text-ink/45"}`}
+                    aria-live="polite"
+                  >
+                    {urlMessage}
+                  </div>
+                </div>
+                <div className="link-task-list mt-3 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-ink/5">
+                  <button
+                    type="button"
+                    aria-expanded={importsExpanded}
+                    aria-controls="link-import-tasks"
+                    onClick={() => setImportsExpanded((value) => !value)}
+                    className="flex min-h-12 w-full items-center justify-between gap-3 px-3 text-left transition-colors hover:bg-fog/45"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-ink">
+                        导入任务 · {imports.length}
+                      </span>
+                      <span className="block truncate text-[11px] text-ink/45">
+                        {importSummary.active
+                          ? `${importSummary.active} 个进行中`
+                          : `${importSummary.succeeded} 个完成`}
+                        {importSummary.failed
+                          ? ` · ${importSummary.failed} 个待重试`
+                          : ""}
+                      </span>
+                    </span>
+                    <ChevronDownIcon
+                      className={`h-4 w-4 shrink-0 text-ink/45 transition-transform duration-200 ${importsExpanded ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                  {importsError && (
+                    <div className="border-t border-ink/8 bg-white px-3 py-2">
+                      <LoadError
+                        message={importsError}
+                        onRetry={() => void loadImports()}
+                        retryTestId="retry-imports"
+                        className="quiet-inline-alert"
+                      />
+                    </div>
+                  )}
+                  {importsExpanded && (
+                    <div
+                      id="link-import-tasks"
+                      className="grid gap-px border-t border-ink/8 bg-ink/8"
+                    >
+                      {imports.length === 0 ? (
+                        importsError ? null : (
+                          <p className="bg-white px-3 py-6 text-center text-sm text-ink/45">
+                            暂无导入任务
+                          </p>
+                        )
+                      ) : (
+                        imports.map((entry) => {
+                          const active =
+                            entry.status === "queued" ||
+                            entry.status === "running";
+                          const failed = entry.status === "failed";
+                          return (
+                            <article
+                              key={entry.id}
+                              className="grid min-w-0 gap-2 bg-white px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    aria-hidden="true"
+                                    className={`h-2 w-2 shrink-0 rounded-full ${failed ? "bg-rust" : active ? "bg-amber-500" : "bg-emerald-400"}`}
+                                  />
+                                  <span className="text-[11px] font-semibold text-ink/60">
+                                    {entry.status === "queued"
+                                      ? "排队中"
+                                      : entry.status === "running"
+                                        ? "分析中"
+                                        : entry.status === "succeeded"
+                                          ? "已完成"
+                                          : "失败"}
+                                  </span>
+                                  <span className="font-mono text-[11px] tabular-nums text-ink/40">
+                                    {entry.progress}%
+                                  </span>
+                                </div>
+                                <p
+                                  className="mt-1 truncate text-xs font-semibold text-ink"
+                                  title={entry.sourceUrl}
+                                >
+                                  {entry.sourceUrl}
+                                </p>
+                                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-fog">
+                                  <div
+                                    className={`h-full rounded-full transition-[width] duration-300 ${failed ? "bg-rust" : "bg-moss"}`}
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, entry.progress))}%`,
+                                    }}
+                                  />
+                                </div>
+                                <p className="mt-1 truncate text-[10px] text-ink/45">
+                                  {entry.errorText
+                                    ? friendlyImportError(entry.errorText)
+                                    : (entry.currentStep ?? "等待任务状态")}
+                                </p>
+                              </div>
+                              <div className="flex min-h-11 items-center justify-end gap-2">
+                                {failed && (
+                                  <button
+                                    type="button"
+                                    disabled={importActionId === entry.id}
+                                    onClick={() => void retryImport(entry.id)}
+                                    className="min-h-11 rounded-xl bg-moss px-3 text-xs font-semibold text-white disabled:opacity-45"
+                                  >
+                                    重试
+                                  </button>
+                                )}
+                                {!active && (
+                                  <button
+                                    type="button"
+                                    disabled={importActionId === entry.id}
+                                    onClick={() =>
+                                      void removeImport(entry.id)
+                                    }
+                                    className="min-h-11 rounded-xl bg-fog px-3 text-xs font-semibold text-ink/60 disabled:opacity-45"
+                                  >
+                                    清除
+                                  </button>
+                                )}
+                              </div>
+                            </article>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-5 flex items-center justify-between gap-3">
+                  <h3 className="font-heading text-base font-black">
+                    已导入商品 · {linkTotal}
+                  </h3>
+                </div>
+                {linkError && (
+                  <LoadError
+                    message={linkError}
+                    onRetry={() => void loadLinkItems()}
+                    retryTestId="retry-link-items"
+                  />
+                )}
+                <div className="mt-2 grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {linkItems.length === 0 ? (
+                    linkError ? null : (
+                      <p className="rounded-xl border border-dashed p-6 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
+                        分析完成后商品会显示在这里
+                      </p>
+                    )
+                  ) : (
+                    linkItems.map((item) => (
+                      <ProductCard
+                        key={`link-${item.id}`}
+                        item={item}
+                        serverOffset={serverOffset}
+                        nowTick={nowTick}
+                        language={language}
+                        translatedTitle={translations[`${item.id}:title`]}
+                        onOpen={() => openItemDetail(item)}
+                        onPatch={(patch) => patchItem(item.id, patch)}
+                        onIgnore={() => setIgnoreItem(item)}
+                        onDelete={() => setDeleteItem(item)}
+                        onPurchase={() => setPurchaseItem(item)}
+                        exchangeRate={exchangeRate?.rate}
+                        inCart={cart.items.some(
+                          (entry) => entry.id === item.id,
+                        )}
+                        onCart={() =>
+                          updateCart(
+                            item.id,
+                            !cart.items.some((entry) => entry.id === item.id),
+                          )
+                        }
+                        onShare={() => void shareItems([item.id])}
+                        onSendToManager={() => openManagerConversation(item)}
+                        inBundleShare={bundleShareItems.some(
+                          (entry) => entry.id === item.id,
+                        )}
+                        onToggleBundleShare={() => toggleBundleShareItem(item)}
+                      />
+                    ))
+                  )}
+                </div>
+                {linkTotal > 0 && linkPageCount > 1 && (
+                  <nav
+                    aria-label="链接商品分页"
+                    className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2"
+                  >
+                    <span className="text-[10px] text-ink/50">
+                      第 {linkPage} / {linkPageCount} 页 · 共 {linkTotal} 条
+                    </span>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        disabled={linkPage <= 1}
+                        onClick={() => {
+                          const next = Math.max(1, linkPage - 1);
+                          setLinkPage(next);
+                          void loadLinkItems(next);
+                        }}
+                        className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
+                      >
+                        上一页
+                      </button>
+                      <button
+                        type="button"
+                        disabled={linkPage >= linkPageCount}
+                        onClick={() => {
+                          const next = Math.min(linkPageCount, linkPage + 1);
+                          setLinkPage(next);
+                          void loadLinkItems(next);
+                        }}
+                        className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
+                      >
+                        下一页
+                      </button>
+                    </div>
+                  </nav>
+                )}
+                </section>
+              </div>
+            )}
+            {catalogView === "disliked" && (
+              <section className="ios-surface js-shell-reveal rounded-2xl border border-blue-100 p-4 shadow-panel">
+                <div className="flex items-center justify-between gap-3 border-b border-blue-100 pb-3">
+                  <h2 className="font-heading text-lg font-black">
+                    不感兴趣 · {dislikedTotal}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => void loadDisliked()}
+                    aria-label="刷新不感兴趣商品"
+                    title="刷新"
+                    className="grid h-11 w-11 place-items-center rounded-lg border border-blue-200 text-moss hover:bg-blue-50"
+                  >
+                    <RefreshIcon />
+                  </button>
+                </div>
+                {dislikedError && (
+                  <LoadError
+                    message={dislikedError}
+                    onRetry={() => void loadDisliked()}
+                    retryTestId="retry-disliked"
+                  />
+                )}
+                {dislikedItems.length === 0 ? (
+                  dislikedError ? null : (
+                    <p className="mt-3 rounded-xl border border-dashed border-blue-200 p-8 text-center text-sm text-ink/50">
+                      暂无商品
+                    </p>
+                  )
+                ) : (
+                  <div className="procurement-grid mt-3 grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                    {dislikedItems.map((item) => (
+                      <ProductCard
+                        key={item.id}
+                        item={item}
+                        language={language}
+                        translatedTitle={translations[`${item.id}:title`]}
+                        exchangeRate={exchangeRate?.rate}
+                        serverOffset={serverOffset}
+                        nowTick={nowTick}
+                        onOpen={() => openItemDetail(item)}
+                        onPatch={(patch) => patchItem(item.id, patch, item)}
+                        onIgnore={() =>
+                          void patchItem(item.id, { ignored: false }, item)
+                        }
+                        onDelete={() => setDeleteItem(item)}
+                        onPurchase={() => setPurchaseItem(item)}
+                        inCart={cartItemIdSet.has(item.id)}
+                        onCart={() =>
+                          void updateCart(
+                            item.id,
+                            !cartItemIdSet.has(item.id),
+                            item,
+                          )
+                        }
+                        onShare={() => void shareItems([item.id])}
+                        onSendToManager={() => openManagerConversation(item)}
+                        inBundleShare={bundleShareItemIdSet.has(item.id)}
+                        onToggleBundleShare={() =>
+                          toggleBundleShareItem(item)
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+                {dislikedTotal > 0 && dislikedPageCount > 1 && (
+                  <nav
+                    aria-label="不感兴趣商品分页"
+                    className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2"
+                  >
+                    <span className="text-[10px] text-ink/50">
+                      第 {dislikedPage} / {dislikedPageCount} 页 · 共{" "}
+                      {dislikedTotal} 条
+                    </span>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        disabled={dislikedPage <= 1}
+                        onClick={() => {
+                          const next = Math.max(1, dislikedPage - 1);
+                          setDislikedPage(next);
+                          void loadDisliked(next);
+                        }}
+                        className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
+                      >
+                        上一页
+                      </button>
+                      <button
+                        type="button"
+                        disabled={dislikedPage >= dislikedPageCount}
+                        onClick={() => {
+                          const next = Math.min(
+                            dislikedPageCount,
+                            dislikedPage + 1,
+                          );
+                          setDislikedPage(next);
+                          void loadDisliked(next);
+                        }}
+                        className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
+                      >
+                        下一页
+                      </button>
+                    </div>
+                  </nav>
+                )}
+              </section>
             )}
           </>
         )}

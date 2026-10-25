@@ -127,6 +127,23 @@ export function ArchiveIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
+export function RestoreIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" />
+    </svg>
+  );
+}
+
 export function TrashIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg

@@ -11,13 +11,9 @@ import styles from "./workspace-history-orb.module.css";
 const workspaceLabels: Record<Workspace, string> = {
   inventory: TERMS.todo,
   catalog: TERMS.catalog,
-  links: TERMS.links,
   purchases: TERMS.purchases,
   orders: TERMS.orders,
-  favorites: TERMS.favorites,
-  sellers: TERMS.sellers,
   intel: TERMS.intel,
-  disliked: TERMS.disliked,
   monitoring: TERMS.monitoring,
   resale: TERMS.resale,
   ai: "AI 状态",
@@ -34,15 +30,9 @@ const workspaceGlyphs: Record<Workspace, string> = {
   inventory:
     "M7 4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm2.5 10.5 2 2 3.5-4",
   catalog: "M5 8h14l1 12H4L5 8Zm3 0V6a4 4 0 0 1 8 0v2",
-  links:
-    "m10 14 4-4M9 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 0 2-2a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",
   purchases: "M6 3h12v18l-3-2-3 2-3-2-3 2V3Zm3 5h6m-6 4h6",
   orders: "m3 7 9-4 9 4v11l-9 4-9-4V7Zm0 0 9 4 9-4M12 11v11m-5-17 10 4",
-  favorites:
-    "M20.4 4.6a5.5 5.5 0 0 0-7.8 0L12 5.2l-.6-.6a5.5 5.5 0 0 0-7.8 7.8L12 21l8.4-8.6a5.5 5.5 0 0 0 0-7.8Z",
-  sellers: "M4 10v10h16V10M3 10l2-7h14l2 7M3 10h18M9 20v-6h6v6",
   intel: "M4 4h16v16H4V4Zm4 4h4v4H8V8Zm7 0h2m-2 4h2m-9 4h9",
-  disliked: "M5 5l14 14M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
   monitoring: "M3 12h4l3-8 4 16 3-8h4",
   resale: "M5 8h14l1 12H4L5 8Zm3 0V6a4 4 0 0 1 8 0v2",
   ai: "M4 8V4h4m8 0h4v4m0 8v4h-4m-8 0H4v-4m4-7h.01M16 9h.01M8 15h8",

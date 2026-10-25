@@ -869,16 +869,29 @@ describe("Dashboard favorite synchronization", () => {
     await renderAsManager({ catalog: true });
     await waitFor(() => expect(host.textContent).toContain(favorite.titleZh));
     await openFavorites();
+    // Favorites render the shared ProductCard now: purchase lives in the
+    // card's more menu, same as every other item surface.
     await waitFor(() =>
       expect(
-        host.querySelector('button[aria-label="标记为已购入"]'),
+        host.querySelector('button[aria-label="更多商品操作"]'),
       ).not.toBeNull(),
     );
 
     act(() => {
       (
         host.querySelector(
-          'button[aria-label="标记为已购入"]',
+          'button[aria-label="更多商品操作"]',
+        ) as HTMLButtonElement
+      ).click();
+    });
+    await waitFor(() =>
+      expect(host.querySelector('button[aria-label="记录购买"]')).not.toBeNull(),
+    );
+
+    act(() => {
+      (
+        host.querySelector(
+          'button[aria-label="记录购买"]',
         ) as HTMLButtonElement
       ).click();
     });

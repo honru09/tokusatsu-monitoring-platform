@@ -1,13 +1,9 @@
 export type Workspace =
   | "inventory"
   | "catalog"
-  | "links"
   | "purchases"
   | "orders"
-  | "favorites"
-  | "sellers"
   | "intel"
-  | "disliked"
   | "monitoring"
   | "resale"
   | "ai"
@@ -18,6 +14,40 @@ export type Workspace =
   | "collaboration"
   | "workbench"
   | "profile";
+
+/**
+ * Filter views inside the catalog workspace. Favorites, link imports and
+ * disliked items used to be standalone workspaces; they are views of the
+ * one 选货 grid now, not separate pages.
+ */
+export type CatalogView = "browse" | "favorites" | "links" | "disliked";
+
+export const CATALOG_VIEWS: readonly CatalogView[] = [
+  "browse",
+  "favorites",
+  "links",
+  "disliked",
+];
+
+/**
+ * Pre-fold workspace ids that may still appear in bookmarks, stored
+ * recent-workspace entries or shared links, mapped to the catalog view
+ * they became. The seller directory was a pass-through page, so it lands
+ * on the plain catalog.
+ */
+const LEGACY_WORKSPACE_CATALOG_VIEWS: Record<string, CatalogView> = {
+  favorites: "favorites",
+  links: "links",
+  disliked: "disliked",
+  sellers: "browse",
+};
+
+export function legacyCatalogView(
+  value: string | null | undefined,
+): CatalogView | null {
+  if (typeof value !== "string") return null;
+  return LEGACY_WORKSPACE_CATALOG_VIEWS[value] ?? null;
+}
 
 export type WorkspaceNavigationState = {
   workspace: Workspace;
@@ -45,13 +75,9 @@ export const DEFAULT_WORKSPACE: Workspace = "inventory";
 export const ALL_WORKSPACES = [
   "inventory",
   "catalog",
-  "links",
   "purchases",
   "orders",
-  "favorites",
-  "sellers",
   "intel",
-  "disliked",
   "monitoring",
   "resale",
   "ai",

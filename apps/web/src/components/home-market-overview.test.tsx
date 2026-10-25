@@ -56,6 +56,7 @@ describe("HomeMarketOverview", () => {
           onOpenUrgentAuctions={() => undefined}
           onOpenXianyuComparison={() => undefined}
           onOpenWorkspace={() => undefined}
+          onOpenCatalogView={() => undefined}
           onOpenAnalysis={() => undefined}
           hasAnalysis={false}
         />,
@@ -145,6 +146,7 @@ describe("HomeMarketOverview", () => {
           onOpenUrgentAuctions={() => undefined}
           onOpenXianyuComparison={onOpenXianyuComparison}
           onOpenWorkspace={() => undefined}
+          onOpenCatalogView={() => undefined}
           onOpenAnalysis={() => undefined}
           hasAnalysis={false}
         />,
@@ -217,6 +219,7 @@ describe("HomeMarketOverview", () => {
           onOpenUrgentAuctions={() => undefined}
           onOpenXianyuComparison={() => undefined}
           onOpenWorkspace={() => undefined}
+          onOpenCatalogView={() => undefined}
           onOpenAnalysis={() => undefined}
           hasAnalysis={false}
         />,
@@ -257,6 +260,7 @@ describe("HomeMarketOverview", () => {
           onOpenUrgentAuctions={() => undefined}
           onOpenXianyuComparison={() => undefined}
           onOpenWorkspace={() => undefined}
+          onOpenCatalogView={() => undefined}
           onOpenAnalysis={() => undefined}
           hasAnalysis={false}
         />,

@@ -19,7 +19,6 @@ const toolEntries = [
   ["calculator", TERMS.calculator, "核算报价与采购成本"],
   ["logistics", TERMS.logistics, "比较运费与运输方案"],
   ["resale", TERMS.resale, "选品、编辑、发布与维护"],
-  ["disliked", TERMS.disliked, "回看排除过的商品"],
 ] as const;
 
 const moreEntries = [
@@ -27,8 +26,10 @@ const moreEntries = [
   ["assistant", TERMS.aiAssistant, "向 AI 提问、整理与翻译"],
 ] as const;
 
-export function WorkbenchWorkspace({onNavigate, accountName, position, activeCount, cartCount, language, onToggleLanguage, onOpenSettings}: {
+export function WorkbenchWorkspace({onNavigate, onOpenDisliked, accountName, position, activeCount, cartCount, language, onToggleLanguage, onOpenSettings}: {
   onNavigate: (workspace: Workspace) => void;
+  /** 不感兴趣 is a catalog view now; the entry opens it preselected. */
+  onOpenDisliked: () => void;
   accountName?: string;
   position?: number | string;
   activeCount?: number;
@@ -70,7 +71,7 @@ export function WorkbenchWorkspace({onNavigate, accountName, position, activeCou
     </div>
     <section className={styles.group} data-scroll-entry aria-labelledby="workbench-tools-title">
       <h3 id="workbench-tools-title">数据与工具</h3>
-      <AppleActionRail>{toolEntries.map(([key,label,detail])=><button type="button" key={key} className={styles.entry} onClick={()=>onNavigate(key)}><span><strong>{label}</strong><small>{detail}</small></span><b aria-hidden="true">›</b></button>)}</AppleActionRail>
+      <AppleActionRail>{toolEntries.map(([key,label,detail])=><button type="button" key={key} className={styles.entry} onClick={()=>onNavigate(key)}><span><strong>{label}</strong><small>{detail}</small></span><b aria-hidden="true">›</b></button>)}<button type="button" className={styles.entry} onClick={onOpenDisliked}><span><strong>{TERMS.disliked}</strong><small>回看排除过的商品</small></span><b aria-hidden="true">›</b></button></AppleActionRail>
     </section>
     <section className={styles.group} data-scroll-entry aria-labelledby="workbench-more-title">
       <h3 id="workbench-more-title">更多</h3>

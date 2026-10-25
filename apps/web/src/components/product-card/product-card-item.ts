@@ -34,6 +34,10 @@ export type ProductCardItem = {
   conditionGrade: string;
   needsReview: boolean;
   favorite: boolean;
+  /** Set when the card renders inside the 不感兴趣 view: the ignore
+   * action becomes a restore, and the reason chip can show. */
+  ignored?: boolean;
+  ignoredReason?: string | null;
   note?: string | null;
   sourceData?: Record<string, unknown> | null;
   source: { key: string; displayName: string };
