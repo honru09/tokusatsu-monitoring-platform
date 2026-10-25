@@ -14,7 +14,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
-import { motionTokens, springs } from "../lib/motion-tokens";
+import { springs } from "../lib/motion-tokens";
 import styles from "./editorial-communications.module.css";
 import { readJsonResponse } from "../lib/http-json";
 import { getShellOverlayRoot } from "../lib/shell-overlay";

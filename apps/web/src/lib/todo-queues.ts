@@ -61,14 +61,6 @@ export type TodoQueues = {
   system: TodoSystemEntry[];
 };
 
-export const EMPTY_TODO_QUEUES: TodoQueues = {
-  review: [],
-  negotiating: [],
-  register: [],
-  inventory: [],
-  system: [],
-};
-
 export function todoPendingCount(queues: TodoQueues): number {
   return (
     queues.review.length +

@@ -882,23 +882,6 @@ function AnalysisIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
-function BagIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 8h14l1 12H4L5 8ZM9 8V6a3 3 0 0 1 6 0v2" />
-    </svg>
-  );
-}
-
 function LinkIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg
@@ -917,42 +900,6 @@ function LinkIcon({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
-function ListIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M7 5h13M7 12h13M7 19h13M3 5h.01M3 12h.01M3 19h.01" />
-    </svg>
-  );
-}
-
-function UsersIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="9" cy="8" r="3" />
-      <path d="M3.5 20c.5-3.2 2.3-5 5.5-5s5 1.8 5.5 5" />
-      <path d="M15.5 5.5a3 3 0 0 1 0 5.8M17 15c2.2.4 3.5 2 3.8 4.5" />
-    </svg>
-  );
-}
-
 function SettingsIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg
@@ -967,81 +914,6 @@ function SettingsIcon({ className = "h-5 w-5" }: IconProps) {
     >
       <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" />
       <path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3.1 1.3v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3.1-1.3l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1A1.8 1.8 0 0 0 3.3 12a1.8 1.8 0 0 0 1.3-3.1l-.1-.1A1.8 1.8 0 0 1 7 6.3l.1.1A1.8 1.8 0 0 0 10.2 5v-.2a1.8 1.8 0 0 1 3.6 0V5a1.8 1.8 0 0 0 3.1 1.3l.1-.1a1.8 1.8 0 0 1 2.5 2.5l-.1.1A1.8 1.8 0 0 0 20.7 12a1.8 1.8 0 0 0-1.3 3Z" />
-    </svg>
-  );
-}
-
-function SparklesIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2.8c.8 4.2 2.7 6.1 6.9 6.9-4.2.8-6.1 2.7-6.9 6.9-.8-4.2-2.7-6.1-6.9-6.9 4.2-.8 6.1-2.7 6.9-6.9Z" />
-      <path d="M19 15.6c.35 1.9 1.2 2.75 3.1 3.1-1.9.35-2.75 1.2-3.1 3.1-.35-1.9-1.2-2.75-3.1-3.1 1.9-.35 2.75-1.2 3.1-3.1Z" />
-    </svg>
-  );
-}
-
-function WorkbenchIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="3" width="7" height="7" rx="2" />
-      <rect x="14" y="3" width="7" height="7" rx="2" />
-      <rect x="3" y="14" width="7" height="7" rx="2" />
-      <rect x="14" y="14" width="7" height="7" rx="2" />
-    </svg>
-  );
-}
-
-function InventoryBoxIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m4 7 8-4 8 4-8 4-8-4Z" />
-      <path d="m4 7 8 4 8-4v10l-8 4-8-4V7Z" />
-      <path d="M12 11v10" />
-    </svg>
-  );
-}
-
-function ProfileIcon({ className = "h-5 w-5" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4.5 21c.7-4.3 3.2-6.5 7.5-6.5s6.8 2.2 7.5 6.5" />
     </svg>
   );
 }
