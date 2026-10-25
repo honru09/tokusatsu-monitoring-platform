@@ -454,7 +454,7 @@ export function MarketIntelWorkspace({ apiBaseUrl }: { apiBaseUrl: string }) {
                 }}
                 className={styles.intelMobileRow}
               >
-                <div className="flex items-center justify-between gap-2 text-[10px] font-bold text-ink/45">
+                <div className="flex items-center justify-between gap-2 text-[10px] font-bold text-meta">
                   <span>
                     {item.kind === "news"
                       ? "新闻"
@@ -569,7 +569,7 @@ export function MarketIntelWorkspace({ apiBaseUrl }: { apiBaseUrl: string }) {
                     ? selected.titleRaw
                     : (selected.titleZh ?? selected.titleRaw)}
                 </h3>
-                <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-ink/50">
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-meta">
                   <span>{displayDate(selected.publishedAt)}</span>
                   <span>
                     {selected.sourceData?.completeBody

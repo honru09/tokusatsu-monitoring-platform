@@ -246,7 +246,7 @@ function Field({
 }) {
   return (
     <label className="inventory-order-field mt-2.5 grid gap-1 first:mt-3.5">
-      <span className="text-[11px] font-semibold tracking-[0.01em] text-ink/50">
+      <span className="text-[11px] font-semibold tracking-[0.01em] text-meta">
         {label}
       </span>
       {children}

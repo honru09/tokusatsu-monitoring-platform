@@ -99,7 +99,7 @@ describe("collaboration share card contracts", () => {
     // nested inside the truncating title span where a long title
     // ellipsised it.
     expect(tsx).toMatch(
-      /shrink-0 whitespace-nowrap font-mono text-\[11px\] text-ink\/55 tabular-nums/,
+      /shrink-0 whitespace-nowrap font-mono text-\[11px\] text-meta tabular-nums/,
     );
   });
 });

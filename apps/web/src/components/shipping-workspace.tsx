@@ -409,7 +409,7 @@ export function ShippingWorkspace({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <h3 className="text-sm font-black text-ink">组包</h3>
           <div className="flex flex-col items-end gap-1">
-            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-ink/55">
+            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-meta">
               申报上限
               <input
                 inputMode="numeric"
@@ -424,7 +424,7 @@ export function ShippingWorkspace({
               元
             </label>
             {rateInfo && rate != null ? (
-              <span className="font-mono text-[10px] text-ink/50 tabular-nums">
+              <span className="font-mono text-[10px] text-meta tabular-nums">
                 1 日元 ≈ {rate.toFixed(4)} 元 · 汇率{" "}
                 {dateTime(rateInfo.fetchedAt)}
                 {rateInfo.stale ? "（可能过期）" : ""}
@@ -441,7 +441,7 @@ export function ShippingWorkspace({
                 </button>
               </span>
             ) : (
-              <span className="text-[10px] text-ink/40">汇率加载中…</span>
+              <span className="text-[10px] text-meta">汇率加载中…</span>
             )}
           </div>
         </div>
@@ -517,11 +517,11 @@ export function ShippingWorkspace({
                         <strong className="block truncate text-xs font-semibold text-ink">
                           {orderTitle(order)}
                         </strong>
-                        <span className="font-mono text-[11px] text-ink/55 tabular-nums">
+                        <span className="font-mono text-[11px] text-meta tabular-nums">
                           余 {order.remainingQuantity} 件
                         </span>
                       </span>
-                      <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-ink/55">
+                      <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-meta">
                         件
                         <input
                           inputMode="numeric"
@@ -534,7 +534,7 @@ export function ShippingWorkspace({
                           className="h-9 w-[52px] rounded-lg border border-black/[0.12] bg-white px-1.5 text-center font-mono text-xs text-ink tabular-nums"
                         />
                       </label>
-                      <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-ink/55">
+                      <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-meta">
                         申报 ¥
                         <input
                           inputMode="numeric"
@@ -554,7 +554,7 @@ export function ShippingWorkspace({
                           {fmtYen(line.quantity * line.unitDeclaredYen)}
                         </span>
                         {rate != null && (
-                          <span className="font-mono text-[10px] text-ink/45 tabular-nums">
+                          <span className="font-mono text-[10px] text-meta tabular-nums">
                             ≈{" "}
                             {fmtCny1dp(
                               toCny1dp(
@@ -626,7 +626,7 @@ export function ShippingWorkspace({
             )}
 
             <div className="mt-4 border-t border-black/[0.06] pt-3">
-              <h4 className="text-[11px] font-bold text-ink/55">
+              <h4 className="text-[11px] font-bold text-meta">
                 可用库存 · {orders.length} 批
               </h4>
               {orders.length === 0 ? (
@@ -652,7 +652,7 @@ export function ShippingWorkspace({
                           <strong className="block truncate text-xs font-semibold text-ink">
                             {orderTitle(order)}
                           </strong>
-                          <span className="font-mono text-[11px] text-ink/55 tabular-nums">
+                          <span className="font-mono text-[11px] text-meta tabular-nums">
                             余 {order.remainingQuantity} 件 · 单价 {fmtYen(unit)}
                           </span>
                         </span>
@@ -708,7 +708,7 @@ export function ShippingWorkspace({
                       )
                       .join("、")}
                   </strong>
-                  <span className="text-[11px] text-ink/50">
+                  <span className="text-[11px] text-meta">
                     {dateTime(shipment.createdAt)}
                     {shipment.createdByName
                       ? ` · ${shipment.createdByName}`
@@ -720,7 +720,7 @@ export function ShippingWorkspace({
                     {fmtYen(shipment.totalDeclared)}
                   </span>
                   {shipment.totalDeclaredCny != null && (
-                    <span className="block font-mono text-[10px] text-ink/45 tabular-nums">
+                    <span className="block font-mono text-[10px] text-meta tabular-nums">
                       ≈ {fmtCnyInt(shipment.totalDeclaredCny)}
                     </span>
                   )}

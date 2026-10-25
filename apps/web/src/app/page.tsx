@@ -1088,7 +1088,7 @@ function CartDialog({
                       priceYen={item.priceCurrent}
                       exchangeRate={exchangeRate}
                     />
-                    <p className="font-mono text-[10px] text-ink/45">
+                    <p className="font-mono text-[10px] text-meta">
                       {fmtCny(item.priceCurrent, exchangeRate)} ·{" "}
                       {sourceName(
                         item.source.key,
@@ -1115,7 +1115,7 @@ function CartDialog({
             <span className="text-xs text-ink/50">商品与已知邮费合计</span>
             <div className="text-right">
               <b className="block font-mono text-lg">{fmtYen(total)}</b>
-              <span className="font-mono text-[10px] text-ink/45">
+              <span className="font-mono text-[10px] text-meta">
                 {fmtCny(total, exchangeRate)}
               </span>
             </div>
@@ -1842,7 +1842,7 @@ function MarketAnalysisDialog({
                     {item ? itemTitle(item as Item) : "暂无可靠结果"}
                   </b>
                   {item && (
-                    <span className="mt-1 block font-mono text-[10px] text-ink/50">
+                    <span className="mt-1 block font-mono text-[10px] text-meta">
                       {sourceName(
                         (item as Item).source.key,
                         (item as Item).source.displayName,
@@ -1879,7 +1879,7 @@ function MarketAnalysisDialog({
                         <b className="block truncate text-xs text-ink">
                           {itemTitle(entry.item)}
                         </b>
-                        <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-ink/55">
+                        <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-meta">
                           {entry.reason}
                         </span>
                       </span>
@@ -1912,7 +1912,7 @@ function MarketAnalysisDialog({
                 </ul>
               </section>
             </div>
-            <div className="flex items-center justify-between gap-3 text-[10px] text-ink/45">
+            <div className="flex items-center justify-between gap-3 text-[10px] text-meta">
               <span>
                 {analysis.engineLabel} · {analysis.sampleSize} 件
               </span>
@@ -2070,7 +2070,7 @@ function SellerProfileDialog({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold tracking-tight text-ink/50">
+            <p className="text-[11px] font-semibold tracking-tight text-meta">
               商家画像 · 同店凑单工作台
             </p>
             <h2
@@ -2177,7 +2177,7 @@ function SellerProfileDialog({
                     : (data.analysis.negotiationJa ?? data.analysis.negotiation)}
                 </p>
                 {selectedItems.length === 0 && (
-                  <p className="mt-2.5 border-t border-ink/8 pt-2.5 text-[11px] leading-5 text-ink/55">
+                  <p className="mt-2.5 border-t border-ink/8 pt-2.5 text-[11px] leading-5 text-meta">
                     {data.analysis.negotiationZh}
                   </p>
                 )}
@@ -2336,7 +2336,7 @@ function SellerProfileDialog({
                     </span>
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] text-ink/55">目标总价：</span>
+                    <span className="text-[11px] text-meta">目标总价：</span>
                     {[
                       {
                         label: "9折",
@@ -2891,7 +2891,7 @@ function DetailDrawer({
                 <dl className="mt-3 grid gap-3 sm:grid-cols-2">
                   {purchaseAnalysis.map((field) => (
                     <div key={field.path} className="rounded-xl bg-fog/55 p-3">
-                      <dt className="text-[11px] font-semibold text-ink/50">
+                      <dt className="text-[11px] font-semibold text-meta">
                         {field.labelZh ?? field.path}
                       </dt>
                       <dd className="mt-1 whitespace-pre-wrap text-xs leading-5 text-ink/75">
@@ -3054,7 +3054,7 @@ function DetailDrawer({
                   }
                   className="rounded-xl border border-ink/15 p-3 text-sm text-ink"
                 />
-                <span className="text-right font-mono text-[10px] font-normal text-ink/40">
+                <span className="text-right font-mono text-[10px] font-normal text-meta">
                   {draft.note.length}/{NOTE_MAX_LENGTH}
                 </span>
               </label>
@@ -3262,7 +3262,7 @@ function PurchaseBundleHistoryDialog({
                     <strong className="text-sm text-ink">
                       {eventLabels[audit.eventType]}
                     </strong>
-                    <time className="font-mono text-[10px] text-ink/45">
+                    <time className="font-mono text-[10px] text-meta">
                       {fmtDate(audit.createdAt)}
                     </time>
                   </div>
@@ -3352,7 +3352,7 @@ function PurchaseRecordsPanel({
           >
             {title}
           </button>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink/50">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-meta">
             <span>{sourceName(item.source.key, item.source.displayName)}</span>
             <time>{fmtDate(purchase.purchasedAt)}</time>
             <strong className="font-mono font-semibold tabular-nums text-ink/70">
@@ -3415,13 +3415,13 @@ function PurchaseRecordsPanel({
           </p>
         </div>
         <div className="text-right">
-          <span className="block text-[10px] font-semibold text-ink/45">
+          <span className="block text-[10px] font-semibold text-meta">
             总支出
           </span>
           <strong className="block font-mono text-2xl font-bold tabular-nums text-ink">
             {fmtYen(completeTotal)}
           </strong>
-          <span className="block font-mono text-[10px] tabular-nums text-ink/45">
+          <span className="block font-mono text-[10px] tabular-nums text-meta">
             {fmtCny(completeTotal, exchangeRate)}
           </span>
         </div>
@@ -3464,7 +3464,7 @@ function PurchaseRecordsPanel({
                       ? `打包购买 · ${bundle.purchases.length} 件`
                       : "单件购买"}
                   </h3>
-                  <p className="mt-1 text-[11px] text-ink/45">
+                  <p className="mt-1 text-[11px] text-meta">
                     {fmtDate(bundle.purchasedAt)} · 版本 {bundle.version}
                   </p>
                   {bundle.note && (
@@ -3477,7 +3477,7 @@ function PurchaseRecordsPanel({
                   <strong className="block font-mono text-lg font-bold tabular-nums text-ink">
                     {fmtYen(bundle.totalPurchaseAmount)}
                   </strong>
-                  <span className="block font-mono text-[10px] tabular-nums text-ink/45">
+                  <span className="block font-mono text-[10px] tabular-nums text-meta">
                     {fmtCny(bundle.totalPurchaseAmount, exchangeRate)}
                   </span>
                 </div>
@@ -7959,7 +7959,7 @@ export default function Dashboard() {
                       商品链接
                     </label>
                     <span
-                      className={`font-mono text-[11px] tabular-nums ${urlInputCount > URL_IMPORT_LIMIT ? "font-semibold text-moss" : "text-ink/45"}`}
+                      className={`font-mono text-[11px] tabular-nums ${urlInputCount > URL_IMPORT_LIMIT ? "font-semibold text-moss" : "text-meta"}`}
                     >
                       {urlInputCount} 个
                     </span>
@@ -8013,7 +8013,7 @@ export default function Dashboard() {
                       <span className="block text-sm font-bold text-ink">
                         导入任务 · {imports.length}
                       </span>
-                      <span className="block truncate text-[11px] text-ink/45">
+                      <span className="block truncate text-[11px] text-meta">
                         {importSummary.active
                           ? `${importSummary.active} 个进行中`
                           : `${importSummary.succeeded} 个完成`}
@@ -8073,7 +8073,7 @@ export default function Dashboard() {
                                           ? "已完成"
                                           : "失败"}
                                   </span>
-                                  <span className="font-mono text-[11px] tabular-nums text-ink/40">
+                                  <span className="font-mono text-[11px] tabular-nums text-meta">
                                     {entry.progress}%
                                   </span>
                                 </div>
@@ -8091,7 +8091,7 @@ export default function Dashboard() {
                                     }}
                                   />
                                 </div>
-                                <p className="mt-1 truncate text-[10px] text-ink/45">
+                                <p className="mt-1 truncate text-[10px] text-meta">
                                   {entry.errorText
                                     ? friendlyImportError(entry.errorText)
                                     : (entry.currentStep ?? "等待任务状态")}
@@ -8186,7 +8186,7 @@ export default function Dashboard() {
                     aria-label="链接商品分页"
                     className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2"
                   >
-                    <span className="text-[10px] text-ink/50">
+                    <span className="text-[10px] text-meta">
                       第 {linkPage} / {linkPageCount} 页 · 共 {linkTotal} 条
                     </span>
                     <div className="flex gap-1.5">
@@ -8295,7 +8295,7 @@ export default function Dashboard() {
                     aria-label="不感兴趣商品分页"
                     className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2"
                   >
-                    <span className="text-[10px] text-ink/50">
+                    <span className="text-[10px] text-meta">
                       第 {dislikedPage} / {dislikedPageCount} 页 · 共{" "}
                       {dislikedTotal} 条
                     </span>
@@ -8598,7 +8598,7 @@ export default function Dashboard() {
                 )}
               </strong>
             </div>
-            <p className="mt-0.5 truncate text-[11px] text-ink/55">
+            <p className="mt-0.5 truncate text-[11px] text-meta">
               {(() => {
                 const sellerIds = Array.from(
                   new Set(

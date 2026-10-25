@@ -534,13 +534,13 @@ export function PurchaseRegistrationForm({
                       </p>
                     )}
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${selected ? "bg-moss/10 text-moss" : "bg-fog text-ink/45"}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${selected ? "bg-moss/10 text-moss" : "bg-fog text-meta"}`}
                     >
                       {selected ? "已选" : editing ? "候选" : "待选"}
                     </span>
                   </div>
                   {offCatalog && selected && (
-                    <label className="mt-1 flex items-center gap-2 text-[11px] text-ink/50">
+                    <label className="mt-1 flex items-center gap-2 text-[11px] text-meta">
                       平台
                       <input
                         value={row.platform ?? ""}
@@ -554,7 +554,7 @@ export function PurchaseRegistrationForm({
                     </label>
                   )}
                   {selected && pricingMode === "per_item" && (
-                    <label className="mt-1 flex items-center gap-2 text-[11px] text-ink/50">
+                    <label className="mt-1 flex items-center gap-2 text-[11px] text-meta">
                       实付金额
                       <input
                         type="number"
@@ -573,7 +573,7 @@ export function PurchaseRegistrationForm({
                     </label>
                   )}
                   {selected && (
-                    <label className="mt-1 flex items-center gap-2 text-[11px] text-ink/50">
+                    <label className="mt-1 flex items-center gap-2 text-[11px] text-meta">
                       数量
                       <input
                         type="number"
@@ -590,7 +590,7 @@ export function PurchaseRegistrationForm({
                         className="min-h-11 w-24 rounded-xl border border-ink/10 bg-fog/50 px-3 font-mono text-sm text-ink"
                       />
                       {row.quantityEst != null && (
-                        <span className="text-[10px] text-ink/40">
+                        <span className="text-[10px] text-meta">
                           识别 {row.quantityEst} 件，可改
                         </span>
                       )}

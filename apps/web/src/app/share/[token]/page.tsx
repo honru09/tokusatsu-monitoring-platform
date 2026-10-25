@@ -149,17 +149,17 @@ export default function SharePage({
                           <b className="font-mono text-lg text-rust">
                             {yen(item.priceCurrent)}
                           </b>
-                          <span className="block font-mono text-[10px] text-ink/45">
+                          <span className="block font-mono text-[10px] text-meta">
                             {rate
                               ? `约 ¥${(item.priceCurrent * rate).toFixed(2)}`
                               : ""}
                           </span>
                         </div>
-                        <span className="text-right text-[10px] text-ink/50">
+                        <span className="text-right text-[10px] text-meta">
                           {item.source.displayName}
                         </span>
                       </div>
-                      <div className="mt-2 flex items-center justify-between text-[11px] text-ink/55">
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-meta">
                         <span>
                           {listingTypeLabel(item.listingType)} ·{" "}
                           {item.quantityEst ?? "?"} 件
@@ -201,7 +201,7 @@ export default function SharePage({
                 <b className="block font-mono text-lg text-rust">
                   {yen(total)}
                 </b>
-                <span className="font-mono text-[10px] text-ink/45">
+                <span className="font-mono text-[10px] text-meta">
                   {rate ? `约 ¥${(total * rate).toFixed(2)}` : ""}
                 </span>
               </div>

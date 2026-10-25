@@ -181,7 +181,7 @@ export function PurchaseRecordsWorkspace({
                               job.item.titleRaw)
                             : job.url}
                         </p>
-                        <p className="truncate text-[10px] text-ink/45">
+                        <p className="truncate text-[10px] text-meta">
                           {failed
                             ? friendlyImportError(job.failedReason)
                             : done
@@ -200,7 +200,7 @@ export function PurchaseRecordsWorkspace({
                           登记
                         </button>
                       ) : (
-                        <span className="font-mono text-[10px] tabular-nums text-ink/40">
+                        <span className="font-mono text-[10px] tabular-nums text-meta">
                           {job.progress}%
                         </span>
                       )}

@@ -233,7 +233,7 @@ export function NegotiationAnalysisPanel({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <strong className="text-[13px] font-bold text-ink">
                 {group.sellerName ?? "卖家未知"}
-                <span className="ml-1.5 font-mono text-[11px] font-semibold text-ink/50 tabular-nums">
+                <span className="ml-1.5 font-mono text-[11px] font-semibold text-meta tabular-nums">
                   {group.items.length} 件
                 </span>
               </strong>
@@ -243,7 +243,7 @@ export function NegotiationAnalysisPanel({
                   {yen(group.targetTotalYen)}
                 </strong>
                 {group.fallback ? (
-                  <span className="ml-1.5 rounded bg-black/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-ink/55">
+                  <span className="ml-1.5 rounded bg-black/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-meta">
                     模板
                   </span>
                 ) : null}
@@ -1186,7 +1186,7 @@ function BundleProductReference({
             </button>
             </div>
             <div className="mt-1.5 flex items-center gap-2 pl-[54px]">
-            <label className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-ink/55">
+            <label className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-meta">
               目标价
               <input
                 inputMode="numeric"
@@ -1311,7 +1311,7 @@ function ShareRoundPanel({
             ? ` · ${round.createdBy.displayName}`
             : ""}
         </strong>
-        <span className="font-mono text-[11px] text-ink/55 tabular-nums">
+        <span className="font-mono text-[11px] text-meta tabular-nums">
           已复制 {round.copiedCount}/{round.total}
         </span>
       </div>
@@ -1337,10 +1337,10 @@ function ShareRoundPanel({
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink">
                 {itemTitle(row.item)}
               </span>
-              <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-ink/55 tabular-nums">
+              <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-meta tabular-nums">
                 {yen(row.item.priceCurrent)}
               </span>
-              <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-ink/55">
+              <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-meta">
                 目标
                 <input
                   inputMode="numeric"
@@ -2932,7 +2932,7 @@ export function CollaborationChatWorkspace({
                           <b className="block truncate text-[11px] font-semibold text-ink">
                             {itemTitle(entry)}
                           </b>
-                          <span className="block font-mono text-[10px] text-ink/55 tabular-nums">
+                          <span className="block font-mono text-[10px] text-meta tabular-nums">
                             {yen(entry.priceCurrent)}
                           </span>
                         </div>
@@ -2978,7 +2978,7 @@ export function CollaborationChatWorkspace({
                   </div>
 
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-ink/55">
+                    <span className="text-[11px] font-medium text-meta">
                       目标打包价：
                     </span>
                     {presets.map((preset) => (
@@ -3183,7 +3183,7 @@ export function CollaborationChatWorkspace({
                               : "历史 / 未分组"}
                           </strong>
                           {roundGroup.round?.note ? (
-                            <span className="min-w-0 truncate text-[11px] text-ink/55">
+                            <span className="min-w-0 truncate text-[11px] text-meta">
                               {roundGroup.round.note}
                             </span>
                           ) : null}
@@ -3194,7 +3194,7 @@ export function CollaborationChatWorkspace({
                               <strong className="truncate text-xs font-bold text-ink">
                                 {group.sellerName}
                               </strong>
-                              <span className="shrink-0 font-mono text-[11px] text-ink/55 tabular-nums">
+                              <span className="shrink-0 font-mono text-[11px] text-meta tabular-nums">
                                 {group.entries.length} 件 · 小计{" "}
                                 {yen(group.listedTotalYen)}
                                 {group.targetTotalYen !== null

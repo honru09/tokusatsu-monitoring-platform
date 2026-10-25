@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Small meta text floor: metadata at 11px and below never drops under
+   ink/60, which keeps it at WCAG AA on light surfaces. Use text-meta
+   instead of low-opacity ink utilities at caption sizes. */
+.text-meta {
+  color: rgb(29 29 31 / 0.6);
+}
+
 :root {
   color-scheme: light;
   --font-sans:
@@ -5369,7 +5376,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 .assistant-result-copy span,
 .assistant-result-copy small,
 .assistant-message-meta {
-  color: rgba(7, 8, 10, 0.5);
+  color: rgba(7, 8, 10, 0.6);
   font-size: 10px;
 }
 .assistant-followups {
@@ -6536,7 +6543,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 
 .manager-profile-card header small,
 .manager-profile-presence {
-  color: rgba(7, 8, 10, 0.48);
+  color: rgba(7, 8, 10, 0.6);
   font-size: 11px;
   font-weight: 620;
 }
@@ -6573,7 +6580,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 }
 
 .manager-profile-stats dt {
-  color: rgba(7, 8, 10, 0.48);
+  color: rgba(7, 8, 10, 0.6);
   font-size: 11px;
   font-weight: 580;
 }
@@ -6736,7 +6743,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 
 .negotiation-dialog > header p {
   margin: 0;
-  color: rgba(7, 8, 10, 0.48);
+  color: rgba(7, 8, 10, 0.6);
   font-size: 11px;
   font-weight: 620;
 }
@@ -6825,7 +6832,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 }
 .negotiation-item-main small {
   margin-top: 3px;
-  color: rgba(7, 8, 10, 0.48);
+  color: rgba(7, 8, 10, 0.6);
   font-size: 10px;
 }
 .negotiation-item-actions {
@@ -6903,7 +6910,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 }
 
 .negotiation-script-group-head > span:not(.negotiation-script-fallback-badge) {
-  color: rgba(7, 8, 10, 0.48);
+  color: rgba(7, 8, 10, 0.6);
   font-size: 11px;
   font-weight: 620;
 }
@@ -6921,7 +6928,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(7, 8, 10, 0.06);
-  color: rgba(7, 8, 10, 0.55);
+  color: rgba(7, 8, 10, 0.6);
   font-size: 10px;
   font-weight: 650;
 }

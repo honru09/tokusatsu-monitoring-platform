@@ -45,7 +45,7 @@ export function ProductCardPrice({
           <dd className="shrink-0 tabular-nums">{fmtYen(cost.total)}</dd>
         </div>
       </dl>
-      <p className="product-card-meta h-[var(--product-card-meta-height,20px)] overflow-hidden whitespace-nowrap text-[11px] tabular-nums text-ink/55">
+      <p className="product-card-meta h-[var(--product-card-meta-height,20px)] overflow-hidden whitespace-nowrap text-[11px] tabular-nums text-meta">
         {meta}
       </p>
     </div>
