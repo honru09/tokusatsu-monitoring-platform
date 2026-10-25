@@ -4,7 +4,6 @@ import {
   AiGatewayService,
   httpRetryDelayMs,
   modelTimeoutForTask,
-  providerRequestSpacingMs,
 } from "./ai-gateway.service.js";
 import { modelStateKey } from "./ai-router.js";
 import { recordResponseSchema } from "./ai-response-schema.js";
@@ -93,7 +92,17 @@ function prismaMock() {
   return mock;
 }
 
-const providerCases = [
+type ProviderCase = {
+  provider: string;
+  key: string;
+  urlKey: string;
+  customEndpointAuthorizationKey: string;
+  url: string;
+  model: string;
+  tierKey?: string;
+};
+
+const providerCases: readonly ProviderCase[] = [
   {
     provider: "zhipu",
     key: "ZHIPU_API_KEY",
@@ -102,7 +111,7 @@ const providerCases = [
     url: "https://open.bigmodel.cn/api/paas/v4",
     model: "glm-5.3-flash",
   },
-] as const;
+];
 
 const originalEnvironment = { ...process.env };
 
@@ -128,7 +137,7 @@ function clearProviderEnvironment() {
 }
 
 function configure(
-  provider: (typeof providerCases)[number],
+  provider: ProviderCase,
   tier: "free" | "paid" | "unknown" = "unknown",
 ) {
   process.env[provider.key] = `test-${provider.provider}-key`;

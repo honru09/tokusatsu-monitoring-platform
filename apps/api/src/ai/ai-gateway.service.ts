@@ -282,17 +282,12 @@ function sleep(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-export function providerRequestSpacingMs(
-  provider: AiProvider,
-  environment: Record<string, string | undefined> = process.env,
-) {
-  if (provider === "zhipu") return 5_000;
-  const environmentName = `AI_PROVIDER_RPM_${provider.toUpperCase()}`;
-  const configured = Number(environment[environmentName]);
-  if (!Number.isFinite(configured)) return 0;
-  const rpm = Math.max(0, Math.min(Math.floor(configured), 10_000));
-  return rpm ? Math.ceil(60_000 / rpm) : 0;
-}
+// Zhipu is the only provider the gateway can still run (ai-config.ts), and
+// the gift package behind it is rate-limited: keep requests to it spaced out
+// and serial. The per-provider env knobs from the multi-provider era went
+// away with the retired providers.
+const PROVIDER_REQUEST_SPACING_MS = 5_000;
+const PROVIDER_CONCURRENCY_LIMIT = 1;
 
 /**
  * Keep the short in-provider retry staggered without allowing an unexpectedly
@@ -1777,22 +1772,11 @@ export class AiGatewayService implements OnApplicationBootstrap {
     return now + Math.min(modelTimeoutForTask(task), fairShare);
   }
 
-  private providerConcurrencyLimit(provider: AiProvider) {
-    if (provider === "zhipu") return 1;
-    const environmentName = `AI_PROVIDER_MAX_CONCURRENCY_${provider.toUpperCase()}`;
-    const configured = Number(process.env[environmentName]);
-    return Math.max(
-      1,
-      Math.min(Number.isFinite(configured) ? Math.floor(configured) : 64, 64),
-    );
-  }
-
   private async waitForProviderRateSlot(
     provider: AiProvider,
     deadlineAt: number,
   ) {
-    const spacingMs = providerRequestSpacingMs(provider);
-    if (!spacingMs) return;
+    const spacingMs = PROVIDER_REQUEST_SPACING_MS;
     const now = Date.now();
     const scheduledAt = Math.max(
       now,
@@ -1813,7 +1797,7 @@ export class AiGatewayService implements OnApplicationBootstrap {
       gate = { active: 0, waiters: [] };
       this.providerConcurrencyGates.set(provider, gate);
     }
-    if (gate.active < this.providerConcurrencyLimit(provider)) {
+    if (gate.active < PROVIDER_CONCURRENCY_LIMIT) {
       gate.active += 1;
       return Promise.resolve(this.providerSlotRelease(provider, gate));
     }
