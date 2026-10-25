@@ -20,6 +20,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { springs, motionTokens } from "../lib/motion-tokens";
 import { useDialogFocus } from "../lib/use-dialog-focus";
 import styles from "./operations-editorial.module.css";
+import { EmptyState } from "./empty-state";
 
 type MarketIntel = {
   id: string;
@@ -345,9 +346,14 @@ export function MarketIntelWorkspace({ apiBaseUrl }: { apiBaseUrl: string }) {
           正在整理公开资讯…
         </div>
       ) : items.length === 0 ? (
-        <div className="ios-surface rounded-2xl p-12 text-center text-sm font-bold text-ink/50" role="status">
-          <p>{query || kind ? "没有符合条件的资讯" : "暂无资讯，后台会继续检索。"}</p>
-          {(query || kind) && <button type="button" className={styles.recoveryAction} onClick={() => { setSearch(""); setQuery(""); setKind(""); setPage(1); document.getElementById("intel-search")?.focus({ preventScroll: true }); }}>清除筛选</button>}
+        <div className="ios-surface rounded-2xl" role="status">
+          <EmptyState
+            art="chart"
+            title={query || kind ? "没有符合条件的资讯" : "暂无资讯"}
+            description={query || kind ? undefined : "后台会继续检索，有新资讯会自动出现在这里。"}
+          >
+            {(query || kind) && <button type="button" className={styles.recoveryAction} onClick={() => { setSearch(""); setQuery(""); setKind(""); setPage(1); document.getElementById("intel-search")?.focus({ preventScroll: true }); }}>清除筛选</button>}
+          </EmptyState>
         </div>
       ) : (
         <>

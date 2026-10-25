@@ -14,6 +14,7 @@ import { springs } from "../lib/motion-tokens";
 import styles from "./operations-editorial.module.css";
 import { useDialogFocus } from "../lib/use-dialog-focus";
 import { PurchaseRegistrationForm } from "./purchase-registration-form";
+import { EmptyState } from "./empty-state";
 
 export type InventoryOrderStatus = "in_stock" | "partially_sold" | "sold_out";
 
@@ -636,28 +637,29 @@ export function InventoryOrdersWorkspace({ apiBaseUrl, exchangeRate }: Props) {
         <p className="inventory-order-loading">正在加载库存订单…</p>
       ) : error ? null : orders.length === 0 ? (
         <div className="inventory-order-empty">
-          <p
-            className="text-sm font-semibold"
-            style={{ color: "var(--glass-ink)" }}
+          <EmptyState
+            art="box"
+            title={
+              statusFilter || search.trim()
+                ? "没有符合条件的订单"
+                : "还没有库存订单"
+            }
+            description={
+              statusFilter || search.trim()
+                ? "试试切换状态筛选，或清空搜索。"
+                : "一批采购 = 一个订单。可点「新建订单」，或在上方链接分析后登记购买自动生成。"
+            }
           >
-            {statusFilter || search.trim()
-              ? "没有符合条件的订单"
-              : "还没有库存订单"}
-          </p>
-          <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed">
-            {statusFilter || search.trim()
-              ? "试试切换状态筛选，或清空搜索。"
-              : "一批采购 = 一个订单。可点「新建订单」，或在上方链接分析后登记购买自动生成。"}
-          </p>
-          {!statusFilter && !search.trim() && (
-            <button
-              type="button"
-              onClick={openCreate}
-              className="io-btn-primary mt-5"
-            >
-              新建第一笔
-            </button>
-          )}
+            {!statusFilter && !search.trim() && (
+              <button
+                type="button"
+                onClick={openCreate}
+                className="io-btn-primary"
+              >
+                新建第一笔
+              </button>
+            )}
+          </EmptyState>
         </div>
       ) : (
         <section className="inventory-order-list" aria-label="库存订单列表">

@@ -8,6 +8,8 @@ import React, {
   type ReactNode,
 } from "react";
 import { LoadError } from "./load-error";
+import { EmptyState } from "./empty-state";
+import { ImageGlyph, SafeItemImage } from "./item-image";
 import { TERMS } from "../lib/terms";
 import { fmtYen, relativeTime } from "../lib/listing-display";
 import { readFetchError } from "../lib/fetch-error";
@@ -231,7 +233,29 @@ export function TodoHome({
         </button>
       </header>
 
-      {allClear && <p className={styles.allClear}>{TERMS.allClear}，队列都是空的。</p>}
+      {loading && total === 0 && (
+        <div className="skeleton-rows" aria-hidden="true">
+          {[0, 1, 2].map((row) => (
+            <div key={row} className="skeleton-row">
+              <span className="skeleton-block skeleton-thumb" />
+              <span className="skeleton-lines">
+                <span className="skeleton-block skeleton-line" />
+                <span className="skeleton-block skeleton-line short" />
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {allClear && (
+        <div className={styles.allClear}>
+          <EmptyState
+            art="check"
+            title={`${TERMS.allClear}，队列都是空的。`}
+            compact
+          />
+        </div>
+      )}
 
       {collaborationError && (
         <LoadError
@@ -270,6 +294,7 @@ export function TodoHome({
             <ItemRow
               key={entry.key}
               item={entry.item}
+              tag={entry.key.startsWith("decision") ? "已定砍价" : "砍价中"}
               meta={`已等待 ${relativeTime(entry.statusChangedAt)}`}
               onOpen={() => onNavigate("collaboration")}
             />
@@ -288,6 +313,7 @@ export function TodoHome({
             <ItemRow
               key={entry.key}
               item={entry.item}
+              actionLabel={TERMS.registerPurchase}
               meta={
                 entry.origin === "negotiation"
                   ? `砍价成功${entry.at ? ` · ${relativeTime(entry.at)}` : ""}`
@@ -395,25 +421,34 @@ function RowThumb({
   imageUrl: string | null;
   title: string;
 }) {
-  if (!imageUrl) return <span className={styles.thumbEmpty} aria-hidden="true" />;
+  if (!imageUrl)
+    return (
+      <span className={styles.thumbEmpty} aria-hidden="true">
+        <ImageGlyph className="h-4 w-4" />
+      </span>
+    );
   return (
-    <img
-      className={styles.thumb}
-      src={imageUrl}
-      alt={title}
-      loading="lazy"
-      referrerPolicy="no-referrer"
-    />
+    <span className={`${styles.thumb} block overflow-hidden`}>
+      <SafeItemImage
+        src={imageUrl}
+        alt={title}
+        className="h-full w-full object-cover"
+      />
+    </span>
   );
 }
 
 function ItemRow({
   item,
   meta,
+  tag,
+  actionLabel,
   onOpen,
 }: {
   item: TodoItemRef;
   meta: string;
+  tag?: string;
+  actionLabel?: string;
   onOpen: () => void;
 }) {
   return (
@@ -422,11 +457,19 @@ function ItemRow({
       <span className={styles.rowBody}>
         <span className={styles.rowTitle}>{item.title}</span>
         <span className={styles.rowMeta}>
+          {tag ? <span className={styles.rowTag}>{tag}</span> : null}
           {item.sourceName ? `${item.sourceName} · ` : ""}
           {meta}
         </span>
       </span>
-      <span className={styles.rowPrice}>{fmtYen(item.priceYen)}</span>
+      {actionLabel ? (
+        <span className={styles.rowAside}>
+          <span className={styles.rowPrice}>{fmtYen(item.priceYen)}</span>
+          <span className={styles.rowAction}>{actionLabel}</span>
+        </span>
+      ) : (
+        <span className={styles.rowPrice}>{fmtYen(item.priceYen)}</span>
+      )}
     </button>
   );
 }

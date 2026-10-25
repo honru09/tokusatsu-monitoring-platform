@@ -166,7 +166,8 @@ export const PrimaryNavigation = memo(function PrimaryNavigation({
               (pendingDecisionCount !== null
                 ? pendingDecisionCount > 0 && (
                     <span
-                      className="message-unread-badge"
+                      key="pending-decisions"
+                      className="message-unread-badge is-source-swap"
                       aria-label={`${pendingDecisionCount} 件待评估`}
                     >
                       {pendingDecisionCount > 99

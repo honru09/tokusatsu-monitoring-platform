@@ -7105,46 +7105,6 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   color: rgba(29, 29, 31, 0.32);
 }
 
-/* Cost estimate inside the detail drawer: same card language as the
-   drawer's other sections instead of a naked definition list. */
-.cost-estimate-panel {
-  border: 0.5px solid rgba(60, 60, 67, 0.12);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 12px 14px;
-}
-.cost-estimate-panel dl {
-  display: grid;
-  gap: 7px;
-  margin: 0;
-}
-.cost-estimate-panel dl > div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.cost-estimate-panel dt {
-  font-size: 12px;
-  color: rgba(29, 29, 31, 0.55);
-}
-.cost-estimate-panel dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-foreground);
-}
-.cost-estimate-panel > p {
-  margin: 10px 0 0;
-  border-top: 0.5px solid rgba(60, 60, 67, 0.09);
-  padding-top: 8px;
-  font-size: 11px;
-  line-height: 1.55;
-  color: rgba(29, 29, 31, 0.45);
-}
-
 /* Skeleton rows for the todo home's first paint. */
 .skeleton-rows {
   display: grid;

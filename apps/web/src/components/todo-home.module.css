@@ -151,6 +151,48 @@
   flex-shrink: 0;
 }
 
+.rowAside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Rows that open the registration form (not a navigation) carry an
+   action pill so they do not read as plain links. */
+.rowAction {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding-inline: 9px;
+  border-radius: 999px;
+  background: rgb(0 113 227 / 0.1);
+  color: rgb(0 84 179);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rowTag {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgb(28 28 30 / 0.06);
+  color: rgb(28 28 30 / 0.62);
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+.thumbEmpty {
+  display: grid;
+  place-items: center;
+  color: rgb(28 28 30 / 0.3);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .row:hover {
     box-shadow: 0 0 0 1px rgb(28 28 30 / 0.14);

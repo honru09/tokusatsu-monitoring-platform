@@ -18,6 +18,7 @@ import { getShellOverlayRoot } from "../lib/shell-overlay";
 import { useDialogFocus } from "../lib/use-dialog-focus";
 import "../styles/monitoring-config.css";
 import styles from "./operations-editorial.module.css";
+import { EmptyState } from "./empty-state";
 
 export type MonitoringCategory = {
   id: string;
@@ -755,21 +756,31 @@ export function MonitoringConfigWorkspace({
                   ))
                 ) : (
                   <div className="mcfg-empty">
-                    <p>
-                      {search || categoryFilter
-                        ? "没有匹配的关键词"
-                        : "还没有监控关键词"}
-                    </p>
-                    {!search && !categoryFilter && (
-                      <button
-                        type="button"
-                        className="mcfg-button"
-                        onClick={() => openKeyword()}
-                        disabled={!accountId}
-                      >
-                        添加关键词
-                      </button>
-                    )}
+                    <EmptyState
+                      art="search"
+                      title={
+                        search || categoryFilter
+                          ? "没有匹配的关键词"
+                          : "还没有监控关键词"
+                      }
+                      description={
+                        search || categoryFilter
+                          ? undefined
+                          : "添加关键词后，后台会按它持续搜罗新商品。"
+                      }
+                      compact
+                    >
+                      {!search && !categoryFilter && (
+                        <button
+                          type="button"
+                          className="mcfg-button"
+                          onClick={() => openKeyword()}
+                          disabled={!accountId}
+                        >
+                          添加关键词
+                        </button>
+                      )}
+                    </EmptyState>
                   </div>
                 )}
               </div>
