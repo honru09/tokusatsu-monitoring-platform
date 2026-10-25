@@ -2945,13 +2945,13 @@ function ListingEditor({
                 r="5.5"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.4"
+                strokeWidth="1.7"
               />
               <path
                 d="M8 4.5V8l2.5 1.5"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.4"
+                strokeWidth="1.7"
                 strokeLinecap="round"
               />
             </motion.svg>

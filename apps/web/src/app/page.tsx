@@ -2900,18 +2900,44 @@ function DetailDrawer({
                       onClick={() => void submitAiFeedback("correct")}
                       aria-label="AI 判断正确"
                       aria-pressed={aiFeedback === "correct"}
-                      className={`grid h-11 w-11 place-items-center rounded-full text-base transition-colors ${aiFeedback === "correct" ? "bg-emerald-100" : "bg-fog"}`}
+                      className={`grid h-11 w-11 place-items-center rounded-full transition-colors ${aiFeedback === "correct" ? "bg-emerald-100" : "bg-fog"}`}
                     >
-                      👍
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z" />
+                        <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                      </svg>
                     </button>
                     <button
                       type="button"
                       onClick={() => void submitAiFeedback("incorrect")}
                       aria-label="AI 判断错误"
                       aria-pressed={aiFeedback === "incorrect"}
-                      className={`grid h-11 w-11 place-items-center rounded-full text-base transition-colors ${aiFeedback === "incorrect" ? "bg-red-100" : "bg-fog"}`}
+                      className={`grid h-11 w-11 place-items-center rounded-full transition-colors ${aiFeedback === "incorrect" ? "bg-red-100" : "bg-fog"}`}
                     >
-                      👎
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <g transform="rotate(180 12 12)">
+                          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z" />
+                          <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                        </g>
+                      </svg>
                     </button>
                   </div>
                 </div>
