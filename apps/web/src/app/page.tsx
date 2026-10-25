@@ -81,6 +81,7 @@ import {
   ArchiveIcon,
   CartIcon,
   CommentIcon,
+  HeartIcon,
   MessageIcon,
   MoneyIcon,
   ShareIcon,
@@ -2783,6 +2784,13 @@ function DetailDrawer({
   onSaved,
   onSendToManager,
   onOpenSeller,
+  inCart,
+  onToggleFavorite,
+  onToggleCart,
+  onShare,
+  onPurchase,
+  onIgnore,
+  onDelete,
   exchangeRate,
   serverOffset,
 }: {
@@ -2796,6 +2804,13 @@ function DetailDrawer({
   onSaved: (item: Item) => void;
   onSendToManager: () => void;
   onOpenSeller?: (sellerId: string) => void;
+  inCart: boolean;
+  onToggleFavorite: () => void;
+  onToggleCart: () => void;
+  onShare: () => void;
+  onPurchase: () => void;
+  onIgnore: () => void;
+  onDelete: () => void;
   exchangeRate?: number;
   serverOffset: number;
 }) {
@@ -3457,43 +3472,110 @@ function DetailDrawer({
           </div>
         </div>
         <footer className="detail-primary-actions product-detail-footer">
-          <a
-            href={item.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`打开${sourceName(item.source.key, item.source.displayName)}原商品页`}
-            className="detail-source-action"
+          {/* Decision bar: the same six actions as the card, wired to the
+              same dashboard handlers, so the detail view is never a
+              dead end. Favorite/cart reflect live item state. */}
+          <div
+            className="detail-decision-bar"
+            role="group"
+            aria-label="商品操作"
           >
-            查看原商品 <ExternalLinkIcon />
-          </a>
-          <button
-            type="button"
-            className="detail-icon-button"
-            onClick={onSendToManager}
-            aria-label="发送给管理者"
-            title="发送给管理者"
-          >
-            <MessageIcon />
-          </button>
-          <button
-            type="button"
-            className="detail-icon-button"
-            aria-label="编辑商品信息"
-            title="编辑商品信息"
-            onClick={() => {
-              if (!editRef.current) return;
-              editRef.current.open = true;
-              editRef.current.scrollIntoView({
-                block: "nearest",
-                behavior: "auto",
-              });
-              editRef.current
-                .querySelector("summary")
-                ?.focus({ preventScroll: true });
-            }}
-          >
-            <CommentIcon />
-          </button>
+            <button
+              type="button"
+              onClick={onToggleFavorite}
+              aria-pressed={item.favorite}
+              aria-label={item.favorite ? "取消收藏" : "收藏商品"}
+              className={`detail-decision-button ${item.favorite ? "detail-decision-active-favorite" : ""}`}
+            >
+              <HeartIcon filled={item.favorite} />
+              <span>{item.favorite ? "已收藏" : "收藏"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onToggleCart}
+              aria-pressed={inCart}
+              aria-label={inCart ? "移出购物车" : "加入购物车"}
+              className={`detail-decision-button ${inCart ? "detail-decision-active-cart" : ""}`}
+            >
+              <CartIcon />
+              <span>{inCart ? "已加入" : "购物车"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onShare}
+              aria-label="分享商品原链接"
+              className="detail-decision-button"
+            >
+              <ShareIcon />
+              <span>分享</span>
+            </button>
+            <button
+              type="button"
+              onClick={onPurchase}
+              aria-label="记录购买"
+              className="detail-decision-button"
+            >
+              <MoneyIcon />
+              <span>记录购买</span>
+            </button>
+            <button
+              type="button"
+              onClick={onIgnore}
+              aria-label="标记为不感兴趣"
+              className="detail-decision-button"
+            >
+              <ArchiveIcon />
+              <span>不感兴趣</span>
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label="删除商品"
+              className="detail-decision-button detail-decision-danger"
+            >
+              <TrashIcon />
+              <span>删除</span>
+            </button>
+          </div>
+          <div className="detail-footer-row">
+            <a
+              href={item.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`打开${sourceName(item.source.key, item.source.displayName)}原商品页`}
+              className="detail-source-action"
+            >
+              查看原商品 <ExternalLinkIcon />
+            </a>
+            <button
+              type="button"
+              className="detail-icon-button"
+              onClick={onSendToManager}
+              aria-label="发送给管理者"
+              title="发送给管理者"
+            >
+              <MessageIcon />
+            </button>
+            <button
+              type="button"
+              className="detail-icon-button"
+              aria-label="编辑商品信息"
+              title="编辑商品信息"
+              onClick={() => {
+                if (!editRef.current) return;
+                editRef.current.open = true;
+                editRef.current.scrollIntoView({
+                  block: "nearest",
+                  behavior: "auto",
+                });
+                editRef.current
+                  .querySelector("summary")
+                  ?.focus({ preventScroll: true });
+              }}
+            >
+              <CommentIcon />
+            </button>
+          </div>
         </footer>
       </aside>
     </div>,
@@ -6618,13 +6700,19 @@ export default function Dashboard() {
     );
   }
 
-  async function updateCart(itemId: string, present: boolean) {
+  async function updateCart(
+    itemId: string,
+    present: boolean,
+    fallbackItem?: Item,
+  ) {
     const previous = cart;
     const source =
       items.find((item) => item.id === itemId) ??
       linkItems.find((item) => item.id === itemId) ??
       urgentAuctionPool.find((item) => item.id === itemId) ??
-      cart.items.find((item) => item.id === itemId);
+      cart.items.find((item) => item.id === itemId) ??
+      (selected?.id === itemId ? selected : undefined) ??
+      (fallbackItem?.id === itemId ? fallbackItem : undefined);
     if (present && source && !cart.items.some((item) => item.id === itemId))
       setCart({
         ...cart,
@@ -6778,13 +6866,18 @@ export default function Dashboard() {
       setCartSharing(false);
     }
   }
-  async function patchItem(id: string, patch: Partial<Item>) {
+  async function patchItem(
+    id: string,
+    patch: Partial<Item>,
+    fallbackItem?: Item,
+  ) {
     const previous =
       items.find((item) => item.id === id) ??
       linkItems.find((item) => item.id === id) ??
       urgentAuctionPool.find((item) => item.id === id) ??
       cart.items.find((item) => item.id === id) ??
-      (selected?.id === id ? selected : undefined);
+      (selected?.id === id ? selected : undefined) ??
+      (fallbackItem?.id === id ? fallbackItem : undefined);
     if (!previous) return;
     const optimistic = { ...previous, ...patch } as Item;
     const apply = (value: Item) => {
@@ -6846,13 +6939,17 @@ export default function Dashboard() {
     }
   }
 
-  async function deleteItemRequest(id: string): Promise<boolean> {
+  async function deleteItemRequest(
+    id: string,
+    fallbackItem?: Item,
+  ): Promise<boolean> {
     const previous =
       items.find((item) => item.id === id) ??
       linkItems.find((item) => item.id === id) ??
       urgentAuctionPool.find((item) => item.id === id) ??
       cart.items.find((item) => item.id === id) ??
-      (selected?.id === id ? selected : undefined);
+      (selected?.id === id ? selected : undefined) ??
+      (fallbackItem?.id === id ? fallbackItem : undefined);
     if (!previous) return false;
     const optimistic = {
       ...previous,
@@ -9099,6 +9196,20 @@ export default function Dashboard() {
           serverOffset={serverOffset}
           onClose={closeItemDetail}
           onSendToManager={() => openManagerConversation(selected)}
+          inCart={cart.items.some((entry) => entry.id === selected.id)}
+          onToggleFavorite={() =>
+            void patchItem(selected.id, { favorite: !selected.favorite })
+          }
+          onToggleCart={() =>
+            void updateCart(
+              selected.id,
+              !cart.items.some((entry) => entry.id === selected.id),
+            )
+          }
+          onShare={() => void shareItems([selected.id])}
+          onPurchase={() => setPurchaseItem(selected)}
+          onIgnore={() => setIgnoreItem(selected)}
+          onDelete={() => setDeleteItem(selected)}
           onOpenSeller={(targetSellerId) => {
             closeItemDetail();
             setSellerId(targetSellerId);
@@ -9202,8 +9313,11 @@ export default function Dashboard() {
           translatedTitle={translations[`${deleteItem.id}:title`]}
           onCancel={() => setDeleteItem(null)}
           onConfirm={async () => {
-            const ok = await deleteItemRequest(deleteItem.id);
-            if (ok) await syncChanges().catch(() => undefined);
+            const ok = await deleteItemRequest(deleteItem.id, deleteItem);
+            if (ok) {
+              if (selected?.id === deleteItem.id) closeItemDetail();
+              await syncChanges().catch(() => undefined);
+            }
             return ok;
           }}
         />
@@ -9214,7 +9328,8 @@ export default function Dashboard() {
           translatedTitle={translations[`${ignoreItem.id}:title`]}
           onCancel={() => setIgnoreItem(null)}
           onConfirm={async () => {
-            await patchItem(ignoreItem.id, { ignored: true });
+            await patchItem(ignoreItem.id, { ignored: true }, ignoreItem);
+            if (selected?.id === ignoreItem.id) closeItemDetail();
             await syncChanges().catch(() => undefined);
           }}
         />
