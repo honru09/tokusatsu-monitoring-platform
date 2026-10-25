@@ -1,6 +1,5 @@
 "use client";
 
-import { useGSAP } from "@gsap/react";
 import { PrimaryNavigation } from "../components/primary-navigation";
 import { LoadError } from "../components/load-error";
 import { WorkspaceHeaderArt } from "../components/workspace-header-art";
@@ -13,9 +12,7 @@ import {
   type ShareMessageLike,
   type ShareRoundLike,
 } from "../lib/todo-queues";
-import { WorkbenchWorkspace } from "../components/workbench-workspace";
 import { EditorialReadingProgress } from "../components/editorial-reading-progress";
-import gsap from "gsap";
 import dynamic from "next/dynamic";
 import {
   memo,
@@ -46,7 +43,6 @@ import {
   PurchaseRegistrationForm,
   type PurchaseRegistrationItem,
 } from "../components/purchase-registration-form";
-import { MarketIntelWorkspace } from "../components/market-intel-workspace";
 import { YahooDiscount } from "../components/yahoo-discount";
 import { DetailPriceBreakdown } from "../components/detail-price-breakdown";
 import { DetailSellerMeta } from "../components/detail-seller-meta";
@@ -54,9 +50,7 @@ import { InventoryOrdersWorkspace } from "../components/inventory-orders-workspa
 import { ShippingWorkspace } from "../components/shipping-workspace";
 import { PurchaseRecordsWorkspace } from "../components/purchase-records-workspace";
 import { ContextInfo } from "../components/context-info";
-import { ResaleWorkspace } from "../components/resale-workspace";
 import { ProductReadingPanel } from "../components/product-reading-panel";
-import { AssistantChatWorkspace } from "../components/assistant-chat-workspace";
 import {
   CollaborationChatWorkspace,
   buildBundleNegotiationScript,
@@ -196,7 +190,36 @@ const MonitoringConfigWorkspace = dynamic(
   { ssr: false, loading: () => <p role="status" className="mcfg-empty">正在读取{TERMS.monitoring}…</p> },
 );
 
-gsap.registerPlugin(useGSAP);
+const workspaceFallback = (label: string) => () => (
+  <p
+    role="status"
+    className="workspace-surface rounded-2xl p-4 text-sm text-meta"
+  >
+    正在读取{label}…
+  </p>
+);
+
+// Non-default workspaces load on demand so their code stays out of the
+// first-screen bundle; the default inventory/todo surface and the
+// other primary flows stay static.
+const ResaleWorkspace = dynamic(
+  () => import("../components/resale-workspace").then((module) => module.ResaleWorkspace),
+  // Always mounted and hidden while inactive: the fallback must not
+  // paint anything into other workspaces while the chunk loads.
+  { ssr: false, loading: () => null },
+);
+const AssistantChatWorkspace = dynamic(
+  () => import("../components/assistant-chat-workspace").then((module) => module.AssistantChatWorkspace),
+  { ssr: false, loading: workspaceFallback("AI 助手") },
+);
+const MarketIntelWorkspace = dynamic(
+  () => import("../components/market-intel-workspace").then((module) => module.MarketIntelWorkspace),
+  { ssr: false, loading: workspaceFallback("市场情报") },
+);
+const WorkbenchWorkspace = dynamic(
+  () => import("../components/workbench-workspace").then((module) => module.WorkbenchWorkspace),
+  { ssr: false, loading: workspaceFallback("工作台") },
+);
 
 type Item = {
   id: string;
@@ -4530,24 +4553,36 @@ export default function Dashboard() {
     }));
   }, []);
 
-  useGSAP(
-    () => {
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      gsap.fromTo(
-        ".js-shell-reveal",
-        { autoAlpha: 0, y: 12 },
+  // Shell entrance reveal: staggered fade/slide of the shell sections,
+  // run once on mount. Driven by WAAPI (the file's other imperative
+  // animation path) with the shared motion tokens.
+  useEffect(() => {
+    const scope = dashboardRef.current;
+    if (
+      !scope ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    const animations = [
+      ...scope.querySelectorAll<HTMLElement>(".js-shell-reveal"),
+    ].map((node, index) =>
+      node.animate(
+        [
+          { opacity: 0, transform: "translateY(12px)" },
+          { opacity: 1, transform: "translateY(0)" },
+        ],
         {
-          autoAlpha: 1,
-          y: 0,
-          duration: 0.38,
-          stagger: 0.055,
-          ease: "power2.out",
-          clearProps: "transform,opacity,visibility",
+          duration: 380,
+          delay: index * 55,
+          easing: `cubic-bezier(${motionTokens.easing.smooth.join(", ")})`,
+          fill: "backwards",
         },
-      );
-    },
-    { scope: dashboardRef },
-  );
+      ),
+    );
+    return () => {
+      animations.forEach((animation) => animation.cancel());
+    };
+  }, []);
 
   const requestFullItemTranslation = useCallback(
     async (item: Item, options: { retry?: boolean } = {}) => {
@@ -4651,68 +4686,50 @@ export default function Dashboard() {
     restoreDialogReturnFocus(target);
   }, [selected]);
 
-  useGSAP(
-    () => {
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      if (filtersOpen) {
-        gsap.fromTo(
-          ".js-filter-overlay",
-          { autoAlpha: 0 },
-          { autoAlpha: 1, duration: 0.18, ease: "power1.out" },
-        );
-        gsap.fromTo(
-          ".js-filter-modal",
-          { autoAlpha: 0, y: 16, scale: 0.985 },
-          { autoAlpha: 1, y: 0, scale: 1, duration: 0.26, ease: "power2.out" },
-        );
-      }
-    },
-    {
-      scope: dashboardRef,
-      dependencies: [filtersOpen],
-      revertOnUpdate: true,
-    },
-  );
-
-  useGSAP(
-    () => {
-      const nodes = gsap.utils.toArray<HTMLElement>(".js-product-card").filter(
-        (node) =>
-          node.dataset.itemId &&
-          !animatedItemIdsRef.current.has(node.dataset.itemId) &&
-          (() => {
-            const bounds = node.getBoundingClientRect();
-            return bounds.top < window.innerHeight && bounds.bottom > 0;
-          })(),
-      );
-      const entranceNodes = nodes.slice(0, 8);
-      entranceNodes.forEach((node) =>
-        animatedItemIdsRef.current.add(node.dataset.itemId ?? ""),
-      );
-      if (
-        !nodes.length ||
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      )
-        return;
-      gsap.fromTo(
-        entranceNodes,
-        { autoAlpha: 0, y: 10 },
+  // Card entrance stagger: the first on-screen cards of each new item
+  // set fade/slide in once per item id. Selector-driven DOM work, so it
+  // stays an imperative WAAPI effect with the shared motion tokens.
+  useEffect(() => {
+    const scope = dashboardRef.current;
+    if (!scope) return;
+    const nodes = [
+      ...scope.querySelectorAll<HTMLElement>(".js-product-card"),
+    ].filter(
+      (node) =>
+        node.dataset.itemId &&
+        !animatedItemIdsRef.current.has(node.dataset.itemId) &&
+        (() => {
+          const bounds = node.getBoundingClientRect();
+          return bounds.top < window.innerHeight && bounds.bottom > 0;
+        })(),
+    );
+    const entranceNodes = nodes.slice(0, 8);
+    entranceNodes.forEach((node) =>
+      animatedItemIdsRef.current.add(node.dataset.itemId ?? ""),
+    );
+    if (
+      !nodes.length ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    const animations = entranceNodes.map((node, index) =>
+      node.animate(
+        [
+          { opacity: 0, transform: "translateY(10px)" },
+          { opacity: 1, transform: "translateY(0)" },
+        ],
         {
-          autoAlpha: 1,
-          y: 0,
-          duration: 0.32,
-          stagger: 0.035,
-          ease: "power2.out",
-          clearProps: "transform,opacity,visibility",
+          duration: 320,
+          delay: index * 35,
+          easing: `cubic-bezier(${motionTokens.easing.smooth.join(", ")})`,
+          fill: "backwards",
         },
-      );
-    },
-    {
-      scope: dashboardRef,
-      dependencies: [itemSignature],
-      revertOnUpdate: true,
-    },
-  );
+      ),
+    );
+    return () => {
+      animations.forEach((animation) => animation.cancel());
+    };
+  }, [itemSignature]);
 
   const load = useCallback(async () => {
     inventoryRequestRef.current?.abort();
@@ -7218,17 +7235,30 @@ export default function Dashboard() {
               <>
             {filtersOpen &&
               createPortal(
-                <div
+                <motion.div
                   className="modal-backdrop js-filter-overlay absolute inset-0 z-40 grid place-items-center bg-ink/55 p-3 sm:p-4"
                   onMouseDown={() => setFiltersOpen(false)}
+                  initial={workspaceMotionPreference ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.18, ease: motionTokens.easing.smooth }}
                 >
-                  <section
+                  <motion.section
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="filter-dialog-title"
                     ref={filterDialogRef}
                     className="ios-surface modal-panel js-filter-modal scrollbar-thin max-h-[92dvh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-paper p-4 shadow-modal sm:p-5"
                     onMouseDown={(event) => event.stopPropagation()}
+                    initial={
+                      workspaceMotionPreference
+                        ? false
+                        : { opacity: 0, y: 16, scale: 0.985 }
+                    }
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{
+                      duration: 0.26,
+                      ease: motionTokens.easing.smooth,
+                    }}
                   >
                     <div className="mb-4 flex items-center justify-between gap-3 border-b border-blue-100 pb-3">
                       <div>
@@ -7529,8 +7559,8 @@ export default function Dashboard() {
                         应用并关闭
                       </button>
                     </div>
-                  </section>
-                </div>,
+                  </motion.section>
+                </motion.div>,
                 getShellOverlayRoot(),
               )}
 
