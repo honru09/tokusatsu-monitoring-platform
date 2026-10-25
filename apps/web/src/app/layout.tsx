@@ -6,7 +6,7 @@ import { AmbientMotionState } from "../components/ambient-motion-state";
 import { MobileViewportState } from "../components/mobile-viewport-state";
 import { PushServiceWorker } from "../components/push-service-worker";
 import "../styles/mobile-chrome.css";
-import "../styles/operations-workspace.css";
+import "../styles/persistent-chat.css";
 import "../styles/apple-polish.css";
 import "../styles/simple-apple.css";
 

@@ -15,13 +15,10 @@ const workspaceLabels: Record<Workspace, string> = {
   intel: TERMS.intel,
   monitoring: TERMS.monitoring,
   resale: TERMS.resale,
-  ai: "AI 状态",
   "cost-tool": TERMS.costTool,
-  operations: "运营台",
   assistant: TERMS.aiAssistant,
   collaboration: TERMS.messages,
   workbench: TERMS.workbench,
-  profile: "账号",
 };
 
 const workspaceGlyphs: Record<Workspace, string> = {
@@ -32,13 +29,10 @@ const workspaceGlyphs: Record<Workspace, string> = {
   intel: "M4 4h16v16H4V4Zm4 4h4v4H8V8Zm7 0h2m-2 4h2m-9 4h9",
   monitoring: "M3 12h4l3-8 4 16 3-8h4",
   resale: "M5 8h14l1 12H4L5 8Zm3 0V6a4 4 0 0 1 8 0v2",
-  ai: "M4 8V4h4m8 0h4v4m0 8v4h-4m-8 0H4v-4m4-7h.01M16 9h.01M8 15h8",
   "cost-tool": "M5 3h14v18H5V3Zm3 4h8m-8 5h1m6 0h1m-8 5h1m6 0h1",
-  operations: "M3 4h18v13H3V4Zm5 17h8m-4-4v4M3 8h18",
   assistant: "M4 4h16v13H9l-5 4V4Zm4 5h8m-8 4h5",
   collaboration: "M4 4h16v13H9l-5 4V4Zm4 5h8m-8 4h5",
   workbench: "M3 7h18v13H3V7Zm5 0V3h8v4M3 12h18m-11 0v3h2v-3",
-  profile: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2",
 };
 
 function WorkspaceGlyph({ workspace }: { workspace: Workspace }) {

@@ -32,7 +32,6 @@ import {
   DetailDescription,
 } from "../components/detail-disclosure";
 import { chinaComparisonSummary } from "../lib/china-comparison";
-import { ManagerProfileWorkspace } from "../components/manager-profile-workspace";
 import { ImageGallery } from "../components/image-gallery";
 import { NoteDialog } from "../components/note-dialog";
 import {
@@ -44,10 +43,8 @@ import {
   type PurchaseRegistrationItem,
 } from "../components/purchase-registration-form";
 import { MarketIntelWorkspace } from "../components/market-intel-workspace";
-import { AiSystemWorkspace } from "../components/ai-system-workspace";
 import { CostToolWorkspace } from "../components/cost-tool-workspace";
 import { CostEstimatePanel } from "../components/cost-estimate-panel";
-import { OperationsWorkspace } from "../components/operations-workspace";
 import { YahooDiscount } from "../components/yahoo-discount";
 import { InventoryOrdersWorkspace } from "../components/inventory-orders-workspace";
 import { PurchaseRecordsWorkspace } from "../components/purchase-records-workspace";
@@ -123,6 +120,7 @@ import {
   goBackWorkspaceState,
   initialWorkspaceNavigationState,
   legacyCatalogView,
+  legacyWorkspaceRedirect,
   legacyPurchasesTab,
   legacyCostToolSegment,
   navigateWorkspaceState,
@@ -3782,6 +3780,11 @@ export default function Dashboard() {
         });
         if (!response.ok) throw new Error(`API ${response.status}`);
         const data = (await response.json()) as {
+          configured?: boolean;
+          available?: boolean;
+          model?: string;
+          todayTokens?: number;
+          dailyTokenLimit?: number;
           remainingLocalBudget?: number;
           expiresAt?: string | null;
         };
@@ -3791,8 +3794,17 @@ export default function Dashboard() {
             ? data.remainingLocalBudget
             : 0;
         const expiry = data.expiresAt ? new Date(data.expiresAt) : null;
+        const status = !data.configured
+          ? "尚未配置"
+          : data.available
+            ? "赠送资源规则已启用"
+            : "调用已暂停";
         setSettingsAiSummary(
-          `今日剩余约 ${remaining.toLocaleString("zh-CN")} tokens${
+          `${data.model ?? "智谱"} · ${status}；今日已用 ${(
+            data.todayTokens ?? 0
+          ).toLocaleString("zh-CN")} / ${(
+            data.dailyTokenLimit ?? 0
+          ).toLocaleString("zh-CN")} tokens · 剩余约 ${remaining.toLocaleString("zh-CN")} tokens${
             expiry
               ? ` · 赠送包 ${expiry.getMonth() + 1} 月 ${expiry.getDate()} 日到期`
               : ""
@@ -4151,6 +4163,11 @@ export default function Dashboard() {
       const legacyView = legacyCatalogView(
         new URLSearchParams(window.location.search).get("workspace"),
       );
+      // Retired standalone pages (?workspace=profile / ai / operations)
+      // land on the workbench, where their content lives now.
+      const legacyRedirect = legacyWorkspaceRedirect(
+        new URLSearchParams(window.location.search).get("workspace"),
+      );
       // Pre-merge deep links (?workspace=orders, or
       // ?workspace=purchases&tab=orders) land on the inventory tab of
       // the merged purchases workspace; ?workspace=calculator/logistics
@@ -4168,6 +4185,7 @@ export default function Dashboard() {
         (legacyView ? ("catalog" as const) : null) ??
         (legacyTab ? ("purchases" as const) : null) ??
         (legacySegment ? ("cost-tool" as const) : null) ??
+        legacyRedirect ??
         DEFAULT_WORKSPACE;
       if (legacyView) setCatalogView(legacyView);
       if (legacyTab) setPurchasesTab(legacyTab);
@@ -4243,6 +4261,11 @@ export default function Dashboard() {
       const legacyView = legacyCatalogView(
         new URLSearchParams(window.location.search).get("workspace"),
       );
+      // Retired standalone pages (?workspace=profile / ai / operations)
+      // land on the workbench, where their content lives now.
+      const legacyRedirect = legacyWorkspaceRedirect(
+        new URLSearchParams(window.location.search).get("workspace"),
+      );
       // Pre-merge deep links (?workspace=orders, or
       // ?workspace=purchases&tab=orders) land on the inventory tab of
       // the merged purchases workspace; ?workspace=calculator/logistics
@@ -4260,6 +4283,7 @@ export default function Dashboard() {
         (legacyView ? ("catalog" as const) : null) ??
         (legacyTab ? ("purchases" as const) : null) ??
         (legacySegment ? ("cost-tool" as const) : null) ??
+        legacyRedirect ??
         DEFAULT_WORKSPACE;
       if (legacyView) setCatalogView(legacyView);
       if (legacyTab) setPurchasesTab(legacyTab);
@@ -4328,7 +4352,7 @@ export default function Dashboard() {
     inFlight?.cancel();
     workspaceAnimationRef.current = null;
     if (!node || previous === workspace || !workspaceHasNavigatedRef.current || workspaceMotionPreference || !workspacePointerInputRef.current || typeof node.animate !== "function") return;
-    const persistentWindow = workspace === "collaboration" || workspace === "operations";
+    const persistentWindow = workspace === "collaboration";
     const animation = node.animate([
       { opacity: currentOpacity, transform: persistentWindow ? "none" : currentTransform },
       { opacity: 1, transform: "none" },
@@ -6598,13 +6622,10 @@ export default function Dashboard() {
               "purchases",
               "intel",
               "cost-tool",
-              "operations",
               "workbench",
               "monitoring",
               "resale",
-              "ai",
               "assistant",
-              "profile",
             ].includes(workspace)
           ? "workbench"
           : "inventory";
@@ -6695,9 +6716,9 @@ export default function Dashboard() {
             </div>
             <button
               type="button"
-              onClick={() => navigateWorkspace("profile")}
-              aria-label={`打开个人主页，当前账号：${activeManager?.displayName ?? "未选择"}`}
-              title="个人主页"
+              onClick={() => navigateWorkspace("workbench")}
+              aria-label={`打开工作台账号区，当前账号：${activeManager?.displayName ?? "未选择"}`}
+              title="账号"
               className="header-account-button flex min-h-11 items-center gap-2 rounded-lg px-2 transition-colors hover:bg-white/70"
             >
               <span>{activeManager?.displayName ?? "账号"}</span>
@@ -6745,8 +6766,10 @@ export default function Dashboard() {
           <WorkbenchWorkspace
             onNavigate={navigateWorkspace}
             onOpenDisliked={() => openCatalogView("disliked")}
-            accountName={activeManager?.displayName}
-            position={activeManager?.position}
+            accounts={managerAccounts}
+            activeManagerId={activeManagerId}
+            onSwitchIdentity={() => setAccountGateOpen(true)}
+            onOpenChat={() => navigateWorkspace("collaboration")}
             activeCount={overview?.market?.activeTotal}
             cartCount={cart.count}
             language={language}
@@ -6756,16 +6779,7 @@ export default function Dashboard() {
             accountId={activeManagerId || null}
           />
         )}
-        {workspace === "profile" && (
-          <ManagerProfileWorkspace
-            accounts={managerAccounts}
-            activeManagerId={activeManagerId}
-            onSwitchIdentity={() => setAccountGateOpen(true)}
-            onOpenChat={() => navigateWorkspace("collaboration")}
-          />
-        )}
         {workspace === "intel" && <MarketIntelWorkspace apiBaseUrl={API} />}
-        {workspace === "ai" && <AiSystemWorkspace apiBaseUrl={API} onOpenChat={()=>navigateWorkspace("assistant")} onOpenProducts={()=>openCatalogView("browse")} />}
         {workspace === "cost-tool" && (
           <CostToolWorkspace
             key={activeManagerId}
@@ -6776,7 +6790,6 @@ export default function Dashboard() {
             onSegmentChange={setCostToolSegment}
           />
         )}
-        <OperationsWorkspace active={workspace === "operations"} onOpenChat={() => navigateWorkspace("collaboration")} />
         {workspace === "inventory" && (
           <TodoHome
             apiBaseUrl={API}
@@ -8344,16 +8357,6 @@ export default function Dashboard() {
                     <span className="min-w-0 flex-1 text-sm font-semibold">
                       AI 状态
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSettingsOpen(false);
-                        navigateWorkspace("ai");
-                      }}
-                      className="text-xs font-bold text-moss"
-                    >
-                      详情 ›
-                    </button>
                   </div>
                   <p className="mt-1 pl-8 text-xs text-ink/50">
                     {settingsAiSummary || "正在读取额度状态…"}

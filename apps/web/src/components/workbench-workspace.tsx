@@ -6,6 +6,8 @@ import { useEffect, useRef } from "react";
 import styles from "./workbench-workspace.module.css";
 import { AppleActionRail } from "./apple-action-rail";
 import { PushSettings } from "./push-settings";
+import { ManagerProfileWorkspace } from "./manager-profile-workspace";
+import type { ManagerAccount } from "./manager-account-gate";
 
 /**
  * Workbench entries are grouped short lists: account on top, then
@@ -25,12 +27,15 @@ const moreEntries = [
   ["assistant", TERMS.aiAssistant, "向 AI 提问、整理与翻译"],
 ] as const;
 
-export function WorkbenchWorkspace({onNavigate, onOpenDisliked, accountName, position, activeCount, cartCount, language, onToggleLanguage, onOpenSettings, apiBaseUrl, accountId}: {
+export function WorkbenchWorkspace({onNavigate, onOpenDisliked, accounts, activeManagerId, onSwitchIdentity, onOpenChat, activeCount, cartCount, language, onToggleLanguage, onOpenSettings, apiBaseUrl, accountId}: {
   onNavigate: (workspace: Workspace) => void;
   /** 不感兴趣 is a catalog view now; the entry opens it preselected. */
   onOpenDisliked: () => void;
-  accountName?: string;
-  position?: number | string;
+  /** The account section: the former standalone account page, folded in. */
+  accounts?: ManagerAccount[];
+  activeManagerId?: string;
+  onSwitchIdentity?: () => void;
+  onOpenChat?: () => void;
   activeCount?: number;
   cartCount: number;
   language: "zh" | "original";
@@ -57,14 +62,15 @@ export function WorkbenchWorkspace({onNavigate, onOpenDisliked, accountName, pos
     <header className={styles.heading}>
       <div><p className={styles.eyebrow}>账号与工具</p><h2 id="workbench-title">{TERMS.workbench}</h2></div>
     </header>
-    <button type="button" className={styles.account} onClick={()=>onNavigate("profile")} aria-label="前往账号页切换账号">
-      <span className={styles.avatar}>{position ?? "·"}</span>
-      <span className={styles.accountBody}>
-        <strong>{accountName ?? "选择账号"}</strong>
-        <small>{position != null ? `第 ${position} 位账号` : "尚未选择账号"} · 切换账号</small>
-      </span>
-      <b aria-hidden="true">›</b>
-    </button>
+    {accounts && onSwitchIdentity && onOpenChat && (
+      <ManagerProfileWorkspace
+        embedded
+        accounts={accounts}
+        activeManagerId={activeManagerId ?? ""}
+        onSwitchIdentity={onSwitchIdentity}
+        onOpenChat={onOpenChat}
+      />
+    )}
     <div className={styles.summary}>
       <button type="button" onClick={()=>onNavigate("catalog")}><span>{TERMS.catalog} · 在售</span><strong>{activeCount == null ? "—" : activeCount.toLocaleString("zh-CN")}</strong></button>
       <div><span>{TERMS.cart}</span><strong>{cartCount.toLocaleString("zh-CN")}<small>件</small></strong></div>

@@ -52,7 +52,7 @@ export type TodoSystemEntry = {
   key: string;
   title: string;
   detail: string;
-  target: "ai" | "monitoring";
+  target: "workbench" | "monitoring";
 };
 
 export type TodoQueues = {
@@ -390,7 +390,7 @@ export function buildSystemQueue(input: {
           daysLeft <= 0
             ? "赠送包已到期，后台翻译与分类会暂停"
             : `赠送包 ${daysLeft} 天后到期，到期后后台翻译与分类会暂停`,
-        target: "ai",
+        target: "workbench",
       });
     }
   }
@@ -404,7 +404,7 @@ export function buildSystemQueue(input: {
       key: "system-ai-budget",
       title: "今日 AI 额度接近用完",
       detail: `今日剩余约 ${Math.max(0, resources.remainingLocalBudget).toLocaleString("zh-CN")} tokens`,
-      target: "ai",
+      target: "workbench",
     });
   }
   if (input.failedJobs24h > 0) {

@@ -1259,13 +1259,13 @@ describe("Dashboard favorite synchronization", () => {
     await selectManager("龙");
     await waitFor(() =>
       expect(
-        host.querySelector('button[aria-label="打开个人主页，当前账号：龙"]'),
+        host.querySelector('button[aria-label="打开工作台账号区，当前账号：龙"]'),
       ).not.toBeNull(),
     );
     act(() => {
       (
         host.querySelector(
-          'button[aria-label="打开个人主页，当前账号：龙"]',
+          'button[aria-label="打开工作台账号区，当前账号：龙"]',
         ) as HTMLButtonElement
       ).click();
     });

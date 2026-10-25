@@ -1,0 +1,5 @@
+/* The collaboration chat stays mounted once visited; it hides without
+   unmounting so an in-progress conversation survives workspace hops. */
+.persistent-chat-workspace { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; height: 100%; }
+.persistent-chat-workspace[hidden] { display: none !important; }
+.persistent-chat-workspace > .collaboration-chat { min-height: 0; flex: 1 1 auto; }

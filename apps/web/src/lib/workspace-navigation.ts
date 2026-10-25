@@ -5,13 +5,30 @@ export type Workspace =
   | "intel"
   | "monitoring"
   | "resale"
-  | "ai"
   | "cost-tool"
-  | "operations"
   | "assistant"
   | "collaboration"
-  | "workbench"
-  | "profile";
+  | "workbench";
+
+/**
+ * Workspaces retired as standalone pages: the account page folded into
+ * the workbench account section, the AI status page became the settings
+ * section, and the operations console left the product with the service
+ * split. Bookmarks and stored recent entries for these ids land on the
+ * workbench, where their content lives now.
+ */
+const LEGACY_WORKSPACE_REDIRECTS: Record<string, Workspace> = {
+  profile: "workbench",
+  ai: "workbench",
+  operations: "workbench",
+};
+
+export function legacyWorkspaceRedirect(
+  value: string | null | undefined,
+): Workspace | null {
+  if (typeof value !== "string") return null;
+  return LEGACY_WORKSPACE_REDIRECTS[value] ?? null;
+}
 
 /**
  * Filter views inside the catalog workspace. Favorites, link imports and
@@ -147,13 +164,10 @@ export const ALL_WORKSPACES = [
   "intel",
   "monitoring",
   "resale",
-  "ai",
   "cost-tool",
-  "operations",
   "assistant",
   "collaboration",
   "workbench",
-  "profile",
 ] as const satisfies readonly Workspace[];
 
 export const PRIMARY_WORKSPACES = new Set<Workspace>([

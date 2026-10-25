@@ -11,11 +11,14 @@ export function ManagerProfileWorkspace({
   activeManagerId,
   onSwitchIdentity,
   onOpenChat,
+  embedded = false,
 }: {
   accounts: ManagerAccount[];
   activeManagerId: string;
   onSwitchIdentity: () => void;
   onOpenChat: () => void;
+  /** Rendered inside the workbench account section instead of as a page. */
+  embedded?: boolean;
 }) {
   const [viewedId, setViewedId] = useState(activeManagerId);
   const reduceMotion = useReducedMotion();
@@ -33,10 +36,12 @@ export function ManagerProfileWorkspace({
 
   return (
     <section
-      className={`portal-page manager-profile-page ${styles.profile}`}
+      className={`${embedded ? "" : "portal-page manager-profile-page "}${styles.profile}`}
       aria-labelledby="profile-title"
     >
-      <header className={styles.profileHeading}><h1>管理者</h1><p>身份与协作记录</p></header>
+      {!embedded && (
+        <header className={styles.profileHeading}><h1>管理者</h1><p>身份与协作记录</p></header>
+      )}
       <div
         className="manager-profile-switcher"
         role="tablist"

@@ -6,6 +6,7 @@ import {
   isCostToolSegment,
   legacyCatalogView,
   legacyPurchasesTab,
+  legacyWorkspaceRedirect,
   parsePurchasesTabParam,
   legacyCostToolSegment,
   navigateWorkspaceState,
@@ -119,15 +120,15 @@ describe("workspace navigation stack", () => {
     ]);
   });
 
-  it("treats collaboration as a primary destination and profile as a nested page", () => {
+  it("treats collaboration as a primary destination and resale as a nested page", () => {
     const state = navigateWorkspaceState(
       { workspace: "purchases", trail: ["workbench"] },
       "collaboration",
     );
     expect(state).toEqual({ workspace: "collaboration", trail: [] });
     expect(
-      navigateWorkspaceState({ workspace: "inventory", trail: [] }, "profile"),
-    ).toEqual({ workspace: "profile", trail: ["inventory"] });
+      navigateWorkspaceState({ workspace: "inventory", trail: [] }, "resale"),
+    ).toEqual({ workspace: "resale", trail: ["inventory"] });
   });
 
   it("returns secondary and tertiary pages one level at a time", () => {
@@ -155,7 +156,7 @@ describe("workspace URL deep-link", () => {
       goBackWorkspaceState(initialWorkspaceNavigationState("purchases")),
     ).toEqual({ workspace: "workbench", trail: [] });
     expect(initialWorkspaceNavigationState("collaboration").trail).toEqual([]);
-    expect(initialWorkspaceNavigationState("profile").trail).toEqual([
+    expect(initialWorkspaceNavigationState("resale").trail).toEqual([
       "workbench",
     ]);
     expect(initialWorkspaceNavigationState("catalog")).toEqual({
@@ -163,6 +164,17 @@ describe("workspace URL deep-link", () => {
       trail: [],
     });
   });
+  it("redirects retired standalone pages to the workbench", () => {
+    expect(legacyWorkspaceRedirect("profile")).toBe("workbench");
+    expect(legacyWorkspaceRedirect("ai")).toBe("workbench");
+    expect(legacyWorkspaceRedirect("operations")).toBe("workbench");
+    expect(legacyWorkspaceRedirect("catalog")).toBeNull();
+    expect(legacyWorkspaceRedirect(null)).toBeNull();
+    expect(parseWorkspaceParam("profile")).toBeNull();
+    expect(parseWorkspaceParam("ai")).toBeNull();
+    expect(parseWorkspaceParam("operations")).toBeNull();
+  });
+
   it("accepts known workspace query values and rejects junk", () => {
     expect(parseWorkspaceParam("inventory")).toBe("inventory");
     expect(parseWorkspaceParam("catalog")).toBe("catalog");
