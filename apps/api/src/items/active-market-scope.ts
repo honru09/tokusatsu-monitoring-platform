@@ -75,11 +75,14 @@ export function activeMarketItemWhere({
         // A direct listing whose availability was never confirmed stops
         // being shown once it has not been seen for a while. Nothing is
         // mutated: a later refresh that confirms it or makes it fresh
-        // brings it straight back.
+        // brings it straight back. Favorites are exempt from this one
+        // clause: a favorite is a curated shelf, so it stays listed and
+        // clients render it as unverifiable instead of dropping it.
         OR: [
           { listingType: { not: ListingType.direct } },
           { status: ItemStatus.active },
           { lastSeenAt: { gte: staleCutoff } },
+          { favorite: true },
         ],
       },
       ...excludedProcurementDescriptionFragments.map((fragment) => ({

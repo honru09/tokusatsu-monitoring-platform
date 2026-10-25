@@ -110,9 +110,10 @@ describe("active market availability", () => {
     const stale = new Date(now.getTime() - 13 * 60 * 60 * 1000);
     const fresh = new Date(now.getTime() - 60 * 60 * 1000);
     const candidates = [
-      fixture("direct-unknown-stale", { status: "unknown", lastSeenAt: stale }),
+      fixture("direct-unknown-stale", { status: "unknown", lastSeenAt: stale, favorite: false }),
       fixture("direct-unknown-fresh", { status: "unknown", lastSeenAt: fresh }),
       fixture("direct-active-stale", { status: "active", lastSeenAt: stale }),
+      fixture("direct-unknown-stale-favorite", { status: "unknown", lastSeenAt: stale }),
       fixture("auction-unknown-stale", {
         status: "unknown",
         listingType: "auction",
@@ -133,6 +134,7 @@ describe("active market availability", () => {
     expect(visible.map((item) => item.id)).toEqual([
       "direct-unknown-fresh",
       "direct-active-stale",
+      "direct-unknown-stale-favorite",
       "auction-unknown-stale",
       "unknown-type-unknown-stale",
     ]);
@@ -142,7 +144,7 @@ describe("active market availability", () => {
 
   it("parses MARKET_STALE_HIDE_HOURS defensively", () => {
     const stale = new Date(now.getTime() - 3 * 60 * 60 * 1000);
-    const item = fixture("direct-unknown", { status: "unknown", lastSeenAt: stale });
+    const item = fixture("direct-unknown", { status: "unknown", lastSeenAt: stale, favorite: false });
     try {
       process.env.MARKET_STALE_HIDE_HOURS = "2";
       expect(matchesWhere(item, activeMarketItemWhere({ now }))).toBe(false);
