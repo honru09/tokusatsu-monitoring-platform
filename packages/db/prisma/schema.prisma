@@ -1300,10 +1300,29 @@ model ManagerAccount {
   activities       ManagerActivity[]
   negotiationCases NegotiationCase[]
   shareRounds      ShareRound[]
-  itemDecisions    ItemDecision[]
+  itemDecisions     ItemDecision[]
+  pushSubscriptions PushSubscription[]
 
   @@index([active, position])
   @@map("manager_accounts")
+}
+
+/// One browser's Web Push subscription for a manager account. The endpoint
+/// is globally unique: re-subscribing from the same browser moves the row
+/// to whichever account is active on that browser.
+model PushSubscription {
+  id        String         @id @default(uuid())
+  accountId String         @map("account_id")
+  endpoint  String         @unique
+  p256dh    String
+  auth      String
+  userAgent String?        @map("user_agent")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  account   ManagerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("push_subscriptions")
 }
 
 /// Append-only manager actions used for the shared two-person activity view.
