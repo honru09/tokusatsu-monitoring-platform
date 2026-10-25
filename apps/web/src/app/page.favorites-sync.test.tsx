@@ -885,13 +885,13 @@ describe("Dashboard favorite synchronization", () => {
       ).click();
     });
     await waitFor(() =>
-      expect(host.querySelector('button[aria-label="记录购买"]')).not.toBeNull(),
+      expect(host.querySelector('button[aria-label="登记购买"]')).not.toBeNull(),
     );
 
     act(() => {
       (
         host.querySelector(
-          'button[aria-label="记录购买"]',
+          'button[aria-label="登记购买"]',
         ) as HTMLButtonElement
       ).click();
     });

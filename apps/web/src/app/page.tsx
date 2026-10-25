@@ -3,6 +3,7 @@
 import { useGSAP } from "@gsap/react";
 import { PrimaryNavigation } from "../components/primary-navigation";
 import { LoadError } from "../components/load-error";
+import { EmptyState } from "../components/empty-state";
 import { TodoHome } from "../components/todo-home";
 import { TERMS } from "../lib/terms";
 import {
@@ -1573,9 +1574,13 @@ function FavoritesWorkspace({
           正在读取收藏…
         </p>
       ) : items.length === 0 ? (
-        <p className="favorites-empty mt-6 rounded-2xl p-8 text-center text-sm">
-          还没有收藏商品
-        </p>
+        <div className="favorites-empty mt-6 rounded-2xl">
+          <EmptyState
+            art="box"
+            title="还没有收藏商品"
+            description="在选货里点商品卡上的收藏，值得跟进的商品会集中到这里。"
+          />
+        </div>
       ) : (
         <>
           <div className="favorites-toolbar mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-2">
@@ -1661,9 +1666,13 @@ function FavoritesWorkspace({
                 />
               ))
             ) : (
-              <p className="favorites-empty rounded-2xl p-8 text-center text-sm col-span-2 md:col-span-3 lg:col-span-4 2xl:col-span-5">
-                收藏中暂无{listingTypeLabel(listingMode)}商品
-              </p>
+              <div className="favorites-empty rounded-2xl col-span-2 md:col-span-3 lg:col-span-4 2xl:col-span-5">
+                <EmptyState
+                  art="box"
+                  title={`收藏中暂无${listingTypeLabel(listingMode)}商品`}
+                  compact
+                />
+              </div>
             )}
           </div>
         </>
@@ -3125,11 +3134,11 @@ function DetailDrawer({
             <button
               type="button"
               onClick={onPurchase}
-              aria-label="记录购买"
+              aria-label={TERMS.registerPurchase}
               className="detail-decision-button"
             >
               <MoneyIcon />
-              <span>记录购买</span>
+              <span>{TERMS.registerPurchase}</span>
             </button>
             <button
               type="button"
@@ -3456,7 +3465,11 @@ function PurchaseRecordsPanel({
           </button>
         </div>
       ) : bundles.length === 0 && standalonePurchases.length === 0 ? (
-        <p className="py-8 text-center text-sm text-ink/45">暂无购买记录</p>
+        <EmptyState
+          art="receipt"
+          title="暂无购买记录"
+          description="登记一笔购买后，购买包和单件记录会出现在这里。"
+        />
       ) : (
         <div className="purchase-history-list mt-3 grid min-w-0 grid-cols-1 gap-3">
           {bundles.map((bundle) => (
@@ -7699,8 +7712,22 @@ export default function Dashboard() {
               />
             )}
             {loading && items.length === 0 ? (
-              <div className="mt-3 grid min-h-52 place-items-center rounded-2xl border border-dashed border-blue-200 bg-white py-16 text-sm font-bold text-slate-500">
-                正在同步采购情报…
+              <div
+                className="mt-3 rounded-2xl border border-dashed border-blue-200 bg-white p-4"
+                role="status"
+                aria-label="正在同步采购情报"
+              >
+                <div className="skeleton-rows" aria-hidden="true">
+                  {[0, 1, 2].map((row) => (
+                    <div key={row} className="skeleton-row">
+                      <span className="skeleton-block skeleton-thumb" />
+                      <span className="skeleton-lines">
+                        <span className="skeleton-block skeleton-line" />
+                        <span className="skeleton-block skeleton-line short" />
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="mt-3">
@@ -7739,13 +7766,27 @@ export default function Dashboard() {
                     ))}
                   </div>
                 ) : (
-                  <p className="rounded-xl border border-dashed border-blue-200 bg-white p-6 text-center text-sm text-ink/50">
-                    {filters.valueKing === "true"
-                      ? "当前没有证据完整且无需砍价的直购商品"
-                      : filters.hasXianyuComparison === "true"
-                        ? `暂无${listingTypeLabel(listingMode)} · ${xianyuPriceBandLabel(filters.xianyuPriceBand)}的可信闲鱼同款`
-                        : "当前筛选条件下没有商品"}
-                  </p>
+                  <div className="rounded-xl border border-dashed border-blue-200 bg-white">
+                    <EmptyState
+                      art="search"
+                      title={
+                        filters.valueKing === "true"
+                          ? "当前没有证据完整且无需砍价的直购商品"
+                          : filters.hasXianyuComparison === "true"
+                            ? `暂无${listingTypeLabel(listingMode)} · ${xianyuPriceBandLabel(filters.xianyuPriceBand)}的可信闲鱼同款`
+                            : "当前筛选条件下没有商品"
+                      }
+                      description="换组关键词，或清除筛选看看全部商品。"
+                    >
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="min-h-11 rounded-xl border border-ink/15 bg-white px-4 text-xs font-bold text-ink transition-colors hover:bg-blue-50"
+                      >
+                        清除筛选
+                      </button>
+                    </EmptyState>
+                  </div>
                 )}
               </div>
             )}
@@ -7809,11 +7850,7 @@ export default function Dashboard() {
                 </div>
               </nav>
             )}
-            {!loading && !error && items.length === 0 && (
-              <div className="mt-3 rounded-2xl border border-dashed border-blue-200 bg-white py-16 text-center text-sm font-bold text-slate-500">
-                当前筛选条件下没有商品。请清除筛选或稍后刷新。
-              </div>
-            )}
+
               </>
             )}
             {catalogView === "favorites" && (
@@ -8170,9 +8207,14 @@ export default function Dashboard() {
                 )}
                 {dislikedItems.length === 0 ? (
                   dislikedError ? null : (
-                    <p className="mt-3 rounded-xl border border-dashed border-blue-200 p-8 text-center text-sm text-ink/50">
-                      暂无商品
-                    </p>
+                    <div className="mt-3 rounded-xl border border-dashed border-blue-200">
+                      <EmptyState
+                        art="box"
+                        title="暂无不感兴趣的商品"
+                        description="在商品卡上点「不感兴趣」的商品会收进这里，随时可以恢复。"
+                        compact
+                      />
+                    </div>
                   )
                 ) : (
                   <div className="procurement-grid mt-3 grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">

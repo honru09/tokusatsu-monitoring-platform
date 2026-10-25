@@ -160,8 +160,8 @@ export function ProductCardActions({
               onCloseMore();
               onPurchase();
             }}
-            aria-label="记录购买"
-            title="记录购买"
+            aria-label="登记购买"
+            title="登记购买"
             className="grid min-h-11 place-items-center rounded-lg border border-rust/25 bg-rust/5 text-rust transition-colors hover:bg-rust/10"
           >
             <MoneyIcon />
