@@ -248,6 +248,138 @@ describe("ProductCard price facts", () => {
     expect(trigger?.getAttribute("aria-label")).toContain("先问卖家再拍");
   });
 
+  it("worst case: unbreakable strings, missing data and edge titles keep the fixed geometry", () => {
+    const skeleton = () => {
+      const body = host.querySelector(".product-card-body");
+      return [...(body?.children ?? [])].map((el) => el.className);
+    };
+    act(() => {
+      root.render(<ProductCard {...cardProps(makeItem())} />);
+    });
+    const baseline = skeleton();
+
+    // Unbreakable 66-char Latin title and an unbreakable tag label
+    // from data (the series name rides in the tags row).
+    act(() => {
+      root.render(
+        <ProductCard
+          {...cardProps(
+            makeItem({
+              titleZh: "KamenRider".repeat(6) + "BuildX",
+              product: {
+                series: { nameZh: "S".repeat(70) },
+              },
+            }),
+          )}
+        />,
+      );
+    });
+    expect(skeleton()).toEqual(baseline);
+    const title = host.querySelector(".product-card-title");
+    expect(title?.className).toContain("line-clamp-2");
+    expect(title?.className).toContain("product-card-title-height");
+    // A word longer than the card must break inside the clamp box
+    // instead of overflowing it sideways.
+    expect(title?.className).toContain("break-words");
+    const longTag = [...host.querySelectorAll(".product-card-tags span")].find(
+      (span) => span.textContent === "S".repeat(70),
+    );
+    expect(longTag).not.toBeUndefined();
+    expect(longTag?.className).toContain("truncate");
+    expect(host.querySelector(".product-card-tags")?.className).toContain(
+      "flex-nowrap",
+    );
+
+    // Missing image: the media slot keeps its aspect and the body
+    // stack is unchanged; a broken image URL behaves the same.
+    act(() => {
+      root.render(
+        <ProductCard {...cardProps(makeItem({ images: [] }))} />,
+      );
+    });
+    expect(skeleton()).toEqual(baseline);
+    expect(host.querySelector(".product-card-media")?.className).toContain(
+      "aspect-[3/2]",
+    );
+    act(() => {
+      root.render(
+        <ProductCard
+          {...cardProps(
+            makeItem({
+              images: [{ url: "https://example.invalid/broken.jpg", position: 0 }],
+            }),
+          )}
+        />,
+      );
+    });
+    expect(skeleton()).toEqual(baseline);
+    expect(host.querySelector(".product-card-media")?.className).toContain(
+      "aspect-[3/2]",
+    );
+
+    // Missing price, no exchange rate, non-Yahoo source: the price
+    // row shows the unknown marker and the meta row stays reserved
+    // and empty instead of collapsing.
+    act(() => {
+      root.render(
+        <ProductCard
+          {...cardProps(makeItem({ priceCurrent: Number.NaN }))}
+          exchangeRate={undefined}
+        />,
+      );
+    });
+    expect(skeleton()).toEqual(baseline);
+    expect(
+      host.querySelector(".product-card-price-slot dd")?.textContent,
+    ).toBe("未知");
+    const meta = host.querySelector(".product-card-meta");
+    expect(meta?.textContent).toBe("");
+    expect(meta?.className).toContain("product-card-meta-height");
+
+    // Zero quantity: no chip, no quantity row, same stack.
+    act(() => {
+      root.render(
+        <ProductCard {...cardProps(makeItem({ quantityEst: 0 }))} />,
+      );
+    });
+    expect(skeleton()).toEqual(baseline);
+    expect(host.querySelector(".product-card-qty-chip")).toBeNull();
+
+    // One-character and emoji titles: same slot, text preserved.
+    act(() => {
+      root.render(
+        <ProductCard {...cardProps(makeItem({ titleZh: "仮" }))} />,
+      );
+    });
+    expect(skeleton()).toEqual(baseline);
+    act(() => {
+      root.render(
+        <ProductCard
+          {...cardProps(makeItem({ titleZh: "🔥 仮面ライダー セット" }))}
+        />,
+      );
+    });
+    expect(skeleton()).toEqual(baseline);
+    expect(host.querySelector(".product-card-title")?.textContent).toContain(
+      "🔥",
+    );
+
+    // Absurd total: one nowrap token, never split mid-number.
+    act(() => {
+      root.render(
+        <ProductCard
+          {...cardProps(
+            makeItem({ priceCurrent: 999_999_999, shippingFee: 0 }),
+          )}
+        />,
+      );
+    });
+    expect(skeleton()).toEqual(baseline);
+    const dd = host.querySelector(".product-card-price-slot dd");
+    expect(dd?.textContent).toBe("¥999,999,999");
+    expect(dd?.className).toContain("tabular-nums");
+  });
+
   it("keeps the bundle toggle in the tags row and the action row icon-only", () => {
     act(() => {
       root.render(

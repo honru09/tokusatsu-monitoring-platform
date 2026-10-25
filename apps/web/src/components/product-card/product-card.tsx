@@ -103,7 +103,7 @@ export function ProductCard({
         />
         <button
           onClick={onOpen}
-          className="product-card-title line-clamp-2 h-[var(--product-card-title-height,44px)] min-h-11 w-full text-left text-sm font-black leading-[1.35rem] text-ink transition-colors hover:text-moss"
+          className="product-card-title line-clamp-2 h-[var(--product-card-title-height,44px)] min-h-11 w-full break-words text-left text-sm font-black leading-[1.35rem] text-ink transition-colors hover:text-moss"
         >
           {displayTitle}
         </button>
