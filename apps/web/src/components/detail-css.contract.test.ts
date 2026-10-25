@@ -31,4 +31,21 @@ describe("detail view CSS contracts", () => {
       /font-variant-numeric:\s*tabular-nums/,
     );
   });
+
+  it("keeps decision actions at a comfortable touch height", () => {
+    const height = (selector: string) =>
+      Number(rule(selector).match(/min-height:\s*(\d+)px/)?.[1] ?? 0);
+    // Measured: decision buttons were already 52px; the source action
+    // sat at 46px and the same-store action at about 22px.
+    expect(height(".detail-decision-button")).toBeGreaterThanOrEqual(48);
+    expect(height(".detail-source-action")).toBeGreaterThanOrEqual(48);
+    expect(height(".detail-seller-action")).toBeGreaterThanOrEqual(44);
+  });
+
+  it("keeps the detail spacing on the 4/8/12/16/24 scale", () => {
+    expect(rule(".product-detail-overview")).toMatch(/padding:\s*24px/);
+    expect(rule(".product-detail-overview")).toMatch(/gap:\s*24px/);
+    expect(rule(".product-detail-reading")).toMatch(/padding:\s*0 24px 24px/);
+    expect(rule(".product-detail-toolbar")).toMatch(/padding:\s*8px 16px/);
+  });
 });

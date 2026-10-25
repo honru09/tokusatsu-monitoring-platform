@@ -1,4 +1,4 @@
-.panel { display: grid; gap: 14px; padding-top: 8px; color: #293c35; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
+.panel { display: grid; gap: 16px; padding-top: 8px; color: #293c35; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
 .panel p { margin: 0; }
 .panel button { justify-self: start; min-height: 44px; padding: 9px 18px; border: 1px solid #b5c6bc; border-radius: 10px; background: #edf3ee; color: #253d31; font-weight: 600; }
 .panel button:disabled { opacity: .6; cursor: wait; }
