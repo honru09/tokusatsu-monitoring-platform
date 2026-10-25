@@ -276,6 +276,7 @@ async function markSearchItemTerminal(
         : before.priceCurrent;
       return {
         status: detail.status,
+        lifecycleStatus: detail.status,
         archivedAt: checkedAt,
         lastSeenAt: checkedAt,
         priceCurrent,
@@ -1619,7 +1620,7 @@ async function enrichKnownItem(
       needsReview: item.needsReview,
       status: item.status,
       ...(item.status === "sold" || item.status === "ended"
-        ? { archivedAt: new Date() }
+        ? { archivedAt: new Date(), lifecycleStatus: item.status }
         : {}),
       sourceData: item.sourceData as Prisma.InputJsonValue | undefined,
       ...resetItemTranslation(),
@@ -1796,9 +1797,11 @@ export async function processUrlAnalysis(
       // Purchase-link analysis is a staging flow.  Keep the parsed listing
       // addressable from the BullMQ result, but do not leak it into the live
       // catalogue before the operator confirms the purchase and price.
+      // Parked as lifecycle "ended" meanwhile; registering the purchase
+      // flips it to "purchased".
       await prisma.item.update({
         where: { id: saved.id },
-        data: { archivedAt: new Date() },
+        data: { archivedAt: new Date(), lifecycleStatus: "ended" },
       });
     }
     await prisma.crawlJob.update({
@@ -1987,6 +1990,13 @@ async function persistNormalized(
       confidence: item.confidence,
       needsReview: item.needsReview,
       status: item.status,
+      // A first-seen terminal listing starts out archived under its
+      // terminal lifecycle instead of flashing as live stock until the
+      // cleanup sweep notices it. (Updates of existing rows go through
+      // the guarded terminal writers, which respect purchases/dislikes.)
+      ...(item.status === "sold" || item.status === "ended"
+        ? { archivedAt: new Date(), lifecycleStatus: item.status }
+        : {}),
       sourceData: item.sourceData as Prisma.InputJsonValue | undefined,
       favorite,
       importOrigin,
@@ -3154,7 +3164,11 @@ export async function processStatus(
           itemId: current.id,
           where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
           data: withRefreshHealth(
-            { archivedAt: new Date(), lastSeenAt: new Date() },
+            {
+              archivedAt: new Date(),
+              lastSeenAt: new Date(),
+              lifecycleStatus: "ended",
+            },
             completedRefreshHealth(new Date()),
           ),
           actor: "inventory-maintenance",
@@ -3226,7 +3240,7 @@ export async function processStatus(
           bidCount,
           ...(update.status !== "unknown" ? { lastSeenAt: checkedAt } : {}),
           ...(update.status === "sold" || update.status === "ended"
-            ? { archivedAt: checkedAt }
+            ? { archivedAt: checkedAt, lifecycleStatus: update.status }
             : {}),
         },
         completedRefreshHealth(checkedAt),
@@ -3299,7 +3313,7 @@ export async function archiveExcludedCollectibles(now = new Date()) {
             deletedAt: null,
             purchaseRecord: null,
           },
-          data: { archivedAt: now },
+          data: { archivedAt: now, lifecycleStatus: "ended" },
         });
         if (!updated.count) continue;
         await tx.manualReview.create({
@@ -3383,7 +3397,7 @@ export async function archiveLowQualitySearchInventory(now = new Date()) {
             cartItems: { none: {} },
             negotiationCase: { is: null },
           },
-          data: { archivedAt: now },
+          data: { archivedAt: now, lifecycleStatus: "ended" },
         });
         if (!result.count) return 0;
         await tx.manualReview.create({
@@ -3476,7 +3490,7 @@ export async function expireStaleDirectListings(
           lastSeenAt: { lt: cutoff },
           consecutiveAbsenceCount: { gte: ABSENCE_RECHECK_THRESHOLD },
         } as Prisma.ItemWhereInput,
-        data: { status: "ended", archivedAt: now },
+        data: { status: "ended", archivedAt: now, lifecycleStatus: "ended" },
         actor: "inventory-maintenance",
         reason: "direct_listing_ttl_expired",
       });
@@ -3517,7 +3531,7 @@ export async function processCleanup() {
           },
         ],
       },
-      select: { id: true },
+      select: { id: true, status: true },
       take: 500,
     });
     if (!terminal.length) break;
@@ -3536,7 +3550,10 @@ export async function processCleanup() {
                 { listingType: "auction", auctionEndAt: { lte: now } },
               ],
             },
-            data: { archivedAt: now },
+            data: {
+              archivedAt: now,
+              lifecycleStatus: item.status === "sold" ? "sold" : "ended",
+            },
             actor: "inventory-maintenance",
             reason: "terminal_or_expired_listing_archived",
           });
@@ -3562,7 +3579,7 @@ export async function processCleanup() {
   const archivedExcluded = await archiveExcludedCollectibles(now);
   const archivedLowQuality = await archiveLowQualitySearchInventory(now);
   const orphanProducts = await prisma.product.deleteMany({
-    where: { listings: { none: {} }, inventory: null },
+    where: { listings: { none: {} } },
   });
   const images = await backfillMissingItemImages();
   const sellerProfiles = await backfillExplicitMercariProfileUrls();

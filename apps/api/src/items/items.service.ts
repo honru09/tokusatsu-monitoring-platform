@@ -94,11 +94,30 @@ const include = {
       series: true,
       manufacturerEntity: true,
       toyTypeEntity: true,
-      inventory: true,
       _count: { select: { listings: true } },
     },
   },
 };
+
+/**
+ * The lifecycle a row returns to when a dislike is lifted — the same
+ * priority as the lifecycle backfill migration, minus the dislike
+ * itself: deleted > purchased > sold > ended > live.
+ */
+function restoredLifecycleStatus(
+  item: {
+    status: string;
+    archivedAt: Date | null;
+    deletedAt: Date | null;
+  },
+  hasPurchaseRecord: boolean,
+): "live" | "sold" | "ended" | "purchased" | "deleted" {
+  if (item.deletedAt) return "deleted";
+  if (hasPurchaseRecord) return "purchased";
+  if (item.status === "sold") return "sold";
+  if (item.status === "ended" || item.archivedAt) return "ended";
+  return "live";
+}
 
 const itemResponseInclude = {
   ...include,
@@ -122,6 +141,7 @@ const syncSelect = {
   ignoredReason: true,
   archivedAt: true,
   deletedAt: true,
+  lifecycleStatus: true,
   note: true,
   updatedAt: true,
   product: {
@@ -140,6 +160,7 @@ const collaborativeSyncFields = [
   "ignoredReason",
   "note",
   "status",
+  "lifecycleStatus",
   "archivedAt",
   "deletedAt",
   "auctionEndAt",
@@ -228,6 +249,9 @@ function collaborativeChangeFromReview(review: {
       ? { note: typeof after.note === "string" ? after.note : null }
       : {}),
     ...(typeof after.status === "string" ? { status: after.status } : {}),
+    ...(typeof after.lifecycleStatus === "string"
+      ? { lifecycleStatus: after.lifecycleStatus }
+      : {}),
     ...(typeof after.listingType === "string" ? { listingType: after.listingType } : {}),
     ...(Object.hasOwn(after, "auctionEndAt")
       ? { auctionEndAt: typeof after.auctionEndAt === "string" ? after.auctionEndAt : null }
@@ -1864,81 +1888,6 @@ export class ItemsService {
     });
   }
 
-  private async addNewPurchaseToInventory(
-    tx: Prisma.TransactionClient,
-    item: {
-      productId: string | null;
-      quantityEst: number | null;
-      quantityOverride?: number | null;
-    },
-    allocatedAmountYen: number | null,
-  ) {
-    if (!item.productId) return;
-    const quantity = effectiveMemberQuantity(item);
-    const inventory = await tx.inventory.findUnique({
-      where: { productId: item.productId },
-    });
-    if (allocatedAmountYen == null) {
-      await tx.inventory.upsert({
-        where: { productId: item.productId },
-        update: { quantity: { increment: quantity } },
-        create: { productId: item.productId, quantity, averageCost: null },
-      });
-      return;
-    }
-    const existingQuantity = inventory?.quantity ?? 0;
-    const existingAverage = inventory?.averageCost
-      ? Number(inventory.averageCost)
-      : 0;
-    const averageCost =
-      (existingAverage * existingQuantity + allocatedAmountYen) /
-      (existingQuantity + quantity);
-    await tx.inventory.upsert({
-      where: { productId: item.productId },
-      update: { quantity: { increment: quantity }, averageCost },
-      create: {
-        productId: item.productId,
-        quantity,
-        averageCost: allocatedAmountYen / quantity,
-      },
-    });
-  }
-
-  /**
-   * Adjusts the product inventory count when an already-recorded purchase
-   * gets a different effective quantity (quantityOverride correction on a
-   * bundle edit or a merged singleton). Only the unit count moves; the
-   * recorded average cost is left alone, matching how price edits on an
-   * existing purchase never rewrote it either. The linked inventory order
-   * is resynced separately under its own not-sold-yet guard.
-   */
-  private async applyPurchaseQuantityDelta(
-    tx: Prisma.TransactionClient,
-    item: { productId: string | null },
-    delta: number,
-  ) {
-    if (!item.productId || delta === 0) return;
-    const inventory = await tx.inventory.findUnique({
-      where: { productId: item.productId },
-    });
-    if (!inventory) {
-      if (delta > 0) {
-        await tx.inventory.upsert({
-          where: { productId: item.productId },
-          update: { quantity: { increment: delta } },
-          create: { productId: item.productId, quantity: delta, averageCost: null },
-        });
-      }
-      return;
-    }
-    const nextQuantity = Math.max(0, inventory.quantity + delta);
-    await tx.inventory.upsert({
-      where: { productId: item.productId },
-      update: { quantity: nextQuantity },
-      create: { productId: item.productId, quantity: nextQuantity, averageCost: null },
-    });
-  }
-
   private async archiveMergedSingletonBundle(
     tx: Prisma.TransactionClient,
     sourceBundleId: string,
@@ -2108,14 +2057,6 @@ export class ItemsService {
                 purchasedAt,
               },
             });
-            await this.applyPurchaseQuantityDelta(
-              tx,
-              item,
-              effectiveMemberQuantity({
-                quantityEst: item.quantityEst,
-                quantityOverride,
-              }) - previousQuantity,
-            );
             const sourceAfter = await this.readPurchaseBundleSnapshot(
               tx,
               sourceBundleId,
@@ -2140,15 +2081,15 @@ export class ItemsService {
                 note: body.note,
               },
             });
-            await this.addNewPurchaseToInventory(
-              tx,
-              { ...item, quantityOverride },
-              normalized.amountAllocated ? amountYen : null,
-            );
           }
           await tx.item.update({
             where: { id: item.id },
-            data: { favorite: false, ignored: false, archivedAt: new Date() },
+            data: {
+              favorite: false,
+              ignored: false,
+              archivedAt: new Date(),
+              lifecycleStatus: "purchased",
+            },
           });
         }
 
@@ -2325,11 +2266,6 @@ export class ItemsService {
                 purchasedAt,
               },
             });
-            await this.applyPurchaseQuantityDelta(
-              tx,
-              item,
-              nextQuantity - previousQuantity,
-            );
             continue;
           }
 
@@ -2361,14 +2297,6 @@ export class ItemsService {
                 purchasedAt,
               },
             });
-            await this.applyPurchaseQuantityDelta(
-              tx,
-              item,
-              effectiveMemberQuantity({
-                quantityEst: item.quantityEst,
-                quantityOverride,
-              }) - previousQuantity,
-            );
             const sourceAfter = await this.readPurchaseBundleSnapshot(
               tx,
               sourceBundleId,
@@ -2393,15 +2321,15 @@ export class ItemsService {
                 note: body.note ?? before.row.note,
               },
             });
-            await this.addNewPurchaseToInventory(
-              tx,
-              { ...item, quantityOverride },
-              normalized.amountAllocated ? amountYen : null,
-            );
           }
           await tx.item.update({
             where: { id: item.id },
-            data: { favorite: false, ignored: false, archivedAt: new Date() },
+            data: {
+              favorite: false,
+              ignored: false,
+              archivedAt: new Date(),
+              lifecycleStatus: "purchased",
+            },
           });
         }
         // Members (re)confirmed by an edit are purchases too: close any
@@ -2756,15 +2684,24 @@ export class ItemsService {
     if (changes.ignored === true) {
       (changes as Prisma.ItemUpdateInput).ignoredAt = new Date();
       (changes as Prisma.ItemUpdateInput).ignoredReason = "manual";
+      (changes as Prisma.ItemUpdateInput).lifecycleStatus = "disliked";
       changes.favorite = false;
     } else if (changes.ignored === false) {
       (changes as Prisma.ItemUpdateInput).ignoredAt = null;
       (changes as Prisma.ItemUpdateInput).ignoredReason = null;
+      // Lifting a dislike returns the row to the lifecycle its other
+      // fields imply; on a row that was not disliked nothing changes.
+      if (current.ignored)
+        (changes as Prisma.ItemUpdateInput).lifecycleStatus =
+          await this.restoredLifecycle(id, current);
     }
     if (changes.favorite === true) {
       changes.ignored = false;
       (changes as Prisma.ItemUpdateInput).ignoredAt = null;
       (changes as Prisma.ItemUpdateInput).ignoredReason = null;
+      if (current.ignored)
+        (changes as Prisma.ItemUpdateInput).lifecycleStatus =
+          await this.restoredLifecycle(id, current);
     }
     const changedKeys = Object.entries(changes)
       .filter(([, value]) => value !== undefined)
@@ -2772,7 +2709,14 @@ export class ItemsService {
     const isCollaborativePatch =
       changedKeys.length > 0 &&
       changedKeys.every((key) =>
-        ["favorite", "ignored", "ignoredAt", "ignoredReason", "note"].includes(
+        [
+          "favorite",
+          "ignored",
+          "ignoredAt",
+          "ignoredReason",
+          "lifecycleStatus",
+          "note",
+        ].includes(
           key,
         ),
       );
@@ -2939,7 +2883,7 @@ export class ItemsService {
       const deletedAt = new Date();
       const updated = await tx.item.update({
         where: { id },
-        data: { deletedAt },
+        data: { deletedAt, lifecycleStatus: "deleted" },
         select: syncSelect,
       });
       await tx.shoppingCartItem.deleteMany({ where: { itemId: id } });
@@ -2958,6 +2902,17 @@ export class ItemsService {
       });
     });
     return { deleted: true, serverTime: new Date().toISOString() };
+  }
+
+  private async restoredLifecycle(
+    id: string,
+    current: { status: string; archivedAt: Date | null; deletedAt: Date | null },
+  ) {
+    const purchase = await this.prisma.purchaseRecord.findUnique({
+      where: { itemId: id },
+      select: { id: true },
+    });
+    return restoredLifecycleStatus(current, Boolean(purchase));
   }
 
   private async ensureExists(id: string) {

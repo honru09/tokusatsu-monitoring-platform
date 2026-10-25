@@ -10,6 +10,7 @@ function fixture(id: string, fields: Record<string, unknown> = {}) {
   return {
     id,
     status: "active",
+    lifecycleStatus: "live",
     archivedAt: null,
     deletedAt: null,
     channel: "online",
@@ -85,12 +86,19 @@ describe("active market availability", () => {
         auctionEndAt: new Date(now.getTime() - 1),
       }),
       fixture("just-ended-auction", { listingType: "auction", auctionEndAt: now }),
-      fixture("sold", { status: "sold" }),
-      fixture("ended", { status: "ended", listingType: "auction" }),
-      fixture("removed", { status: "removed" }),
-      fixture("purchased", { purchaseRecord: { id: "purchase-record" } }),
-      fixture("archived", { archivedAt: now }),
-      fixture("deleted", { deletedAt: now }),
+      fixture("sold", { status: "sold", lifecycleStatus: "sold" }),
+      fixture("ended", {
+        status: "ended",
+        listingType: "auction",
+        lifecycleStatus: "ended",
+      }),
+      fixture("removed", { status: "removed", lifecycleStatus: "ended" }),
+      fixture("purchased", {
+        purchaseRecord: { id: "purchase-record" },
+        lifecycleStatus: "purchased",
+      }),
+      fixture("archived", { archivedAt: now, lifecycleStatus: "ended" }),
+      fixture("deleted", { deletedAt: now, lifecycleStatus: "deleted" }),
     ];
 
     const visible = candidates.filter((item) =>

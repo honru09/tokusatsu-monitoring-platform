@@ -247,12 +247,12 @@ export class SystemToolRegistryService {
         });
       case "inventory_summary":
         return Promise.all([
-          this.prisma.inventory.aggregate({
-            _sum: { quantity: true },
+          this.prisma.inventoryOrder.aggregate({
+            _sum: { remainingQuantity: true },
             _count: { _all: true },
           }),
           this.prisma.item.count({
-            where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
+            where: { lifecycleStatus: "live" },
           }),
           this.prisma.purchaseRecord.count(),
         ]);
@@ -260,27 +260,24 @@ export class SystemToolRegistryService {
         return Promise.all([
           this.prisma.item.groupBy({
             by: ["listingType"],
-            where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
+            where: { lifecycleStatus: "live" },
             _count: { _all: true },
           }),
           this.prisma.item.groupBy({
             by: ["categoryIp", "categoryToyType"],
-            where: { archivedAt: null, deletedAt: null, ignored: false, purchaseRecord: null },
+            where: { lifecycleStatus: "live" },
             _count: { _all: true },
             orderBy: { _count: { categoryIp: "desc" } },
             take: 30,
           }),
         ]);
       case "search_inventory":
-        return this.prisma.inventory.findMany({
+        return this.prisma.inventoryOrder.findMany({
           where: terms.length
             ? {
-                product: {
-                  canonicalName: { contains: terms[0], mode: "insensitive" },
-                },
+                name: { contains: terms[0], mode: "insensitive" },
               }
             : undefined,
-          include: { product: true },
           orderBy: { updatedAt: "desc" },
           take: 30,
         });

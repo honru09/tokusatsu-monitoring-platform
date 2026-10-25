@@ -1,5 +1,7 @@
 export type MarketListingAvailability = {
   status?: string | null;
+  /** The API's lifecycle column; when present it decides disposition. */
+  lifecycleStatus?: string | null;
   archivedAt?: string | null;
   deletedAt?: string | null;
   ignored?: boolean;
@@ -48,10 +50,17 @@ export function isAvailableMarketListing(
   item: MarketListingAvailability,
   now = Date.now(),
 ): boolean {
-  if (item.ignored || item.archivedAt || item.deletedAt || item.purchaseRecord)
-    return false;
-  if (item.status && item.status !== "active" && item.status !== "unknown")
-    return false;
+  // Lifecycle decides disposition when the payload carries it (payloads
+  // from before the column existed fall back to the field-by-field
+  // checks below).
+  if (item.lifecycleStatus != null) {
+    if (item.lifecycleStatus !== "live") return false;
+  } else {
+    if (item.ignored || item.archivedAt || item.deletedAt || item.purchaseRecord)
+      return false;
+    if (item.status && item.status !== "active" && item.status !== "unknown")
+      return false;
+  }
   if (item.listingType === "auction" && item.auctionEndAt) {
     const deadline = Date.parse(item.auctionEndAt);
     if (Number.isFinite(deadline) && deadline <= now) return false;

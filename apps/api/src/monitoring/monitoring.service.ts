@@ -142,7 +142,11 @@ export class MonitoringService {
       this.prisma.item.count({ where: { detectedAt: { gte: since } } }),
       this.prisma.product.count(),
       this.prisma.reviewQueue.count({ where: { status: "pending" } }),
-      this.prisma.inventory.aggregate({ _sum: { quantity: true } }),
+      // Stock on hand is the inventory orders' remaining quantity; the
+      // legacy per-product Inventory table is gone.
+      this.prisma.inventoryOrder.aggregate({
+        _sum: { remainingQuantity: true },
+      }),
       this.prisma.item.groupBy({
         by: ["categoryIp"],
         where: activeMarketWhere,
@@ -314,7 +318,7 @@ export class MonitoringService {
       discovered24h,
       productTotal,
       pendingReviewTotal,
-      inventoryTotal: inventoryTotal._sum.quantity ?? 0,
+      inventoryTotal: inventoryTotal._sum.remainingQuantity ?? 0,
       totals24h: totals,
       sources: sources.map((source) => ({
         key: source.key,

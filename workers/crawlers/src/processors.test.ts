@@ -956,7 +956,7 @@ describe("excluded collectible maintenance", () => {
     );
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: "book-1", archivedAt: null, deletedAt: null, purchaseRecord: null },
-      data: { archivedAt: now },
+      data: { archivedAt: now, lifecycleStatus: "ended" },
     });
     expect(createAudit).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -1066,7 +1066,7 @@ describe("search inventory quality maintenance", () => {
           favorite: false,
           purchaseRecord: null,
         }),
-        data: { archivedAt: now },
+        data: { archivedAt: now, lifecycleStatus: "ended" },
       }),
     );
     expect(createAudit).toHaveBeenCalledWith({

@@ -694,6 +694,7 @@ export class CollaborationService {
             ignored: true,
             ignoredAt: now,
             ignoredReason: "manual",
+            lifecycleStatus: "disliked",
           },
         });
         if (!item.ignored) {
@@ -916,15 +917,14 @@ export class CollaborationService {
       const items = await tx.item.updateMany({
         where: {
           id: { in: itemIds },
-          archivedAt: null,
-          deletedAt: null,
-          purchaseRecord: null,
+          lifecycleStatus: "live",
         },
         data: {
           favorite: false,
           ignored: true,
           ignoredAt: now,
           ignoredReason: "negotiation_failed",
+          lifecycleStatus: "disliked",
         },
       });
       await tx.negotiationCase.updateMany({

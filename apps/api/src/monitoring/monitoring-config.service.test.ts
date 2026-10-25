@@ -419,10 +419,8 @@ describe("Monitoring keyword configuration", () => {
       1,
       expect.objectContaining({
         where: expect.objectContaining({
-          archivedAt: null,
+          lifecycleStatus: "live",
           ignored: false,
-          purchaseRecord: null,
-          status: { in: ["active", "unknown"] },
           source: { key: { in: ["mercari"] } },
           AND: expect.arrayContaining([
             {
@@ -539,8 +537,7 @@ describe("Monitoring keyword configuration", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           ignored: false,
-          archivedAt: null,
-          purchaseRecord: null,
+          lifecycleStatus: "live",
         }),
       }),
     );

@@ -355,7 +355,7 @@ function quantityHarness() {
 }
 
 describe("purchase quantityOverride", () => {
-  it("stores the override and lets it win over quantityEst in both inventory ledgers", async () => {
+  it("stores the override and lets it win over quantityEst in the inventory order", async () => {
     const harness = quantityHarness();
     const service = new ItemsService(harness.prisma as never);
 
@@ -376,18 +376,8 @@ describe("purchase quantityOverride", () => {
     expect(records.find((r) => r.itemId === "item-2")).toMatchObject({
       quantityOverride: null,
     });
-    // Product inventory: override 3 beats the recognised estimate of 2, and
-    // the average cost is the allocated amount spread over 3 units.
-    expect(harness.inventory.get("product-1")).toMatchObject({
-      quantity: 3,
-      averageCost: 300,
-    });
-    // No override: the estimate of 5 still applies.
-    expect(harness.inventory.get("product-2")).toMatchObject({
-      quantity: 5,
-      averageCost: 200,
-    });
-    // Inventory order dual-write: 3 + 5 units for the bundle total.
+    // Inventory order: override 3 beats the recognised estimate of 2,
+    // and without an override the estimate of 5 still applies: 3 + 5.
     const order = [...harness.inventoryOrders.values()][0];
     expect(order).toMatchObject({
       purchaseCost: 1_900,
@@ -396,7 +386,7 @@ describe("purchase quantityOverride", () => {
     });
   });
 
-  it("re-syncs the linked inventory order and product count when an edit changes the override", async () => {
+  it("re-syncs the linked inventory order when an edit changes the override", async () => {
     const harness = quantityHarness();
     // Existing singleton purchase: bundle-a / purchase-a, override 3.
     harness.bundles.set("bundle-a", {
@@ -427,11 +417,6 @@ describe("purchase quantityOverride", () => {
       ...harness.purchases.get("purchase-a"),
       bundle: { purchases: [{ id: "purchase-a" }] },
     } as never;
-    harness.inventory.set("product-1", {
-      productId: "product-1",
-      quantity: 3,
-      averageCost: 300,
-    });
     harness.inventoryOrders.set("inv-a", {
       id: "inv-a",
       sourceBundleId: "bundle-a",
@@ -458,7 +443,6 @@ describe("purchase quantityOverride", () => {
     expect(harness.purchases.get("purchase-a")).toMatchObject({
       quantityOverride: 6,
     });
-    expect(harness.inventory.get("product-1")?.quantity).toBe(6);
     expect(harness.inventoryOrders.get("inv-a")).toMatchObject({
       initialQuantity: 6,
       remainingQuantity: 6,

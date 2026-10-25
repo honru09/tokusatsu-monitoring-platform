@@ -82,8 +82,8 @@ describe("MonitoringService overview", () => {
       },
       product: { count: vi.fn().mockResolvedValue(8_000) },
       reviewQueue: { count: vi.fn().mockResolvedValue(40) },
-      inventory: {
-        aggregate: vi.fn().mockResolvedValue({ _sum: { quantity: 18 } }),
+      inventoryOrder: {
+        aggregate: vi.fn().mockResolvedValue({ _sum: { remainingQuantity: 18 } }),
       },
       $queryRaw: vi.fn().mockResolvedValue([
         { date: "2026-09-03", count: 120 },
@@ -154,8 +154,7 @@ describe("MonitoringService overview", () => {
       2,
       expect.objectContaining({
         where: expect.objectContaining({
-          status: { in: ["active", "unknown"] },
-          archivedAt: null,
+          lifecycleStatus: "live",
           ignored: false,
           channel: "online",
           NOT: expect.arrayContaining([
@@ -244,8 +243,8 @@ describe("MonitoringService overview", () => {
       },
       product: { count: vi.fn().mockResolvedValue(0) },
       reviewQueue: { count: vi.fn().mockResolvedValue(0) },
-      inventory: {
-        aggregate: vi.fn().mockResolvedValue({ _sum: { quantity: 0 } }),
+      inventoryOrder: {
+        aggregate: vi.fn().mockResolvedValue({ _sum: { remainingQuantity: 0 } }),
       },
       $queryRaw: vi.fn().mockResolvedValue([]),
       $transaction: vi.fn((queries: Promise<unknown>[]) =>

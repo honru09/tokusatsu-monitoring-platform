@@ -102,7 +102,7 @@ describe("ItemsService.list", () => {
     const pageWhere = prisma.item.findMany.mock.calls[1][0].where;
     expect(pageWhere).toMatchObject({
       ...rankedWhere, id: { in: ["recently-sold"] },
-      status: { in: ["active", "unknown"] }, archivedAt: null, purchaseRecord: null,
+      lifecycleStatus: "live",
     });
   });
 
@@ -120,10 +120,8 @@ describe("ItemsService.list", () => {
     const where = prisma.item.findMany.mock.calls[0][0].where;
     expect(where).toMatchObject({
       monitoringCategoryId: { in: ["monitoring-category-shf"] },
-      archivedAt: null,
-      status: { in: ["active", "unknown"] },
+      lifecycleStatus: "live",
       ignored: false,
-      purchaseRecord: null,
     });
     expect(where.AND).toEqual(expect.arrayContaining([
       expect.objectContaining({ OR: expect.arrayContaining([{ auctionEndAt: null }]) }),
@@ -310,7 +308,7 @@ describe("ItemsService.list", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           listingType: "auction",
-          status: { in: ["active", "unknown"] },
+          lifecycleStatus: "live",
           NOT: expect.arrayContaining([
             {
               titleRaw: {
@@ -1537,7 +1535,7 @@ describe("ItemsService.removeItem", () => {
     return { tx, prisma, service: new ItemsService(prisma as never) };
   }
 
-  it("stamps only the tombstone, clears cart rows and writes a plain audit row", async () => {
+  it("stamps the tombstone and deleted lifecycle, clears cart rows and writes a plain audit row", async () => {
     const { tx, service } = deleteHarness(liveItem, {
       deletedAt: null,
       purchaseRecord: null,
@@ -1551,7 +1549,7 @@ describe("ItemsService.removeItem", () => {
     expect(tx.item.update).toHaveBeenCalledTimes(1);
     expect(tx.item.update).toHaveBeenCalledWith({
       where: { id: "deleted-item" },
-      data: { deletedAt: expect.any(Date) },
+      data: { deletedAt: expect.any(Date), lifecycleStatus: "deleted" },
       select: expect.objectContaining({ deletedAt: true }),
     });
     expect(tx.shoppingCartItem.deleteMany).toHaveBeenCalledWith({
@@ -1630,7 +1628,7 @@ describe("ItemsService.removeItem", () => {
     const service = new ItemsService(prisma as never);
     await service.list({ limit: 40, offset: 0 } as ListItemsQuery);
     expect(prisma.item.findMany.mock.calls[0][0].where).toMatchObject({
-      deletedAt: null,
+      lifecycleStatus: "live",
     });
   });
 

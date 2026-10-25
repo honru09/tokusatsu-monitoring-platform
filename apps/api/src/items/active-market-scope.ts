@@ -53,11 +53,14 @@ export function activeMarketItemWhere({
     now.getTime() - marketStaleHideHours() * 60 * 60 * 1000,
   );
   return {
-    status: { in: [ItemStatus.active, ItemStatus.unknown] },
-    archivedAt: null,
-    deletedAt: null,
+    // Lifecycle is the visibility truth: only live listings are market
+    // stock (includeIgnored also admits the disliked shelf). status
+    // stays the raw platform signal and is still consulted by the
+    // read-time freshness clauses below.
+    lifecycleStatus: includeIgnored
+      ? { in: ["live", "disliked"] as const }
+      : "live",
     channel: SourceChannel.online,
-    purchaseRecord: null,
     categoryToyType: { not: ToyType.card },
     ...(includeIgnored ? {} : { ignored: false }),
     AND: [
