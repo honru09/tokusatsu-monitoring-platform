@@ -37,8 +37,12 @@ export function DetailDisclosure({
   );
 }
 
+export const DETAIL_DESCRIPTION_ART_SRC =
+  "/illustrations/detail-empty-description.webp";
+
 export function DetailDescription({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
+  const [artFailed, setArtFailed] = useState(false);
   const id = useId();
   const paragraphRef = useRef<HTMLParagraphElement>(null);
   const animationRef = useRef<Animation | null>(null);
@@ -64,10 +68,21 @@ export function DetailDescription({ text }: { text: string }) {
     return (
       <section className={`detail-description ${styles.description}`} aria-label="商品说明">
         <h3>商品说明</h3>
-        {/* Empty state: the art slot stays empty in this pass; a later
-            batch drops a spot illustration into it. */}
         <div className="detail-description-empty">
-          <div className="detail-description-art" data-description-art-slot aria-hidden="true" />
+          <div className="detail-description-art" data-description-art-slot aria-hidden="true">
+            {!artFailed && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={DETAIL_DESCRIPTION_ART_SRC}
+                alt=""
+                width={480}
+                height={480}
+                loading="lazy"
+                onError={() => setArtFailed(true)}
+                className="h-full w-full object-cover"
+              />
+            )}
+          </div>
           <p>暂无商品说明</p>
         </div>
       </section>

@@ -73,7 +73,14 @@ it("renders a designed empty state with an art slot when there is no description
   try {
     act(() => root.render(<DetailDescription text="" />));
     expect(host.textContent).toContain("暂无商品说明");
-    expect(host.querySelector("[data-description-art-slot]")).not.toBeNull();
+    const slot = host.querySelector("[data-description-art-slot]");
+    expect(slot).not.toBeNull();
+    const art = slot?.querySelector<HTMLImageElement>("img");
+    expect(art?.getAttribute("src")).toBe(
+      "/illustrations/detail-empty-description.webp",
+    );
+    expect(art?.getAttribute("alt")).toBe("");
+    expect(art?.getAttribute("loading")).toBe("lazy");
     expect(host.querySelector("button")).toBeNull();
     expect(host.textContent).not.toContain("无详情描述");
   } finally {
