@@ -304,6 +304,7 @@ model Item {
   managerActivities        ManagerActivity[]
   negotiationCase          NegotiationCase?
   shareRoundItems          ShareRoundItem[]
+  decision                 ItemDecision?
   logistics                ItemLogistics?
   crossMarketOpportunities CrossMarketOpportunity[]
   monitoringCategoryId     String?                  @map("monitoring_category_id")
@@ -1299,6 +1300,7 @@ model ManagerAccount {
   activities       ManagerActivity[]
   negotiationCases NegotiationCase[]
   shareRounds      ShareRound[]
+  itemDecisions    ItemDecision[]
 
   @@index([active, position])
   @@map("manager_accounts")
@@ -1350,6 +1352,7 @@ model ShareRound {
   createdBy   ManagerAccount   @relation(fields: [createdById], references: [id], onDelete: Restrict)
   items       ShareRoundItem[]
   messages    DirectMessage[]
+  decisions   ItemDecision[]
 
   @@index([createdById, createdAt])
   @@index([createdAt])
@@ -1372,6 +1375,29 @@ model ShareRoundItem {
   @@unique([roundId, itemId])
   @@index([itemId])
   @@map("share_round_items")
+}
+
+/// First-class decision on one shared item: want / negotiate / pass /
+/// bought. No row means the item is still pending a decision. There is
+/// at most one row per item; deciding again overwrites status, decider
+/// and provenance in place.
+model ItemDecision {
+  id              String         @id @default(uuid())
+  itemId          String         @unique @map("item_id")
+  status          String
+  decidedById     String         @map("decided_by_id")
+  decidedAt       DateTime       @map("decided_at") @db.Timestamptz
+  sourceRoundId   String?        @map("source_round_id")
+  sourceMessageId String?        @map("source_message_id")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  item            Item           @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  decidedBy       ManagerAccount @relation(fields: [decidedById], references: [id], onDelete: Restrict)
+  sourceRound     ShareRound?    @relation(fields: [sourceRoundId], references: [id], onDelete: SetNull)
+  sourceMessage   DirectMessage? @relation(fields: [sourceMessageId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("item_decisions")
 }
 
 /// Durable one-to-one collaboration stream between the two fixed managers.
@@ -1397,6 +1423,7 @@ model DirectMessage {
   forwardedFrom   DirectMessage?    @relation("DirectMessageForwards", fields: [forwardedFromId], references: [id], onDelete: SetNull)
   forwards        DirectMessage[]   @relation("DirectMessageForwards")
   reactions       MessageReaction[]
+  decisions       ItemDecision[]
 
   @@index([senderId, createdAt])
   @@index([recipientId, readAt, createdAt])
