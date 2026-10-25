@@ -1603,22 +1603,18 @@ describe("ItemsService.removeItem", () => {
     expect(tx.shoppingCartItem.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("hides a deleted item from get while the audit trail stays readable", async () => {
+  it("hides a deleted item from get", async () => {
     const prisma = {
       item: {
         findUnique: vi
           .fn()
           .mockResolvedValue({ ...liveItem, deletedAt: new Date() }),
       },
-      manualReview: { findMany: vi.fn().mockResolvedValue([{ id: "review-1" }]) },
     };
     const service = new ItemsService(prisma as never);
     await expect(service.get("deleted-item")).rejects.toMatchObject({
       status: 404,
     });
-    await expect(service.audit("deleted-item")).resolves.toEqual([
-      { id: "review-1" },
-    ]);
   });
 
   it("keeps deleted rows out of the list query", async () => {

@@ -2746,45 +2746,6 @@ export class ItemsService {
     return row;
   }
 
-  async audit(id: string) {
-    await this.ensureExists(id);
-    return this.prisma.manualReview.findMany({
-      where: { itemId: id },
-      orderBy: { createdAt: "desc" },
-    });
-  }
-
-  async pendingReviews() {
-    const reviews = await this.prisma.reviewQueue.findMany({
-      where: { status: "pending" },
-      include: {
-        item: {
-          include: {
-            source: { select: { key: true, displayName: true } },
-            images: { orderBy: { position: "asc" } },
-          },
-        },
-        product: {
-          include: {
-            franchise: true,
-            series: true,
-            manufacturerEntity: true,
-            toyTypeEntity: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-      take: 200,
-    });
-    return {
-      reviews,
-      total: await this.prisma.reviewQueue.count({
-        where: { status: "pending" },
-      }),
-      serverTime: new Date().toISOString(),
-    };
-  }
-
   async update(id: string, body: UpdateItemDto) {
     const current = await this.ensureExists(id);
     const { actor = "operator", reason, ...changes } = body;

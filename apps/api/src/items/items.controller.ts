@@ -109,19 +109,9 @@ export class ItemsController {
     return this.items.getSeller(id, Number(page ?? 1), Number(limit ?? 48));
   }
 
-  @Get("reviews/pending")
-  pendingReviews() {
-    return this.items.pendingReviews();
-  }
-
   @Get(":id")
   get(@Param("id") id: string) {
     return this.items.get(id);
-  }
-
-  @Get(":id/audit")
-  audit(@Param("id") id: string) {
-    return this.items.audit(id);
   }
 
   @Patch(":id")
