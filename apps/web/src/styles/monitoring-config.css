@@ -92,7 +92,7 @@
   justify-content: center;
   gap: 0.4rem;
   min-height: 44px;
-  padding: 0.55rem 0.85rem;
+  padding: 8px 14px;
   border-radius: 11px;
   border: 1px solid var(--mcfg-line);
   background: var(--mcfg-surface);
