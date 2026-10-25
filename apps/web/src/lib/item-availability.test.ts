@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAvailableMarketListing, retainAvailableMarketListings } from "./item-availability";
+import { isAvailableMarketListing, isUnverifiableListing, retainAvailableMarketListings } from "./item-availability";
 
 const now = Date.parse("2026-10-08T12:00:00.000Z");
 
@@ -34,6 +34,33 @@ describe("market listing availability", () => {
     // No timestamp means no staleness evidence, so the listing stays.
     expect(isAvailableMarketListing({ listingType: "direct", status: "unknown" }, now)).toBe(true);
     expect(isAvailableMarketListing({ listingType: "direct", status: "unknown", lastSeenAt: "invalid" }, now)).toBe(true);
+  });
+
+  it("keeps stale favorites listed as unverifiable instead of hiding them", () => {
+    const stale = new Date(now - 13 * 60 * 60 * 1000).toISOString();
+    const favorite = { listingType: "direct", status: "unknown", lastSeenAt: stale, favorite: true };
+    expect(isAvailableMarketListing(favorite, now)).toBe(true);
+    expect(isUnverifiableListing(favorite, now)).toBe(true);
+    // The same row without the favorite flag is hidden, per the market rule.
+    expect(isAvailableMarketListing({ ...favorite, favorite: false }, now)).toBe(false);
+    // A fresh favorite is ordinary, not unverifiable.
+    const fresh = new Date(now - 60 * 60 * 1000).toISOString();
+    expect(isUnverifiableListing({ ...favorite, lastSeenAt: fresh }, now)).toBe(false);
+  });
+
+  it("flags active listings whose refresh keeps failing, without hiding them", () => {
+    const stale = new Date(now - 13 * 60 * 60 * 1000).toISOString();
+    const fresh = new Date(now - 60 * 60 * 1000).toISOString();
+    const failing = { listingType: "direct", status: "active", lastSeenAt: stale, refreshFailureCount: 3 };
+    expect(isUnverifiableListing(failing, now)).toBe(true);
+    expect(isAvailableMarketListing(failing, now)).toBe(true);
+    // Below the escalation streak, or seen recently, the price still reads live.
+    expect(isUnverifiableListing({ ...failing, refreshFailureCount: 2 }, now)).toBe(false);
+    expect(isUnverifiableListing({ ...failing, lastSeenAt: fresh }, now)).toBe(false);
+    expect(isUnverifiableListing({ ...failing, refreshFailureCount: null }, now)).toBe(false);
+    // Auctions are governed by their end time, not by this rule.
+    const future = new Date(now + 60 * 60 * 1000).toISOString();
+    expect(isUnverifiableListing({ listingType: "auction", status: "active", lastSeenAt: stale, refreshFailureCount: 9, auctionEndAt: future }, now)).toBe(false);
   });
 
   it("removes unavailable rows without mutating saved purchases or repainting an unchanged grid", () => {

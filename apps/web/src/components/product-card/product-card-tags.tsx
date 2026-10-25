@@ -1,4 +1,5 @@
 import React from "react";
+import { isUnverifiableListing } from "../../lib/item-availability";
 import { listingLabels as labels } from "../../lib/listing-display";
 import type { ProductCardItem } from "./product-card-item";
 
@@ -36,6 +37,11 @@ export function ProductCardTags({ item }: { item: ProductCardItem }) {
       {item.needsReview && (
         <span className="rounded bg-amber-100 px-1.5 py-1 text-[10px] font-bold text-amber-800">
           待复核
+        </span>
+      )}
+      {isUnverifiableListing(item) && (
+        <span className="rounded bg-zinc-200 px-1.5 py-1 text-[10px] font-bold text-zinc-600">
+          暂无法核验
         </span>
       )}
     </div>

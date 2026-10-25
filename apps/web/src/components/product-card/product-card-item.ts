@@ -20,6 +20,9 @@ export type ProductCardItem = {
   priceCurrent: number;
   shippingFee?: number | null;
   quantityEst?: number | null;
+  status?: string | null;
+  lastSeenAt?: string | null;
+  refreshFailureCount?: number | null;
   listingType: ListingType;
   auctionEndAt?: string | null;
   detectedAt: string;

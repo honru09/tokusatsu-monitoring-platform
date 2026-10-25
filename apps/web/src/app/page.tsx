@@ -85,6 +85,7 @@ import {
 } from "../components/product-card/product-card-icons";
 import {
   isAvailableMarketListing,
+  isUnverifiableListing,
   retainAvailableMarketListings,
 } from "../lib/item-availability";
 import {
@@ -178,6 +179,7 @@ type Item = {
   confidence: number;
   needsReview: boolean;
   status: string;
+  refreshFailureCount?: number | null;
   favorite: boolean;
   ignored: boolean;
   ignoredAt?: string | null;
@@ -1397,6 +1399,7 @@ function FavoriteMiniCard({
 }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const title = itemDisplayTitle(item, language, translatedTitle);
+  const unverifiable = isUnverifiableListing(item);
   const auctionRemaining = useMemo(
     () =>
       item.listingType === "auction" && item.auctionEndAt
@@ -1417,7 +1420,7 @@ function FavoriteMiniCard({
             src={item.images[0].url}
             alt=""
             loading="lazy"
-            className="h-full w-full object-cover"
+            className={`h-full w-full object-cover ${unverifiable ? "saturate-[.45]" : ""}`}
           />
         ) : (
           <span className="grid h-full place-items-center font-heading text-2xl font-black text-lime">
@@ -1450,6 +1453,9 @@ function FavoriteMiniCard({
           <span>{listingTypeLabel(item.listingType)}</span>
           {auctionRemaining && (
             <b className="text-amber-700">剩 {auctionRemaining}</b>
+          )}
+          {unverifiable && (
+            <b className="text-zinc-500">暂无法核验</b>
           )}
         </span>
         <YahooDiscount

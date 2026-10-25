@@ -429,6 +429,11 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
   .procurement-shell :is(.procurement-header,.primary-navigation,.catalog-toolbar,.modal-panel) {background:white !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;border-color:#a6afb6 !important;}
 }
 
+/* Unverifiable listings (stale, or refresh keeps failing) stay listed -
+   favorites never drop out over staleness - but they must not look live:
+   the media is desaturated and the tags row carries a 暂无法核验 chip. */
+.procurement-shell .product-card-unverifiable .product-card-media {filter:saturate(.45);}
+
 /* Mobile market grid: two cards per row on phone portrait. The fixed
    460px card floor and the fixed media height give way to content-sized
    cards with a 4/3 image, so roughly two rows fit a phone viewport.

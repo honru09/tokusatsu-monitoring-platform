@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { NoteDialog } from "../note-dialog";
+import { isUnverifiableListing } from "../../lib/item-availability";
 import { itemDisplayTitle } from "../../lib/listing-display";
 import type { ProductCardProps } from "./product-card-item";
 import { ProductCardMedia } from "./product-card-media";
@@ -72,7 +73,7 @@ export function ProductCard({
       data-item-id={item.id}
       onPointerDownCapture={() => { pointerInputRef.current = true; }}
       onKeyDownCapture={(event) => { pointerInputRef.current = false; if(event.key === "Escape" && moreActionsOpen) { event.stopPropagation(); setMoreActionsOpen(false); moreTriggerRef.current?.focus(); } }}
-      className={`ios-card product-card js-product-card motion-layer group flex min-w-0 flex-col overflow-hidden rounded-[18px] shadow-panel ${item.note ? "product-card-has-note" : ""}`}
+      className={`ios-card product-card js-product-card motion-layer group flex min-w-0 flex-col overflow-hidden rounded-[18px] shadow-panel ${item.note ? "product-card-has-note" : ""} ${isUnverifiableListing(item) ? "product-card-unverifiable" : ""}`}
     >
       <ProductCardMedia
         item={item}
