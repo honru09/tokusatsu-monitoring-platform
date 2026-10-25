@@ -104,7 +104,8 @@ describe("NegotiationAnalysisPanel", () => {
     expect(host.textContent).toContain("¥4,400");
     // Preview-only marking: the item without a share target is flagged
     // here, while the script itself stays clean.
-    expect(host.textContent).toContain("未定目标（按现价）");
+    expect(host.textContent).toContain("未定目标");
+    expect(host.textContent).not.toContain("按现价");
     expect(host.textContent).toContain("单件卖家");
     const links = [...host.querySelectorAll("a")].map((a) =>
       a.getAttribute("href"),

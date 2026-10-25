@@ -6,8 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CollaborationChatWorkspace,
   NegotiationScriptPanel,
+  buildBundleNegotiationScript,
   buildBundleShareText,
   groupNegotiationsByRound,
+  parseTargetPriceFromText,
   type CollaborationItem,
   type ShareRound,
 } from "./collaboration-chat-workspace";
@@ -1062,5 +1064,300 @@ describe("copy auto-accounting", () => {
     expect(onCopied).toHaveBeenCalledWith("round-1", ["item-1", "item-2"]);
     act(() => panelRoot.unmount());
     panelHost.remove();
+  });
+
+  it("复制砍价文案统一读取发送者目标价（含 ShareRoundItem 逐件目标价），无目标价时走通用版且绝不把现价当诉求价", async () => {
+    const item600: CollaborationItem = {
+      id: "item-600",
+      titleRaw: "仮面ライダー ガヴ ゴチゾウ",
+      titleZh: "加布零食",
+      sourceUrl: "https://jp.mercari.com/item/m600",
+      priceCurrent: 600,
+      source: { key: "mercari", displayName: "Mercari" },
+      seller: { id: "seller-dragon", name: "龙卖家" },
+      images: [],
+      product: null,
+    };
+    const itemNoTarget: CollaborationItem = {
+      ...item600,
+      id: "item-no-target",
+      titleRaw: "ウルトラマン 600円商品",
+      titleZh: "无目标价商品",
+    };
+    const customRound: ShareRound = {
+      id: "round-target-300",
+      createdAt: "2026-09-07T02:00:00.000Z",
+      createdById: "manager-2",
+      copiedCount: 0,
+      total: 3,
+      targetTotalYen: null,
+      items: [
+        {
+          id: "ri-600",
+          roundId: "round-target-300",
+          itemId: "item-600",
+          targetPriceYen: 300,
+          copiedAt: null,
+          item: item600,
+        },
+        {
+          id: "ri-1",
+          roundId: "round-target-300",
+          itemId: "item-1",
+          targetPriceYen: 2000,
+          copiedAt: null,
+          item: itemOne,
+        },
+        {
+          id: "ri-2",
+          roundId: "round-target-300",
+          itemId: "item-2",
+          targetPriceYen: 3000,
+          copiedAt: null,
+          item: itemTwo,
+        },
+      ],
+    };
+    const msgSingleFromRound = {
+      ...message,
+      id: "msg-single-300",
+      text: "帮看这件",
+      createdAt: "2026-09-07T02:01:00.000Z",
+      updatedAt: "2026-09-07T02:01:00.000Z",
+      itemId: "item-600",
+      roundId: "round-target-300",
+      item: item600,
+      targetPriceYen: null,
+    };
+    const msgSingleNoTarget = {
+      ...message,
+      id: "msg-single-no-target",
+      text: "无预期价单件",
+      createdAt: "2026-09-07T02:02:00.000Z",
+      updatedAt: "2026-09-07T02:02:00.000Z",
+      itemId: "item-no-target",
+      item: itemNoTarget,
+      targetPriceYen: null,
+    };
+    const msgBundleSumFromRound = {
+      ...message,
+      id: "msg-bundle-sum",
+      text: "同店两件",
+      createdAt: "2026-09-07T02:03:00.000Z",
+      updatedAt: "2026-09-07T02:03:00.000Z",
+      itemId: "item-1",
+      roundId: "round-target-300",
+      item: itemOne,
+      bundleItems: [itemOne, itemTwo],
+      targetPriceYen: null,
+    };
+    const msgBundleNoTarget = {
+      ...message,
+      id: "msg-bundle-no-target",
+      text: "无目标价两件",
+      createdAt: "2026-09-07T02:04:00.000Z",
+      updatedAt: "2026-09-07T02:04:00.000Z",
+      itemId: "item-no-target",
+      item: itemNoTarget,
+      bundleItems: [
+        itemNoTarget,
+        { ...itemNoTarget, id: "item-no-target-2", priceCurrent: 800 },
+      ],
+      targetPriceYen: null,
+    };
+    const msgSinglePure300 = {
+      ...message,
+      id: "msg-single-pure-300",
+      text: "300",
+      createdAt: "2026-09-07T02:05:00.000Z",
+      updatedAt: "2026-09-07T02:05:00.000Z",
+      itemId: "item-600",
+      item: item600,
+      targetPriceYen: null,
+      roundId: null,
+    };
+
+    act(() => root.unmount());
+    window.sessionStorage.clear();
+    writeTextMock.mockClear();
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = new URL(String(input), "http://localhost");
+      if (url.pathname.endsWith("/collaboration/share-rounds"))
+        return Promise.resolve(response({ rounds: [customRound] }));
+      if (url.pathname.endsWith("/collaboration/negotiations"))
+        return Promise.resolve(response({ cases: [] }));
+      if (url.pathname.endsWith("/collaboration/messages/read"))
+        return Promise.resolve(response({ updated: 1 }));
+      if (url.pathname.endsWith("/mark-copied"))
+        return Promise.resolve(response({ ...customRound, copiedCount: 1 }));
+      return Promise.resolve(
+        response({
+          messages: [
+            msgSingleFromRound,
+            msgSingleNoTarget,
+            msgSinglePure300,
+            msgBundleSumFromRound,
+            msgBundleNoTarget,
+          ],
+          nextAfter: msgSinglePure300.updatedAt,
+        }),
+      );
+    });
+    root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <CollaborationChatWorkspace
+          apiBaseUrl=""
+          account={accounts[0]}
+          accounts={accounts}
+          pendingItem={null}
+          onPendingItemConsumed={() => undefined}
+          onOpenItem={async () => true}
+          cartCount={0}
+          onCartMigrated={() => undefined}
+          onUnreadCleared={() => undefined}
+          onActivityChanged={() => undefined}
+        />,
+      );
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    const singleCopyButtons = Array.from(host.querySelectorAll("button")).filter(
+      (entry) => entry.textContent?.trim() === "复制砍价日语",
+    );
+    expect(singleCopyButtons).toHaveLength(3);
+
+    // 1. 单件有目标价（300，现价 600，存於 ShareRoundItem）→ 含「300円にお値下げ」
+    await act(async () => {
+      singleCopyButtons[0]?.click();
+      await Promise.resolve();
+    });
+    expect(writeTextMock).toHaveBeenLastCalledWith(
+      expect.stringContaining("300円にお値下げ可能でしょうか？"),
+    );
+
+    // 2. 单件无目标价（现价 600）→ 通用无价版，绝不拿 600 当目标价
+    await act(async () => {
+      singleCopyButtons[1]?.click();
+      await Promise.resolve();
+    });
+    const singleNoTargetCopied = String(writeTextMock.mock.lastCall?.[0] ?? "");
+    expect(singleNoTargetCopied).toContain(
+      "お気持ちお値下げいただくことは可能でしょうか？",
+    );
+    expect(singleNoTargetCopied).not.toContain("600円");
+
+    // 3. 消息文字是纯数字「300」（parseTargetPriceFromText）→ 复制含「300円にお値下げ」
+    await act(async () => {
+      singleCopyButtons[2]?.click();
+      await Promise.resolve();
+    });
+    expect(writeTextMock).toHaveBeenLastCalledWith(
+      expect.stringContaining("300円にお値下げ可能でしょうか？"),
+    );
+
+    const bundleCopyButtons = Array.from(host.querySelectorAll("button")).filter(
+      (entry) => entry.textContent?.includes("一键复制合并砍价日语"),
+    );
+    expect(bundleCopyButtons).toHaveLength(2);
+
+    // 4. 多件同卖家有逐件目标价（2000 + 3000）→ 含合计目标价「合計5,000円」
+    await act(async () => {
+      bundleCopyButtons[0]?.click();
+      await Promise.resolve();
+    });
+    expect(writeTextMock).toHaveBeenLastCalledWith(
+      expect.stringContaining("合計5,000円でお譲りいただくことは可能でしょうか？"),
+    );
+
+    // 5. 多件无目标价 → 通用版，绝不拿现价合计（1,400円）当目标价
+    await act(async () => {
+      bundleCopyButtons[1]?.click();
+      await Promise.resolve();
+    });
+    const bundleNoTargetCopied = String(writeTextMock.mock.lastCall?.[0] ?? "");
+    expect(bundleNoTargetCopied).toContain(
+      "まとめ割でお気持ちお値引きいただくことは可能でしょうか？",
+    );
+    expect(bundleNoTargetCopied).not.toContain("合計1,400円");
+  });
+});
+
+describe("buildBundleNegotiationScript", () => {
+  const sample600: CollaborationItem = {
+    id: "item-600",
+    titleRaw: "仮面ライダー ガヴ",
+    sourceUrl: "https://jp.mercari.com/item/m600",
+    priceCurrent: 600,
+    source: { key: "mercari", displayName: "Mercari" },
+    images: [],
+  };
+
+  it("单件有目标价（300）时生成含 300円にお値下げ 的文案", () => {
+    const script = buildBundleNegotiationScript([sample600], 300);
+    expect(script).toContain("300円にお値下げ可能でしょうか？");
+    expect(script).not.toContain("600円");
+  });
+
+  it("多件同卖家按逐件目标价求和生成合计诉求", () => {
+    const script = buildBundleNegotiationScript([
+      { ...sample600, id: "a", priceCurrent: 600, targetPriceYen: 300 },
+      { ...sample600, id: "b", priceCurrent: 1000, targetPriceYen: 700 },
+    ]);
+    expect(script).toContain("合計1,000円でお譲りいただくことは可能でしょうか？");
+  });
+
+  it("无目标价时走通用无价版，绝不把 priceCurrent 填进砍价诉求", () => {
+    const single = buildBundleNegotiationScript([sample600], null);
+    expect(single).toContain("お気持ちお値下げいただくことは可能でしょうか？");
+    expect(single).not.toContain("600円");
+
+    const multi = buildBundleNegotiationScript(
+      [
+        sample600,
+        { ...sample600, id: "b", titleRaw: "商品B", priceCurrent: 800 },
+      ],
+      null,
+    );
+    expect(multi).toContain(
+      "まとめ割でお気持ちお値引きいただくことは可能でしょうか？",
+    );
+    expect(multi).not.toContain("合計1,400円");
+  });
+});
+
+describe("parseTargetPriceFromText", () => {
+  it("识别纯数字「300」及带空格或币种后缀为预期价", () => {
+    expect(parseTargetPriceFromText("300")).toBe(300);
+    expect(parseTargetPriceFromText(" 300 ")).toBe(300);
+    expect(parseTargetPriceFromText("¥300")).toBe(300);
+    expect(parseTargetPriceFromText("￥300")).toBe(300);
+    expect(parseTargetPriceFromText("300円")).toBe(300);
+    expect(parseTargetPriceFromText("300日元")).toBe(300);
+    expect(parseTargetPriceFromText("300 yen")).toBe(300);
+    expect(parseTargetPriceFromText("3,500")).toBe(3500);
+  });
+
+  it("识别含目标价、预期价、砍价到等关键词的前缀", () => {
+    expect(parseTargetPriceFromText("预期价 300")).toBe(300);
+    expect(parseTargetPriceFromText("预期价:300")).toBe(300);
+    expect(parseTargetPriceFromText("目标价：300")).toBe(300);
+    expect(parseTargetPriceFromText("目标价为300")).toBe(300);
+    expect(parseTargetPriceFromText("心理价 300円")).toBe(300);
+    expect(parseTargetPriceFromText("期望价¥300")).toBe(300);
+    expect(parseTargetPriceFromText("砍到 2500")).toBe(2500);
+    expect(parseTargetPriceFromText("砍价到300")).toBe(300);
+    expect(parseTargetPriceFromText("讲到 800")).toBe(800);
+  });
+
+  it("无预期价或普通文字返回 null", () => {
+    expect(parseTargetPriceFromText("")).toBeNull();
+    expect(parseTargetPriceFromText("   ")).toBeNull();
+    expect(parseTargetPriceFromText(null)).toBeNull();
+    expect(parseTargetPriceFromText(undefined)).toBeNull();
+    expect(parseTargetPriceFromText("帮看这件")).toBeNull();
+    expect(parseTargetPriceFromText("好价冲吗")).toBeNull();
+    expect(parseTargetPriceFromText("可以合并发货吗")).toBeNull();
   });
 });

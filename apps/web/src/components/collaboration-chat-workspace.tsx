@@ -82,25 +82,65 @@ export type PendingCollaborationBundle = {
   sellerName?: string | null;
 };
 
+export function parseTargetPriceFromText(
+  text: string | null | undefined,
+): number | null {
+  const trimmed = text?.trim() ?? "";
+  if (!trimmed) return null;
+  const keywordMatch = trimmed.match(
+    /(?:预期价?|目标价?|期望价?|心理价?|砍到|砍价到?|立减到|讲到)\s*[:：是为]?\s*[¥￥]?\s*([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{1,6})\s*(?:日元|円|元|jpy|yen)?/i,
+  );
+  if (keywordMatch?.[1]) {
+    const parsed = Number(keywordMatch[1].replace(/,/g, ""));
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+  }
+  const purePriceMatch = trimmed.match(
+    /^[¥￥]?\s*([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{1,6})\s*(?:日元|円|元|jpy|yen)?$/i,
+  );
+  if (purePriceMatch?.[1]) {
+    const parsed = Number(purePriceMatch[1].replace(/,/g, ""));
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+  }
+  return null;
+}
+
 export function buildBundleNegotiationScript(
   items: CollaborationItem[],
   targetPriceYen?: number | null,
 ): string {
   if (!items.length) return "";
   if (items.length === 1) {
+    const singleTarget =
+      (targetPriceYen && targetPriceYen > 0 ? targetPriceYen : null) ??
+      (items[0]?.targetPriceYen && items[0].targetPriceYen > 0
+        ? items[0].targetPriceYen
+        : null);
     const priceText =
-      targetPriceYen && targetPriceYen > 0
-        ? `${targetPriceYen.toLocaleString("ja-JP")}円にお値下げ可能でしょうか？`
+      singleTarget && singleTarget > 0
+        ? `${singleTarget.toLocaleString("ja-JP")}円にお値下げ可能でしょうか？`
         : "お気持ちお値下げいただくことは可能でしょうか？";
     return `コメント失礼いたします。購入を考えているのですが、こちらの商品は${priceText}即決いたしますので、ご検討よろしくお願いいたします。`;
   }
+  const summedItemTargets = items.reduce((sum, item) => {
+    const itemTarget =
+      typeof item.targetPriceYen === "number" && item.targetPriceYen > 0
+        ? item.targetPriceYen
+        : 0;
+    return sum + itemTarget;
+  }, 0);
+  const resolvedMultiTarget =
+    targetPriceYen && targetPriceYen > 0
+      ? targetPriceYen
+      : summedItemTargets > 0
+        ? summedItemTargets
+        : null;
   const lines = items.map(
     (item) =>
       `・${item.titleRaw.trim()}（¥${item.priceCurrent.toLocaleString("ja-JP")}）`,
   );
   const askLine =
-    targetPriceYen && targetPriceYen > 0
-      ? `同梱発送で構いませんので、合計${targetPriceYen.toLocaleString("ja-JP")}円でお譲りいただくことは可能でしょうか？`
+    resolvedMultiTarget && resolvedMultiTarget > 0
+      ? `同梱発送で構いませんので、合計${resolvedMultiTarget.toLocaleString("ja-JP")}円でお譲りいただくことは可能でしょうか？`
       : "同梱発送で構いませんので、まとめ割でお気持ちお値引きいただくことは可能でしょうか？";
   return [
     "コメント失礼いたします。",
@@ -126,7 +166,11 @@ export function buildBundleShareText(
         ? perItemTargetYen.get(item.id)
         : perItemTargetYen?.[item.id];
     const parsed = raw == null || raw === "" ? Number.NaN : Number(raw);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : item.priceCurrent;
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    if (typeof item.targetPriceYen === "number" && item.targetPriceYen > 0) {
+      return item.targetPriceYen;
+    }
+    return item.priceCurrent;
   };
   const blocks = items.map((item) => {
     const lines = [itemTitle(item)];
@@ -260,13 +304,13 @@ export function NegotiationAnalysisPanel({
                   </span>
                   <span className="shrink-0 font-mono tabular-nums">
                     {yen(entry.priceCurrent)} →{" "}
-                    {entry.targetMissing ? (
+                    {entry.targetMissing || !entry.targetPriceYen ? (
                       <span className="font-semibold text-amber-700">
-                        未定目标（按现价）
+                        未定目标
                       </span>
                     ) : (
                       <span className="font-semibold text-emerald-800">
-                        {yen(entry.targetPriceYen ?? entry.priceCurrent)}
+                        {yen(entry.targetPriceYen)}
                       </span>
                     )}
                   </span>
@@ -928,6 +972,80 @@ export function DecisionControls({
   );
 }
 
+function positivePrice(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.round(value)
+    : null;
+}
+
+export function resolveMessageItemTargetPriceYen(
+  item: CollaborationItem,
+  message: DirectMessage,
+  shareRounds: ShareRound[],
+): number | null {
+  if (message.roundId) {
+    const linkedRound = shareRounds.find(
+      (round) => round.id === message.roundId,
+    );
+    const linkedRow = linkedRound?.items?.find((row) => row.itemId === item.id);
+    const linkedTarget = positivePrice(linkedRow?.targetPriceYen);
+    if (linkedTarget) return linkedTarget;
+  }
+  const mapTarget = positivePrice(message.bundleItemTargets?.[item.id]);
+  if (mapTarget) return mapTarget;
+  const directItemTarget = positivePrice(item.targetPriceYen);
+  if (directItemTarget) return directItemTarget;
+  const bundleEntryTarget = positivePrice(
+    message.bundleItems?.find((entry) => entry.id === item.id)?.targetPriceYen,
+  );
+  if (bundleEntryTarget) return bundleEntryTarget;
+  const isSingleItem = !message.bundleItems || message.bundleItems.length <= 1;
+  if (isSingleItem) {
+    const msgTarget = positivePrice(message.targetPriceYen);
+    if (msgTarget) return msgTarget;
+  }
+  for (const round of shareRounds) {
+    const row = round.items?.find((entry) => entry.itemId === item.id);
+    const roundTarget = positivePrice(row?.targetPriceYen);
+    if (roundTarget) return roundTarget;
+  }
+  if (isSingleItem) {
+    return parseTargetPriceFromText(message.text);
+  }
+  return null;
+}
+
+export function resolveMessageBundleItems(
+  message: DirectMessage,
+  shareRounds: ShareRound[],
+): CollaborationItem[] {
+  return (message.bundleItems ?? []).map((entry) => {
+    const resolvedTarget = resolveMessageItemTargetPriceYen(
+      entry,
+      message,
+      shareRounds,
+    );
+    return resolvedTarget !== null && resolvedTarget !== entry.targetPriceYen
+      ? { ...entry, targetPriceYen: resolvedTarget }
+      : entry;
+  });
+}
+
+export function resolveMessageBundleTargetPriceYen(
+  bundleItems: CollaborationItem[],
+  message: DirectMessage,
+): number | null {
+  const summed = bundleItems.reduce((sum, entry) => {
+    const target = positivePrice(entry.targetPriceYen);
+    return sum + (target ?? 0);
+  }, 0);
+  if (summed > 0) return summed;
+  return (
+    positivePrice(message.targetPriceYen) ??
+    parseTargetPriceFromText(message.text)
+  );
+}
+
 function ProductReference({
   item,
   targetPriceYen,
@@ -949,8 +1067,10 @@ function ProductReference({
 }) {
   const [copied, setCopied] = useState(false);
   const discount = yahooFleamarketDiscount(item.source.key, item.priceCurrent);
+  const effectiveTargetYen =
+    positivePrice(targetPriceYen) ?? positivePrice(item.targetPriceYen);
   const copyScript = () => {
-    const script = buildBundleNegotiationScript([item], targetPriceYen);
+    const script = buildBundleNegotiationScript([item], effectiveTargetYen);
     void navigator.clipboard?.writeText(script);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
@@ -985,10 +1105,10 @@ function ProductReference({
               Yahoo discount target; empty when neither applies, so the
               copy block is the same height on every share card. */}
           <span className="collaboration-product-meta">
-            {targetPriceYen && targetPriceYen > 0 ? (
+            {effectiveTargetYen ? (
               <span className="font-semibold text-emerald-700">
-                目标价 {yen(targetPriceYen)}（省{" "}
-                {yen(Math.max(0, item.priceCurrent - targetPriceYen))}）
+                目标价 {yen(effectiveTargetYen)}（省{" "}
+                {yen(Math.max(0, item.priceCurrent - effectiveTargetYen))}）
               </span>
             ) : discount ? (
               <span className="font-semibold text-emerald-700">
@@ -1062,17 +1182,53 @@ function BundleProductReference({
     Object.fromEntries(
       items.map((entry) => [
         entry.id,
-        String(entry.targetPriceYen ?? entry.priceCurrent),
+        entry.targetPriceYen && entry.targetPriceYen > 0
+          ? String(entry.targetPriceYen)
+          : "",
       ]),
     ),
   );
+  useEffect(() => {
+    setPerItemTargets((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const entry of items) {
+        const incoming =
+          entry.targetPriceYen && entry.targetPriceYen > 0
+            ? String(entry.targetPriceYen)
+            : "";
+        if (
+          next[entry.id] === undefined ||
+          (next[entry.id] === "" && incoming !== "")
+        ) {
+          next[entry.id] = incoming;
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [items]);
   const [showScript, setShowScript] = useState(false);
   const totalOriginalYen = useMemo(
     () => items.reduce((sum, entry) => sum + entry.priceCurrent, 0),
     [items],
   );
+  const summedItemTargets = useMemo(() => {
+    let sum = 0;
+    let count = 0;
+    for (const entry of items) {
+      const raw = perItemTargets[entry.id]?.trim();
+      const parsed = raw ? Math.round(Number(raw)) : Number.NaN;
+      if (Number.isFinite(parsed) && parsed > 0) {
+        sum += parsed;
+        count += 1;
+      }
+    }
+    return count > 0 ? sum : null;
+  }, [items, perItemTargets]);
   const effectiveTargetYen =
-    targetPriceYen && targetPriceYen > 0 ? targetPriceYen : null;
+    summedItemTargets ??
+    (targetPriceYen && targetPriceYen > 0 ? targetPriceYen : null);
   const savingsYen = effectiveTargetYen
     ? Math.max(0, totalOriginalYen - effectiveTargetYen)
     : 0;
@@ -1191,13 +1347,14 @@ function BundleProductReference({
               <input
                 inputMode="numeric"
                 aria-label={`目标价：${itemTitle(entry)}`}
-                value={perItemTargets[entry.id] ?? String(entry.priceCurrent)}
+                value={perItemTargets[entry.id] ?? ""}
                 onChange={(event) =>
                   setPerItemTargets((current) => ({
                     ...current,
                     [entry.id]: event.target.value.replace(/[^\d]/g, ""),
                   }))
                 }
+                placeholder="目标价"
                 className="h-9 w-[84px] rounded-lg border border-black/[0.12] bg-white px-2 font-mono text-xs text-ink tabular-nums"
               />
             </label>
@@ -1585,6 +1742,11 @@ export function CollaborationChatWorkspace({
     if (!pendingItem) return;
     setAttachedItem(pendingItem);
     setAttachedBundleItems([]);
+    setBundleTargetPrice(
+      pendingItem.targetPriceYen && pendingItem.targetPriceYen > 0
+        ? String(pendingItem.targetPriceYen)
+        : "",
+    );
     setForwardedFrom(null);
   }, [pendingItem]);
 
@@ -1593,8 +1755,12 @@ export function CollaborationChatWorkspace({
     if (pendingBundle.items.length === 1) {
       setAttachedItem(pendingBundle.items[0] ?? null);
       setAttachedBundleItems([]);
+      const singleTarget =
+        pendingBundle.targetPriceYen ??
+        pendingBundle.items[0]?.targetPriceYen ??
+        null;
       setBundleTargetPrice(
-        pendingBundle.targetPriceYen ? String(pendingBundle.targetPriceYen) : "",
+        singleTarget && singleTarget > 0 ? String(singleTarget) : "",
       );
     } else {
       setAttachedBundleItems(pendingBundle.items);
@@ -1609,8 +1775,13 @@ export function CollaborationChatWorkspace({
   useEffect(() => {
     setBundleItemTargets((current) => {
       const next: Record<string, string> = {};
-      for (const item of attachedBundleItems)
-        next[item.id] = current[item.id] ?? String(item.priceCurrent);
+      for (const item of attachedBundleItems) {
+        next[item.id] =
+          current[item.id] ??
+          (item.targetPriceYen && item.targetPriceYen > 0
+            ? String(item.targetPriceYen)
+            : "");
+      }
       return next;
     });
   }, [attachedBundleItems]);
@@ -2073,22 +2244,43 @@ export function CollaborationChatWorkspace({
       if (parsed && Number.isFinite(parsed) && parsed > 0)
         itemTargets[entry.id] = parsed;
     }
+    const summedItemTargets = Object.values(itemTargets).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    const effectiveSendTargetPrice =
+      validTargetPrice ??
+      (summedItemTargets > 0 ? summedItemTargets : null) ??
+      (activeItems.length === 1
+        ? (positivePrice(primaryItem?.targetPriceYen) ??
+          parseTargetPriceFromText(text))
+        : null);
+    const optimisticItems = activeItems.map((entry) => {
+      const entryTarget =
+        itemTargets[entry.id] ??
+        (activeItems.length === 1 ? effectiveSendTargetPrice : null) ??
+        positivePrice(entry.targetPriceYen);
+      return entryTarget ? { ...entry, targetPriceYen: entryTarget } : entry;
+    });
+    const optimisticPrimaryItem = optimisticItems[0] ?? null;
     const optimisticId = `optimistic-${Date.now()}`;
     const optimistic: DirectMessage = {
       id: optimisticId,
       senderId: account.id,
       recipientId: other.id,
       text: text || null,
-      itemId: primaryItem?.id,
+      itemId: optimisticPrimaryItem?.id,
       replyToId: replyTo?.id,
       forwardedFromId: forwardedFrom?.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       sender: account,
       recipient: other,
-      item: primaryItem,
-      bundleItems: activeItems.length > 0 ? activeItems : undefined,
-      targetPriceYen: validTargetPrice,
+      item: optimisticPrimaryItem,
+      bundleItems: optimisticItems.length > 0 ? optimisticItems : undefined,
+      bundleItemTargets:
+        Object.keys(itemTargets).length > 0 ? itemTargets : undefined,
+      targetPriceYen: effectiveSendTargetPrice,
       replyTo: replyTo,
       reactions: [],
       optimistic: true,
@@ -2100,6 +2292,7 @@ export function CollaborationChatWorkspace({
     setAttachedItem(null);
     setAttachedBundleItems([]);
     setBundleTargetPrice("");
+    setBundleItemTargets({});
     onPendingItemConsumed();
     onPendingBundleConsumed?.();
     setSending(true);
@@ -2117,7 +2310,7 @@ export function CollaborationChatWorkspace({
             activeItems.length > 1
               ? activeItems.map((entry) => entry.id)
               : undefined,
-          targetPriceYen: validTargetPrice ?? undefined,
+          targetPriceYen: effectiveSendTargetPrice ?? undefined,
           itemTargets:
             Object.keys(itemTargets).length > 0 ? itemTargets : undefined,
           replyToId: optimistic.replyToId,
@@ -2621,33 +2814,48 @@ export function CollaborationChatWorkspace({
                   <div className="collaboration-bubble">
                     {message.text && <p>{message.text}</p>}
                     {message.bundleItems && message.bundleItems.length > 1 ? (
-                      <BundleProductReference
-                        items={message.bundleItems}
-                        targetPriceYen={message.targetPriceYen}
-                        selectionMode={selectionMode}
-                        selectedIds={new Set(selection.keys())}
-                        onToggleSelect={(item) =>
-                          toggleSelectItem(
-                            item.id,
-                            message.roundId ?? roundIdForItem(item.id),
-                          )
-                        }
-                        onOpenItem={(id) => void onOpenItem(id)}
-                        onDecide={(item, status) =>
-                          void decide(item, status, {
-                            messageId: message.id,
-                            roundId: message.roundId ?? undefined,
-                          })
-                        }
-                        onCopyItems={(itemIds) => {
-                          if (message.roundId)
-                            markCopiedInRound(message.roundId, itemIds);
-                        }}
-                      />
+                      (() => {
+                        const resolvedBundleItems = resolveMessageBundleItems(
+                          message,
+                          shareRounds,
+                        );
+                        return (
+                          <BundleProductReference
+                            items={resolvedBundleItems}
+                            targetPriceYen={resolveMessageBundleTargetPriceYen(
+                              resolvedBundleItems,
+                              message,
+                            )}
+                            selectionMode={selectionMode}
+                            selectedIds={new Set(selection.keys())}
+                            onToggleSelect={(item) =>
+                              toggleSelectItem(
+                                item.id,
+                                message.roundId ?? roundIdForItem(item.id),
+                              )
+                            }
+                            onOpenItem={(id) => void onOpenItem(id)}
+                            onDecide={(item, status) =>
+                              void decide(item, status, {
+                                messageId: message.id,
+                                roundId: message.roundId ?? undefined,
+                              })
+                            }
+                            onCopyItems={(itemIds) => {
+                              if (message.roundId)
+                                markCopiedInRound(message.roundId, itemIds);
+                            }}
+                          />
+                        );
+                      })()
                     ) : message.item ? (
                       <ProductReference
                         item={message.item}
-                        targetPriceYen={message.targetPriceYen}
+                        targetPriceYen={resolveMessageItemTargetPriceYen(
+                          message.item,
+                          message,
+                          shareRounds,
+                        )}
                         selectionMode={selectionMode}
                         selected={selection.has(message.item.id)}
                         onToggleSelect={(item) =>
@@ -2738,14 +2946,39 @@ export function CollaborationChatWorkspace({
                           type="button"
                           onClick={() => {
                             if (message.bundleItems && message.bundleItems.length > 1) {
-                              setAttachedBundleItems(message.bundleItems);
+                              const resolvedBundleItems =
+                                resolveMessageBundleItems(message, shareRounds);
+                              const resolvedBundleTarget =
+                                resolveMessageBundleTargetPriceYen(
+                                  resolvedBundleItems,
+                                  message,
+                                );
+                              setAttachedBundleItems(resolvedBundleItems);
                               setAttachedItem(null);
                               setBundleTargetPrice(
-                                message.targetPriceYen ? String(message.targetPriceYen) : "",
+                                resolvedBundleTarget
+                                  ? String(resolvedBundleTarget)
+                                  : "",
                               );
                             } else {
-                              setAttachedItem(message.item!);
+                              const singleTarget =
+                                resolveMessageItemTargetPriceYen(
+                                  message.item!,
+                                  message,
+                                  shareRounds,
+                                );
+                              setAttachedItem(
+                                singleTarget
+                                  ? {
+                                      ...message.item!,
+                                      targetPriceYen: singleTarget,
+                                    }
+                                  : message.item!,
+                              );
                               setAttachedBundleItems([]);
+                              setBundleTargetPrice(
+                                singleTarget ? String(singleTarget) : "",
+                              );
                             }
                             setForwardedFrom(message);
                             setActiveActionMessageId(null);
@@ -2939,10 +3172,7 @@ export function CollaborationChatWorkspace({
                         <input
                           inputMode="numeric"
                           aria-label={`目标价：${itemTitle(entry)}`}
-                          value={
-                            bundleItemTargets[entry.id] ??
-                            String(entry.priceCurrent)
-                          }
+                          value={bundleItemTargets[entry.id] ?? ""}
                           onChange={(event) =>
                             setBundleItemTargets((current) => ({
                               ...current,
@@ -2963,8 +3193,15 @@ export function CollaborationChatWorkspace({
                               (candidate) => candidate.id !== entry.id,
                             );
                             if (next.length === 1) {
-                              setAttachedItem(next[0] ?? null);
+                              const remaining = next[0] ?? null;
+                              const remainingTarget = remaining
+                                ? bundleItemTargets[remaining.id]?.trim()
+                                : "";
+                              setAttachedItem(remaining);
                               setAttachedBundleItems([]);
+                              if (remainingTarget) {
+                                setBundleTargetPrice(remainingTarget);
+                              }
                             } else {
                               setAttachedBundleItems(next);
                             }
