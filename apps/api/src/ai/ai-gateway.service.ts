@@ -2,22 +2,10 @@ import {
   BadRequestException,
   Injectable,
   Logger,
-  Optional,
   type OnApplicationBootstrap,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { Prisma } from "@tokusatsu/db";
-import {
-  EmptyResponseBodyError,
-  InvalidArgumentError,
-  InvalidPromptError,
-  InvalidResponseDataError,
-  JSONParseError,
-  NoOutputGeneratedError,
-  NoSuchModelError,
-  UnsupportedFunctionalityError,
-  UnsupportedModelVersionError,
-} from "ai";
 import { createHash } from "node:crypto";
 import { PrismaService } from "../prisma.service.js";
 import { normalizeScopedRequest, conservativeTokenReservation, zhipuResourcePolicy, type AiPurpose } from "./zhipu.policy.js";
@@ -41,7 +29,6 @@ import {
 } from "./ai-provider-registry.js";
 import {
   AiSdkHttpError,
-  AiSdkModelClient,
   isSafeExternalImageUrl,
 } from "./ai-sdk-model.client.js";
 import {
@@ -116,7 +103,6 @@ type ChatPayload = {
   usage?: {
     prompt_tokens?: number;
     completion_tokens?: number;
-    neurons?: number;
   };
 };
 
@@ -244,14 +230,6 @@ const NON_PROBE_COOLDOWN_CODES = new Set([
   "MODEL_CAPABILITY",
 ]);
 
-/**
- * Cerebras Gemma 4 accepts only PNG/JPEG base64 data URIs for vision. Its free
- * trial also caps a request at two images and 10 MB. This gateway intentionally
- * accepts only external HTTPS image URLs, so that model stays catalogued but is
- * not eligible for the current product image transport.
- */
-const URL_IMAGE_INCOMPATIBLE_MODELS = new Set(["cerebras:gemma-4-31b"]);
-
 function confidenceOf(value: Record<string, unknown>) {
   const confidence = Number(value.confidence);
   return Number.isFinite(confidence)
@@ -344,27 +322,6 @@ function finiteNonnegative(value: unknown) {
   return Number.isFinite(number) && number >= 0 ? number : undefined;
 }
 
-function cloudflareErrorCode(responseText: string) {
-  try {
-    const payload = JSON.parse(responseText) as Record<string, unknown>;
-    const error =
-      payload.error && typeof payload.error === "object"
-        ? (payload.error as Record<string, unknown>)
-        : undefined;
-    const firstError = Array.isArray(payload.errors)
-      ? payload.errors.find((entry): entry is Record<string, unknown> =>
-          Boolean(entry && typeof entry === "object"),
-        )
-      : undefined;
-    const code = error?.code ?? firstError?.code;
-    return typeof code === "string" || typeof code === "number"
-      ? String(code)
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function firstHeader(headers: Headers, names: readonly string[]) {
   for (const name of names) {
     const value = headers.get(name);
@@ -397,29 +354,10 @@ function isUniqueConflict(error: unknown) {
   );
 }
 
-const cloudflareNeuronRates: Record<string, { input: number; output: number }> =
-  {
-    "@cf/zai-org/glm-4.7-flash": { input: 5_500, output: 36_400 },
-    "@cf/google/gemma-4-26b-a4b-it": { input: 9_100, output: 27_300 },
-    "@cf/nvidia/nemotron-3-120b-a12b": {
-      input: 45_500,
-      output: 136_400,
-    },
-    "@cf/openai/gpt-oss-120b": { input: 31_900, output: 68_200 },
-    "@cf/meta/llama-3.2-11b-vision-instruct": {
-      input: 4_500,
-      output: 62_000,
-    },
-  };
-
 function nextUtcDay(now = new Date()) {
   return new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1),
   );
-}
-
-function utcDayKey(now = new Date()) {
-  return now.toISOString().slice(0, 10);
 }
 
 @Injectable()
@@ -443,13 +381,7 @@ export class AiGatewayService implements OnApplicationBootstrap {
     ProviderConcurrencyGate
   >();
   private readonly providerNextRequestAt = new Map<AiProvider, number>();
-  private cloudflareReservationDay = "";
-  private cloudflareReservedNeurons = 0;
-
-  constructor(
-    private readonly prisma: PrismaService,
-    @Optional() private readonly aiSdk = new AiSdkModelClient(),
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async onApplicationBootstrap() {
     const recovered = await this.reconcileInterruptedRuns();
@@ -658,12 +590,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
         costTierFor: (provider, model) =>
           providerById.get(provider)?.costTierFor(model) ?? "unknown",
       },
-    ).filter(
-      (candidate) =>
-        !request.imageUrls?.length ||
-        !URL_IMAGE_INCOMPATIBLE_MODELS.has(
-          modelStateKey(candidate.provider, candidate.model),
-        ),
     );
     if (!candidates.length) {
       throw new ServiceUnavailableException({
@@ -841,7 +767,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
       });
       const startedAt = Date.now();
       let providerBudgetReservation = 0;
-      let responseProviderUsage: number | undefined;
       try {
         providerBudgetReservation = await this.reserveProviderBudget(
           provider,
@@ -862,11 +787,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
           const usage = inputTokens !== undefined && outputTokens !== undefined ? Math.ceil(inputTokens + outputTokens) : providerBudgetReservation;
           await this.prisma.aiRun.update({ where: { id: run.id }, data: { quotaReservation: usage, inputTokens, outputTokens } });
         }
-        responseProviderUsage =
-          finiteNonnegative(response.usage?.neurons) ??
-          (provider.id === "cloudflare" && providerBudgetReservation > 0
-            ? providerBudgetReservation
-            : undefined);
         const content = responseContent(response);
         if (!content)
           throw new ModelCallError("模型返回为空", "EMPTY_RESPONSE", true);
@@ -923,7 +843,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
               latencyMs: Date.now() - startedAt,
               inputTokens: response.usage?.prompt_tokens,
               outputTokens: response.usage?.completion_tokens,
-              providerUsage: responseProviderUsage,
               completedAt,
             },
           }),
@@ -996,7 +915,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
               latencyMs: Date.now() - startedAt,
               errorCode: normalized.code,
               errorMessage: normalized.message.slice(0, 500),
-              providerUsage: responseProviderUsage,
               completedAt: new Date(),
             },
           }),
@@ -1015,9 +933,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
           normalized.code === "RESPONSE_VALIDATOR_ERROR"
         )
           break;
-      } finally {
-        if (providerBudgetReservation > 0)
-          this.releaseProviderBudget(provider.id, providerBudgetReservation);
       }
     }
 
@@ -1437,17 +1352,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
         try {
-          if (provider.id === "litellm" || provider.wireApi === "responses") {
-            const response = await this.aiSdk.generate(
-              provider,
-              model,
-              request,
-              credentialId,
-              controller.signal,
-            );
-            this.clearCredentialCooldown(provider.id, credentialId);
-            return response;
-          }
           const body = provider.normalizeRequestBody({
             model,
             messages,
@@ -1730,18 +1634,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
     responseText: string,
     headers: Headers,
   ) {
-    if (
-      provider.id === "cloudflare" &&
-      status === 403 &&
-      ["3041", "5016", "5018", "5035"].includes(
-        cloudflareErrorCode(responseText) ?? "",
-      )
-    )
-      return new ModelCallError(
-        `${provider.label} 当前账号无法访问该模型`,
-        "MODEL_NOT_AVAILABLE",
-        false,
-      );
     if (status === 401 || status === 403)
       return new ModelCallError(
         `${provider.label} 凭据未通过验证或无权访问`,
@@ -1755,19 +1647,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
         "CREDITS",
         false,
         !this.hasIndependentCredentialQuotaGroups(provider),
-      );
-    if (
-      provider.id === "ovo" &&
-      /(?:model[_ -]?not[_ -]?found|upstream_404_model_not_found|no available.{0,80}(?:account|model)|not supported.{0,80}(?:account|group))/i.test(
-        responseText,
-      )
-    )
-      return new ModelCallError(
-        `${provider.label} 当前账号组不支持所请求模型`,
-        "MODEL_NOT_AVAILABLE",
-        false,
-        true,
-        { cooldownUntil: new Date(Date.now() + 30 * 60_000) },
       );
     if (
       status === 404 ||
@@ -1814,32 +1693,11 @@ export class AiGatewayService implements OnApplicationBootstrap {
         resetRequestsMs ?? 0,
         resetTokensMs ?? 0,
       );
-      const senseNovaAccountWide = provider.id === "sensenova";
-      const providerWide =
-        provider.id === "ovo" ||
-        provider.id === "bai" ||
-        provider.id === "gemini" ||
-        (provider.id === "openrouter" &&
-          /(?:daily|account|key|credit|requests per day)/i.test(
-            responseText,
-          )) ||
-        (provider.id === "cloudflare" &&
-          /(?:daily|account|credit|neurons)/i.test(responseText)) ||
-        (provider.id === "cohere" &&
-          /(?:monthly|account|key|requests per month)/i.test(responseText)) ||
-        (provider.id === "cerebras" &&
-          /(?:daily|account|organization|key|requests per day|tokens per day)/i.test(
-            responseText,
-          )) ||
-        (provider.id === "nvidia" &&
-          /(?:account|key|credit|daily)/i.test(responseText)) ||
-        // SenseNova keys share quota inside one account. A separately declared
-        // account group is independent, so only a single-group runtime is
-        // provider-wide here.
-        (senseNovaAccountWide &&
-          !this.hasIndependentCredentialQuotaGroups(provider));
-      const fallbackCooldown =
-        providerWide || senseNovaAccountWide ? 60_000 : 5 * 60_000;
+      // The registry carries the conservative quota scope for the runtime:
+      // anything wider than a single credential means a 429 cools the whole
+      // provider instead of inviting a retry on another alias.
+      const providerWide = provider.quotaScope !== "credential";
+      const fallbackCooldown = providerWide ? 60_000 : 5 * 60_000;
       const cooldownUntil = new Date(
         Date.now() + Math.max(resetMs, fallbackCooldown),
       );
@@ -1898,40 +1756,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
   private normalizeError(error: unknown) {
     if (error instanceof ModelCallError) return error;
     if (
-      EmptyResponseBodyError.isInstance(error) ||
-      NoOutputGeneratedError.isInstance(error)
-    )
-      return new ModelCallError("模型返回为空", "EMPTY_RESPONSE", true);
-    if (
-      InvalidResponseDataError.isInstance(error) ||
-      JSONParseError.isInstance(error)
-    )
-      return new ModelCallError(
-        "模型返回了无法解析的响应体",
-        "INVALID_PROVIDER_JSON",
-        true,
-      );
-    if (
-      UnsupportedFunctionalityError.isInstance(error) ||
-      error instanceof UnsupportedModelVersionError
-    )
-      return new ModelCallError(
-        "当前模型不支持所需能力或协议版本",
-        "MODEL_CAPABILITY",
-        false,
-      );
-    if (NoSuchModelError.isInstance(error))
-      return new ModelCallError(
-        "当前模型不存在或不可用",
-        "MODEL_NOT_AVAILABLE",
-        false,
-      );
-    if (
-      InvalidArgumentError.isInstance(error) ||
-      InvalidPromptError.isInstance(error)
-    )
-      return new ModelCallError("模型调用参数无效", "INVALID_REQUEST", false);
-    if (
       error instanceof Error &&
       (error.name === "AbortError" || error.name === "TimeoutError")
     )
@@ -1957,14 +1781,9 @@ export class AiGatewayService implements OnApplicationBootstrap {
     if (provider === "zhipu") return 1;
     const environmentName = `AI_PROVIDER_MAX_CONCURRENCY_${provider.toUpperCase()}`;
     const configured = Number(process.env[environmentName]);
-    const fallback = provider === "ovo" ? 1 : 64;
-    const maximum = provider === "ovo" ? 1 : 64;
     return Math.max(
       1,
-      Math.min(
-        Number.isFinite(configured) ? Math.floor(configured) : fallback,
-        maximum,
-      ),
+      Math.min(Number.isFinite(configured) ? Math.floor(configured) : 64, 64),
     );
   }
 
@@ -2082,76 +1901,7 @@ export class AiGatewayService implements OnApplicationBootstrap {
         return estimated;
       });
     }
-    if (provider.id !== "cloudflare" || provider.apiTier !== "free") return 0;
-    const configuredBudget = Number(
-      process.env.CLOUDFLARE_AI_DAILY_NEURON_BUDGET ?? 8_000,
-    );
-    const budget = Math.max(
-      100,
-      Math.min(
-        Number.isFinite(configuredBudget) ? configuredBudget : 8_000,
-        9_500,
-      ),
-    );
-    const now = new Date();
-    const day = utcDayKey(now);
-    if (this.cloudflareReservationDay !== day) {
-      this.cloudflareReservationDay = day;
-      this.cloudflareReservedNeurons = 0;
-    }
-    const used = await this.prisma.aiRun.aggregate({
-      where: {
-        provider: "cloudflare",
-        // A provider call is billable even when its content later fails our
-        // validation, so every persisted usage value must consume the budget.
-        providerUsage: { not: null },
-        startedAt: {
-          gte: new Date(
-            Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-          ),
-        },
-      },
-      _sum: { providerUsage: true },
-    });
-    const rates = cloudflareNeuronRates[model] ?? {
-      input: 50_000,
-      output: 150_000,
-    };
-    const inputCharacters = JSON.stringify(request.messages).length;
-    const estimated = Math.max(
-      1,
-      Math.ceil(
-        (inputCharacters * rates.input + request.maxTokens * rates.output) /
-          1_000_000 +
-          (request.imageUrls?.length ?? 0) * 500,
-      ),
-    );
-    const consumed = Number(used._sum.providerUsage ?? 0);
-    const remaining = budget - consumed - this.cloudflareReservedNeurons;
-    if (estimated > remaining) {
-      const resetAt = nextUtcDay(now);
-      throw new ModelCallError(
-        "Cloudflare Workers AI 免费日预算已保留完毕",
-        "FREE_QUOTA_BUDGET",
-        false,
-        true,
-        {
-          cooldownUntil: resetAt,
-          quotaResetAt: resetAt,
-          remainingTokens: Math.max(0, Math.floor(remaining)),
-        },
-      );
-    }
-    this.cloudflareReservedNeurons += estimated;
-    return estimated;
-  }
-
-  private releaseProviderBudget(provider: AiProvider, reservation: number) {
-    if (provider !== "cloudflare") return;
-    this.cloudflareReservedNeurons = Math.max(
-      0,
-      this.cloudflareReservedNeurons - reservation,
-    );
+    return 0;
   }
 
   private deadlineError() {
