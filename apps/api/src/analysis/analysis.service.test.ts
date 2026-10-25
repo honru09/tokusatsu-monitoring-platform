@@ -935,6 +935,7 @@ describe("AnalysisService seller catalogue", () => {
       images: [],
     }));
     const prisma = {
+      item: { count: async () => 12 },
       seller: {
         findUnique: async () => ({
           id: "seller-large",
@@ -974,6 +975,13 @@ describe("AnalysisService seller catalogue", () => {
     expect(result?.items).toHaveLength(48);
     expect(result?.items[0]?.id).toBe("listing-49");
     expect(result?.analysis.profile).toContain("237 条在售记录");
+    expect(result?.stats).toEqual({
+      activeCount: 237,
+      soldCount: 12,
+      priceMinJpy: 1_000,
+      priceMaxJpy: 1_236,
+      lastListedAt: null,
+    });
   });
 
   it("returns the AI profile grounded in the complete public seller catalogue", async () => {
@@ -989,6 +997,7 @@ describe("AnalysisService seller catalogue", () => {
       },
     });
     const prisma = {
+      item: { count: async () => 3 },
       seller: {
         findUnique: async () => ({
           id: "seller-ai",
@@ -1038,6 +1047,13 @@ describe("AnalysisService seller catalogue", () => {
         negotiationZh: expect.stringContaining("8,000"),
         suggestedPrice: 8_000,
       },
+    });
+    expect(result?.stats).toEqual({
+      activeCount: 1,
+      soldCount: 3,
+      priceMinJpy: 9_000,
+      priceMaxJpy: 9_000,
+      lastListedAt: null,
     });
     expect(executeJson).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -931,6 +931,7 @@ export class AnalysisService {
             listedAt: true,
             sourceUrl: true,
             sourceData: true,
+            source: { select: { key: true, displayName: true } },
             images: {
               select: { url: true, position: true },
               orderBy: { position: "asc" },
@@ -987,10 +988,33 @@ export class AnalysisService {
         shippingKnown: 0,
       },
     );
+    // Seller-page stat bricks: counts and price band over the seller's whole
+    // visible catalogue. Sold items sit outside the live market scope, so
+    // they are counted separately; an empty catalogue reports null prices
+    // instead of leaking the reducer's Infinity seed.
+    const soldCount = await this.prisma.item.count({
+      where: { sellerId: id, lifecycleStatus: "sold" },
+    });
+    const lastListedAt = allItems.reduce<Date | null>((latest, item) => {
+      const listed = item.listedAt ? new Date(item.listedAt) : null;
+      if (!listed || Number.isNaN(listed.getTime())) return latest;
+      return latest && latest.getTime() >= listed.getTime() ? latest : listed;
+    }, null);
+    const stats = {
+      activeCount: allItems.length,
+      soldCount,
+      priceMinJpy:
+        allItems.length > 0 && Number.isFinite(catalogStats.priceMin)
+          ? catalogStats.priceMin
+          : null,
+      priceMaxJpy: allItems.length > 0 ? catalogStats.priceMax : null,
+      lastListedAt: lastListedAt ? lastListedAt.toISOString() : null,
+    };
     if (!this.gateway.configured() || allItems.length === 0) {
       return {
         seller: sellerProfileWithSegment,
         items,
+        stats,
         total: allItems.length,
         page: safePage,
         limit: safeLimit,
@@ -1144,6 +1168,7 @@ export class AnalysisService {
       return {
         seller: sellerProfileWithSegment,
         items,
+        stats,
         total: allItems.length,
         page: safePage,
         limit: safeLimit,
@@ -1156,6 +1181,7 @@ export class AnalysisService {
       return {
         seller: sellerProfileWithSegment,
         items,
+        stats,
         total: allItems.length,
         page: safePage,
         limit: safeLimit,
