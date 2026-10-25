@@ -1,12 +1,14 @@
 /**
  * Todo home data access.
  *
- * The decision queues are derived from today's signals only: shared
- * rounds/messages nobody acted on, negotiation cases, finished link
- * analyses and successful negotiations without a purchase record,
- * inventory orders that sit unsold, and system resources. When the
- * first-class decision model lands, only the builders in this module
- * change - the home UI consumes the entry shapes below.
+ * The decision queues are derived from first-class item decisions plus
+ * the remaining signals: an item shared by the partner is pending
+ * until a decision row exists for it (want / negotiate / pass /
+ * bought), the negotiating queue unions negotiate decisions with open
+ * negotiation cases, and the register / inventory / system queues come
+ * from finished link analyses, successful negotiations without a
+ * purchase record, inventory orders that sit unsold, and system
+ * resources. The home UI consumes the entry shapes below.
  */
 
 export type TodoItemRef = {
@@ -71,6 +73,14 @@ export function todoPendingCount(queues: TodoQueues): number {
   );
 }
 
+/** First-class decision as threaded through collaboration payloads. */
+export type DecisionLike = {
+  status: "want" | "negotiate" | "pass" | "bought";
+  decidedById?: string;
+  decidedByName?: string | null;
+  decidedAt?: string | null;
+};
+
 /** Structural minimum of a collaboration item (chat + catalog shapes). */
 export type SharedItemLike = {
   id: string;
@@ -81,6 +91,7 @@ export type SharedItemLike = {
   images?: readonly (string | { url: string })[] | null;
   product?: { titleZh?: string | null } | null;
   copiedAt?: string | null;
+  decision?: DecisionLike | null;
 };
 
 export type ShareRoundLike = {
@@ -90,6 +101,7 @@ export type ShareRoundLike = {
   items: readonly {
     itemId: string;
     copiedAt?: string | null;
+    decision?: DecisionLike | null;
     item: SharedItemLike;
   }[];
 };
@@ -152,13 +164,14 @@ function itemRef(item: SharedItemLike): TodoItemRef {
   };
 }
 
-function unactioned(
+function pendingDecision(
   item: SharedItemLike,
+  decision: DecisionLike | null | undefined,
   purchasedItemIds: ReadonlySet<string>,
   dislikedItemIds: ReadonlySet<string>,
 ): boolean {
   return (
-    !item.copiedAt &&
+    !decision &&
     !purchasedItemIds.has(item.id) &&
     !dislikedItemIds.has(item.id)
   );
@@ -166,8 +179,10 @@ function unactioned(
 
 /**
  * Shares awaiting the owner's decision: share-round rows and direct
- * item/bundle messages from the partner that were never copied into a
- * negotiation, never purchased and never marked not-interested.
+ * item/bundle messages from the partner whose item has no decision
+ * yet. Copying a negotiation script no longer settles an item - only
+ * a decision does. Purchased and disliked items stay excluded as
+ * safety nets for shares that predate the decision model.
  */
 export function buildReviewQueue(
   rounds: readonly ShareRoundLike[],
@@ -184,7 +199,14 @@ export function buildReviewQueue(
   };
   for (const round of rounds) {
     for (const row of round.items) {
-      if (row.copiedAt || !unactioned(row.item, purchasedItemIds, dislikedItemIds))
+      if (
+        !pendingDecision(
+          row.item,
+          row.decision ?? row.item.decision,
+          purchasedItemIds,
+          dislikedItemIds,
+        )
+      )
         continue;
       offer({
         key: `round-${round.id}-${row.itemId}`,
@@ -201,7 +223,8 @@ export function buildReviewQueue(
       ...(message.bundleItems ?? []),
     ];
     for (const item of shared) {
-      if (!unactioned(item, purchasedItemIds, dislikedItemIds)) continue;
+      if (!pendingDecision(item, item.decision, purchasedItemIds, dislikedItemIds))
+        continue;
       offer({
         key: `message-${message.id}-${item.id}`,
         item: itemRef(item),
@@ -215,18 +238,59 @@ export function buildReviewQueue(
   );
 }
 
-/** Open negotiation cases, longest-waiting first. */
+/**
+ * Everything currently being negotiated: items whose decision is
+ * "negotiate" (from share rounds and messages) unioned with open
+ * negotiation cases, deduped by item, longest-waiting first. Decision
+ * entries wait from their decidedAt, case entries from statusChangedAt.
+ */
 export function buildNegotiatingQueue(
   negotiations: readonly NegotiationLike[],
+  rounds: readonly ShareRoundLike[] = [],
+  messages: readonly ShareMessageLike[] = [],
 ): TodoNegotiatingEntry[] {
-  return negotiations
-    .filter((entry) => entry.status === "in_progress")
-    .map((entry) => ({
+  const byItemId = new Map<string, TodoNegotiatingEntry>();
+  const offer = (entry: TodoNegotiatingEntry) => {
+    const existing = byItemId.get(entry.item.id);
+    if (!existing || entry.statusChangedAt < existing.statusChangedAt)
+      byItemId.set(entry.item.id, entry);
+  };
+  for (const entry of negotiations) {
+    if (entry.status !== "in_progress") continue;
+    offer({
       key: `negotiation-${entry.id}`,
       item: itemRef(entry.item),
       statusChangedAt: entry.statusChangedAt,
-    }))
-    .sort((a, b) => a.statusChangedAt.localeCompare(b.statusChangedAt));
+    });
+  }
+  const offerDecision = (item: SharedItemLike, key: string) => {
+    if (item.decision?.status !== "negotiate") return;
+    offer({
+      key,
+      item: itemRef(item),
+      statusChangedAt: item.decision.decidedAt ?? "",
+    });
+  };
+  for (const round of rounds) {
+    for (const row of round.items) {
+      offerDecision(
+        { ...row.item, decision: row.decision ?? row.item.decision },
+        `decision-round-${round.id}-${row.itemId}`,
+      );
+    }
+  }
+  for (const message of messages) {
+    const shared = [
+      ...(message.item ? [message.item] : []),
+      ...(message.bundleItems ?? []),
+    ];
+    for (const item of shared) {
+      offerDecision(item, `decision-message-${message.id}-${item.id}`);
+    }
+  }
+  return [...byItemId.values()].sort((a, b) =>
+    a.statusChangedAt.localeCompare(b.statusChangedAt),
+  );
 }
 
 /**

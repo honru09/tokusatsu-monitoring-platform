@@ -23,6 +23,16 @@ import {
   type VisibilityPoller,
 } from "../lib/visibility-poller";
 import type { ManagerAccount } from "./manager-account-gate";
+import { TERMS } from "../lib/terms";
+
+export type ItemDecisionStatus = "want" | "negotiate" | "pass" | "bought";
+
+export type ItemDecisionInfo = {
+  status: ItemDecisionStatus;
+  decidedById?: string;
+  decidedByName?: string | null;
+  decidedAt?: string | null;
+};
 
 export type CollaborationItem = {
   id: string;
@@ -36,6 +46,7 @@ export type CollaborationItem = {
   product?: { titleZh?: string | null } | null;
   targetPriceYen?: number | null;
   copiedAt?: string | null;
+  decision?: ItemDecisionInfo | null;
 };
 
 export type ShareRoundItemRow = {
@@ -44,6 +55,7 @@ export type ShareRoundItemRow = {
   itemId: string;
   targetPriceYen?: number | null;
   copiedAt?: string | null;
+  decision?: ItemDecisionInfo | null;
   item: CollaborationItem;
 };
 
@@ -602,14 +614,76 @@ function mergeMessages(current: DirectMessage[], incoming: DirectMessage[]) {
   );
 }
 
+const decisionOptions: { status: ItemDecisionStatus; label: string }[] = [
+  { status: "want", label: TERMS.decisionWant },
+  { status: "negotiate", label: TERMS.negotiate },
+  { status: "pass", label: TERMS.decisionPass },
+];
+
+export function decisionLabel(status: ItemDecisionStatus): string {
+  if (status === "want") return TERMS.decisionWant;
+  if (status === "negotiate") return TERMS.negotiate;
+  if (status === "pass") return TERMS.decisionPass;
+  return TERMS.decisionBought;
+}
+
+/**
+ * The three decision buttons every shared item carries. The current
+ * decision is filled and captioned with who decided and when; deciding
+ * again overwrites it. "bought" has no button - it is written by the
+ * purchase flow and only shows up in the caption.
+ */
+export function DecisionControls({
+  decision,
+  onDecide,
+}: {
+  decision?: ItemDecisionInfo | null;
+  onDecide: (status: ItemDecisionStatus) => void;
+}) {
+  return (
+    <div className="collaboration-decision">
+      <div
+        className="collaboration-decision-buttons"
+        role="group"
+        aria-label="商品决定"
+      >
+        {decisionOptions.map((option) => {
+          const selected = decision?.status === option.status;
+          return (
+            <button
+              key={option.status}
+              type="button"
+              aria-pressed={selected}
+              data-selected={selected || undefined}
+              className="collaboration-decision-button"
+              onClick={() => onDecide(option.status)}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      {decision ? (
+        <span className="collaboration-decision-caption">
+          {decision.decidedByName ? `${decision.decidedByName} · ` : ""}
+          {TERMS.decided}：{decisionLabel(decision.status)}
+          {decision.decidedAt ? ` · ${messageTime(decision.decidedAt)}` : ""}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function ProductReference({
   item,
   targetPriceYen,
   onOpen,
+  onDecide,
 }: {
   item: CollaborationItem;
   targetPriceYen?: number | null;
   onOpen: () => void;
+  onDecide: (item: CollaborationItem, status: ItemDecisionStatus) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const copyScript = () => {
@@ -655,6 +729,10 @@ function ProductReference({
           <ChevronRightIcon />
         </button>
       </div>
+      <DecisionControls
+        decision={item.decision}
+        onDecide={(status) => onDecide(item, status)}
+      />
       <div className="collaboration-product-actions">
         <button
           type="button"
@@ -680,10 +758,12 @@ function BundleProductReference({
   items,
   targetPriceYen,
   onOpenItem,
+  onDecide,
 }: {
   items: CollaborationItem[];
   targetPriceYen?: number | null;
   onOpenItem: (id: string) => void;
+  onDecide: (item: CollaborationItem, status: ItemDecisionStatus) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -769,10 +849,8 @@ function BundleProductReference({
 
       <div className="mt-2 divide-y divide-black/[0.05]">
         {items.map((entry, idx) => (
-          <div
-            key={entry.id}
-            className="flex items-center gap-2.5 py-2 first:pt-0.5 last:pb-0.5"
-          >
+          <div key={entry.id} className="py-2 first:pt-0.5 last:pb-0.5">
+            <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => onOpenItem(entry.id)}
@@ -831,6 +909,11 @@ function BundleProductReference({
             >
               直达 ↗
             </a>
+            </div>
+            <DecisionControls
+              decision={entry.decision}
+              onDecide={(status) => onDecide(entry, status)}
+            />
           </div>
         ))}
       </div>
@@ -901,10 +984,16 @@ function ShareRoundPanel({
   round,
   onToggleCopied,
   onSaveTarget,
+  onDecide,
 }: {
   round: ShareRound;
   onToggleCopied: (roundId: string, itemId: string, copied: boolean) => void;
   onSaveTarget: (roundId: string, itemId: string, value: number | null) => void;
+  onDecide: (
+    round: ShareRound,
+    row: ShareRoundItemRow,
+    status: ItemDecisionStatus,
+  ) => void;
 }) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   return (
@@ -930,7 +1019,8 @@ function ShareRoundPanel({
             drafts[row.itemId] ??
             (row.targetPriceYen ? String(row.targetPriceYen) : "");
           return (
-            <div key={row.id} className="flex items-center gap-2 py-1.5">
+            <div key={row.id} className="py-1.5">
+              <div className="flex items-center gap-2">
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink">
                 {itemTitle(row.item)}
                 <span className="ml-1.5 font-mono text-[11px] text-ink/55 tabular-nums">
@@ -979,6 +1069,11 @@ function ShareRoundPanel({
               >
                 {copied ? "✓ 已复制" : "标记复制"}
               </button>
+              </div>
+              <DecisionControls
+                decision={row.decision ?? row.item.decision}
+                onDecide={(status) => onDecide(round, row, status)}
+              />
             </div>
           );
         })}
@@ -1239,6 +1334,97 @@ export function CollaborationChatWorkspace({
     },
     [account.id, apiBaseUrl, loadShareRounds],
   );
+
+  const applyDecision = useCallback(
+    (itemId: string, decision: ItemDecisionInfo) => {
+      setMessages((current) =>
+        current.map((message) => {
+          const patch = (item: CollaborationItem | null | undefined) =>
+            item && item.id === itemId ? { ...item, decision } : item;
+          const item = patch(message.item);
+          const bundleItems = message.bundleItems?.map(
+            (entry) => patch(entry) ?? entry,
+          );
+          const replyItem = patch(message.replyTo?.item);
+          if (
+            item === message.item &&
+            bundleItems === message.bundleItems &&
+            replyItem === message.replyTo?.item
+          )
+            return message;
+          return {
+            ...message,
+            item,
+            bundleItems,
+            replyTo: message.replyTo
+              ? { ...message.replyTo, item: replyItem }
+              : message.replyTo,
+          };
+        }),
+      );
+      setShareRounds((current) =>
+        current.map((round) => {
+          if (!round.items.some((row) => row.itemId === itemId)) return round;
+          return {
+            ...round,
+            items: round.items.map((row) =>
+              row.itemId === itemId
+                ? { ...row, decision, item: { ...row.item, decision } }
+                : row,
+            ),
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  async function decide(
+    item: CollaborationItem,
+    status: ItemDecisionStatus,
+    provenance?: { roundId?: string; messageId?: string },
+  ) {
+    applyDecision(item.id, {
+      status,
+      decidedById: account.id,
+      decidedByName: account.displayName,
+      decidedAt: new Date().toISOString(),
+    });
+    try {
+      const response = await fetch(`${apiBaseUrl}/collaboration/decisions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          accountId: account.id,
+          itemId: item.id,
+          status,
+          roundId: provenance?.roundId,
+          messageId: provenance?.messageId,
+        }),
+      });
+      const saved = await readJsonResponse<{
+        status: ItemDecisionStatus;
+        decidedById: string;
+        decidedByName: string | null;
+        decidedAt: string;
+      }>(response, "决定保存失败");
+      applyDecision(item.id, {
+        status: saved.status,
+        decidedById: saved.decidedById,
+        decidedByName: saved.decidedByName,
+        decidedAt: saved.decidedAt,
+      });
+      if (status === "negotiate")
+        void loadNegotiations().catch(() => undefined);
+      onActivityChanged();
+    } catch (reason) {
+      setReactionError(
+        reason instanceof Error ? reason.message : "决定保存失败",
+      );
+      void pollerRef.current?.runNow();
+      void loadShareRounds().catch(() => undefined);
+    }
+  }
 
   const loadMessages = useCallback(
     async (signal?: AbortSignal) => {
@@ -1791,6 +1977,9 @@ export function CollaborationChatWorkspace({
                     targetPriceYen: value,
                   })
                 }
+                onDecide={(decidedRound, row, status) =>
+                  void decide(row.item, status, { roundId: decidedRound.id })
+                }
               />
             ))
           ) : (
@@ -1950,6 +2139,16 @@ export function CollaborationChatWorkspace({
                       </span>
                     </button>
                   )}
+                  {message.replyTo?.item && (
+                    <DecisionControls
+                      decision={message.replyTo.item.decision}
+                      onDecide={(status) =>
+                        void decide(message.replyTo!.item!, status, {
+                          messageId: message.replyTo!.id,
+                        })
+                      }
+                    />
+                  )}
                   {message.forwardedFromId && (
                     <span className="collaboration-forward-label">
                       <ForwardIcon /> 已转发商品
@@ -1962,12 +2161,24 @@ export function CollaborationChatWorkspace({
                         items={message.bundleItems}
                         targetPriceYen={message.targetPriceYen}
                         onOpenItem={(id) => void onOpenItem(id)}
+                        onDecide={(item, status) =>
+                          void decide(item, status, {
+                            messageId: message.id,
+                            roundId: message.roundId ?? undefined,
+                          })
+                        }
                       />
                     ) : message.item ? (
                       <ProductReference
                         item={message.item}
                         targetPriceYen={message.targetPriceYen}
                         onOpen={() => void onOpenItem(message.item!.id)}
+                        onDecide={(item, status) =>
+                          void decide(item, status, {
+                            messageId: message.id,
+                            roundId: message.roundId ?? undefined,
+                          })
+                        }
                       />
                     ) : null}
                   </div>

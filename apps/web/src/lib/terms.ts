@@ -32,6 +32,10 @@ export const TERMS = {
   // Actions and objects
   cart: "购物车",
   addToCart: "加入购物车",
+  decisionWant: "要",
+  decisionPass: "不要",
+  decisionBought: "已买下",
+  decided: "已定",
   bundle: "待发清单",
   sendBundle: "发给搭档",
   shareRound: "分享轮次",

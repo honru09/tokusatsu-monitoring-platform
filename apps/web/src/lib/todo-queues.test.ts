@@ -28,7 +28,7 @@ const noPurchases = new Set<string>();
 const noDisliked = new Set<string>();
 
 describe("buildReviewQueue", () => {
-  it("keeps unactioned round rows and partner messages, oldest first, deduped by item", () => {
+  it("keeps undecided round rows and partner messages, oldest first, deduped by item", () => {
     const rounds: ShareRoundLike[] = [
       {
         id: "round-1",
@@ -37,6 +37,7 @@ describe("buildReviewQueue", () => {
         items: [
           { itemId: "item-1", copiedAt: null, item: item() },
           {
+            // Copied into a negotiation but never decided: still pending.
             itemId: "item-2",
             copiedAt: "2026-10-24T01:00:00.000Z",
             item: item({ id: "item-2" }),
@@ -60,14 +61,14 @@ describe("buildReviewQueue", () => {
       },
     ];
     const queue = buildReviewQueue(rounds, messages, "me", noPurchases, noDisliked);
-    expect(queue).toHaveLength(1);
-    expect(queue[0].item.id).toBe("item-1");
+    expect(queue.map((entry) => entry.item.id)).toEqual(["item-1", "item-2"]);
     // The earlier message wins over the later round for the same item.
     expect(queue[0].key).toBe("message-msg-1-item-1");
     expect(queue[0].sharedAt).toBe("2026-10-23T00:00:00.000Z");
+    expect(queue[1].key).toBe("round-round-1-item-2");
   });
 
-  it("drops purchased, disliked and already-copied shares", () => {
+  it("drops purchased, disliked and decided shares", () => {
     const rounds: ShareRoundLike[] = [
       {
         id: "round-1",
@@ -79,7 +80,24 @@ describe("buildReviewQueue", () => {
           {
             itemId: "item-3",
             copiedAt: null,
-            item: item({ id: "item-3", copiedAt: "2026-10-24T02:00:00.000Z" }),
+            decision: {
+              status: "pass",
+              decidedByName: "王",
+              decidedAt: "2026-10-24T02:00:00.000Z",
+            },
+            item: item({ id: "item-3" }),
+          },
+          {
+            itemId: "item-4",
+            copiedAt: null,
+            item: item({
+              id: "item-4",
+              decision: {
+                status: "want",
+                decidedByName: "王",
+                decidedAt: "2026-10-24T03:00:00.000Z",
+              },
+            }),
           },
         ],
       },
@@ -107,6 +125,73 @@ describe("buildNegotiatingQueue", () => {
       "negotiation-n3",
       "negotiation-n2",
     ]);
+  });
+
+  it("unions negotiate decisions with open cases, deduped by item", () => {
+    const negotiations: NegotiationLike[] = [
+      { id: "n2", status: "in_progress", statusChangedAt: "2026-10-22T00:00:00.000Z", item: item({ id: "i2" }) },
+    ];
+    const rounds: ShareRoundLike[] = [
+      {
+        id: "round-1",
+        createdAt: "2026-10-24T00:00:00.000Z",
+        createdBy: { name: "搭档" },
+        items: [
+          {
+            // Same item as the open case: the earlier timestamp wins.
+            itemId: "i2",
+            decision: {
+              status: "negotiate",
+              decidedByName: "王",
+              decidedAt: "2026-10-21T00:00:00.000Z",
+            },
+            item: item({ id: "i2" }),
+          },
+          {
+            itemId: "i5",
+            decision: {
+              status: "negotiate",
+              decidedByName: "王",
+              decidedAt: "2026-10-23T00:00:00.000Z",
+            },
+            item: item({ id: "i5" }),
+          },
+          {
+            itemId: "i6",
+            decision: {
+              status: "want",
+              decidedByName: "王",
+              decidedAt: "2026-10-23T00:00:00.000Z",
+            },
+            item: item({ id: "i6" }),
+          },
+        ],
+      },
+    ];
+    const messages: ShareMessageLike[] = [
+      {
+        id: "msg-1",
+        senderId: "partner",
+        createdAt: "2026-10-20T00:00:00.000Z",
+        item: item({
+          id: "i7",
+          decision: {
+            status: "negotiate",
+            decidedByName: "王",
+            decidedAt: "2026-10-20T12:00:00.000Z",
+          },
+        }),
+      },
+    ];
+    const queue = buildNegotiatingQueue(negotiations, rounds, messages);
+    expect(queue.map((entry) => entry.item.id)).toEqual(["i7", "i2", "i5"]);
+    expect(queue.map((entry) => entry.key)).toEqual([
+      "decision-message-msg-1-i7",
+      "decision-round-round-1-i2",
+      "decision-round-round-1-i5",
+    ]);
+    // The decision entry for i2 carries the earlier decidedAt.
+    expect(queue[1].statusChangedAt).toBe("2026-10-21T00:00:00.000Z");
   });
 });
 

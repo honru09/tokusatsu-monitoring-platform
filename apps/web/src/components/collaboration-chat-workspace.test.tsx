@@ -129,6 +129,21 @@ describe("Telegram-style collaboration actions", () => {
         return Promise.resolve(response({ updated: 1 }));
       if (url.pathname.endsWith("/collaboration/negotiations/failed/dislike"))
         return Promise.resolve(response({ moved: 1 }));
+      if (url.pathname.endsWith("/collaboration/decisions")) {
+        const body = JSON.parse(String(init?.body)) as {
+          itemId: string;
+          status: string;
+        };
+        return Promise.resolve(
+          response({
+            itemId: body.itemId,
+            status: body.status,
+            decidedById: "manager-1",
+            decidedByName: "龙",
+            decidedAt: "2026-09-07T01:24:00.000Z",
+          }),
+        );
+      }
       if (url.pathname.endsWith("/collaboration/negotiations"))
         return Promise.resolve(
           response({
@@ -242,6 +257,42 @@ describe("Telegram-style collaboration actions", () => {
     expect(strip?.querySelector('[aria-label="收藏 9 次"]')).not.toBeNull();
     expect(strip?.querySelector('[aria-label="不感兴趣 1 次"]')).not.toBeNull();
     expect(strip?.querySelectorAll("i.is-online")).toHaveLength(1);
+  });
+
+  it("商品卡上有要 / 砍价 / 不要三个决定键，点击即保存并回显决定人", async () => {
+    const group = host.querySelector(
+      '[role="group"][aria-label="商品决定"]',
+    );
+    expect(group).not.toBeNull();
+    const buttons = Array.from(group?.querySelectorAll("button") ?? []);
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "要",
+      "砍价",
+      "不要",
+    ]);
+    const negotiate = buttons[1];
+    await act(async () => {
+      negotiate?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/collaboration/decisions"),
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"itemId":"item-1"'),
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/collaboration/decisions"),
+      expect.objectContaining({
+        body: expect.stringContaining('"status":"negotiate"'),
+      }),
+    );
+    expect(negotiate?.getAttribute("aria-pressed")).toBe("true");
+    expect(host.textContent).toContain("龙 · 已定：砍价");
+    // The copy-script affordance stays on the card as the next action.
+    expect(host.textContent).toContain("复制砍价日语");
   });
 
   it("商品转发保存成功后只刷新一次真实协作统计", async () => {

@@ -175,7 +175,7 @@ export function TodoHome({
         purchasedItemIds,
         dislikedItemIds,
       ),
-      negotiating: buildNegotiatingQueue(negotiations),
+      negotiating: buildNegotiatingQueue(negotiations, rounds, messages),
       register: buildRegisterQueue(negotiations, purchaseAnalyses, purchasedItemIds),
       inventory: buildInventoryQueue(orders),
       system: buildSystemQueue({ resources, failedJobs24h }),
