@@ -70,6 +70,15 @@ enum ItemStatus {
   unknown
 }
 
+enum ItemLifecycleStatus {
+  live
+  sold
+  ended
+  purchased
+  disliked
+  deleted
+}
+
 enum JobStatus {
   queued
   running
@@ -479,7 +488,6 @@ model Product {
   manufacturerEntity       ProductManufacturer?      @relation(fields: [manufacturerEntityId], references: [id], onDelete: SetNull)
   toyTypeEntity            ProductToyType?           @relation(fields: [toyTypeEntityId], references: [id], onDelete: SetNull)
   listings                 Item[]
-  inventory                Inventory?
   reviewQueue              ReviewQueue[]
   marketSnapshots          MarketSnapshot[]
   marketComparisons        ProductMarketComparison[]
