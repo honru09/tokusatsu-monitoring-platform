@@ -155,6 +155,186 @@ export type NegotiationScriptGroupResult = {
   fallback: boolean;
 };
 
+export type NegotiationAnalysisItemResult = {
+  id: string;
+  titleRaw: string;
+  priceCurrent: number;
+  shippingFee: number | null;
+  sourceUrl: string;
+  targetPriceYen: number | null;
+  targetMissing: boolean;
+};
+
+export type NegotiationAnalysisGroupResult = {
+  sellerId: string | null;
+  sellerName: string | null;
+  itemIds: string[];
+  items: NegotiationAnalysisItemResult[];
+  targetTotalYen: number;
+  listedTotalYen: number;
+  script: string;
+  fallback: boolean;
+  firstItemUrl: string;
+};
+
+/**
+ * Grouped scripts for an arbitrary multi-selection. One card per
+ * seller group, one copy button per card - the copy writes exactly
+ * that group's script and nothing else, and the direct link jumps to
+ * the group's first item, where the pasted comment covers them all.
+ */
+export function NegotiationAnalysisPanel({
+  groups,
+  onCopied,
+  onClose,
+}: {
+  groups: NegotiationAnalysisGroupResult[];
+  onCopied?: (itemIds: string[]) => void;
+  onClose: () => void;
+}) {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  function copyScript(group: NegotiationAnalysisGroupResult) {
+    void navigator.clipboard?.writeText(group.script);
+    const key = group.sellerId ?? group.itemIds[0] ?? "group";
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey(null), 2000);
+    onCopied?.(group.itemIds);
+  }
+  return (
+    <section
+      className="negotiation-analysis-panel mx-2 mb-2 grid max-h-[62dvh] gap-2 overflow-y-auto rounded-2xl border border-black/[0.08] bg-[#f7f7f9] p-2"
+      aria-label="合并砍价分析结果"
+    >
+      <div className="flex items-center justify-between px-1 pt-1">
+        <strong className="text-xs font-bold text-ink">
+          按卖家分组 · {groups.length} 份话术
+        </strong>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-semibold text-ink/60 transition hover:bg-black/[0.05]"
+        >
+          关闭
+        </button>
+      </div>
+      {groups.length === 0 ? (
+        <EmptyState art="chat" title="所选商品暂时无法生成话术" compact />
+      ) : null}
+      {groups.map((group) => {
+        const key = group.sellerId ?? group.itemIds[0] ?? "group";
+        return (
+          <article
+            key={key}
+            className="rounded-xl border border-black/[0.06] bg-white p-3 shadow-sm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <strong className="text-[13px] font-bold text-ink">
+                {group.sellerName ?? "卖家未知"}
+                <span className="ml-1.5 font-mono text-[11px] font-semibold text-ink/50 tabular-nums">
+                  {group.items.length} 件
+                </span>
+              </strong>
+              <span className="font-mono text-xs tabular-nums text-ink/70">
+                目标合计{" "}
+                <strong className="text-emerald-800">
+                  {yen(group.targetTotalYen)}
+                </strong>
+                {group.fallback ? (
+                  <span className="ml-1.5 rounded bg-black/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-ink/55">
+                    模板
+                  </span>
+                ) : null}
+              </span>
+            </div>
+            <ul className="mt-2 grid gap-1">
+              {group.items.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="flex items-baseline justify-between gap-2 text-[11px] leading-snug text-ink/70"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {entry.titleRaw}
+                  </span>
+                  <span className="shrink-0 font-mono tabular-nums">
+                    {yen(entry.priceCurrent)} →{" "}
+                    {entry.targetMissing ? (
+                      <span className="font-semibold text-amber-700">
+                        未定目标（按现价）
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-emerald-800">
+                        {yen(entry.targetPriceYen ?? entry.priceCurrent)}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <pre
+              lang="ja"
+              className="mt-2 whitespace-pre-wrap rounded-xl bg-black/[0.04] p-2.5 font-sans text-xs leading-relaxed text-ink/85"
+            >
+              {group.script}
+            </pre>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => copyScript(group)}
+                className="collaboration-product-action is-primary flex-1"
+              >
+                {copiedKey === key ? "✓ 已复制" : "复制这份话术"}
+              </button>
+              <a
+                href={group.firstItemUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="collaboration-product-action is-secondary"
+              >
+                去留言 ↗
+              </a>
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+/** Round checkbox used by every selectable surface in selection mode. */
+export function SelectionToggle({
+  selected,
+  label,
+  onToggle,
+}: {
+  selected: boolean;
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      aria-label={label}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      className="grid h-9 w-9 shrink-0 place-items-center"
+    >
+      <span
+        aria-hidden="true"
+        className={`grid h-[22px] w-[22px] place-items-center rounded-full border text-[13px] font-black transition ${
+          selected
+            ? "border-ink bg-ink text-white"
+            : "border-black/30 bg-white text-transparent"
+        }`}
+      >
+        ✓
+      </span>
+    </button>
+  );
+}
+
 // Copy accounting is best-effort: it records that a round's texts went out
 // so the copied progress moves on its own. It must never break or block a
 // copy, so failures are swallowed here and callers fire-and-forget it.
@@ -744,12 +924,18 @@ function ProductReference({
   onOpen,
   onDecide,
   onCopyItem,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
 }: {
   item: CollaborationItem;
   targetPriceYen?: number | null;
   onOpen: () => void;
   onDecide: (item: CollaborationItem, status: ItemDecisionStatus) => void;
   onCopyItem?: (item: CollaborationItem) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (item: CollaborationItem) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const copyScript = () => {
@@ -762,6 +948,13 @@ function ProductReference({
   return (
     <div className="collaboration-product-wrapper space-y-1.5">
       <div className="collaboration-product">
+        {selectionMode && onToggleSelect ? (
+          <SelectionToggle
+            selected={selected}
+            label={`${selected ? "取消选择" : "选择"}：${itemTitle(item)}`}
+            onToggle={() => onToggleSelect(item)}
+          />
+        ) : null}
         <span className="collaboration-product-image">
           <SafeItemImage
             src={item.images[0]?.url}
@@ -790,7 +983,11 @@ function ProductReference({
           type="button"
           className="collaboration-product-open"
           aria-label={`打开商品：${itemTitle(item)}`}
-          onClick={onOpen}
+          onClick={
+            selectionMode && onToggleSelect
+              ? () => onToggleSelect(item)
+              : onOpen
+          }
         >
           <ChevronRightIcon />
         </button>
@@ -826,12 +1023,18 @@ function BundleProductReference({
   onOpenItem,
   onDecide,
   onCopyItems,
+  selectionMode = false,
+  selectedIds,
+  onToggleSelect,
 }: {
   items: CollaborationItem[];
   targetPriceYen?: number | null;
   onOpenItem: (id: string) => void;
   onDecide: (item: CollaborationItem, status: ItemDecisionStatus) => void;
   onCopyItems?: (itemIds: string[]) => void;
+  selectionMode?: boolean;
+  selectedIds?: ReadonlySet<string>;
+  onToggleSelect?: (item: CollaborationItem) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -921,9 +1124,20 @@ function BundleProductReference({
         {items.map((entry, idx) => (
           <div key={entry.id} className="py-2.5 first:pt-0.5 last:pb-0.5">
             <div className="flex items-center gap-2.5">
+            {selectionMode && onToggleSelect ? (
+              <SelectionToggle
+                selected={selectedIds?.has(entry.id) ?? false}
+                label={`${selectedIds?.has(entry.id) ? "取消选择" : "选择"}：${itemTitle(entry)}`}
+                onToggle={() => onToggleSelect(entry)}
+              />
+            ) : null}
             <button
               type="button"
-              onClick={() => onOpenItem(entry.id)}
+              onClick={() =>
+                selectionMode && onToggleSelect
+                  ? onToggleSelect(entry)
+                  : onOpenItem(entry.id)
+              }
               className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-black/5"
               aria-label={`查看 ${itemTitle(entry)}`}
             >
@@ -938,7 +1152,11 @@ function BundleProductReference({
             </button>
             <button
               type="button"
-              onClick={() => onOpenItem(entry.id)}
+              onClick={() =>
+                selectionMode && onToggleSelect
+                  ? onToggleSelect(entry)
+                  : onOpenItem(entry.id)
+              }
               className="min-w-0 flex-1 text-left"
             >
               <strong className="block text-[13px] font-semibold leading-snug text-ink line-clamp-2">
@@ -1049,6 +1267,9 @@ function ShareRoundPanel({
   onToggleCopied,
   onSaveTarget,
   onDecide,
+  selectionMode = false,
+  selectedIds,
+  onToggleSelect,
 }: {
   round: ShareRound;
   onToggleCopied: (roundId: string, itemId: string, copied: boolean) => void;
@@ -1058,6 +1279,9 @@ function ShareRoundPanel({
     row: ShareRoundItemRow,
     status: ItemDecisionStatus,
   ) => void;
+  selectionMode?: boolean;
+  selectedIds?: ReadonlySet<string>;
+  onToggleSelect?: (roundId: string, item: CollaborationItem) => void;
 }) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   return (
@@ -1085,6 +1309,13 @@ function ShareRoundPanel({
           return (
             <div key={row.id} className="py-1.5">
               <div className="flex items-center gap-2">
+              {selectionMode && onToggleSelect ? (
+                <SelectionToggle
+                  selected={selectedIds?.has(row.itemId) ?? false}
+                  label={`${selectedIds?.has(row.itemId) ? "取消选择" : "选择"}：${itemTitle(row.item)}`}
+                  onToggle={() => onToggleSelect(round.id, row.item)}
+                />
+              ) : null}
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink">
                 {itemTitle(row.item)}
                 <span className="ml-1.5 font-mono text-[11px] text-ink/55 tabular-nums">
@@ -1218,6 +1449,68 @@ export function CollaborationChatWorkspace({
   const [reactionError, setReactionError] = useState("");
   const [negotiations, setNegotiations] = useState<NegotiationCase[]>([]);
   const [shareRounds, setShareRounds] = useState<ShareRound[]>([]);
+  // Multi-select for the same-seller negotiation analysis: any shared
+  // items across messages and rounds, grouped server-side by seller.
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selection, setSelection] = useState<
+    Map<string, { itemId: string; roundId: string | null }>
+  >(new Map());
+  const [analysisGroups, setAnalysisGroups] =
+    useState<NegotiationAnalysisGroupResult[] | null>(null);
+  const [analysisBusy, setAnalysisBusy] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
+  const analysisSelectionRef = useRef<
+    Map<string, { itemId: string; roundId: string | null }>
+  >(new Map());
+
+  const toggleSelectItem = useCallback(
+    (itemId: string, roundId?: string | null) => {
+      setSelection((current) => {
+        const next = new Map(current);
+        if (next.has(itemId)) next.delete(itemId);
+        else next.set(itemId, { itemId, roundId: roundId ?? null });
+        return next;
+      });
+    },
+    [],
+  );
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelection(new Map());
+    setAnalysisGroups(null);
+    setAnalysisError("");
+  }, []);
+
+  async function runNegotiationAnalysis() {
+    if (analysisBusy || selection.size === 0) return;
+    setAnalysisBusy(true);
+    setAnalysisError("");
+    analysisSelectionRef.current = new Map(selection);
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/collaboration/negotiation-analysis`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            accountId: account.id,
+            items: [...selection.values()],
+          }),
+        },
+      );
+      const payload = await readJsonResponse<{
+        groups: NegotiationAnalysisGroupResult[];
+      }>(response, "分析失败");
+      setAnalysisGroups(payload.groups ?? []);
+    } catch {
+      setAnalysisError("分析失败，请稍后重试");
+    } finally {
+      setAnalysisBusy(false);
+    }
+  }
+
+
   const [negotiationFilter, setNegotiationFilter] =
     useState<NegotiationStatus | null>(null);
   const [negotiationRailOpen, setNegotiationRailOpen] = useState(false);
@@ -1516,6 +1809,21 @@ export function CollaborationChatWorkspace({
       void markShareRoundItemsCopied(apiBaseUrl, account.id, roundId, ids);
     },
     [account.id, apiBaseUrl],
+  );
+
+  // A copied analysis script marks its round items copied, grouped by
+  // the round each item was selected from (B4-2 accounting).
+  const markAnalysisCopied = useCallback(
+    (itemIds: string[]) => {
+      const byRound = new Map<string, string[]>();
+      for (const itemId of itemIds) {
+        const roundId = analysisSelectionRef.current.get(itemId)?.roundId;
+        if (!roundId) continue;
+        byRound.set(roundId, [...(byRound.get(roundId) ?? []), itemId]);
+      }
+      for (const [roundId, ids] of byRound) markCopiedInRound(roundId, ids);
+    },
+    [markCopiedInRound],
   );
 
   const roundIdForItem = useCallback(
@@ -2052,6 +2360,17 @@ export function CollaborationChatWorkspace({
         <button
           type="button"
           className="collaboration-account-button"
+          aria-pressed={selectionMode}
+          onClick={() => {
+            if (selectionMode) exitSelectionMode();
+            else setSelectionMode(true);
+          }}
+        >
+          <span>{selectionMode ? "完成" : "选择"}</span>
+        </button>
+        <button
+          type="button"
+          className="collaboration-account-button"
           onClick={onSwitchAccount}
           aria-label={`切换账号，当前为${account.displayName}`}
         >
@@ -2077,6 +2396,11 @@ export function CollaborationChatWorkspace({
               <ShareRoundPanel
                 key={round.id}
                 round={round}
+                selectionMode={selectionMode}
+                selectedIds={new Set(selection.keys())}
+                onToggleSelect={(roundId, item) =>
+                  toggleSelectItem(item.id, roundId)
+                }
                 onToggleCopied={(roundId, itemId, copied) =>
                   void patchShareRoundItem(roundId, itemId, { copied })
                 }
@@ -2270,6 +2594,14 @@ export function CollaborationChatWorkspace({
                       <BundleProductReference
                         items={message.bundleItems}
                         targetPriceYen={message.targetPriceYen}
+                        selectionMode={selectionMode}
+                        selectedIds={new Set(selection.keys())}
+                        onToggleSelect={(item) =>
+                          toggleSelectItem(
+                            item.id,
+                            message.roundId ?? roundIdForItem(item.id),
+                          )
+                        }
                         onOpenItem={(id) => void onOpenItem(id)}
                         onDecide={(item, status) =>
                           void decide(item, status, {
@@ -2286,6 +2618,14 @@ export function CollaborationChatWorkspace({
                       <ProductReference
                         item={message.item}
                         targetPriceYen={message.targetPriceYen}
+                        selectionMode={selectionMode}
+                        selected={selection.has(message.item.id)}
+                        onToggleSelect={(item) =>
+                          toggleSelectItem(
+                            item.id,
+                            message.roundId ?? roundIdForItem(item.id),
+                          )
+                        }
                         onOpen={() => void onOpenItem(message.item!.id)}
                         onDecide={(item, status) =>
                           void decide(item, status, {
@@ -2424,6 +2764,46 @@ export function CollaborationChatWorkspace({
           })
         )}
       </div>
+
+      {analysisGroups && (
+        <NegotiationAnalysisPanel
+          groups={analysisGroups}
+          onCopied={markAnalysisCopied}
+          onClose={() => setAnalysisGroups(null)}
+        />
+      )}
+      {selectionMode && (
+        <div className="flex items-center gap-2 border-t border-black/[0.06] bg-white/95 px-3 py-2 backdrop-blur">
+          <span className="text-xs font-bold text-ink">
+            已选 {selection.size} 件
+          </span>
+          {analysisError ? (
+            <span className="text-[11px] font-semibold text-red-700">
+              {analysisError}
+            </span>
+          ) : null}
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={() => {
+              setSelection(new Map());
+              setAnalysisGroups(null);
+            }}
+            disabled={selection.size === 0}
+            className="inline-flex min-h-10 items-center rounded-xl px-3 text-xs font-semibold text-ink/60 transition hover:bg-black/[0.05] disabled:opacity-40"
+          >
+            清空
+          </button>
+          <button
+            type="button"
+            onClick={() => void runNegotiationAnalysis()}
+            disabled={selection.size === 0 || analysisBusy}
+            className="inline-flex min-h-10 items-center rounded-xl bg-ink px-4 text-xs font-bold text-white transition active:scale-[0.97] disabled:opacity-40"
+          >
+            {analysisBusy ? "分析中…" : "分析"}
+          </button>
+        </div>
+      )}
 
       <form className="collaboration-composer" onSubmit={send}>
         {(error || reactionError) && (
