@@ -1094,7 +1094,7 @@ describe("Dashboard favorite synchronization", () => {
     });
   });
 
-  it("slims the card: IP tag first, review marker, split price, bundle kept, no seller row or per-card language toggle", async () => {
+  it("slims the card: IP tag first, review marker, total only, bundle kept, no seller row or per-card language toggle", async () => {
     const item = makeItem({
       id: "card-slim",
       titleRaw: "カード スリム",
@@ -1127,11 +1127,12 @@ describe("Dashboard favorite synchronization", () => {
     ).toBe("假面骑士");
     expect(tags?.textContent).toContain("待复核");
 
-    // Total stays prominent and the split line shows both of its parts.
+    // The total stays prominent; the list/shipping split line is a
+    // detail-view fact now and no longer renders on the card.
     expect(card.textContent).toContain("¥1,500");
-    expect(card.textContent).toContain("标价 ¥1,000 + 邮费 ¥500");
-    // Shipping is not shown twice.
-    expect(card.textContent?.match(/邮费/g)).toHaveLength(1);
+    expect(card.textContent).not.toContain("标价 ¥1,000 + 邮费 ¥500");
+    expect(card.querySelector(".product-card-price-split")).toBeNull();
+    expect(card.textContent?.match(/邮费/g) ?? []).toHaveLength(0);
 
     // The bundle toggle survives the seller-row removal.
     expect(

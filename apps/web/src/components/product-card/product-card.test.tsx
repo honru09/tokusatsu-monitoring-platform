@@ -67,33 +67,70 @@ describe("ProductCard price facts", () => {
     host.remove();
   });
 
-  it("flags the price facts as quantity-unknown only when no quantity is known", () => {
+  it("renders the price block as one price row and one meta row", () => {
     act(() => {
       root.render(<ProductCard {...cardProps(makeItem())} />);
     });
-    const known = host.querySelector(".product-card-decision dl");
-    expect(known?.hasAttribute("data-qty-unknown")).toBe(false);
-    expect(known?.querySelector(".product-card-qty dd")?.textContent).toBe(
-      "2 件",
+    const decision = host.querySelector(".product-card-decision");
+    const priceSlot = host.querySelector(".product-card-price-slot");
+    expect(priceSlot?.querySelector("dt")?.textContent).toBe("总价");
+    expect(priceSlot?.querySelector("dd")?.textContent).toBe("¥1,200");
+    // No CNY small next to the hero amount: the estimate moved to the
+    // meta row as a whole-yuan figure (1,200 x 0.05 = 60).
+    expect(priceSlot?.querySelector("small")).toBeNull();
+    expect(host.querySelector(".product-card-meta")?.textContent).toBe(
+      "约 60元",
     );
-    expect(known?.querySelector(".product-card-unit dd")?.textContent).toBe(
-      "¥600",
-    );
+    // The removed rows stay removed, whatever the item carries.
+    for (const selector of [
+      ".product-card-qty",
+      ".product-card-unit",
+      ".product-card-price-split",
+      ".yahoo-discount",
+      ".product-card-cost-evidence",
+      ".product-card-value-king",
+      ".product-card-china-reference",
+    ]) {
+      expect(host.querySelector(selector)).toBeNull();
+    }
+    expect(decision?.textContent).not.toContain("单价");
+    expect(decision?.textContent).not.toContain("标价");
+    expect(decision?.textContent).not.toContain("包邮");
+  });
 
+  it("prefers the Yahoo target in the meta row, in whole yuan", () => {
     act(() => {
       root.render(
-        <ProductCard {...cardProps(makeItem({ quantityEst: null }))} />,
+        <ProductCard
+          {...cardProps(
+            makeItem({
+              priceCurrent: 24_800,
+              shippingFee: 0,
+              source: { key: "yahoo_fleamarket", displayName: "Yahoo!フリマ" },
+            }),
+          )}
+          exchangeRate={0.0425}
+        />,
       );
     });
-    const unknown = host.querySelector(".product-card-decision dl");
-    expect(unknown?.getAttribute("data-qty-unknown")).toBe("true");
-    expect(unknown?.querySelector(".product-card-qty dd")?.textContent).toBe(
-      "待识别",
+    // Target is 80% of the ask, rounded up: 19,840 yen; its CNY
+    // estimate is a whole-yuan figure on the same single line.
+    expect(host.querySelector(".product-card-meta")?.textContent).toBe(
+      "目标 ¥19,840 · 约 843元",
     );
-    // Amounts that do exist stay rendered even when quantity is unknown.
-    const decision = host.querySelector(".product-card-decision");
-    expect(decision?.textContent).toContain("¥1,200");
-    expect(decision?.textContent).toContain("标价 ¥1,000");
+    expect(host.querySelector(".yahoo-discount")).toBeNull();
+  });
+
+  it("keeps the meta slot reserved and empty without an exchange rate", () => {
+    act(() => {
+      root.render(
+        <ProductCard {...cardProps(makeItem())} exchangeRate={undefined} />,
+      );
+    });
+    const meta = host.querySelector(".product-card-meta");
+    expect(meta).not.toBeNull();
+    expect(meta?.textContent).toBe("");
+    expect(meta?.className).toContain("product-card-meta-height");
   });
 
   it("renders five- and six-digit totals as single amount tokens", () => {
@@ -106,7 +143,7 @@ describe("ProductCard price facts", () => {
     });
     const five = host.querySelector(".product-card-total");
     expect(five?.querySelector("dd")?.textContent).toBe("¥17,500");
-    expect(five?.querySelector("small")?.textContent).toContain("约");
+    expect(five?.querySelector("small")).toBeNull();
 
     act(() => {
       root.render(

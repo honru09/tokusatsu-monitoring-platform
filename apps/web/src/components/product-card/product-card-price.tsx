@@ -1,19 +1,23 @@
 import React from "react";
-import { YahooDiscount } from "../yahoo-discount";
-import { chinaComparisonSummary } from "../../lib/china-comparison";
-import {
-  fmtCny,
-  fmtCnyAmount,
-  fmtYen,
-  shippingLabel,
-} from "../../lib/listing-display";
+import { fmtYen } from "../../lib/listing-display";
 import { listingCostSummary } from "../../lib/listing-cost";
+import { yahooFleamarketDiscount } from "../../lib/yahoo-discount";
 import type { ProductCardItem } from "./product-card-item";
 
+/** Whole-yuan CNY estimate: no decimals, no mid-number wrap. */
+function fmtCnyWhole(yen: number, rate: number) {
+  return `约 ${Math.round(yen * rate).toLocaleString("zh-CN")}元`;
+}
+
 /**
- * Price block. Every amount stays on the card (total, its CNY estimate,
- * quantity, unit price, the list-price/shipping split and the Yahoo
- * discount estimate).
+ * Price block: two fixed rows and nothing else. The price row is the
+ * total label plus the hero amount; the meta row underneath prefers
+ * the Yahoo flea-market target (target yen plus its CNY estimate) and
+ * otherwise shows the total's CNY estimate. Without an exchange rate
+ * the meta row stays empty but keeps its slot height, so the block is
+ * the same shape on every card. Quantity, unit price, the
+ * list/shipping split and the China/value evidence are detail-view
+ * facts, not card facts.
  */
 export function ProductCardPrice({
   item,
@@ -23,78 +27,27 @@ export function ProductCardPrice({
   exchangeRate?: number;
 }) {
   const cost = listingCostSummary(item);
-  const knownShipping =
-    item.shippingFee != null &&
-    Number.isFinite(item.shippingFee) &&
-    item.shippingFee >= 0;
-  const chinaComparison = chinaComparisonSummary(item);
-  const chinaPrice = fmtCnyAmount(chinaComparison.priceCny);
-  const chinaSourceUrl = chinaComparison.sourceUrl;
+  const discount = yahooFleamarketDiscount(item.source.key, item.priceCurrent);
+  const hasRate =
+    exchangeRate != null && Number.isFinite(exchangeRate) && exchangeRate > 0;
+  const meta = !hasRate
+    ? ""
+    : discount
+      ? `目标 ${fmtYen(discount.targetYen)} · ${fmtCnyWhole(discount.targetYen, exchangeRate)}`
+      : cost.total != null
+        ? fmtCnyWhole(cost.total, exchangeRate)
+        : "";
   return (
     <div className="product-card-market product-card-decision mt-2">
-      <dl data-qty-unknown={cost.unit == null || undefined}>
-        <div className="product-card-total">
-          <dt>{cost.label}</dt>
-          <dd>{fmtYen(cost.total)}</dd>
-          <small>{fmtCny(cost.total, exchangeRate)}</small>
-        </div>
-        <div className="product-card-qty">
-          <dt>数量</dt>
-          <dd>{item.quantityEst ? `${item.quantityEst} 件` : "待识别"}</dd>
-        </div>
-        <div className="product-card-unit">
-          <dt>{cost.unitLabel}</dt>
-          <dd>{fmtYen(cost.unit)}</dd>
+      <dl>
+        <div className="product-card-total product-card-price-slot flex h-[var(--product-card-price-height,32px)] flex-nowrap items-baseline gap-2 overflow-hidden">
+          <dt className="shrink-0">{cost.label}</dt>
+          <dd className="shrink-0 tabular-nums">{fmtYen(cost.total)}</dd>
         </div>
       </dl>
-      <div className="product-card-price-split text-[11px] tabular-nums text-ink/55">
-        标价 {fmtYen(item.priceCurrent)}
-        {knownShipping
-          ? item.shippingFee === 0
-            ? " · 包邮"
-            : ` + 邮费 ${fmtYen(item.shippingFee)}`
-          : ` · 邮费${shippingLabel(item)}`}
-        {knownShipping && item.shippingFee ? (
-          <small className="ml-1">
-            {fmtCny(item.shippingFee, exchangeRate)}
-          </small>
-        ) : null}
-        {(item.quantityEst || cost.unit != null) && (
-          <span className="product-card-split-facts">
-            {item.quantityEst ? <> · 数量 {item.quantityEst} 件</> : null}
-            {cost.unit != null ? <> · {cost.unitLabel} {fmtYen(cost.unit)}</> : null}
-          </span>
-        )}
-      </div>
-      <YahooDiscount
-        sourceKey={item.source.key}
-        priceYen={item.priceCurrent}
-        exchangeRate={exchangeRate}
-      />
-      {(item.valueKing || (chinaPrice && chinaSourceUrl)) && (
-        <div className="product-card-cost-evidence">
-          {item.valueKing ? (
-            <span
-              className="product-card-value-king"
-              title={item.valueKing.facts.join(" · ")}
-            >
-              <b aria-hidden="true">♛</b>
-              {item.valueKing.label}
-            </span>
-          ) : chinaPrice && chinaSourceUrl ? (
-            <a
-              className="product-card-china-reference"
-              href={chinaSourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`打开${chinaComparison.platformName}原商品，中国参考价 ${chinaPrice}`}
-              title={`${chinaComparison.platformName}参考价 ${chinaPrice}`}
-            >
-              {chinaComparison.platformName}同款 {chinaPrice}
-            </a>
-          ) : null}
-        </div>
-      )}
+      <p className="product-card-meta h-[var(--product-card-meta-height,20px)] overflow-hidden whitespace-nowrap text-[11px] tabular-nums text-ink/55">
+        {meta}
+      </p>
     </div>
   );
 }
