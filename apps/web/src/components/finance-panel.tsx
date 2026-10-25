@@ -44,11 +44,13 @@ function Figure({
   value,
   reduceMotion,
   tone,
+  subtitle,
 }: {
   label: string;
   value: number | null;
   reduceMotion: boolean;
   tone?: "positive" | "negative";
+  subtitle?: string;
 }) {
   const display = useCountUp(value, reduceMotion);
   // The value is nowrap in a ~113px column on phones, so its size steps
@@ -68,6 +70,7 @@ function Figure({
       >
         {value === null ? "—" : yen(display)}
       </strong>
+      {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
     </div>
   );
 }
@@ -124,17 +127,20 @@ export function FinancePanel({
         label={TERMS.totalCost}
         value={summary?.totalCostYen ?? null}
         reduceMotion={reduceMotion}
+        subtitle="累计支出"
       />
       <Figure
         label={TERMS.totalIncome}
         value={summary?.totalIncomeYen ?? null}
         reduceMotion={reduceMotion}
+        subtitle="售出到账"
       />
       <Figure
         label={TERMS.netProfit}
         value={net}
         reduceMotion={reduceMotion}
         tone={net === null ? undefined : net >= 0 ? "positive" : "negative"}
+        subtitle="全周期利润"
       />
       {failed && (
         <button

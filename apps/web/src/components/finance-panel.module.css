@@ -2,80 +2,111 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 18px 18px 16px;
-  border-radius: 24px;
-  color: #f5f5f7;
-  background:
-    radial-gradient(120% 160% at 12% 0%, rgb(0 113 227 / 0.4) 0%, transparent 55%),
-    radial-gradient(120% 160% at 88% 100%, rgb(52 199 123 / 0.28) 0%, transparent 55%),
-    linear-gradient(135deg, #232326 0%, #1d1d1f 58%, #26262b 100%);
-  box-shadow:
-    0 18px 36px -18px rgb(29 29 31 / 0.45),
-    inset 0 1px 0 rgb(255 255 255 / 0.08);
-  overflow: hidden;
+  gap: 12px;
+  padding: 0;
+  margin-top: -36px;
+  z-index: 10;
+  overflow: visible;
+}
+
+@media (max-width: 639px) {
+  .panel {
+    gap: 8px;
+    margin-top: -28px;
+  }
 }
 
 .figure {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
   min-width: 0;
+  padding: 18px 16px 16px;
+  border-radius: 20px;
+  color: #f5f5f7;
+  background: #101014;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 12px 28px -6px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+@media (max-width: 639px) {
+  .figure {
+    padding: 14px 10px 12px;
+    border-radius: 18px;
+  }
 }
 
 .label {
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: rgb(245 245 247 / 0.55);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #8e8e93;
 }
 
 .value {
-  font-size: clamp(19px, 5.4vw, 30px);
+  font-size: clamp(18px, 4.8vw, 28px);
   font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  color: #ffffff;
 }
 
 /* Glyph-count step-downs (see Figure): 10-11 glyphs, then 12+. */
 .valueLong {
-  font-size: clamp(16px, 4.6vw, 24px);
+  font-size: clamp(15px, 4.2vw, 22px);
 }
 
 .valueXlong {
-  font-size: clamp(14px, 4vw, 20px);
+  font-size: clamp(13px, 3.6vw, 18px);
 }
 
 .positive {
-  color: #4ade80;
+  color: #34c759;
 }
 
 .negative {
-  color: #ff6b61;
+  color: #ffffff;
+}
+
+.subtitle {
+  font-size: 11px;
+  font-weight: 500;
+  color: #71717a;
+  margin-top: 2px;
 }
 
 .retry {
   position: absolute;
-  top: 10px;
-  right: 12px;
+  top: -34px;
+  right: 0;
   min-height: 28px;
   padding-inline: 10px;
   border-radius: 999px;
-  border: 1px solid rgb(255 255 255 / 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   font-size: 11px;
   font-weight: 700;
-  color: rgb(245 245 247 / 0.85);
-  background: transparent;
+  color: #8e8e93;
+  background: rgba(16, 16, 20, 0.6);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.retry:hover {
+  color: #ffffff;
 }
 
 @media (max-width: 380px) {
   .panel {
-    padding: 14px 14px 12px;
     gap: 6px;
   }
 
   .label {
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
   }
 }

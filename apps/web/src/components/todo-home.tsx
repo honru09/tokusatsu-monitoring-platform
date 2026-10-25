@@ -236,31 +236,66 @@ export function TodoHome({
   const hasError = Boolean(collaborationError || ordersError);
   const allClear = !loading && !hasError && total === 0;
 
+  const statusStatement = useMemo(() => {
+    if (hasError) {
+      return "协作或库存同步异常，请点击重试。";
+    }
+    if (loading && total === 0) {
+      return "正在整理待处理事项…";
+    }
+    if (total === 0) {
+      return `${TERMS.allClear}，当前没有积压待办。`;
+    }
+    const latestRound = rounds[0];
+    const partnerName = latestRound?.createdBy?.name || "搭档";
+    const roundCount = latestRound?.items?.length ?? 0;
+    if (roundCount > 0) {
+      return `${partnerName}最新分享了 ${roundCount} 件新候选，当前共 ${total} 件待处理。`;
+    }
+    if (queues.review.length > 0) {
+      return `当前共 ${total} 件待处理，其中 ${queues.review.length} 件来自最新分享。`;
+    }
+    return `当前共 ${total} 件待处理，各项决策队列运转正常。`;
+  }, [hasError, loading, total, rounds, queues.review.length]);
+
   return (
     <section className={styles.home} aria-labelledby="todo-title">
       <header className={styles.header}>
-        <WorkspaceHeaderArt art="todo" />
-        <div className="min-w-0 flex-1">
-          <h2 id="todo-title">{TERMS.todo}</h2>
-          <p>
-            {loading
-              ? "正在整理待处理事项…"
-              : total > 0
-                ? `${total} 件待处理`
-                : "今天没有积压"}
-          </p>
-        </div>
-        <button
-          type="button"
-          className={styles.refresh}
-          disabled={loading}
-          onClick={() => void load()}
-        >
-          {loading ? "刷新中…" : "刷新"}
-        </button>
-      </header>
+        <div className={styles.heroVisual}>
+          <div className={styles.heroTopRow}>
+            <div className={styles.heroTagGroup}>
+              <WorkspaceHeaderArt art="todo" />
+              <div className={styles.heroBadge}>
+                <span className={styles.heroBadgeDot} />
+                <span>{TERMS.todo}</span>
+                <span className={styles.heroPendingChip}>
+                  {loading
+                    ? "同步中…"
+                    : hasError
+                      ? "同步异常"
+                      : total > 0
+                        ? `${total} 件待处理`
+                        : "今天没有积压"}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className={styles.refresh}
+              disabled={loading}
+              onClick={() => void load()}
+            >
+              {loading ? "刷新中…" : "刷新"}
+            </button>
+          </div>
 
-      <BrandHomeArt />
+          <h2 id="todo-title" className={styles.heroStatement}>
+            {statusStatement}
+          </h2>
+
+          <BrandHomeArt />
+        </div>
+      </header>
 
       <FinancePanel apiBaseUrl={apiBaseUrl} refreshKey={purchasedItemIds} />
 
