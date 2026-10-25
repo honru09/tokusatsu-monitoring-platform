@@ -5210,8 +5210,8 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 .assistant-chat-heading {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 18px 4px 22px;
+  gap: 16px;
+  padding: 16px 4px 24px;
 }
 .assistant-chat-mark {
   display: grid;
