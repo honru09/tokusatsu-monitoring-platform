@@ -44,8 +44,6 @@ import {
   type PurchaseRegistrationItem,
 } from "../components/purchase-registration-form";
 import { MarketIntelWorkspace } from "../components/market-intel-workspace";
-import { CostToolWorkspace } from "../components/cost-tool-workspace";
-import { CostEstimatePanel } from "../components/cost-estimate-panel";
 import { YahooDiscount } from "../components/yahoo-discount";
 import { InventoryOrdersWorkspace } from "../components/inventory-orders-workspace";
 import { PurchaseRecordsWorkspace } from "../components/purchase-records-workspace";
@@ -67,10 +65,26 @@ import {
   type ManagerAccount,
 } from "../components/manager-account-gate";
 import { WorkspaceHistoryOrb } from "../components/workspace-history-orb";
-import {
-  HomeMarketOverview,
-  type MarketOverviewData,
-} from "../components/home-market-overview";
+/** Market slice of the monitoring overview payload. The type used to
+ * live with the retired home overview module; the payload itself still
+ * feeds the todo system queue and the monitoring workspace. */
+type MarketOverviewData = {
+  activeTotal: number;
+  valueKingTotal?: number;
+  categories: { key: string; count: number }[];
+  collections?: { key: string; categoryIp: string; count: number }[];
+  listingTypes: { key: string; count: number }[];
+  sources: { key: string; displayName: string; count: number }[];
+  discoveryTrend: { date: string; count: number }[];
+  xianyuComparison?: {
+    total: number;
+    priceBands: {
+      key: "lt_300" | "300_999" | "gte_1000";
+      label: string;
+      count: number;
+    }[];
+  };
+};
 import {
   marketplaceSourceName as sourceName,
   marketplaceSourceOptions,
@@ -123,7 +137,6 @@ import {
   legacyCatalogView,
   legacyWorkspaceRedirect,
   legacyPurchasesTab,
-  legacyCostToolSegment,
   navigateWorkspaceState,
   parsePurchasesTabParam,
   parseRecentWorkspaceEntries,
@@ -134,7 +147,6 @@ import {
   withWorkspaceHistoryState,
   type CatalogView,
   type PurchasesTab,
-  type CostToolSegment,
   type RecentWorkspaceEntry,
   type Workspace,
   type WorkspaceNavigationState,
@@ -2629,13 +2641,6 @@ function DetailDrawer({
                   <dd>{cost.unit == null ? "待确认" : fmtYen(cost.unit)}</dd>
                 </div>
               </dl>
-              <CostEstimatePanel
-                priceYen={item.priceCurrent}
-                shippingYen={item.shippingFee}
-                quantity={item.quantityEst ?? undefined}
-                exchangeRate={exchangeRate}
-                listingType={item.listingType}
-              />
               {auction && (
                 <div className="detail-auction" aria-label="拍卖倒计时">
                   <span>
@@ -3744,8 +3749,6 @@ export default function Dashboard() {
     useState<FavoriteChangeBatch>();
   const [page, setPage] = useState(1);
   const [overview, setOverview] = useState<MonitoringOverview | null>(null);
-  const [overviewError, setOverviewError] = useState("");
-  const [overviewRefreshVersion, setOverviewRefreshVersion] = useState(0);
   const [monitoringCategories, setMonitoringCategories] = useState<MonitoringCategory[]>([]);
   const loadMonitoringCategories = useCallback(async () => {
     try {
@@ -3857,8 +3860,6 @@ export default function Dashboard() {
   const [workspace, setWorkspace] = useState<Workspace>(DEFAULT_WORKSPACE);
   const [catalogView, setCatalogView] = useState<CatalogView>("browse");
   const [purchasesTab, setPurchasesTab] = useState<PurchasesTab>("records");
-  const [costToolSegment, setCostToolSegment] =
-    useState<CostToolSegment>("calculator");
   const chatVisitedRef = useRef(false);
   if (workspace === "collaboration") chatVisitedRef.current = true;
   const [workspaceTrail, setWorkspaceTrail] = useState<Workspace[]>([]);
@@ -4183,12 +4184,10 @@ export default function Dashboard() {
       );
       // Pre-merge deep links (?workspace=orders, or
       // ?workspace=purchases&tab=orders) land on the inventory tab of
-      // the merged purchases workspace; ?workspace=calculator/logistics
-      // land on the matching segment of the merged cost tool.
+      // the merged purchases workspace. The removed cost tool's ids
+      // (cost-tool / calculator / logistics) resolve through
+      // legacyRedirect to the workbench.
       const legacyTab = legacyPurchasesTab(
-        new URLSearchParams(window.location.search).get("workspace"),
-      );
-      const legacySegment = legacyCostToolSegment(
         new URLSearchParams(window.location.search).get("workspace"),
       );
       const fromUrl =
@@ -4197,7 +4196,6 @@ export default function Dashboard() {
         ) ??
         (legacyView ? ("catalog" as const) : null) ??
         (legacyTab ? ("purchases" as const) : null) ??
-        (legacySegment ? ("cost-tool" as const) : null) ??
         legacyRedirect ??
         DEFAULT_WORKSPACE;
       if (legacyView) setCatalogView(legacyView);
@@ -4208,7 +4206,6 @@ export default function Dashboard() {
         );
         if (tabParam) setPurchasesTab(tabParam);
       }
-      if (legacySegment) setCostToolSegment(legacySegment);
       const initial = initialWorkspaceNavigationState(fromUrl);
       workspaceStateRef.current = initial;
       workspaceHistoryDepthRef.current = 0;
@@ -4281,12 +4278,10 @@ export default function Dashboard() {
       );
       // Pre-merge deep links (?workspace=orders, or
       // ?workspace=purchases&tab=orders) land on the inventory tab of
-      // the merged purchases workspace; ?workspace=calculator/logistics
-      // land on the matching segment of the merged cost tool.
+      // the merged purchases workspace. The removed cost tool's ids
+      // (cost-tool / calculator / logistics) resolve through
+      // legacyRedirect to the workbench.
       const legacyTab = legacyPurchasesTab(
-        new URLSearchParams(window.location.search).get("workspace"),
-      );
-      const legacySegment = legacyCostToolSegment(
         new URLSearchParams(window.location.search).get("workspace"),
       );
       const fromUrl =
@@ -4295,7 +4290,6 @@ export default function Dashboard() {
         ) ??
         (legacyView ? ("catalog" as const) : null) ??
         (legacyTab ? ("purchases" as const) : null) ??
-        (legacySegment ? ("cost-tool" as const) : null) ??
         legacyRedirect ??
         DEFAULT_WORKSPACE;
       if (legacyView) setCatalogView(legacyView);
@@ -4306,7 +4300,6 @@ export default function Dashboard() {
         );
         if (tabParam) setPurchasesTab(tabParam);
       }
-      if (legacySegment) setCostToolSegment(legacySegment);
       const next = fromHistory ?? {
         ...initialWorkspaceNavigationState(fromUrl),
         depth: 0,
@@ -5465,9 +5458,9 @@ export default function Dashboard() {
         });
         if (!response.ok) throw new Error("市场数据暂时无法更新，请重试");
         const data = (await response.json()) as MonitoringOverview;
-        if (active) { setOverview(data); setOverviewError(""); }
+        if (active) setOverview(data);
       } catch {
-        if (active) setOverviewError("市场数据暂时无法更新，请重试");
+        /* the monitoring workspace keeps its own actionable error state */
       }
     }
     void refreshOverview();
@@ -5476,7 +5469,7 @@ export default function Dashboard() {
       active = false;
       clearInterval(timer);
     };
-  }, [overviewRefreshVersion]);
+  }, []);
   useEffect(() => {
     if (
       !filtersOpen &&
@@ -5796,12 +5789,6 @@ export default function Dashboard() {
   function openPurchasesTab(tab: PurchasesTab) {
     setPurchasesTab(tab);
     if (workspace !== "purchases") navigateWorkspace("purchases");
-  }
-
-  /** Open the merged cost tool with a segment preselected. */
-  function openCostTool(segment: CostToolSegment) {
-    setCostToolSegment(segment);
-    if (workspace !== "cost-tool") navigateWorkspace("cost-tool");
   }
 
   function navigateWorkspace(next: Workspace) {
@@ -6634,7 +6621,6 @@ export default function Dashboard() {
         : [
               "purchases",
               "intel",
-              "cost-tool",
               "workbench",
               "monitoring",
               "resale",
@@ -6650,20 +6636,10 @@ export default function Dashboard() {
       onKeyDownCapture={() => { workspacePointerInputRef.current = false; }}
     >
       <a
-        href={
-          workspace === "cost-tool"
-            ? "#cost-tool-title"
-            : workspace === "catalog"
-              ? "#inventory"
-              : "#workspace-content"
-        }
+        href={workspace === "catalog" ? "#inventory" : "#workspace-content"}
         className="skip-link"
       >
-        {workspace === "cost-tool"
-          ? "跳到算账"
-          : workspace === "catalog"
-            ? "跳到商品列表"
-            : "跳到当前工作区"}
+        {workspace === "catalog" ? "跳到商品列表" : "跳到当前工作区"}
       </a>
       <header
         className={`ios-header procurement-header ${workspaceTrail.length > 0 ? "procurement-header-back" : ""}`}
@@ -6779,6 +6755,7 @@ export default function Dashboard() {
           <WorkbenchWorkspace
             onNavigate={navigateWorkspace}
             onOpenDisliked={() => openCatalogView("disliked")}
+            onOpenAnalysis={() => setAnalysisOpen(true)}
             accounts={managerAccounts}
             activeManagerId={activeManagerId}
             onSwitchIdentity={() => setAccountGateOpen(true)}
@@ -6793,16 +6770,6 @@ export default function Dashboard() {
           />
         )}
         {workspace === "intel" && <MarketIntelWorkspace apiBaseUrl={API} />}
-        {workspace === "cost-tool" && (
-          <CostToolWorkspace
-            key={activeManagerId}
-            apiBaseUrl={API}
-            managerId={activeManagerId}
-            exchangeRate={exchangeRate?.rate}
-            segment={costToolSegment}
-            onSegmentChange={setCostToolSegment}
-          />
-        )}
         {workspace === "inventory" && (
           <TodoHome
             apiBaseUrl={API}
@@ -6820,45 +6787,7 @@ export default function Dashboard() {
             }}
             onOpenInventory={() => openPurchasesTab("orders")}
             onPendingCountChange={setTodoCount}
-          >
-            <details className="todo-overview">
-              <summary>
-                {TERMS.overview}
-                <span>市场与筛选</span>
-              </summary>
-              <HomeMarketOverview
-                data={overview?.market}
-                error={overviewError}
-                onRetry={() => setOverviewRefreshVersion((version) => version + 1)}
-                updatedAt={overview?.serverTime}
-                activeCategory={filters.ip || "all"}
-                activeCollection={filters.collection}
-                customCategories={monitoringCategories}
-                activeCustomCategoryId={filters.monitoringCategoryId}
-                onSelectCustomCategory={openMonitoringCategory}
-                activeListingType={listingMode}
-                onSelectCategory={openCatalogCategory}
-                onSelectCollection={openCatalogCollection}
-                onSelectListingType={openCatalogListingMode}
-                onOpenInventory={openCatalog}
-                onOpenValueKings={openValueKingCatalog}
-                onOpenUrgentAuctions={openUrgentAuctionCatalog}
-                onOpenXianyuComparison={openXianyuComparisonCatalog}
-                onOpenWorkspace={(target) => {
-                  // The overview's purchase entries name the records
-                  // tab; the orders tab has its own entry below.
-                  if (target === "purchases") openPurchasesTab("records");
-                  else if (target === "cost-tool") openCostTool("logistics");
-                  else navigateWorkspace(target);
-                }}
-                onOpenCatalogView={openCatalogView}
-                onOpenPurchasesTab={openPurchasesTab}
-                onOpenAnalysis={() => setAnalysisOpen(true)}
-                hasAnalysis={Boolean(analysis)}
-                urgentAuctionCount={urgentCount}
-              />
-            </details>
-          </TodoHome>
+          />
         )}
         {workspace === "purchases" && (
           <div className="procurement-workspace">
@@ -8475,7 +8404,6 @@ export default function Dashboard() {
         <PurchaseRegistrationForm
           apiBaseUrl={API}
           accountId={activeManagerId || undefined}
-          exchangeRate={exchangeRate?.rate}
           items={purchaseRegistration.items}
           candidateItems={purchaseRegistration.candidateItems}
           bundle={purchaseRegistration.bundle ?? null}

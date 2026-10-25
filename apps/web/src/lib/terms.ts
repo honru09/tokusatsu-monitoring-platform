@@ -22,10 +22,8 @@ export const TERMS = {
   links: "链接导入",
   purchases: "购买记录",
   orders: "库存订单",
+  shipping: "发货",
   procurement: "采购",
-  calculator: "采购测算",
-  logistics: "物流",
-  costTool: "算账",
   intel: "市场情报",
   resale: "转售",
   monitoring: "监控设置",
@@ -61,6 +59,11 @@ export const TERMS = {
   aiAssistant: "AI 助手",
   aiQuota: "AI 额度",
   aiSuggestion: "AI 建议",
+
+  // Finance panel (home)
+  totalCost: "总支出",
+  totalIncome: "总收入",
+  netProfit: "净利润",
 
   // Todo home queues
   queueReview: "待评估",

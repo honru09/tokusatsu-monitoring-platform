@@ -8,6 +8,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { LoadError } from "./load-error";
+import { FinancePanel } from "./finance-panel";
 import { EmptyState } from "./empty-state";
 import { ImageGlyph, SafeItemImage } from "./item-image";
 import { TERMS } from "../lib/terms";
@@ -46,8 +47,6 @@ type TodoHomeProps = {
   /** 库存 is the orders tab of the merged 采购 workspace now. */
   onOpenInventory?: () => void;
   onPendingCountChange: (count: number) => void;
-  /** The collapsed market overview rendered below the queues. */
-  children?: ReactNode;
 };
 
 export function TodoHome({
@@ -61,7 +60,6 @@ export function TodoHome({
   onRegisterItem,
   onOpenInventory,
   onPendingCountChange,
-  children,
 }: TodoHomeProps) {
   const [rounds, setRounds] = useState<ShareRoundLike[]>([]);
   const [messages, setMessages] = useState<ShareMessageLike[]>([]);
@@ -233,6 +231,8 @@ export function TodoHome({
         </button>
       </header>
 
+      <FinancePanel apiBaseUrl={apiBaseUrl} />
+
       {loading && total === 0 && (
         <div className="skeleton-rows" aria-hidden="true">
           {[0, 1, 2].map((row) => (
@@ -378,8 +378,6 @@ export function TodoHome({
           ))}
         </QueueSection>
       )}
-
-      {children}
     </section>
   );
 }

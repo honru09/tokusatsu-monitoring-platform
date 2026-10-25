@@ -3,12 +3,10 @@ import {
   applyWorkspaceSearchParam,
   goBackWorkspaceState,
   initialWorkspaceNavigationState,
-  isCostToolSegment,
   legacyCatalogView,
   legacyPurchasesTab,
   legacyWorkspaceRedirect,
   parsePurchasesTabParam,
-  legacyCostToolSegment,
   navigateWorkspaceState,
   parseWorkspaceHistoryState,
   parseRecentWorkspaceEntries,
@@ -136,7 +134,7 @@ describe("workspace navigation stack", () => {
       { workspace: "workbench", trail: [] },
       "purchases",
     );
-    const tertiary = navigateWorkspaceState(secondary, "cost-tool");
+    const tertiary = navigateWorkspaceState(secondary, "resale");
 
     expect(goBackWorkspaceState(tertiary)).toEqual(secondary);
     expect(goBackWorkspaceState(secondary)).toEqual({
@@ -214,23 +212,16 @@ describe("workspace URL deep-link", () => {
     });
   });
 
-  it("maps pre-merge cost workspace ids to their cost-tool segment", () => {
-    // Calculator and logistics are segments of 算账 now, not pages.
+  it("sends removed cost-tool links to the workbench", () => {
+    // 算账 was removed outright; its ids and its calculator/logistics
+    // predecessors all land on the workbench like other retired pages.
     expect(parseWorkspaceParam("calculator")).toBeNull();
     expect(parseWorkspaceParam("logistics")).toBeNull();
-    expect(parseWorkspaceParam("cost-tool")).toBe("cost-tool");
-    expect(legacyCostToolSegment("calculator")).toBe("calculator");
-    expect(legacyCostToolSegment("logistics")).toBe("logistics");
-    expect(legacyCostToolSegment("cost-tool")).toBeNull();
-    expect(legacyCostToolSegment("catalog")).toBeNull();
-    expect(legacyCostToolSegment(null)).toBeNull();
-    expect(isCostToolSegment("calculator")).toBe(true);
-    expect(isCostToolSegment("logistics")).toBe(true);
-    expect(isCostToolSegment("cost-tool")).toBe(false);
-    expect(initialWorkspaceNavigationState("cost-tool")).toEqual({
-      workspace: "cost-tool",
-      trail: ["workbench"],
-    });
+    expect(parseWorkspaceParam("cost-tool")).toBeNull();
+    expect(legacyWorkspaceRedirect("cost-tool")).toBe("workbench");
+    expect(legacyWorkspaceRedirect("calculator")).toBe("workbench");
+    expect(legacyWorkspaceRedirect("logistics")).toBe("workbench");
+    expect(parsePurchasesTabParam("shipping")).toBe("shipping");
   });
 
   it("omits inventory from the query so the default home stays clean", () => {
@@ -250,7 +241,7 @@ describe("workspace URL deep-link", () => {
 
   it("round-trips nested navigation through browser history without discarding framework state", () => {
     const entry = {
-      workspace: "cost-tool" as const,
+      workspace: "resale" as const,
       trail: ["workbench", "purchases"] as const,
       depth: 2,
       scrollY: 318,

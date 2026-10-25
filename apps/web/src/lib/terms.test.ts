@@ -19,21 +19,27 @@ describe("canonical terms", () => {
     expect(new Set([TERMS.cart, TERMS.bundle, TERMS.purchases]).size).toBe(3);
   });
 
-  it("names the merged procurement workspace and its two tabs", () => {
-    // 采购 is the one workspace; 购买记录 and 库存订单 are its tabs,
-    // not separate pages, so all three names stay distinct.
+  it("names the merged procurement workspace and its three tabs", () => {
+    // 采购 is the one workspace; 购买记录 / 库存订单 / 发货 are its
+    // tabs, not separate pages, so all four names stay distinct.
     expect(TERMS.procurement).toBe("采购");
     expect(TERMS.purchases).toBe("购买记录");
     expect(TERMS.orders).toBe("库存订单");
+    expect(TERMS.shipping).toBe("发货");
     expect(
-      new Set([TERMS.procurement, TERMS.purchases, TERMS.orders]).size,
-    ).toBe(3);
+      new Set([
+        TERMS.procurement,
+        TERMS.purchases,
+        TERMS.orders,
+        TERMS.shipping,
+      ]).size,
+    ).toBe(4);
   });
 
-  it("names the merged cost tool and keeps its segment labels", () => {
-    expect(TERMS.costTool).toBe("算账");
-    expect(TERMS.calculator).toBe("采购测算");
-    expect(TERMS.logistics).toBe("物流");
+  it("names the home finance panel figures", () => {
+    expect(TERMS.totalCost).toBe("总支出");
+    expect(TERMS.totalIncome).toBe("总收入");
+    expect(TERMS.netProfit).toBe("净利润");
   });
 
   it("names the todo queues and the unverifiable state", () => {

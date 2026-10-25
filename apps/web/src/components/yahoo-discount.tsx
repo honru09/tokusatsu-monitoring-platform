@@ -1,4 +1,4 @@
-import { yahooFleamarketDiscount } from "../lib/procurement-calculator";
+import { yahooFleamarketDiscount } from "../lib/yahoo-discount";
 
 export function YahooDiscount({
   sourceKey,

@@ -17,8 +17,7 @@ import type { ManagerAccount } from "./manager-account-gate";
  * the service split.
  */
 const toolEntries = [
-  ["purchases", TERMS.procurement, "购买记录、到货与库存"],
-  ["cost-tool", TERMS.costTool, "核算报价、成本与物流利润"],
+  ["purchases", TERMS.procurement, "购买记录、库存与发货"],
   ["resale", TERMS.resale, "选品、编辑、发布与维护"],
 ] as const;
 
@@ -27,10 +26,13 @@ const moreEntries = [
   ["assistant", TERMS.aiAssistant, "向 AI 提问、整理与翻译"],
 ] as const;
 
-export function WorkbenchWorkspace({onNavigate, onOpenDisliked, accounts, activeManagerId, onSwitchIdentity, onOpenChat, activeCount, cartCount, language, onToggleLanguage, onOpenSettings, apiBaseUrl, accountId}: {
+export function WorkbenchWorkspace({onNavigate, onOpenDisliked, onOpenAnalysis, accounts, activeManagerId, onSwitchIdentity, onOpenChat, activeCount, cartCount, language, onToggleLanguage, onOpenSettings, apiBaseUrl, accountId}: {
   onNavigate: (workspace: Workspace) => void;
   /** 不感兴趣 is a catalog view now; the entry opens it preselected. */
   onOpenDisliked: () => void;
+  /** AI 采购分析 used to hang off the retired home overview; its
+   * dialog now opens from here, next to the AI assistant entry. */
+  onOpenAnalysis?: () => void;
   /** The account section: the former standalone account page, folded in. */
   accounts?: ManagerAccount[];
   activeManagerId?: string;
@@ -82,7 +84,7 @@ export function WorkbenchWorkspace({onNavigate, onOpenDisliked, accounts, active
     </section>
     <section className={styles.group} data-scroll-entry aria-labelledby="workbench-more-title">
       <h3 id="workbench-more-title">更多</h3>
-      <AppleActionRail>{moreEntries.map(([key,label,detail])=><button type="button" key={key} className={styles.entry} onClick={()=>onNavigate(key)}><span><strong>{label}</strong><small>{detail}</small></span><b aria-hidden="true">›</b></button>)}</AppleActionRail>
+      <AppleActionRail>{moreEntries.map(([key,label,detail])=><button type="button" key={key} className={styles.entry} onClick={()=>onNavigate(key)}><span><strong>{label}</strong><small>{detail}</small></span><b aria-hidden="true">›</b></button>)}{onOpenAnalysis && <button type="button" className={styles.entry} onClick={onOpenAnalysis}><span><strong>AI 采购分析</strong><small>按需读取当前在售库</small></span><b aria-hidden="true">›</b></button>}</AppleActionRail>
     </section>
     <section className={styles.group} data-scroll-entry aria-labelledby="workbench-settings-title">
       <h3 id="workbench-settings-title">设置</h3>

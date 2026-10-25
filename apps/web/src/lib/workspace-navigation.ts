@@ -5,7 +5,6 @@ export type Workspace =
   | "intel"
   | "monitoring"
   | "resale"
-  | "cost-tool"
   | "assistant"
   | "collaboration"
   | "workbench";
@@ -13,14 +12,18 @@ export type Workspace =
 /**
  * Workspaces retired as standalone pages: the account page folded into
  * the workbench account section, the AI status page became the settings
- * section, and the operations console left the product with the service
- * split. Bookmarks and stored recent entries for these ids land on the
- * workbench, where their content lives now.
+ * section, the operations console left the product with the service
+ * split, and the 算账 cost tool (plus its calculator/logistics
+ * predecessors) was removed outright. Bookmarks and stored recent
+ * entries for these ids land on the workbench.
  */
 const LEGACY_WORKSPACE_REDIRECTS: Record<string, Workspace> = {
   profile: "workbench",
   ai: "workbench",
   operations: "workbench",
+  "cost-tool": "workbench",
+  calculator: "workbench",
+  logistics: "workbench",
 };
 
 export function legacyWorkspaceRedirect(
@@ -69,9 +72,13 @@ export function legacyCatalogView(
  * orders used to be standalone workspaces; they are tabs of the one
  * 采购 page now, not separate pages.
  */
-export type PurchasesTab = "records" | "orders";
+export type PurchasesTab = "records" | "orders" | "shipping";
 
-export const PURCHASES_TABS: readonly PurchasesTab[] = ["records", "orders"];
+export const PURCHASES_TABS: readonly PurchasesTab[] = [
+  "records",
+  "orders",
+  "shipping",
+];
 
 /**
  * Pre-merge workspace id for the inventory tab: `?workspace=orders`
@@ -92,46 +99,6 @@ export function parsePurchasesTabParam(
   return (PURCHASES_TABS as readonly string[]).includes(value)
     ? (value as PurchasesTab)
     : null;
-}
-
-/**
- * Segments inside the 算账 (cost-tool) workspace. The procurement
- * calculator and the logistics profit view used to be standalone
- * workspaces; they are segments of the one cost tool now.
- */
-export type CostToolSegment = "calculator" | "logistics";
-
-export const COST_TOOL_SEGMENTS: readonly CostToolSegment[] = [
-  "calculator",
-  "logistics",
-];
-
-export const DEFAULT_COST_TOOL_SEGMENT: CostToolSegment = "calculator";
-
-/**
- * Pre-merge workspace ids that may still appear in bookmarks, stored
- * recent-workspace entries or shared links, mapped to the cost-tool
- * segment they became. Both legacy ids land on the cost-tool workspace.
- */
-const LEGACY_WORKSPACE_COST_TOOL_SEGMENTS: Record<string, CostToolSegment> = {
-  calculator: "calculator",
-  logistics: "logistics",
-};
-
-export function legacyCostToolSegment(
-  value: string | null | undefined,
-): CostToolSegment | null {
-  if (typeof value !== "string") return null;
-  return LEGACY_WORKSPACE_COST_TOOL_SEGMENTS[value] ?? null;
-}
-
-export function isCostToolSegment(
-  value: string | null | undefined,
-): value is CostToolSegment {
-  return (
-    typeof value === "string" &&
-    (COST_TOOL_SEGMENTS as readonly string[]).includes(value)
-  );
 }
 
 export type WorkspaceNavigationState = {
@@ -164,7 +131,6 @@ export const ALL_WORKSPACES = [
   "intel",
   "monitoring",
   "resale",
-  "cost-tool",
   "assistant",
   "collaboration",
   "workbench",

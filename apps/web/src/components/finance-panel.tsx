@@ -1,0 +1,132 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "motion/react";
+import { TERMS } from "../lib/terms";
+import { readFetchError } from "../lib/fetch-error";
+import styles from "./finance-panel.module.css";
+
+export type FinanceSummary = {
+  totalCostYen: number;
+  totalIncomeYen: number;
+  netProfitYen: number;
+};
+
+const yen = (value: number) =>
+  `${value < 0 ? "−" : ""}¥${Math.abs(Math.round(value)).toLocaleString("ja-JP")}`;
+
+/** Ease-out count-up; snaps straight to the value under reduced motion. */
+function useCountUp(target: number | null, reduceMotion: boolean) {
+  const [display, setDisplay] = useState(0);
+  const frameRef = useRef(0);
+  useEffect(() => {
+    if (target === null) return;
+    if (reduceMotion) {
+      setDisplay(target);
+      return;
+    }
+    const started = performance.now();
+    const duration = 900;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - started) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(target * eased));
+      if (progress < 1) frameRef.current = requestAnimationFrame(tick);
+    };
+    frameRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [target, reduceMotion]);
+  return display;
+}
+
+function Figure({
+  label,
+  value,
+  reduceMotion,
+  tone,
+}: {
+  label: string;
+  value: number | null;
+  reduceMotion: boolean;
+  tone?: "positive" | "negative";
+}) {
+  const display = useCountUp(value, reduceMotion);
+  return (
+    <div className={styles.figure}>
+      <span className={styles.label}>{label}</span>
+      <strong
+        className={`${styles.value} ${tone ? styles[tone] : ""}`}
+        aria-label={value === null ? undefined : `${label} ${yen(value)}`}
+      >
+        {value === null ? "—" : yen(display)}
+      </strong>
+    </div>
+  );
+}
+
+/**
+ * The home money strip: one pool, three numbers - everything ever
+ * spent on purchases, everything ever taken in from sales, and the
+ * difference. Pinned above the todo queues; no copy beyond the labels.
+ */
+export function FinancePanel({ apiBaseUrl }: { apiBaseUrl: string }) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const [summary, setSummary] = useState<FinanceSummary | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setFailed(false);
+    void (async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/finance/summary`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok)
+          throw new Error(await readFetchError(response, "财务汇总加载失败"));
+        const payload = (await response.json()) as FinanceSummary;
+        setSummary({
+          totalCostYen: payload.totalCostYen ?? 0,
+          totalIncomeYen: payload.totalIncomeYen ?? 0,
+          netProfitYen: payload.netProfitYen ?? 0,
+        });
+      } catch {
+        if (!controller.signal.aborted) setFailed(true);
+      }
+    })();
+    return () => controller.abort();
+  }, [apiBaseUrl, attempt]);
+
+  const net = summary?.netProfitYen ?? null;
+  return (
+    <section className={styles.panel} aria-label="财务汇总">
+      <Figure
+        label={TERMS.totalCost}
+        value={summary?.totalCostYen ?? null}
+        reduceMotion={reduceMotion}
+      />
+      <Figure
+        label={TERMS.totalIncome}
+        value={summary?.totalIncomeYen ?? null}
+        reduceMotion={reduceMotion}
+      />
+      <Figure
+        label={TERMS.netProfit}
+        value={net}
+        reduceMotion={reduceMotion}
+        tone={net === null ? undefined : net >= 0 ? "positive" : "negative"}
+      />
+      {failed && (
+        <button
+          type="button"
+          className={styles.retry}
+          onClick={() => setAttempt((value) => value + 1)}
+        >
+          重试
+        </button>
+      )}
+    </section>
+  );
+}
