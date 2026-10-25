@@ -6848,6 +6848,97 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   font-size: 13px;
 }
 
+.negotiation-script-panel {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 12px;
+}
+
+.negotiation-script-generate {
+  min-height: 44px;
+  border-radius: 13px;
+  background: #07080a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.negotiation-script-generate:disabled {
+  opacity: 0.45;
+}
+
+.negotiation-script-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 13px;
+  background: rgba(255, 59, 48, 0.09);
+  color: #c92d25;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.negotiation-script-group {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 0 0 1px rgba(7, 8, 10, 0.045);
+}
+
+.negotiation-script-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.negotiation-script-group-head strong {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.negotiation-script-group-head > span:not(.negotiation-script-fallback-badge) {
+  color: rgba(7, 8, 10, 0.48);
+  font-size: 11px;
+  font-weight: 620;
+}
+
+.negotiation-script-group-head button {
+  min-height: 36px;
+  padding-inline: 12px;
+  border-radius: 999px;
+  background: rgba(7, 8, 10, 0.06);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.negotiation-script-fallback-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(7, 8, 10, 0.06);
+  color: rgba(7, 8, 10, 0.55);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.negotiation-script-text {
+  margin: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(7, 8, 10, 0.04);
+  color: rgba(7, 8, 10, 0.85);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.625;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @keyframes negotiation-backdrop-in {
   from {
     opacity: 0;
