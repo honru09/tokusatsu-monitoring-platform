@@ -1,5 +1,6 @@
 "use client";
 import { YahooDiscount } from "./yahoo-discount";
+import { LoadError } from "./load-error";
 import { useFloatingControl } from "../lib/use-floating-control";
 
 import {
@@ -2107,18 +2108,13 @@ export function CollaborationChatWorkspace({
 
       <form className="collaboration-composer" onSubmit={send}>
         {(error || reactionError) && (
-          <div className="collaboration-error" role="alert" data-testid="load-error">
-            <span>{reactionError || error}</span>
-            {error && (
-              <button
-                type="button"
-                data-testid="retry-collaboration"
-                onClick={() => void loadMessages()}
-              >
-                重试
-              </button>
-            )}
-          </div>
+          <LoadError
+            message={reactionError || error}
+            onRetry={error ? () => void loadMessages() : undefined}
+            retryTestId="retry-collaboration"
+            className="collaboration-error"
+            actionClassName={null}
+          />
         )}
         {attachedBundleItems.length > 0 && (
           <motion.div

@@ -53,7 +53,9 @@ export function AiSystemWorkspace({ apiBaseUrl, onOpenChat, onOpenProducts }: { 
       <button type="button" disabled={loading} aria-busy={loading} onClick={() => void load()}>{loading && data ? "刷新中…" : "刷新状态"}</button>
     </header>
     <AnimatePresence initial={false}>
-      {error && <motion.p key="error" role="alert" className={styles.error} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : motionTokens.duration.fast }}>{error}</motion.p>}
+      {error && <motion.p key="error" role="alert" className={styles.error} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : motionTokens.duration.fast }}>{error}{" "}
+        <button type="button" className={styles.errorRetry} disabled={loading} onClick={() => void load()}>重试</button>
+      </motion.p>}
     </AnimatePresence>
     {loading && !data && <div className={styles.loading} role="status"><span />正在读取服务状态…</div>}
     {data && <>

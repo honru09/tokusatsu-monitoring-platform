@@ -2,6 +2,7 @@
 
 import { useGSAP } from "@gsap/react";
 import { PrimaryNavigation } from "../components/primary-navigation";
+import { LoadError } from "../components/load-error";
 import { WorkbenchWorkspace } from "../components/workbench-workspace";
 import { EditorialReadingProgress } from "../components/editorial-reading-progress";
 import gsap from "gsap";
@@ -1877,21 +1878,13 @@ function FavoritesWorkspace({
         </div>
       </div>
       {error && (
-        <div
-          role="alert"
-          data-testid="load-error"
+        <LoadError
+          message={error}
+          onRetry={() => void load()}
+          retryTestId="retry-favorites"
           className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-rust p-3 text-xs font-bold text-white"
-        >
-          <span>{error}</span>
-          <button
-            type="button"
-            data-testid="retry-favorites"
-            className="shrink-0 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-bold text-white"
-            onClick={() => void load()}
-          >
-            重试
-          </button>
-        </div>
+          actionClassName="shrink-0 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-bold text-white"
+        />
       )}
       {loading ? (
         <p className="favorites-empty mt-6 rounded-2xl p-8 text-center text-sm">
@@ -2356,21 +2349,24 @@ function SellerDirectory({
         </div>
       )}
       {error && (
-        <p
-          role="alert"
-          className="mt-3 rounded-xl bg-rust px-3 py-2 text-xs font-bold text-white"
-        >
-          {error}
-        </p>
+        <LoadError
+          message={error}
+          onRetry={() => void load(search, 1, false, activeSegment)}
+          retryTestId="retry-sellers"
+          className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-rust px-3 py-2 text-xs font-bold text-white"
+          actionClassName="shrink-0 rounded-lg bg-white/20 px-3 py-1 text-xs font-bold text-white"
+        />
       )}
       {loading ? (
         <p className="mt-4 rounded-xl border border-dashed border-ink/10 p-6 text-center text-xs text-ink/50">
           正在读取商家…
         </p>
       ) : sellers.length === 0 ? (
-        <p className="mt-4 rounded-xl border border-dashed border-ink/10 p-6 text-center text-xs text-ink/50">
-          暂无匹配商家
-        </p>
+        error ? null : (
+          <p className="mt-4 rounded-xl border border-dashed border-ink/10 p-6 text-center text-xs text-ink/50">
+            暂无匹配商家
+          </p>
+        )
       ) : (
         <div className="seller-editorial-grid mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {sellers.map((seller) => (
@@ -2595,12 +2591,13 @@ function SellerProfileDialog({
           </p>
         )}
         {error && (
-          <p
-            role="alert"
-            className="mt-4 rounded-xl bg-rust p-3 text-sm font-bold text-white"
-          >
-            {error}
-          </p>
+          <LoadError
+            message={error}
+            onRetry={() => void load()}
+            retryTestId="retry-seller-profile"
+            className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-rust p-3 text-sm font-bold text-white"
+            actionClassName="shrink-0 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-bold text-white"
+          />
         )}
         {data && (
           <>
@@ -4866,9 +4863,11 @@ export default function Dashboard() {
   });
   const recentWorkspacesRef = useRef<RecentWorkspaceEntry[]>([]);
   const [imports, setImports] = useState<UrlImport[]>([]);
+  const [importsError, setImportsError] = useState("");
   const [importsExpanded, setImportsExpanded] = useState(false);
   const [importActionId, setImportActionId] = useState<string | null>(null);
   const [linkItems, setLinkItems] = useState<Item[]>([]);
+  const [linkError, setLinkError] = useState("");
   const [linkTotal, setLinkTotal] = useState(0);
   const [linkPage, setLinkPage] = useState(1);
   const [linkPageCount, setLinkPageCount] = useState(1);
@@ -4903,6 +4902,7 @@ export default function Dashboard() {
   const [ignoreItem, setIgnoreItem] = useState<Item | null>(null);
   const [deleteItem, setDeleteItem] = useState<Item | null>(null);
   const [dislikedItems, setDislikedItems] = useState<Item[]>([]);
+  const [dislikedError, setDislikedError] = useState("");
   const [dislikedTotal, setDislikedTotal] = useState(0);
   const [dislikedPage, setDislikedPage] = useState(1);
   const [dislikedPageCount, setDislikedPageCount] = useState(1);
@@ -5574,8 +5574,12 @@ export default function Dashboard() {
   const loadImports = useCallback(async () => {
     try {
       const response = await fetch(`${API}/imports`, { cache: "no-store" });
-      if (response.ok) setImports((await response.json()).imports ?? []);
-    } catch {}
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      setImports((await response.json()).imports ?? []);
+      setImportsError("");
+    } catch {
+      setImportsError("导入任务加载失败，当前列表可能不是最新状态。");
+    }
   }, []);
   const loadLinkItems = useCallback(
     async (requestedPage = linkPage) => {
@@ -5585,23 +5589,25 @@ export default function Dashboard() {
           `${API}/items?importOrigin=url&limit=${AUXILIARY_PAGE_SIZE}&offset=${(safePage - 1) * AUXILIARY_PAGE_SIZE}`,
           { cache: "no-store" },
         );
-        if (response.ok) {
-          const payload = (await response.json()) as {
-            items?: Item[];
-            total?: number;
-          };
-          const nextItems = retainAvailableMarketListings((payload.items ?? []) as Item[]);
-          setLinkItems(nextItems);
-          const nextTotal = payload.total ?? nextItems.length;
-          const nextPageCount = Math.max(
-            1,
-            Math.ceil(nextTotal / AUXILIARY_PAGE_SIZE),
-          );
-          setLinkTotal(nextTotal);
-          setLinkPageCount(nextPageCount);
-          setLinkPage(Math.min(safePage, nextPageCount));
-        }
-      } catch {}
+        if (!response.ok) throw new Error(`API ${response.status}`);
+        const payload = (await response.json()) as {
+          items?: Item[];
+          total?: number;
+        };
+        const nextItems = retainAvailableMarketListings((payload.items ?? []) as Item[]);
+        setLinkItems(nextItems);
+        const nextTotal = payload.total ?? nextItems.length;
+        const nextPageCount = Math.max(
+          1,
+          Math.ceil(nextTotal / AUXILIARY_PAGE_SIZE),
+        );
+        setLinkTotal(nextTotal);
+        setLinkPageCount(nextPageCount);
+        setLinkPage(Math.min(safePage, nextPageCount));
+        setLinkError("");
+      } catch {
+        setLinkError("已导入商品加载失败，当前列表可能不是最新状态。");
+      }
     },
     [linkPage],
   );
@@ -5642,23 +5648,25 @@ export default function Dashboard() {
             cache: "no-store",
           },
         );
-        if (response.ok) {
-          const payload = (await response.json()) as {
-            items?: Item[];
-            total?: number;
-          };
-          const nextItems = (payload.items ?? []) as Item[];
-          setDislikedItems(nextItems.filter((item) => item.ignored));
-          const nextTotal = payload.total ?? nextItems.length;
-          const nextPageCount = Math.max(
-            1,
-            Math.ceil(nextTotal / AUXILIARY_PAGE_SIZE),
-          );
-          setDislikedTotal(nextTotal);
-          setDislikedPageCount(nextPageCount);
-          setDislikedPage(Math.min(safePage, nextPageCount));
-        }
-      } catch {}
+        if (!response.ok) throw new Error(`API ${response.status}`);
+        const payload = (await response.json()) as {
+          items?: Item[];
+          total?: number;
+        };
+        const nextItems = (payload.items ?? []) as Item[];
+        setDislikedItems(nextItems.filter((item) => item.ignored));
+        const nextTotal = payload.total ?? nextItems.length;
+        const nextPageCount = Math.max(
+          1,
+          Math.ceil(nextTotal / AUXILIARY_PAGE_SIZE),
+        );
+        setDislikedTotal(nextTotal);
+        setDislikedPageCount(nextPageCount);
+        setDislikedPage(Math.min(safePage, nextPageCount));
+        setDislikedError("");
+      } catch {
+        setDislikedError("不感兴趣列表加载失败，当前列表可能不是最新状态。");
+      }
     },
     [dislikedPage],
   );
@@ -7665,15 +7673,27 @@ export default function Dashboard() {
                         className={`h-4 w-4 shrink-0 text-ink/45 transition-transform duration-200 ${importsExpanded ? "rotate-180" : ""}`}
                       />
                     </button>
+                    {importsError && (
+                      <div className="border-t border-ink/8 bg-white px-3 py-2">
+                        <LoadError
+                          message={importsError}
+                          onRetry={() => void loadImports()}
+                          retryTestId="retry-imports"
+                          className="quiet-inline-alert"
+                        />
+                      </div>
+                    )}
                     {importsExpanded && (
                       <div
                         id="link-import-tasks"
                         className="grid gap-px border-t border-ink/8 bg-ink/8"
                       >
                         {imports.length === 0 ? (
-                          <p className="bg-white px-3 py-6 text-center text-sm text-ink/45">
-                            暂无导入任务
-                          </p>
+                          importsError ? null : (
+                            <p className="bg-white px-3 py-6 text-center text-sm text-ink/45">
+                              暂无导入任务
+                            </p>
+                          )
                         ) : (
                           imports.map((entry) => {
                             const active =
@@ -7760,11 +7780,20 @@ export default function Dashboard() {
                       已导入商品 · {linkTotal}
                     </h3>
                   </div>
+                  {linkError && (
+                    <LoadError
+                      message={linkError}
+                      onRetry={() => void loadLinkItems()}
+                      retryTestId="retry-link-items"
+                    />
+                  )}
                   <div className="mt-2 grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {linkItems.length === 0 ? (
-                      <p className="rounded-xl border border-dashed p-6 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
-                        分析完成后商品会显示在这里
-                      </p>
+                      linkError ? null : (
+                        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
+                          分析完成后商品会显示在这里
+                        </p>
+                      )
                     ) : (
                       linkItems.map((item) => (
                         <ProductCard
@@ -8005,17 +8034,11 @@ export default function Dashboard() {
               <>
                 <div className="purchases-next-step"><span>登记完成后，继续跟踪到货与库存。</span><button type="button" onClick={()=>navigateWorkspace("orders")}>查看库存订单 <span aria-hidden="true">↗</span></button></div>
                 {purchasesError && (
-                  <div role="alert" data-testid="load-error" className="quiet-inline-alert mt-3">
-                    <span>{purchasesError}</span>
-                    <button
-                      type="button"
-                      data-testid="retry-purchases"
-                      className="quiet-inline-alert-action"
-                      onClick={() => void loadPurchases()}
-                    >
-                      重试
-                    </button>
-                  </div>
+                  <LoadError
+                    message={purchasesError}
+                    onRetry={() => void loadPurchases()}
+                    retryTestId="retry-purchases"
+                  />
                 )}
                 <PurchaseRecordsPanel
                   purchases={purchases}
@@ -8069,11 +8092,20 @@ export default function Dashboard() {
                 <RefreshIcon />
               </button>
             </div>
+            {dislikedError && (
+              <LoadError
+                message={dislikedError}
+                onRetry={() => void loadDisliked()}
+                retryTestId="retry-disliked"
+              />
+            )}
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {dislikedItems.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-blue-200 p-8 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
-                  暂无商品
-                </p>
+                dislikedError ? null : (
+                  <p className="rounded-xl border border-dashed border-blue-200 p-8 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
+                    暂无商品
+                  </p>
+                )
               ) : (
                 dislikedItems.map((item) => {
                   const dislikedTitle = itemDisplayTitle(
@@ -8877,18 +8909,12 @@ export default function Dashboard() {
               </p>
             )}
             {error && (
-              <div role="alert" data-testid="load-error" className="quiet-inline-alert mt-3">
-                <span>商品同步暂时不可用，当前已加载内容会继续保留。</span>
-                <button
-                  type="button"
-                  data-testid="retry-catalog"
-                  className="quiet-inline-alert-action"
-                  onClick={() => void load()}
-                  disabled={loading}
-                >
-                  {loading ? "重试中" : "重试"}
-                </button>
-              </div>
+              <LoadError
+                message="商品同步暂时不可用，当前已加载内容会继续保留。"
+                onRetry={() => void load()}
+                retrying={loading}
+                retryTestId="retry-catalog"
+              />
             )}
             {loading && items.length === 0 ? (
               <div className="mt-3 grid min-h-52 place-items-center rounded-2xl border border-dashed border-blue-200 bg-white py-16 text-sm font-bold text-slate-500">

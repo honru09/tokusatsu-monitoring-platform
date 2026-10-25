@@ -51,6 +51,8 @@
 .rules ul { padding: 0 0 16px 20px; color: #62666d; font-size: 14px; line-height: 1.9; }
 .rules::details-content { overflow: hidden; }
 .error { background: #fff0ed; color: #8d2715; font-size: 14px; line-height: 1.65; padding: 12px 16px; border-radius: 6px; margin-top: 16px; }
+.errorRetry { font: inherit; font-weight: 700; color: inherit; text-decoration: underline; text-underline-offset: 3px; padding: 0; background: none; border: 0; cursor: pointer; }
+.errorRetry:disabled { opacity: 0.5; cursor: default; }
 .loading { display: flex; gap: 12px; align-items: center; min-height: 160px; font-size: 14px; color: #62666d; }
 .loading span { width: 16px; height: 16px; border: 2px solid var(--color-fog, #e8e8ed); border-top-color: var(--color-primary, #0071e3); border-radius: 50%; animation: loading-rotate 900ms linear infinite; }
 @keyframes loading-rotate { to { transform: rotate(360deg); } }
