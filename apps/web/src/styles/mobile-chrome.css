@@ -227,38 +227,24 @@ html[data-floating-yield="true"] .floating-control {
   }
   .primary-navigation.ios-nav {
     position: fixed !important;
-    inset: auto 0 0 0 !important;
-    transform: none !important;
-    width: 100% !important;
-    max-width: none !important;
+    inset: auto auto max(12px, env(safe-area-inset-bottom)) 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(calc(100% - 24px), 400px) !important;
+    max-width: 400px !important;
     margin: 0 !important;
-    height: calc(64px + env(safe-area-inset-bottom)) !important;
-    min-height: calc(64px + env(safe-area-inset-bottom)) !important;
-    padding: 5px max(8px, env(safe-area-inset-right))
-      calc(5px + env(safe-area-inset-bottom))
-      max(8px, env(safe-area-inset-left)) !important;
-    border-radius: 22px 22px 0 0 !important;
-    background: linear-gradient(180deg, #fafcfef5, #f7f9fb 64%) !important;
-    border: 0 !important;
-    border-top: 0.5px solid #fff !important;
-    box-shadow: 0 -8px 26px #1c2b3a0c !important;
-    backdrop-filter: blur(26px) saturate(180%) !important;
+    height: 58px !important;
+    min-height: 58px !important;
+    padding: 4px 6px !important;
+    border-radius: 9999px !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+    backdrop-filter: blur(20px) !important;
     transition: none !important;
     z-index: 100 !important;
   }
   .primary-navigation::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
-    /* The dock already owns the visible 64px track and its safe-area
-       inset.  A fixed 100px tail made a second, invisible layout layer that
-       could read as a blank gap on short phones.  Keep only the OS gesture
-       area covered so the dock stays edge-to-edge without masking content. */
-    height: env(safe-area-inset-bottom, 0px);
-    background: #f7f9fb;
-    pointer-events: none;
+    display: none !important;
   }
   .primary-navigation-item {
     min-height: 50px !important;

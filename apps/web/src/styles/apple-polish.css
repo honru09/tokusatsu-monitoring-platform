@@ -35,10 +35,7 @@
   isolation: isolate;
   min-height: 100dvh;
   color: var(--polish-ink);
-  background:
-    radial-gradient(70% 52% at 96% 0%, rgba(100, 210, 255, 0.24), transparent 68%),
-    radial-gradient(64% 54% at 0% 100%, rgba(164, 230, 191, 0.2), transparent 68%),
-    linear-gradient(145deg, #e9f2f8 0%, #f5f6f8 48%, #eef6f1 100%);
+  background: #f4f4f5;
 }
 
 /* Keep one large ambient movement layer. The static reflection still gives
@@ -511,13 +508,16 @@
 
   .procurement-shell .primary-navigation {
     position: fixed !important;
-    inset: auto 0 0 0 !important;
-    width: 100% !important;
-    max-width: none !important;
-    height: calc(64px + env(safe-area-inset-bottom)) !important;
-    min-height: calc(64px + env(safe-area-inset-bottom)) !important;
-    padding-bottom: calc(5px + env(safe-area-inset-bottom)) !important;
-    border-radius: 22px 22px 0 0 !important;
+    inset: auto auto max(12px, env(safe-area-inset-bottom)) 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(calc(100% - 24px), 400px) !important;
+    max-width: 400px !important;
+    height: 58px !important;
+    min-height: 58px !important;
+    border-radius: 9999px !important;
+    background: #ffffff !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
   }
 
   .procurement-shell .procurement-grid {

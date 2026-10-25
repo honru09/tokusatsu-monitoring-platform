@@ -32,7 +32,17 @@
   --color-primary: #0071e3;
   --color-secondary: #2997ff;
   --color-accent: #64d2ff;
-  --color-background: #f5f5f7;
+  --color-page: #f4f4f5;
+  --color-surface: #ffffff;
+  --hero-gradient-start: #0a1526;
+  --hero-gradient-end: #0066ff;
+  --color-brick-dark: #101014;
+  --color-label-muted: #8e8e93;
+  --color-positive-green: #34c759;
+  --radius-hero: 28px;
+  --radius-brick: 20px;
+  --radius-capsule: 9999px;
+  --color-background: #f4f4f5;
   --color-foreground: #1d1d1f;
   --color-muted: #e8e8ed;
   --color-border: rgba(29, 29, 31, 0.1);
@@ -42,7 +52,7 @@
   --color-ring: #0071e3;
   --ios-blue: #0071e3;
   --ios-line: rgba(29, 29, 31, 0.1);
-  --app-sky: #b9dbf0;
+  --app-sky: #f4f4f5;
   --app-mint: #d9eee1;
   --app-lilac: #eadff5;
   --app-ink: #07080a;
@@ -102,7 +112,7 @@
 }
 html {
   min-width: 0;
-  background: var(--app-sky);
+  background: var(--color-background);
   scroll-padding-bottom: calc(var(--app-nav-height) + 24px);
 }
 body {
@@ -110,7 +120,7 @@ body {
   min-width: 0;
   color: var(--color-foreground);
   overflow-x: clip;
-  background: var(--app-sky);
+  background: var(--color-background);
   font-family: var(--font-sans);
   font-size: var(--type-body);
   font-weight: 400;
@@ -4532,20 +4542,24 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 
 .primary-navigation {
   position: fixed !important;
-  bottom: max(14px, env(safe-area-inset-bottom, 14px)) !important;
+  bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
-  width: calc(100% - 28px) !important;
-  max-width: 440px !important;
-  min-height: 60px !important;
-  height: 60px !important;
-  padding: 5px 6px !important;
-  border-radius: 26px !important;
+  width: min(calc(100% - 32px), 400px) !important;
+  max-width: 400px !important;
+  min-height: 58px !important;
+  height: 58px !important;
+  padding: 4px 6px !important;
+  border-radius: 9999px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+  backdrop-filter: blur(20px) !important;
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   align-items: center !important;
   box-sizing: border-box !important;
-  z-index: 30 !important;
+  z-index: 100 !important;
   overflow: visible !important;
 }
 

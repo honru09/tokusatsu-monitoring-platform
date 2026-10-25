@@ -37,10 +37,7 @@
   --glass-fill-sheet: rgba(255,255,255,.96);
 }
 .ios-shell.procurement-shell {
-  background:
-    radial-gradient(70% 52% at 96% 0%,rgba(100,210,255,.24),transparent 68%),
-    radial-gradient(64% 54% at 0% 100%,rgba(164,230,191,.2),transparent 68%),
-    linear-gradient(145deg,#e9f2f8 0%,#f5f6f8 48%,#eef6f1 100%) !important;
+  background: #f4f4f5 !important;
   color: var(--ui-ink);
   line-break: strict;
   word-break: normal;
@@ -277,10 +274,14 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 .procurement-shell .settings-dialog-panel>div+div {gap:0;}
 .procurement-shell .settings-dialog-panel>div+div>button {min-height:56px;border-radius:0;border-bottom:1px solid var(--ui-line);background:transparent;box-shadow:none;}
 .procurement-shell .primary-navigation {
-  gap:0 !important;padding:4px !important;background:var(--ui-glass) !important;
-  border:1px solid #ffffffcc !important;border-radius:20px !important;
-  box-shadow:var(--ui-shadow) !important;backdrop-filter:blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter:blur(24px) saturate(180%) !important;
+  gap: 0 !important;
+  padding: 4px 6px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
 }
 .procurement-shell .primary-navigation-item {opacity:1;color:var(--ui-secondary);min-height:44px;}
 .procurement-shell .primary-navigation-item[aria-current="page"] {color:var(--ui-accent-ink);}

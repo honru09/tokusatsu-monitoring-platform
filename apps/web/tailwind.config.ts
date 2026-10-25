@@ -6,11 +6,18 @@ export default {
     extend: {
       colors: {
         ink: "#1d1d1f",
-        paper: "#f5f5f7",
+        paper: "#f4f4f5",
+        page: "#f4f4f5",
+        surface: "#ffffff",
         moss: "#0071e3",
         lime: "#64d2ff",
         rust: "#ff3b30",
         fog: "#e8e8ed",
+        "hero-start": "#0a1526",
+        "hero-end": "#0066ff",
+        "brick-dark": "#101014",
+        "label-muted": "#8e8e93",
+        "positive-green": "#34c759",
         blue: {
           50: "#f0f7ff",
           100: "#e3f0ff",
@@ -40,6 +47,11 @@ export default {
         heading: ["var(--font-heading)"],
         sans: ["var(--font-sans)"],
         mono: ["var(--font-mono)"],
+      },
+      borderRadius: {
+        hero: "28px",
+        brick: "20px",
+        capsule: "9999px",
       },
       boxShadow: {
         panel: "0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .05)",
