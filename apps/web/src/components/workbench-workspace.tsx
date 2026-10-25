@@ -5,6 +5,7 @@ import { TERMS } from "../lib/terms";
 import { useEffect, useRef } from "react";
 import styles from "./workbench-workspace.module.css";
 import { AppleActionRail } from "./apple-action-rail";
+import { PushSettings } from "./push-settings";
 
 /**
  * Workbench entries are grouped short lists: account on top, then
@@ -24,7 +25,7 @@ const moreEntries = [
   ["assistant", TERMS.aiAssistant, "向 AI 提问、整理与翻译"],
 ] as const;
 
-export function WorkbenchWorkspace({onNavigate, onOpenDisliked, accountName, position, activeCount, cartCount, language, onToggleLanguage, onOpenSettings}: {
+export function WorkbenchWorkspace({onNavigate, onOpenDisliked, accountName, position, activeCount, cartCount, language, onToggleLanguage, onOpenSettings, apiBaseUrl, accountId}: {
   onNavigate: (workspace: Workspace) => void;
   /** 不感兴趣 is a catalog view now; the entry opens it preselected. */
   onOpenDisliked: () => void;
@@ -35,6 +36,8 @@ export function WorkbenchWorkspace({onNavigate, onOpenDisliked, accountName, pos
   language: "zh" | "original";
   onToggleLanguage: () => void;
   onOpenSettings?: () => void;
+  apiBaseUrl?: string;
+  accountId?: string | null;
 }) {
   const root = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -81,6 +84,7 @@ export function WorkbenchWorkspace({onNavigate, onOpenDisliked, accountName, pos
         <button type="button" className={styles.entry} onClick={()=>onNavigate("monitoring")}><span><strong>{TERMS.monitoring}</strong><small>类目、关键词与调度</small></span><b aria-hidden="true">›</b></button>
         {onOpenSettings && <button type="button" className={styles.entry} onClick={onOpenSettings}><span><strong>AI 状态</strong><small>剩余额度与赠送包到期日</small></span><b aria-hidden="true">›</b></button>}
         <button type="button" className={styles.entry} onClick={onToggleLanguage}><span><strong>显示语言</strong><small>{language==="zh"?"中文":"原文"}</small></span><b aria-hidden="true">›</b></button>
+        {apiBaseUrl && <PushSettings apiBaseUrl={apiBaseUrl} accountId={accountId ?? null} />}
       </AppleActionRail>
     </section>
   </section>;

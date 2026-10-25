@@ -6752,6 +6752,8 @@ export default function Dashboard() {
             language={language}
             onToggleLanguage={() => setLanguage((current) => current === "zh" ? "original" : "zh")}
             onOpenSettings={() => setSettingsOpen(true)}
+            apiBaseUrl={API}
+            accountId={activeManagerId || null}
           />
         )}
         {workspace === "profile" && (

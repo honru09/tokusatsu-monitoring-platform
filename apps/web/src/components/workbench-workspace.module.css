@@ -26,6 +26,8 @@
 .entry strong { font-size:15px; font-weight:600; }
 .entry small { font-size:12px; line-height:1.5; color:var(--glass-ink-secondary); }
 .entry>b { font-size:18px; font-weight:400; color:#8497a9; transition:transform 220ms var(--ease-apple-out),color 180ms var(--ease-apple-out); }
+.entryAction { flex-shrink:0; min-height:40px; padding:8px 16px; border-radius:999px; background:var(--color-primary,#0065d5); color:#fff; font-size:13px; font-weight:600; }
+.entryAction:disabled { opacity:.55; }
 .workspace button:focus-visible { outline:3px solid var(--color-focus-ring); outline-offset:3px; }
 .account:active { transform:scale(.99); }
 .entry:active>b { transform:translateX(3px); color:var(--color-primary); }

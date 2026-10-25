@@ -30,6 +30,7 @@ export const TERMS = {
   resale: "转售",
   monitoring: "监控设置",
   disliked: "不感兴趣",
+  push: "通知推送",
 
   // Actions and objects
   cart: "购物车",
