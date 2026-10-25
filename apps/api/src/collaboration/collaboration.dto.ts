@@ -159,6 +159,17 @@ export class CreateShareRoundDto {
   items!: ShareRoundItemDto[];
 }
 
+export class MarkShareRoundCopiedDto {
+  @IsOptional()
+  @IsString()
+  accountId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  itemIds?: string[];
+}
+
 export class UpdateShareRoundItemDto {
   @IsString()
   accountId!: string;

@@ -12,6 +12,7 @@ import {
   ClearFailedNegotiationsDto,
   CreateShareRoundDto,
   MarkDirectMessagesReadDto,
+  MarkShareRoundCopiedDto,
   ManagerPresenceDto,
   MessageReactionDto,
   SendDirectMessageDto,
@@ -114,6 +115,14 @@ export class CollaborationController {
   @Post("decisions")
   setDecision(@Body() body: SetItemDecisionDto) {
     return this.collaboration.setDecision(body);
+  }
+
+  @Post("share-rounds/:roundId/mark-copied")
+  markShareRoundCopied(
+    @Param("roundId") roundId: string,
+    @Body() body: MarkShareRoundCopiedDto,
+  ) {
+    return this.collaboration.markShareRoundCopied(roundId, body);
   }
 
   @Get("negotiations")

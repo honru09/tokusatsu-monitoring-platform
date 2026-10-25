@@ -211,6 +211,32 @@ function fixture() {
             return Promise.resolve({ ...row, item: itemShape(row.itemId) });
           },
         ),
+      updateMany: vi
+        .fn()
+        .mockImplementation(
+          ({
+            where,
+            data,
+          }: {
+            where: {
+              roundId: string;
+              copiedAt: Date | null;
+              itemId?: { in: string[] };
+            };
+            data: { copiedAt?: Date | null };
+          }) => {
+            const round = roundStore.get(where.roundId);
+            let count = 0;
+            for (const row of round?.items ?? []) {
+              if (where.copiedAt === null && row.copiedAt !== null) continue;
+              if (where.itemId && !where.itemId.in.includes(row.itemId))
+                continue;
+              row.copiedAt = data.copiedAt ?? null;
+              count += 1;
+            }
+            return Promise.resolve({ count });
+          },
+        ),
     },
     messageReaction: {
       upsert: vi.fn().mockResolvedValue({ id: "reaction-1" }),
@@ -870,5 +896,74 @@ describe("CollaborationService", () => {
       total: 2,
       targetTotalYen: 1000,
     });
+  });
+
+  it("marks a subset of round items copied in bulk", async () => {
+    const { service } = fixture();
+    await service.createShareRound({
+      accountId: "manager-1",
+      items: [
+        { itemId: "item-1", targetPriceYen: 900 },
+        { itemId: "item-2", targetPriceYen: 100 },
+        { itemId: "item-3", targetPriceYen: 200 },
+      ],
+    });
+    const result = await service.markShareRoundCopied("round-1", {
+      accountId: "manager-2",
+      itemIds: ["item-1", "item-3"],
+    });
+    expect(result).toMatchObject({ copiedCount: 2, total: 3 });
+    const byItem = new Map(
+      (result.items ?? []).map((row) => [row.itemId, row.copiedAt]),
+    );
+    expect(byItem.get("item-1")).toBeInstanceOf(Date);
+    expect(byItem.get("item-2")).toBeNull();
+    expect(byItem.get("item-3")).toBeInstanceOf(Date);
+  });
+
+  it("marks every round item copied when itemIds is omitted", async () => {
+    const { service } = fixture();
+    await service.createShareRound({
+      accountId: "manager-1",
+      items: [{ itemId: "item-1" }, { itemId: "item-2" }],
+    });
+    const result = await service.markShareRoundCopied("round-1", {
+      accountId: "manager-2",
+    });
+    expect(result).toMatchObject({ copiedCount: 2, total: 2 });
+    expect(
+      (result.items ?? []).every((row) => row.copiedAt instanceof Date),
+    ).toBe(true);
+  });
+
+  it("keeps the first copiedAt when an already-copied item is marked again", async () => {
+    const { service } = fixture();
+    await service.createShareRound({
+      accountId: "manager-1",
+      items: [{ itemId: "item-1" }, { itemId: "item-2" }],
+    });
+    const first = await service.updateShareRoundItem("round-1", "item-1", {
+      accountId: "manager-2",
+      copied: true,
+    });
+    const result = await service.markShareRoundCopied("round-1", {
+      accountId: "manager-2",
+      itemIds: ["item-1", "item-2"],
+    });
+    const byItem = new Map(
+      (result.items ?? []).map((row) => [row.itemId, row.copiedAt]),
+    );
+    expect(byItem.get("item-1")).toBe(first.copiedAt);
+    expect(byItem.get("item-2")).toBeInstanceOf(Date);
+    expect(result).toMatchObject({ copiedCount: 2, total: 2 });
+  });
+
+  it("rejects bulk copied marking for a missing round", async () => {
+    const { service } = fixture();
+    await expect(
+      service.markShareRoundCopied("round-missing", {
+        accountId: "manager-2",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

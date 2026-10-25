@@ -7,6 +7,7 @@ import { PrismaService } from "../prisma.service.js";
 import type {
   CreateShareRoundDto,
   MarkDirectMessagesReadDto,
+  MarkShareRoundCopiedDto,
   MessageReactionDto,
   SendDirectMessageDto,
   SetItemDecisionDto,
@@ -679,6 +680,33 @@ export class CollaborationService {
     })) as DecisionRow[];
     for (const row of rows) map.set(row.itemId, presentDecision(row));
     return map;
+  }
+
+  async markShareRoundCopied(roundId: string, body: MarkShareRoundCopiedDto) {
+    if (body.accountId) await this.requireAccount(body.accountId);
+    const round = await this.prisma.shareRound.findUnique({
+      where: { id: roundId },
+      select: { id: true },
+    });
+    if (!round) throw new NotFoundException("分享轮次不存在");
+    const itemIds = [...new Set((body.itemIds ?? []).filter(Boolean))];
+    // Only the first copy stamps the row: re-copying a script must not
+    // rewrite when the text first went out, so already-copied rows keep
+    // their original copiedAt.
+    await this.prisma.shareRoundItem.updateMany({
+      where: {
+        roundId,
+        copiedAt: null,
+        ...(itemIds.length ? { itemId: { in: itemIds } } : {}),
+      },
+      data: { copiedAt: new Date() },
+    });
+    const updated = await this.prisma.shareRound.findUnique({
+      where: { id: roundId },
+      include: shareRoundInclude,
+    });
+    if (!updated) throw new NotFoundException("分享轮次不存在");
+    return presentShareRound(updated as ShareRoundWithItems);
   }
 
   async markRead(body: MarkDirectMessagesReadDto) {
