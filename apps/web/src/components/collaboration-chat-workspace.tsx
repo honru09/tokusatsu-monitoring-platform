@@ -1002,7 +1002,6 @@ export function CollaborationChatWorkspace({
   onUnreadCleared,
   onActivityChanged,
   active = true,
-  onOpenOperations,
   shareRoundId = null,
 }: {
   apiBaseUrl: string;
@@ -1019,7 +1018,6 @@ export function CollaborationChatWorkspace({
   onUnreadCleared: () => void;
   onActivityChanged: () => void;
   active?: boolean;
-  onOpenOperations?: () => void;
   shareRoundId?: string | null;
 }) {
   const other = accounts.find((entry) => entry.id !== account.id) ?? null;
@@ -1757,15 +1755,6 @@ export function CollaborationChatWorkspace({
           <h2>{other ? `与${other.displayName}的对话` : "管理者对话"}</h2>
           <p>{other?.online ? "对方在线" : "商品与采购，在这里一起确认"}</p>
         </div>
-        {onOpenOperations && (
-          <button
-            type="button"
-            className="collaboration-account-button"
-            onClick={onOpenOperations}
-          >
-            运营台
-          </button>
-        )}
         <button
           type="button"
           className="collaboration-account-button"

@@ -49,12 +49,12 @@ describe("dashboard navigation and listing transition contracts", () => {
   });
 
   it("keeps purchase history discoverable from the workbench", () => {
-    expect(workbenchSource).toMatch(/\["purchases",\s*"购买记录",/);
+    expect(workbenchSource).toMatch(/\["purchases",\s*TERMS\.purchases,/);
     expect(source).toMatch(/<WorkbenchWorkspace[\s\S]*?onNavigate=\{navigateWorkspace\}/);
   });
 
   it("keeps purchase history and inventory orders in separate workspaces", () => {
-    expect(workbenchSource).toMatch(/\["orders",\s*"库存订单",/);
+    expect(workbenchSource).toMatch(/\["orders",\s*TERMS\.orders,/);
     const purchasesStart = source.indexOf('{workspace === "purchases" && (');
     const ordersStart = source.indexOf('{workspace === "orders" && (');
     const purchasesWorkspace = source.slice(purchasesStart, ordersStart);

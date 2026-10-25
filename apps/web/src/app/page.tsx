@@ -4802,6 +4802,41 @@ export default function Dashboard() {
   });
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsAiSummary, setSettingsAiSummary] = useState("");
+  useEffect(() => {
+    if (!settingsOpen) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(`${API}/ai/resources`, {
+          cache: "no-store",
+        });
+        if (!response.ok) throw new Error(`API ${response.status}`);
+        const data = (await response.json()) as {
+          remainingLocalBudget?: number;
+          expiresAt?: string | null;
+        };
+        if (cancelled) return;
+        const remaining =
+          typeof data.remainingLocalBudget === "number"
+            ? data.remainingLocalBudget
+            : 0;
+        const expiry = data.expiresAt ? new Date(data.expiresAt) : null;
+        setSettingsAiSummary(
+          `今日剩余约 ${remaining.toLocaleString("zh-CN")} tokens${
+            expiry
+              ? ` · 赠送包 ${expiry.getMonth() + 1} 月 ${expiry.getDate()} 日到期`
+              : ""
+          }`,
+        );
+      } catch {
+        if (!cancelled) setSettingsAiSummary("额度状态暂不可用");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [settingsOpen]);
   const settingsDialogRef = useRef<HTMLElement>(null);
   const settingsCloseRef = useRef<HTMLButtonElement>(null);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
@@ -7479,7 +7514,6 @@ export default function Dashboard() {
             onUnreadCleared={() => setUnreadMessageCount(0)}
             onActivityChanged={() => void refreshCollaborationMeta()}
             active={workspace === "collaboration"}
-            onOpenOperations={() => navigateWorkspace("operations")}
           />
           </div>
         )}
@@ -7492,6 +7526,7 @@ export default function Dashboard() {
             cartCount={cart.count}
             language={language}
             onToggleLanguage={() => setLanguage((current) => current === "zh" ? "original" : "zh")}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         )}
         {workspace === "profile" && (
@@ -9146,28 +9181,33 @@ export default function Dashboard() {
                 >
                   <SettingsIcon className="h-5 w-5" />
                   <span className="min-w-0 flex-1 text-sm font-semibold">
-                    监控运行
+                    {TERMS.monitoring}
                   </span>
                   <span aria-hidden="true" className="text-ink/35">
                     ›
                   </span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    navigateWorkspace("ai");
-                  }}
-                  className="flex min-h-12 items-center gap-3 rounded-2xl bg-white px-3 text-left shadow-sm"
-                >
-                  <AnalysisIcon className="h-5 w-5" />
-                  <span className="min-w-0 flex-1 text-sm font-semibold">
-                    AI 状态
-                  </span>
-                  <span aria-hidden="true" className="text-ink/35">
-                    ›
-                  </span>
-                </button>
+                <div className="rounded-2xl bg-white px-3 py-3 shadow-sm">
+                  <div className="flex min-h-6 items-center gap-3">
+                    <AnalysisIcon className="h-5 w-5" />
+                    <span className="min-w-0 flex-1 text-sm font-semibold">
+                      AI 状态
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettingsOpen(false);
+                        navigateWorkspace("ai");
+                      }}
+                      className="text-xs font-bold text-moss"
+                    >
+                      详情 ›
+                    </button>
+                  </div>
+                  <p className="mt-1 pl-8 text-xs text-ink/50">
+                    {settingsAiSummary || "正在读取额度状态…"}
+                  </p>
+                </div>
               </div>
             </section>
           </div>,

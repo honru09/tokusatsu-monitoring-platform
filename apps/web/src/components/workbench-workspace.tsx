@@ -6,28 +6,28 @@ import { useEffect, useRef } from "react";
 import styles from "./workbench-workspace.module.css";
 import { AppleActionRail } from "./apple-action-rail";
 
-const stages = [
-  { title: "选货", items: [
-    ["catalog", "商品库", "比较在售商品与价格"],
-    ["links", "链接专区", "把找到的商品带进来"],
-    ["favorites", "收藏", "接着看已选的商品"],
-    ["sellers", "卖家", "按来源与群体查找"],
-  ] },
-  { title: "采购", items: [
-    ["purchases", "购买记录", "记录、改价与变更历史"],
-    ["orders", "库存订单", "追踪到货、库存与销售"],
-    ["calculator", "进货计算器", "核算报价与采购成本"],
-    ["logistics", "物流测算", "比较运费与运输方案"],
-  ] },
-  { title: "售卖", items: [
-    ["resale", "闲鱼上架", "选品、编辑、发布与维护"],
-    ["operations", "运营台", "运行任务与运营协作"],
-    ["collaboration", "协作消息", "带着商品沟通与跟进"],
-    ["intel", "资讯专区", "跟进市场与商品信息"],
-  ] },
+/**
+ * Workbench entries are grouped short lists: account on top, then
+ * data & tools, then a "more" shelf, then settings. Surfaces with
+ * their own primary slot （选货/消息/待办） are not repeated here, and
+ * the operations console keeps no entry - it leaves the product with
+ * the service split.
+ */
+const toolEntries = [
+  ["purchases", TERMS.purchases, "记录、改价与变更历史"],
+  ["orders", TERMS.orders, "追踪到货、库存与销售"],
+  ["calculator", TERMS.calculator, "核算报价与采购成本"],
+  ["logistics", TERMS.logistics, "比较运费与运输方案"],
+  ["resale", TERMS.resale, "选品、编辑、发布与维护"],
+  ["disliked", TERMS.disliked, "回看排除过的商品"],
 ] as const;
 
-export function WorkbenchWorkspace({onNavigate, accountName, position, activeCount, cartCount, language, onToggleLanguage}: {
+const moreEntries = [
+  ["intel", TERMS.intel, "跟进市场与商品信息"],
+  ["assistant", TERMS.aiAssistant, "向 AI 提问、整理与翻译"],
+] as const;
+
+export function WorkbenchWorkspace({onNavigate, accountName, position, activeCount, cartCount, language, onToggleLanguage, onOpenSettings}: {
   onNavigate: (workspace: Workspace) => void;
   accountName?: string;
   position?: number | string;
@@ -35,6 +35,7 @@ export function WorkbenchWorkspace({onNavigate, accountName, position, activeCou
   cartCount: number;
   language: "zh" | "original";
   onToggleLanguage: () => void;
+  onOpenSettings?: () => void;
 }) {
   const root = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -52,25 +53,36 @@ export function WorkbenchWorkspace({onNavigate, accountName, position, activeCou
   }, []);
   return <section ref={root} className={styles.workspace} aria-labelledby="workbench-title">
     <header className={styles.heading}>
-      <div><p className={styles.eyebrow}>采购与售卖</p><h2 id="workbench-title">工作台</h2></div>
-      <button type="button" className={styles.identity} onClick={()=>onNavigate("profile")} aria-label="前往个人主页切换账号"><span>{position ?? "·"}</span>{accountName ?? "选择账号"}<b aria-hidden="true">↗</b></button>
+      <div><p className={styles.eyebrow}>账号与工具</p><h2 id="workbench-title">{TERMS.workbench}</h2></div>
     </header>
+    <button type="button" className={styles.account} onClick={()=>onNavigate("profile")} aria-label="前往账号页切换账号">
+      <span className={styles.avatar}>{position ?? "·"}</span>
+      <span className={styles.accountBody}>
+        <strong>{accountName ?? "选择账号"}</strong>
+        <small>{position != null ? `第 ${position} 位账号` : "尚未选择账号"} · 切换账号</small>
+      </span>
+      <b aria-hidden="true">›</b>
+    </button>
     <div className={styles.summary}>
-      <button type="button" onClick={()=>onNavigate("catalog")}><span>在售商品</span><strong>{activeCount == null ? "—" : activeCount.toLocaleString("zh-CN")}</strong></button>
+      <button type="button" onClick={()=>onNavigate("catalog")}><span>{TERMS.catalog} · 在售</span><strong>{activeCount == null ? "—" : activeCount.toLocaleString("zh-CN")}</strong></button>
       <div><span>{TERMS.cart}</span><strong>{cartCount.toLocaleString("zh-CN")}<small>件</small></strong></div>
       <p>从选货到售卖，沿着商品继续处理。</p>
     </div>
-    <div className={styles.stages}>
-      {stages.map((stage,index)=><section key={stage.title} className={styles.stage} data-scroll-entry aria-labelledby={`stage-${index}`}>
-        <header><span>{String(index+1).padStart(2,"0")}</span><h3 id={`stage-${index}`}>{stage.title}</h3><b aria-hidden="true">{index<2?"→":""}</b></header>
-        <AppleActionRail>{stage.items.map(([key,label,detail])=><button type="button" key={key} className={`${styles.entry} ${key==="resale"?styles.resale:""}`} onClick={()=>onNavigate(key)}><span><strong>{label}</strong><small>{detail}</small></span><b aria-hidden="true">↗</b></button>)}</AppleActionRail>
-      </section>)}
-    </div>
-    <section className={styles.system} aria-labelledby="workbench-tools-title"><h3 id="workbench-tools-title">系统与显示</h3><div>
-      <button type="button" onClick={()=>onNavigate("monitoring")}><span>监控运行</span><b aria-hidden="true">↗</b></button>
-      <button type="button" onClick={()=>onNavigate("ai")}><span>AI 状态</span><b aria-hidden="true">↗</b></button>
-      <button type="button" onClick={()=>onNavigate("disliked")}><span>不感兴趣</span><b aria-hidden="true">↗</b></button>
-      <button type="button" onClick={onToggleLanguage}><span>显示语言</span><small>{language==="zh"?"中文":"原文"}</small></button>
-    </div></section>
+    <section className={styles.group} data-scroll-entry aria-labelledby="workbench-tools-title">
+      <h3 id="workbench-tools-title">数据与工具</h3>
+      <AppleActionRail>{toolEntries.map(([key,label,detail])=><button type="button" key={key} className={styles.entry} onClick={()=>onNavigate(key)}><span><strong>{label}</strong><small>{detail}</small></span><b aria-hidden="true">›</b></button>)}</AppleActionRail>
+    </section>
+    <section className={styles.group} data-scroll-entry aria-labelledby="workbench-more-title">
+      <h3 id="workbench-more-title">更多</h3>
+      <AppleActionRail>{moreEntries.map(([key,label,detail])=><button type="button" key={key} className={styles.entry} onClick={()=>onNavigate(key)}><span><strong>{label}</strong><small>{detail}</small></span><b aria-hidden="true">›</b></button>)}</AppleActionRail>
+    </section>
+    <section className={styles.group} data-scroll-entry aria-labelledby="workbench-settings-title">
+      <h3 id="workbench-settings-title">设置</h3>
+      <AppleActionRail>
+        <button type="button" className={styles.entry} onClick={()=>onNavigate("monitoring")}><span><strong>{TERMS.monitoring}</strong><small>类目、关键词与调度</small></span><b aria-hidden="true">›</b></button>
+        {onOpenSettings && <button type="button" className={styles.entry} onClick={onOpenSettings}><span><strong>AI 状态</strong><small>剩余额度与赠送包到期日</small></span><b aria-hidden="true">›</b></button>}
+        <button type="button" className={styles.entry} onClick={onToggleLanguage}><span><strong>显示语言</strong><small>{language==="zh"?"中文":"原文"}</small></span><b aria-hidden="true">›</b></button>
+      </AppleActionRail>
+    </section>
   </section>;
 }
