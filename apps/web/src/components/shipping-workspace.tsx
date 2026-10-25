@@ -503,7 +503,7 @@ export function ShippingWorkspace({
         ) : (
           <>
             {lines.length > 0 && (
-              <ul className="mt-3 grid gap-1.5">
+              <ul className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-1.5">
                 {lines.map((line) => {
                   const order = orderById.get(line.orderId);
                   if (!order) return null;
@@ -651,7 +651,7 @@ export function ShippingWorkspace({
               {orders.length === 0 ? (
                 <EmptyState art="shipping" title="暂无可发货库存" compact />
               ) : (
-                <ul className="mt-2 grid gap-1.5">
+                <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-1.5">
                   {orders.map((order) => {
                     const unit = unitDeclaredDefault(order);
                     const tooBig = rateReady && unit > capJpy;

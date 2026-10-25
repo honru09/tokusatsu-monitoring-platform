@@ -38,4 +38,16 @@ describe("shipping packed-line width contract", () => {
       'className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-white px-3 py-2"',
     );
   });
+
+  it("constrains both stock lists to a shrinkable grid column", () => {
+    // A plain `grid` sizes its implicit column to the widest row's
+    // max-content: one long untruncated-looking title stretched the
+    // whole card to 659px on a 390px phone (measured on the live
+    // page). The minmax(0, 1fr) column is what lets rows truncate.
+    const lists = source.match(/<ul className="[^"]*grid[^"]*"/g) ?? [];
+    expect(lists.length).toBeGreaterThanOrEqual(2);
+    for (const list of lists) {
+      expect(list).toContain("grid-cols-[minmax(0,1fr)]");
+    }
+  });
 });
