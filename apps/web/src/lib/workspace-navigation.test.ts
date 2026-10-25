@@ -3,9 +3,11 @@ import {
   applyWorkspaceSearchParam,
   goBackWorkspaceState,
   initialWorkspaceNavigationState,
+  isCostToolSegment,
   legacyCatalogView,
   legacyPurchasesTab,
   parsePurchasesTabParam,
+  legacyCostToolSegment,
   navigateWorkspaceState,
   parseWorkspaceHistoryState,
   parseRecentWorkspaceEntries,
@@ -133,7 +135,7 @@ describe("workspace navigation stack", () => {
       { workspace: "workbench", trail: [] },
       "purchases",
     );
-    const tertiary = navigateWorkspaceState(secondary, "logistics");
+    const tertiary = navigateWorkspaceState(secondary, "cost-tool");
 
     expect(goBackWorkspaceState(tertiary)).toEqual(secondary);
     expect(goBackWorkspaceState(secondary)).toEqual({
@@ -196,6 +198,28 @@ describe("workspace URL deep-link", () => {
     // The merged page itself stays a workbench child.
     expect(initialWorkspaceNavigationState("purchases")).toEqual({
       workspace: "purchases",
+  it("maps pre-merge cost workspace ids to their cost-tool segment", () => {
+    // Calculator and logistics are segments of 算账 now, not pages.
+    expect(parseWorkspaceParam("calculator")).toBeNull();
+    expect(parseWorkspaceParam("logistics")).toBeNull();
+    expect(parseWorkspaceParam("cost-tool")).toBe("cost-tool");
+    expect(legacyCostToolSegment("calculator")).toBe("calculator");
+    expect(legacyCostToolSegment("logistics")).toBe("logistics");
+    expect(legacyCostToolSegment("cost-tool")).toBeNull();
+    expect(legacyCostToolSegment("catalog")).toBeNull();
+    expect(legacyCostToolSegment(null)).toBeNull();
+    expect(isCostToolSegment("calculator")).toBe(true);
+    expect(isCostToolSegment("logistics")).toBe(true);
+    expect(isCostToolSegment("cost-tool")).toBe(false);
+    expect(initialWorkspaceNavigationState("cost-tool")).toEqual({
+      workspace: "cost-tool",
+      trail: ["workbench"],
+    });
+  });
+
+  it("treats inventory orders as a workbench child", () => {
+    expect(initialWorkspaceNavigationState("orders")).toEqual({
+      workspace: "orders",
       trail: ["workbench"],
     });
   });
@@ -217,7 +241,7 @@ describe("workspace URL deep-link", () => {
 
   it("round-trips nested navigation through browser history without discarding framework state", () => {
     const entry = {
-      workspace: "logistics" as const,
+      workspace: "cost-tool" as const,
       trail: ["workbench", "purchases"] as const,
       depth: 2,
       scrollY: 318,

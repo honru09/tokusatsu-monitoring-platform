@@ -45,9 +45,9 @@ import {
 } from "../components/purchase-registration-form";
 import { MarketIntelWorkspace } from "../components/market-intel-workspace";
 import { AiSystemWorkspace } from "../components/ai-system-workspace";
-import { LogisticsWorkspace } from "../components/logistics-workspace";
+import { CostToolWorkspace } from "../components/cost-tool-workspace";
+import { CostEstimatePanel } from "../components/cost-estimate-panel";
 import { OperationsWorkspace } from "../components/operations-workspace";
-import { ProcurementCalculatorWorkspace } from "../components/procurement-calculator-workspace";
 import { YahooDiscount } from "../components/yahoo-discount";
 import { InventoryOrdersWorkspace } from "../components/inventory-orders-workspace";
 import { PurchaseRecordsWorkspace } from "../components/purchase-records-workspace";
@@ -124,6 +124,7 @@ import {
   initialWorkspaceNavigationState,
   legacyCatalogView,
   legacyPurchasesTab,
+  legacyCostToolSegment,
   navigateWorkspaceState,
   parsePurchasesTabParam,
   parseRecentWorkspaceEntries,
@@ -134,6 +135,7 @@ import {
   withWorkspaceHistoryState,
   type CatalogView,
   type PurchasesTab,
+  type CostToolSegment,
   type RecentWorkspaceEntry,
   type Workspace,
   type WorkspaceNavigationState,
@@ -2620,6 +2622,13 @@ function DetailDrawer({
                   <dd>{cost.unit == null ? "待确认" : fmtYen(cost.unit)}</dd>
                 </div>
               </dl>
+              <CostEstimatePanel
+                priceYen={item.priceCurrent}
+                shippingYen={item.shippingFee}
+                quantity={item.quantityEst ?? undefined}
+                exchangeRate={exchangeRate}
+                listingType={item.listingType}
+              />
               {auction && (
                 <div className="detail-auction" aria-label="拍卖倒计时">
                   <span>
@@ -3823,6 +3832,8 @@ export default function Dashboard() {
   const [workspace, setWorkspace] = useState<Workspace>(DEFAULT_WORKSPACE);
   const [catalogView, setCatalogView] = useState<CatalogView>("browse");
   const [purchasesTab, setPurchasesTab] = useState<PurchasesTab>("records");
+  const [costToolSegment, setCostToolSegment] =
+    useState<CostToolSegment>("calculator");
   const chatVisitedRef = useRef(false);
   if (workspace === "collaboration") chatVisitedRef.current = true;
   const [workspaceTrail, setWorkspaceTrail] = useState<Workspace[]>([]);
@@ -4142,8 +4153,12 @@ export default function Dashboard() {
       );
       // Pre-merge deep links (?workspace=orders, or
       // ?workspace=purchases&tab=orders) land on the inventory tab of
-      // the merged purchases workspace.
+      // the merged purchases workspace; ?workspace=calculator/logistics
+      // land on the matching segment of the merged cost tool.
       const legacyTab = legacyPurchasesTab(
+        new URLSearchParams(window.location.search).get("workspace"),
+      );
+      const legacySegment = legacyCostToolSegment(
         new URLSearchParams(window.location.search).get("workspace"),
       );
       const fromUrl =
@@ -4152,6 +4167,7 @@ export default function Dashboard() {
         ) ??
         (legacyView ? ("catalog" as const) : null) ??
         (legacyTab ? ("purchases" as const) : null) ??
+        (legacySegment ? ("cost-tool" as const) : null) ??
         DEFAULT_WORKSPACE;
       if (legacyView) setCatalogView(legacyView);
       if (legacyTab) setPurchasesTab(legacyTab);
@@ -4161,6 +4177,7 @@ export default function Dashboard() {
         );
         if (tabParam) setPurchasesTab(tabParam);
       }
+      if (legacySegment) setCostToolSegment(legacySegment);
       const initial = initialWorkspaceNavigationState(fromUrl);
       workspaceStateRef.current = initial;
       workspaceHistoryDepthRef.current = 0;
@@ -4228,8 +4245,12 @@ export default function Dashboard() {
       );
       // Pre-merge deep links (?workspace=orders, or
       // ?workspace=purchases&tab=orders) land on the inventory tab of
-      // the merged purchases workspace.
+      // the merged purchases workspace; ?workspace=calculator/logistics
+      // land on the matching segment of the merged cost tool.
       const legacyTab = legacyPurchasesTab(
+        new URLSearchParams(window.location.search).get("workspace"),
+      );
+      const legacySegment = legacyCostToolSegment(
         new URLSearchParams(window.location.search).get("workspace"),
       );
       const fromUrl =
@@ -4238,6 +4259,7 @@ export default function Dashboard() {
         ) ??
         (legacyView ? ("catalog" as const) : null) ??
         (legacyTab ? ("purchases" as const) : null) ??
+        (legacySegment ? ("cost-tool" as const) : null) ??
         DEFAULT_WORKSPACE;
       if (legacyView) setCatalogView(legacyView);
       if (legacyTab) setPurchasesTab(legacyTab);
@@ -4247,6 +4269,7 @@ export default function Dashboard() {
         );
         if (tabParam) setPurchasesTab(tabParam);
       }
+      if (legacySegment) setCostToolSegment(legacySegment);
       const next = fromHistory ?? {
         ...initialWorkspaceNavigationState(fromUrl),
         depth: 0,
@@ -5738,6 +5761,12 @@ export default function Dashboard() {
     if (workspace !== "purchases") navigateWorkspace("purchases");
   }
 
+  /** Open the merged cost tool with a segment preselected. */
+  function openCostTool(segment: CostToolSegment) {
+    setCostToolSegment(segment);
+    if (workspace !== "cost-tool") navigateWorkspace("cost-tool");
+  }
+
   function navigateWorkspace(next: Workspace) {
     if (next === workspace) return;
     workspaceHasNavigatedRef.current = true;
@@ -6568,8 +6597,7 @@ export default function Dashboard() {
         : [
               "purchases",
               "intel",
-              "logistics",
-              "calculator",
+              "cost-tool",
               "operations",
               "workbench",
               "monitoring",
@@ -6589,16 +6617,16 @@ export default function Dashboard() {
     >
       <a
         href={
-          workspace === "calculator"
-            ? "#procurement-calculator-title"
+          workspace === "cost-tool"
+            ? "#cost-tool-title"
             : workspace === "catalog"
               ? "#inventory"
               : "#workspace-content"
         }
         className="skip-link"
       >
-        {workspace === "calculator"
-          ? "跳到进货计算器"
+        {workspace === "cost-tool"
+          ? "跳到算账"
           : workspace === "catalog"
             ? "跳到商品列表"
             : "跳到当前工作区"}
@@ -6736,20 +6764,17 @@ export default function Dashboard() {
         )}
         {workspace === "intel" && <MarketIntelWorkspace apiBaseUrl={API} />}
         {workspace === "ai" && <AiSystemWorkspace apiBaseUrl={API} onOpenChat={()=>navigateWorkspace("assistant")} onOpenProducts={()=>openCatalogView("browse")} />}
-        {workspace === "logistics" && (
-          <LogisticsWorkspace
+        {workspace === "cost-tool" && (
+          <CostToolWorkspace
+            key={activeManagerId}
             apiBaseUrl={API}
+            managerId={activeManagerId}
             exchangeRate={exchangeRate?.rate}
+            segment={costToolSegment}
+            onSegmentChange={setCostToolSegment}
           />
         )}
         <OperationsWorkspace active={workspace === "operations"} onOpenChat={() => navigateWorkspace("collaboration")} />
-        {workspace === "calculator" && (
-          <ProcurementCalculatorWorkspace
-            key={activeManagerId}
-            managerId={activeManagerId}
-            exchangeRate={exchangeRate?.rate}
-          />
-        )}
         {workspace === "inventory" && (
           <TodoHome
             apiBaseUrl={API}
@@ -6791,11 +6816,12 @@ export default function Dashboard() {
                 onOpenValueKings={openValueKingCatalog}
                 onOpenUrgentAuctions={openUrgentAuctionCatalog}
                 onOpenXianyuComparison={openXianyuComparisonCatalog}
-                onOpenWorkspace={(next) => {
+                onOpenWorkspace={(target) => {
                   // The overview's purchase entries name the records
                   // tab; the orders tab has its own entry below.
-                  if (next === "purchases") openPurchasesTab("records");
-                  else navigateWorkspace(next);
+                  if (target === "purchases") openPurchasesTab("records");
+                  else if (target === "cost-tool") openCostTool("logistics");
+                  else navigateWorkspace(target);
                 }}
                 onOpenCatalogView={openCatalogView}
                 onOpenPurchasesTab={openPurchasesTab}

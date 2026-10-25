@@ -30,7 +30,7 @@ export type MarketOverviewData = {
 export type HomeWorkspaceEntry =
   | "purchases"
   | "intel"
-  | "logistics"
+  | "cost-tool"
   | "resale"
   | "workbench";
 
@@ -809,8 +809,8 @@ export function HomeMarketOverview({
               />
               <HomeMenuEntry
                 icon="logistics"
-                label="物流测算"
-                onClick={() => onOpenWorkspace("logistics")}
+                label="算账"
+                onClick={() => onOpenWorkspace("cost-tool")}
               />
               <HomeMenuEntry
                 icon="workbench"

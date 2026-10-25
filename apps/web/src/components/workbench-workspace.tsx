@@ -15,8 +15,7 @@ import { AppleActionRail } from "./apple-action-rail";
  */
 const toolEntries = [
   ["purchases", TERMS.procurement, "购买记录、到货与库存"],
-  ["calculator", TERMS.calculator, "核算报价与采购成本"],
-  ["logistics", TERMS.logistics, "比较运费与运输方案"],
+  ["cost-tool", TERMS.costTool, "核算报价、成本与物流利润"],
   ["resale", TERMS.resale, "选品、编辑、发布与维护"],
 ] as const;
 
