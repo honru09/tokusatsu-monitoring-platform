@@ -34,11 +34,10 @@ export const SYSTEM_TOOL_CATALOG = [
   ["seller_stats", "汇总卖家类型和数量"],
   ["seller_products", "搜索卖家及其全部公开商品"],
   ["seller_history", "读取卖家近期商品历史"],
-  ["user_activity_summary", "汇总收藏、购买和发现操作"],
+  ["user_activity_summary", "汇总收藏与购买"],
   ["favorites", "读取收藏商品"],
   ["purchases", "读取购买记录"],
-  ["recent_views", "读取最近详情查看操作"],
-  ["feedback_summary", "汇总发现与 AI 反馈"],
+  ["feedback_summary", "汇总 AI 反馈"],
   ["crawler_status", "读取各来源抓取健康状态"],
   ["crawler_errors", "读取最近抓取错误"],
   ["crawler_statistics", "汇总抓取任务和入库量"],
@@ -359,10 +358,6 @@ export class SystemToolRegistryService {
         return Promise.all([
           this.prisma.item.count({ where: { favorite: true } }),
           this.prisma.purchaseRecord.count(),
-          this.prisma.discoveryFeedback.groupBy({
-            by: ["action"],
-            _count: { _all: true },
-          }),
         ]);
       case "favorites":
         return this.prisma.item.findMany({
@@ -377,24 +372,11 @@ export class SystemToolRegistryService {
           orderBy: { purchasedAt: "desc" },
           take: 30,
         });
-      case "recent_views":
-        return this.prisma.discoveryFeedback.findMany({
-          where: { action: "detail_view" },
-          include: { listing: { select: this.itemProjection() } },
-          orderBy: { timestamp: "desc" },
-          take: 30,
-        });
       case "feedback_summary":
-        return Promise.all([
-          this.prisma.discoveryFeedback.groupBy({
-            by: ["action"],
-            _count: { _all: true },
-          }),
-          this.prisma.aiFeedback.groupBy({
-            by: ["action"],
-            _count: { _all: true },
-          }),
-        ]);
+        return this.prisma.aiFeedback.groupBy({
+          by: ["action"],
+          _count: { _all: true },
+        });
       case "ai_system_status": {
         // The context snapshot is the single source of truth for the live
         // catalogue probe.  Falling back to the persisted rows is retained

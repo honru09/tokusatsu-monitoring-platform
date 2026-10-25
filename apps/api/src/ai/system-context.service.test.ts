@@ -33,7 +33,6 @@ describe("SystemContextService AI snapshot", () => {
       marketIntel: { count: vi.fn().mockResolvedValue(0) },
       keywordInsight: { findMany: vi.fn().mockResolvedValue([]) },
       purchaseRecord: { count: vi.fn().mockResolvedValue(0) },
-      discoveryFeedback: { groupBy: vi.fn().mockResolvedValue([]) },
     };
     const gateway = {
       availableModelIds: vi.fn().mockResolvedValue(catalogue),
@@ -431,7 +430,6 @@ describe("SystemContextService AI snapshot", () => {
       marketIntel: { count: vi.fn().mockResolvedValue(0) },
       keywordInsight: { findMany: vi.fn().mockResolvedValue([]) },
       purchaseRecord: { count: vi.fn().mockResolvedValue(0) },
-      discoveryFeedback: { groupBy: vi.fn().mockResolvedValue([]) },
     };
     const service = new SystemContextService(prisma as never);
     (
@@ -481,7 +479,6 @@ describe("SystemContextService AI snapshot", () => {
       marketIntel: { count: vi.fn().mockResolvedValue(0) },
       keywordInsight: { findMany: vi.fn().mockResolvedValue([]) },
       purchaseRecord: { count: vi.fn().mockResolvedValue(0) },
-      discoveryFeedback: { groupBy: vi.fn().mockResolvedValue([]) },
     };
     const service = new SystemContextService(prisma as never);
     (
@@ -493,7 +490,6 @@ describe("SystemContextService AI snapshot", () => {
     const snapshot = await service.snapshot({ includePrivateActivity: false });
 
     expect(prisma.purchaseRecord.count).not.toHaveBeenCalled();
-    expect(prisma.discoveryFeedback.groupBy).not.toHaveBeenCalled();
     expect(
       prisma.item.count.mock.calls.some(([query]) => query?.where?.favorite),
     ).toBe(false);

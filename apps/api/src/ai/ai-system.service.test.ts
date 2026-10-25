@@ -656,7 +656,6 @@ describe("AiSystemService chat context", () => {
     [["favorites"], "看看我的收藏"],
     [["purchases"], "查看我的购买记录"],
     [["user_activity_summary"], "总结我的活动"],
-    [["recent_views"], "我最近看过什么"],
     [["feedback_summary"], "总结我的反馈"],
     [["search_inventory"], "搜索我的库存"],
     [[], "看看购物车和待结算商品"],

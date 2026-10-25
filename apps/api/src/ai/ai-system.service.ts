@@ -86,7 +86,6 @@ const anonymousChatBlockedTools = new Set([
   "favorites",
   "purchases",
   "user_activity_summary",
-  "recent_views",
   "feedback_summary",
   "search_inventory",
 ]);
@@ -1284,7 +1283,7 @@ export class AiSystemService {
 
   private async briefFacts(days: number) {
     const since = new Date(Date.now() - days * 24 * 60 * 60_000);
-    const [items, purchases, favorites, feedback, keywords] = await Promise.all(
+    const [items, purchases, favorites, keywords] = await Promise.all(
       [
         this.prisma.item.aggregate({
           where: {
@@ -1302,11 +1301,6 @@ export class AiSystemService {
         this.prisma.item.count({
           where: { favorite: true, updatedAt: { gte: since } },
         }),
-        this.prisma.discoveryFeedback.groupBy({
-          by: ["action"],
-          where: { timestamp: { gte: since } },
-          _count: { _all: true },
-        }),
         this.prisma.keywordInsight.findMany({
           where: { recommended: true },
           orderBy: { highValueRatio: "desc" },
@@ -1314,6 +1308,6 @@ export class AiSystemService {
         }),
       ],
     );
-    return { items, purchases, favorites, feedback, keywords };
+    return { items, purchases, favorites, keywords };
   }
 }

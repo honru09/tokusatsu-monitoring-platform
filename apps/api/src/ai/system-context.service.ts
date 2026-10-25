@@ -158,11 +158,6 @@ export class SystemContextService {
             this.prisma.purchaseRecord.count({
               where: { purchasedAt: { gte: since24h } },
             }),
-            this.prisma.discoveryFeedback.groupBy({
-              by: ["action"],
-              where: { timestamp: { gte: since24h } },
-              _count: { _all: true },
-            }),
           ]),
       this.queueSnapshot(),
     ]);
@@ -232,7 +227,6 @@ export class SystemContextService {
             recentUserActivity: {
               favorites24h: recentUserActivity[0],
               purchases24h: recentUserActivity[1],
-              discovery: recentUserActivity[2],
             },
           }
         : {}),

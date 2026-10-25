@@ -14,8 +14,6 @@ import { ImportsController } from "./imports/imports.controller.js";
 import { ImportsService } from "./imports/imports.service.js";
 import { AnalysisController } from "./analysis/analysis.controller.js";
 import { AnalysisService } from "./analysis/analysis.service.js";
-import { DiscoveryController } from "./discovery/discovery.controller.js";
-import { DiscoveryService } from "./discovery/discovery.service.js";
 import { MarketIntelController } from "./market-intel/market-intel.controller.js";
 import { MarketIntelService } from "./market-intel/market-intel.service.js";
 import { AiModule } from "./ai/ai.module.js";
@@ -43,7 +41,6 @@ import { ResaleModule } from "./resale/resale.module.js";
     ItemsController,
     ImportsController,
     AnalysisController,
-    DiscoveryController,
     MarketIntelController,
     CartController,
     ExchangeRateController,
@@ -58,7 +55,6 @@ import { ResaleModule } from "./resale/resale.module.js";
     MonitoringConfigService,
     ImportsService,
     AnalysisService,
-    DiscoveryService,
     MarketIntelService,
     CartService,
     ExchangeRateService,

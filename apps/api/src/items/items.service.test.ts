@@ -1527,7 +1527,6 @@ describe("ItemsService.removeItem", () => {
       },
       manualReview: { create: vi.fn().mockResolvedValue({}) },
       managerActivity: { create: vi.fn().mockResolvedValue({}) },
-      discoveryFeedback: { create: vi.fn().mockResolvedValue({}) },
     };
     const prisma = {
       item: { findUnique: vi.fn().mockResolvedValue(current) },
@@ -1567,7 +1566,6 @@ describe("ItemsService.removeItem", () => {
     });
     // Pure delete is not a preference signal.
     expect(tx.managerActivity.create).not.toHaveBeenCalled();
-    expect(tx.discoveryFeedback.create).not.toHaveBeenCalled();
   });
 
   it("is idempotent for an already deleted item", async () => {
