@@ -511,6 +511,7 @@ describe("database-owned monitoring scheduler", () => {
 describe("paid automation scheduler boundary", () => {
   it("does not create any automatic AI jobs or scan AI backlogs when disabled", async () => {
     vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
+    vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "false");
     vi.stubEnv("REAL_ADAPTER_ENABLED", "false");
     vi.stubEnv("MOCK_ADAPTER_ENABLED", "false");
     vi.resetModules();
@@ -542,7 +543,7 @@ describe("paid automation scheduler boundary", () => {
     expect(dbMock.countItems).not.toHaveBeenCalled();
   });
 
-  it("schedules only free-only translation queues when free automation is authorized", async () => {
+  it("schedules the free-tier translation queues when free automation is authorized", async () => {
     vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "true");
     vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
     vi.stubEnv("REAL_ADAPTER_ENABLED", "false");
@@ -909,8 +910,9 @@ describe("China comparison scheduler", () => {
 });
 
 describe("historical automatic classification scheduler", () => {
-  it("does not scan or enqueue items when paid automation is disabled", async () => {
+  it("does not scan or enqueue items when background automation is disabled", async () => {
     vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
+    vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "false");
     vi.resetModules();
     const { schedulePendingAutomaticClassifications } = await import(
       "./queues.js"
@@ -927,7 +929,9 @@ describe("historical automatic classification scheduler", () => {
     expect(classificationQueue?.adds).toHaveLength(0);
   });
 
-  it("uses content-stable IDs and advances through the historical cursor", async () => {
+  it("uses content-stable IDs and advances through the historical cursor when only free automation is enabled", async () => {
+    vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "true");
+    vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
     dbMock.findItems
       .mockResolvedValueOnce([
         {

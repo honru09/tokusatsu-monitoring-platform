@@ -22,6 +22,7 @@ describe("Product AI worker client", () => {
   it("does not call the Product AI endpoint when paid automation is disabled", async () => {
     process.env.AI_INTERNAL_TOKEN = "worker-token";
     vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
+    vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "false");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -30,6 +31,53 @@ describe("Product AI worker client", () => {
         operation: "automatic_classification",
         ...PRODUCT_AI_RESPONSE_SCHEMAS.automaticClassification,
         itemId: "item-disabled",
+        messages: [{ role: "user", content: "classify" }],
+      }),
+    ).resolves.toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("runs a free-authorized operation when only free automation is enabled", async () => {
+    process.env.AI_INTERNAL_TOKEN = "worker-token";
+    process.env.API_INTERNAL_URL = "http://api.internal/";
+    vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "true");
+    vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        Response.json({
+          data: { scope: "tokusatsu_toy" },
+          provider: "zhipu",
+          model: "glm-5.3-flash",
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      executeProductAi(
+        {
+          operation: "automatic_classification",
+          ...PRODUCT_AI_RESPONSE_SCHEMAS.automaticClassification,
+          itemId: "item-free-only",
+          messages: [{ role: "user", content: "classify" }],
+        },
+        { authorization: "free" },
+      ),
+    ).resolves.toMatchObject({ data: { scope: "tokusatsu_toy" } });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("still refuses a default (paid) operation when only free automation is enabled", async () => {
+    process.env.AI_INTERNAL_TOKEN = "worker-token";
+    vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "true");
+    vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      executeProductAi({
+        operation: "automatic_classification",
+        ...PRODUCT_AI_RESPONSE_SCHEMAS.automaticClassification,
+        itemId: "item-default-paid",
         messages: [{ role: "user", content: "classify" }],
       }),
     ).resolves.toBeNull();

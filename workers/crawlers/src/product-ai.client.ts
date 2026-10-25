@@ -2,6 +2,7 @@ import { normalizeHttpBaseUrl } from "@tokusatsu/shared";
 import { createHash } from "node:crypto";
 import {
   AutomaticAiDeferredError,
+  automaticBackgroundAiEnabled,
   automaticPaidAiEnabled,
   backgroundAiFetch,
 } from "./background-ai-guard.js";
@@ -83,12 +84,21 @@ function apiBaseUrl() {
 
 export async function executeProductAi<T extends Record<string, unknown>>(
   request: ProductAiRequest,
-  options: { softHttpFailure?: boolean } = {},
+  options: {
+    softHttpFailure?: boolean;
+    authorization?: "paid" | "free";
+  } = {},
 ): Promise<ProductAiEnvelope<T> | null> {
   // This client is worker-only: every caller is scheduled/background work.
   // Check authorization before credentials or request construction so a
-  // disabled deployment cannot reach the internal paid AI endpoint.
-  if (!automaticPaidAiEnabled()) return null;
+  // disabled deployment cannot reach the internal AI endpoint. Callers
+  // default to the paid class; only free-tier work (translation, image
+  // classification) may opt into the free class explicitly.
+  const authorized =
+    options.authorization === "free"
+      ? automaticBackgroundAiEnabled()
+      : automaticPaidAiEnabled();
+  if (!authorized) return null;
   const token = process.env.AI_INTERNAL_TOKEN?.trim();
   if (!token) return null;
   const apiBase = apiBaseUrl();
@@ -115,6 +125,7 @@ export async function executeProductAi<T extends Record<string, unknown>>(
         body,
         signal: AbortSignal.timeout(clientTimeout()),
       },
+      { authorization: options.authorization },
     );
   } catch (error) {
     if (error instanceof AutomaticAiDeferredError) {

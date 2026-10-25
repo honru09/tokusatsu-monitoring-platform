@@ -1284,7 +1284,7 @@ export async function scheduleFullRescanJobs(
  * content job IDs make this safe across restarts and while the queue is paused.
  */
 export async function schedulePendingAutomaticClassifications() {
-  if (!automaticPaidAiEnabled()) return { inspected: 0, scheduled: 0 };
+  if (!automaticBackgroundAiEnabled()) return { inspected: 0, scheduled: 0 };
   let cursor: string | undefined;
   let inspected = 0;
   let scheduled = 0;
@@ -1385,7 +1385,7 @@ export async function scheduleJobs() {
   await scheduleYahooSellerBackfill();
   await scheduleMercariSellerBackfill();
   await scheduleYahooFleamarketSellerBackfill();
-  if (paidAutomationEnabled) await schedulePendingAutomaticClassifications();
+  if (backgroundAiEnabled) await schedulePendingAutomaticClassifications();
   if (backgroundAiEnabled) {
     // Queue pause state is durable in Redis. A previous paid-automation
     // shutdown may therefore leave safe free-only translation work paused

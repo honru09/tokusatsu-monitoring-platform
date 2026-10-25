@@ -87,7 +87,7 @@ import {
   shouldQueueAutomaticClassification,
 } from "./automatic-classification.js";
 import {
-  automaticPaidAiEnabled,
+  automaticBackgroundAiEnabled,
   runAutomaticAiTask,
 } from "./background-ai-guard.js";
 import {
@@ -2033,11 +2033,11 @@ async function persistNormalized(
   await matchOrCreateProduct(saved.id);
   await refreshReadyCrossMarketOpportunitiesForItem(saved.id);
   // Purchase imports queue the same automatic classification as ordinary
-  // imports (still gated by automaticPaidAiEnabled above), so quantityEst
-  // and the title structure are settled before the operator confirms the
-  // price instead of staying at the rules-only estimate.
+  // imports (still gated by automaticBackgroundAiEnabled above), so
+  // quantityEst and the title structure are settled before the operator
+  // confirms the price instead of staying at the rules-only estimate.
   if (
-    automaticPaidAiEnabled() &&
+    automaticBackgroundAiEnabled() &&
     monitoringCategory?.scope !== "general" &&
     (saved.status === "active" || saved.status === "unknown") &&
     !saved.ignored &&
@@ -2334,8 +2334,8 @@ async function classificationItemStillEligible(itemId: string) {
 export async function processClassification(
   job: Job<{ itemId: string; version?: string }>,
 ) {
-  if (!automaticPaidAiEnabled())
-    return { skipped: "paid_automation_not_authorized" } as const;
+  if (!automaticBackgroundAiEnabled())
+    return { skipped: "background_automation_not_authorized" } as const;
   const item = await prisma.item.findUnique({
     where: { id: job.data.itemId },
     include: {
@@ -2624,6 +2624,8 @@ export async function processClassification(
           ),
           itemId: item.id,
         }),
+      undefined,
+      { authorization: "free" },
     );
   } catch (error) {
     // Gateway assertion failures (image-count limit, disabled scope) fail
@@ -2784,7 +2786,7 @@ async function executeProductOperation(
 ) {
   return executeProductAi<Record<string, unknown>>(
     { operation, ...responseSchema, itemId, maxTokens, messages },
-    { softHttpFailure: true },
+    { softHttpFailure: true, authorization: "free" },
   );
 }
 

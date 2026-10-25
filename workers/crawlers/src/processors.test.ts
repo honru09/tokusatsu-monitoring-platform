@@ -1229,8 +1229,9 @@ describe("automatic AI classification scheduling", () => {
     titleRaw: "仮面ライダー DX変身ベルト",
   } as const;
 
-  it("does not load an item or call AI when paid automation is disabled", async () => {
+  it("does not load an item or call AI when background automation is disabled", async () => {
     vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
+    vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "false");
     const findUnique = vi
       .spyOn(prisma.item, "findUnique")
       .mockResolvedValue(null);
@@ -1241,9 +1242,24 @@ describe("automatic AI classification scheduling", () => {
       processClassification({
         data: { itemId: "item-disabled", version: "v1" },
       } as never),
-    ).resolves.toEqual({ skipped: "paid_automation_not_authorized" });
+    ).resolves.toEqual({ skipped: "background_automation_not_authorized" });
     expect(findUnique).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("passes the classification gate when only free automation is enabled", async () => {
+    vi.stubEnv("BACKGROUND_AI_FREE_AUTOMATION_ENABLED", "true");
+    vi.stubEnv("BACKGROUND_AI_PAID_AUTOMATION_ENABLED", "false");
+    const findUnique = vi
+      .spyOn(prisma.item, "findUnique")
+      .mockResolvedValue(null);
+
+    await expect(
+      processClassification({
+        data: { itemId: "item-free-only", version: "v1" },
+      } as never),
+    ).resolves.toEqual({ skipped: "missing_item" });
+    expect(findUnique).toHaveBeenCalledOnce();
   });
 
   it("uses the same item/version key everywhere but permits a changed listing version", () => {
