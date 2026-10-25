@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   calculateQuote,
   customerQuoteText,
+  DEFAULT_QUOTE_ASSUMPTIONS,
+  estimateItemCost,
   inputNumber,
   internalEarnings,
   procurementCeiling,
@@ -78,6 +80,43 @@ describe("procurement calculator imported formulas", () => {
     const text = customerQuoteText(precise, quote, 3000);
     expect(text).toContain("100 日元 = 4.349 元");
     expect(text).toContain("1,304.70");
+  });
+  it("shares one set of default assumptions with the embedded estimate", () => {
+    expect(DEFAULT_QUOTE_ASSUMPTIONS).toEqual({
+      feePercent: 15,
+      shippingPerUnit: 25,
+      targetProfitPerUnit: 30,
+    });
+    // The embedded estimate for the same batch must land on the same
+    // receivable the standalone calculator produces.
+    const estimate = estimateItemCost({
+      priceYen: 30_000,
+      shippingYen: 0,
+      quantity: 20,
+      exchangeRate: 0.0421,
+      domesticCny: 3000,
+    })!;
+    expect(estimate.totalYen).toBe(30_000);
+    expect(estimate.landedCny).toBe(calculateQuote(input)!.receivable);
+    expect(estimate.perUnitCny).toBe(97.62);
+    expect(estimate.profitCny).toBe(1047.55);
+  });
+  it("estimates a single item and refuses an unknown price", () => {
+    const single = estimateItemCost({
+      priceYen: 10_000,
+      shippingYen: 500,
+      exchangeRate: 0.05,
+    })!;
+    expect(single.quantity).toBe(1);
+    expect(single.totalYen).toBe(10_500);
+    expect(single.unitYen).toBe(10_500);
+    expect(single.profitCny).toBeNull();
+    expect(estimateItemCost({ priceYen: 0 })).toBeNull();
+    expect(estimateItemCost({ priceYen: Number.NaN })).toBeNull();
+    // Without a rate the yen total still stands, no CNY figure is made up.
+    expect(
+      estimateItemCost({ priceYen: 8000 })?.landedCny,
+    ).toBeNull();
   });
   it("applies the 20% scenario to Yahoo flea market only", () => {
     expect(yahooFleamarketDiscount("yahoo_fleamarket", 3100)).toEqual({

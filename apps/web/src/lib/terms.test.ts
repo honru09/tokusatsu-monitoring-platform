@@ -30,6 +30,12 @@ describe("canonical terms", () => {
     ).toBe(3);
   });
 
+  it("names the merged cost tool and keeps its segment labels", () => {
+    expect(TERMS.costTool).toBe("算账");
+    expect(TERMS.calculator).toBe("采购测算");
+    expect(TERMS.logistics).toBe("物流");
+  });
+
   it("names the todo queues and the unverifiable state", () => {
     expect(TERMS.queueReview).toBe("待评估");
     expect(TERMS.queueNegotiating).toBe("砍价中");

@@ -2,6 +2,23 @@ export const MAX_AMOUNT = 1_000_000_000;
 export const cents = (value: number) =>
   Math.round((value + Number.EPSILON) * 100) / 100;
 
+/**
+ * Default assumptions for a quick quote. The standalone calculator
+ * pre-fills its draft from these values and the embedded estimate
+ * panel uses the same ones, so a number seen in the detail drawer
+ * matches what the full 算账 tool produces for the same item.
+ * Shipping is 25 CNY per unit (4 items per kilo at 100 CNY/kilo).
+ */
+export const DEFAULT_FEE_PERCENT = 15;
+export const DEFAULT_SHIPPING_PER_UNIT_CNY = 25;
+export const DEFAULT_TARGET_PROFIT_PER_UNIT_CNY = 30;
+
+export const DEFAULT_QUOTE_ASSUMPTIONS = {
+  feePercent: DEFAULT_FEE_PERCENT,
+  shippingPerUnit: DEFAULT_SHIPPING_PER_UNIT_CNY,
+  targetProfitPerUnit: DEFAULT_TARGET_PROFIT_PER_UNIT_CNY,
+} as const;
+
 export function inputNumber(
   value: string,
   min = 0,
@@ -154,6 +171,75 @@ export function customerQuoteText(
         ]),
     "按填写的售价与费用测算，实际转售收益以成交和最终费用为准。",
   ].join("\n");
+}
+
+export type ItemCostEstimateInput = {
+  /** Item price in yen for the whole batch (one listing). */
+  priceYen: number;
+  /** Known domestic (Japan-side) shipping for the listing, in yen. */
+  shippingYen?: number | null;
+  /** Units in the batch; defaults to 1 when missing or invalid. */
+  quantity?: number | null;
+  /** CNY per 1 JPY (same shape as the dashboard exchange rate). */
+  exchangeRate?: number | null;
+  /** Expected domestic resale price for the whole batch, in CNY. */
+  domesticCny?: number | null;
+  feePercent?: number;
+  shippingPerUnit?: number;
+};
+
+/**
+ * One-item estimate shared by the embedded panel and the 算账 tool.
+ * The yen total is price + known Japan-side shipping. The CNY landed
+ * cost reuses calculateQuote with the default assumptions unless the
+ * caller overrides them, so the fee and international shipping口径
+ * never drift between surfaces. Profit is only reported when the
+ * caller supplies an expected domestic resale price.
+ */
+export function estimateItemCost(input: ItemCostEstimateInput) {
+  if (!Number.isFinite(input.priceYen) || input.priceYen <= 0) return null;
+  const quantity =
+    input.quantity != null &&
+    Number.isInteger(input.quantity) &&
+    input.quantity > 0
+      ? input.quantity
+      : 1;
+  const shippingKnown =
+    input.shippingYen != null &&
+    Number.isFinite(input.shippingYen) &&
+    input.shippingYen >= 0;
+  const totalYen = input.priceYen + (shippingKnown ? input.shippingYen! : 0);
+  const exchangePer100 =
+    input.exchangeRate != null &&
+    Number.isFinite(input.exchangeRate) &&
+    input.exchangeRate > 0
+      ? input.exchangeRate * 100
+      : null;
+  const quote =
+    exchangePer100 !== null
+      ? calculateQuote({
+          quantity,
+          exchangePer100,
+          marketYen: totalYen,
+          feePercent: input.feePercent ?? DEFAULT_FEE_PERCENT,
+          shippingPerUnit:
+            input.shippingPerUnit ?? DEFAULT_SHIPPING_PER_UNIT_CNY,
+        })
+      : null;
+  const profitCny =
+    quote && input.domesticCny != null && Number.isFinite(input.domesticCny)
+      ? cents(input.domesticCny - quote.receivable)
+      : null;
+  return {
+    quantity,
+    shippingKnown,
+    totalYen,
+    unitYen: Math.round(totalYen / quantity),
+    quote,
+    landedCny: quote?.receivable ?? null,
+    perUnitCny: quote?.perUnit ?? null,
+    profitCny,
+  };
 }
 
 export function yahooFleamarketDiscount(sourceKey: string, priceYen: number) {

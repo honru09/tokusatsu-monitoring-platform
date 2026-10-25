@@ -25,6 +25,7 @@ export const TERMS = {
   procurement: "采购",
   calculator: "采购测算",
   logistics: "物流",
+  costTool: "算账",
   intel: "市场情报",
   resale: "转售",
   monitoring: "监控设置",
