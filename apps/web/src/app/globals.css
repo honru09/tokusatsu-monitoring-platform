@@ -6736,6 +6736,34 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   font-variant-numeric: tabular-nums;
 }
 
+/* Todo home: the market overview folds away below the decision queues. */
+.todo-overview {
+  border-top: 1px solid rgb(28 28 30 / 0.08);
+  padding-top: 14px;
+}
+
+.todo-overview > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 44px;
+  align-items: center;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 900;
+  list-style: none;
+}
+
+.todo-overview > summary::-webkit-details-marker {
+  display: none;
+}
+
+.todo-overview > summary span {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(28 28 30 / 0.45);
+}
+
 /* Pending-work count on the todo slot: neutral ink, red stays unread/error. */
 .todo-count-badge {
   position: absolute;

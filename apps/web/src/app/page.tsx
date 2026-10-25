@@ -3,6 +3,7 @@
 import { useGSAP } from "@gsap/react";
 import { PrimaryNavigation } from "../components/primary-navigation";
 import { LoadError } from "../components/load-error";
+import { TodoHome } from "../components/todo-home";
 import { TERMS } from "../lib/terms";
 import { WorkbenchWorkspace } from "../components/workbench-workspace";
 import { EditorialReadingProgress } from "../components/editorial-reading-progress";
@@ -4836,6 +4837,7 @@ export default function Dashboard() {
   const [managerAccountsLoading, setManagerAccountsLoading] = useState(true);
   const [managerAccountsError, setManagerAccountsError] = useState("");
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [todoCount, setTodoCount] = useState(0);
   const [accountGateOpen, setAccountGateOpen] = useState(true);
   const [shellOverlayRoot, setShellOverlayRoot] = useState<HTMLElement | null>(
     null,
@@ -7303,6 +7305,10 @@ export default function Dashboard() {
     () => new Set(purchases.map((purchase) => purchase.itemId)),
     [purchases],
   );
+  const dislikedItemIds = useMemo(
+    () => new Set(dislikedItems.map((item) => item.id)),
+    [dislikedItems],
+  );
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageStart = total ? (page - 1) * PAGE_SIZE + 1 : 0;
   const pageEnd = Math.min(page * PAGE_SIZE, total);
@@ -7532,29 +7538,46 @@ export default function Dashboard() {
           />
         )}
         {workspace === "inventory" && (
-          <HomeMarketOverview
-            data={overview?.market}
-            error={overviewError}
-            onRetry={() => setOverviewRefreshVersion((version) => version + 1)}
-            updatedAt={overview?.serverTime}
-            activeCategory={filters.ip || "all"}
-            activeCollection={filters.collection}
-            customCategories={monitoringCategories}
-            activeCustomCategoryId={filters.monitoringCategoryId}
-            onSelectCustomCategory={openMonitoringCategory}
-            activeListingType={listingMode}
-            onSelectCategory={openCatalogCategory}
-            onSelectCollection={openCatalogCollection}
-            onSelectListingType={openCatalogListingMode}
-            onOpenInventory={openCatalog}
-            onOpenValueKings={openValueKingCatalog}
-            onOpenUrgentAuctions={openUrgentAuctionCatalog}
-            onOpenXianyuComparison={openXianyuComparisonCatalog}
-            onOpenWorkspace={navigateWorkspace}
-            onOpenAnalysis={() => setAnalysisOpen(true)}
-            hasAnalysis={Boolean(analysis)}
-            urgentAuctionCount={urgentCount}
-          />
+          <TodoHome
+            apiBaseUrl={API}
+            accountId={activeManagerId}
+            purchasedItemIds={purchasedItemIds}
+            dislikedItemIds={dislikedItemIds}
+            purchaseAnalyses={purchaseLinkJobs}
+            failedJobs24h={overview?.totals24h.failed ?? 0}
+            onNavigate={navigateWorkspace}
+            onPendingCountChange={setTodoCount}
+          >
+            <details className="todo-overview">
+              <summary>
+                {TERMS.overview}
+                <span>市场与筛选</span>
+              </summary>
+              <HomeMarketOverview
+                data={overview?.market}
+                error={overviewError}
+                onRetry={() => setOverviewRefreshVersion((version) => version + 1)}
+                updatedAt={overview?.serverTime}
+                activeCategory={filters.ip || "all"}
+                activeCollection={filters.collection}
+                customCategories={monitoringCategories}
+                activeCustomCategoryId={filters.monitoringCategoryId}
+                onSelectCustomCategory={openMonitoringCategory}
+                activeListingType={listingMode}
+                onSelectCategory={openCatalogCategory}
+                onSelectCollection={openCatalogCollection}
+                onSelectListingType={openCatalogListingMode}
+                onOpenInventory={openCatalog}
+                onOpenValueKings={openValueKingCatalog}
+                onOpenUrgentAuctions={openUrgentAuctionCatalog}
+                onOpenXianyuComparison={openXianyuComparisonCatalog}
+                onOpenWorkspace={navigateWorkspace}
+                onOpenAnalysis={() => setAnalysisOpen(true)}
+                hasAnalysis={Boolean(analysis)}
+                urgentAuctionCount={urgentCount}
+              />
+            </details>
+          </TodoHome>
         )}
         {(workspace === "links" || workspace === "purchases") && (
           <div
@@ -9043,6 +9066,7 @@ export default function Dashboard() {
       <PrimaryNavigation
         activeWorkspace={navigationWorkspace}
         unreadCount={unreadMessageCount}
+        todoCount={todoCount}
         onNavigate={navigateWorkspace}
       />
       {analysisOpen && (

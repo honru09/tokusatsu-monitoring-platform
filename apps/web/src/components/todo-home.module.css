@@ -1,0 +1,158 @@
+.home {
+  display: grid;
+  gap: 20px;
+  width: min(100%, 880px);
+  margin-inline: auto;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header h2 {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.header p {
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgb(28 28 30 / 0.5);
+}
+
+.refresh {
+  min-height: 40px;
+  padding-inline: 14px;
+  border-radius: 999px;
+  border: 1px solid rgb(28 28 30 / 0.12);
+  font-size: 12px;
+  font-weight: 700;
+  color: rgb(28 28 30 / 0.75);
+  background: white;
+}
+
+.refresh:disabled {
+  opacity: 0.55;
+}
+
+.allClear {
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: rgb(52 120 64 / 0.08);
+  color: rgb(35 90 46);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.section {
+  display: grid;
+  gap: 8px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sectionHeader h3 {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.count {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgb(28 28 30 / 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.more {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgb(0 84 179);
+}
+
+.rows {
+  display: grid;
+  gap: 6px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 7px 10px;
+  border-radius: 14px;
+  background: white;
+  box-shadow: 0 0 0 1px rgb(28 28 30 / 0.06);
+  text-align: left;
+}
+
+.row:active {
+  background: rgb(28 28 30 / 0.04);
+}
+
+.thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: rgb(28 28 30 / 0.06);
+  flex-shrink: 0;
+}
+
+.thumbEmpty {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgb(28 28 30 / 0.06);
+  flex-shrink: 0;
+}
+
+.rowBody {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.rowTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgb(28 28 30 / 0.92);
+}
+
+.rowMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: rgb(28 28 30 / 0.5);
+}
+
+.rowPrice {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  font-weight: 800;
+  color: rgb(28 28 30 / 0.9);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .row:hover {
+    box-shadow: 0 0 0 1px rgb(28 28 30 / 0.14);
+  }
+}

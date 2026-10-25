@@ -1295,7 +1295,7 @@ describe("Dashboard favorite synchronization", () => {
     act(() => historyTrigger.click());
     const catalogEntry = [
       ...host.querySelectorAll<HTMLButtonElement>("[data-history-entry]"),
-    ].find((button) => button.textContent?.includes("在售商品"));
+    ].find((button) => button.textContent?.includes("选货"));
     expect(catalogEntry).toBeDefined();
 
     const scrollToMock = window.scrollTo as ReturnType<typeof vi.fn>;
