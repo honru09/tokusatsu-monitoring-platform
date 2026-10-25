@@ -2,7 +2,10 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ProcurementCalculatorWorkspace } from "./procurement-calculator-workspace";
+import {
+  CostToolWorkspace,
+  ProcurementCalculatorWorkspace,
+} from "./cost-tool-workspace";
 
 let host: HTMLDivElement;
 let root: ReturnType<typeof createRoot>;
@@ -84,6 +87,68 @@ it("separates the two views, restores draft, and never copies internal data", as
       sessionStorage.getItem("kamen-procurement-calculator-v1:manager-1")!,
     ).market,
   ).toBe("30000");
+});
+
+it("merges both tools under one 算账 heading with a segment switch", async () => {
+  const fetchMock = vi.fn(async (url: string) => ({
+    ok: true,
+    json: async () =>
+      String(url).includes("carriers")
+        ? { carriers: [] }
+        : { items: [] },
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+  await act(async () =>
+    root.render(
+      <CostToolWorkspace
+        apiBaseUrl="http://api.test"
+        managerId="manager-1"
+        exchangeRate={0.0421}
+      />,
+    ),
+  );
+  expect(host.querySelector("#cost-tool-title")?.textContent).toBe("算账");
+  // Calculator segment is the default and keeps its full form.
+  expect(host.querySelector('input[aria-label="商品数量"]')).not.toBeNull();
+  expect(
+    [...host.querySelectorAll("button")].find(
+      (node) => node.textContent === "采购测算",
+    )?.getAttribute("aria-pressed"),
+  ).toBe("true");
+  await act(async () => click("物流利润"));
+  await act(async () => {});
+  // Logistics segment renders its own heading and loads its data.
+  expect(host.querySelector("#logistics-title")?.textContent).toBe("利润与物流");
+  expect(host.textContent).toContain("暂无可计算商品");
+  expect(fetchMock).toHaveBeenCalledWith(
+    "http://api.test/logistics/items",
+    expect.anything(),
+  );
+  await act(async () => click("采购测算"));
+  expect(host.querySelector('input[aria-label="商品数量"]')).not.toBeNull();
+});
+
+it("opens on the logistics segment when a legacy deep-link preselects it", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        String(url).includes("carriers") ? { carriers: [] } : { items: [] },
+    })),
+  );
+  await act(async () =>
+    root.render(
+      <CostToolWorkspace
+        apiBaseUrl="http://api.test"
+        managerId="manager-1"
+        defaultSegment="logistics"
+      />,
+    ),
+  );
+  await act(async () => {});
+  expect(host.querySelector("#logistics-title")?.textContent).toBe("利润与物流");
+  expect(host.querySelector('input[aria-label="商品数量"]')).toBeNull();
 });
 
 it("shows invalid inputs instead of invented zero-profit results", async () => {
