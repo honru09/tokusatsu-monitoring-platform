@@ -26,7 +26,7 @@ const moreEntries = [
   ["assistant", TERMS.aiAssistant, "向 AI 提问、整理与翻译"],
 ] as const;
 
-export function WorkbenchWorkspace({onNavigate, onOpenDisliked, onOpenAnalysis, accounts, activeManagerId, onSwitchIdentity, onOpenChat, activeCount, cartCount, language, onToggleLanguage, onOpenSettings, apiBaseUrl, accountId}: {
+export function WorkbenchWorkspace({onNavigate, onOpenDisliked, onOpenAnalysis, accounts, activeManagerId, onLogout, onOpenChat, activeCount, cartCount, language, onToggleLanguage, onOpenSettings, apiBaseUrl, accountId}: {
   onNavigate: (workspace: Workspace) => void;
   /** 不感兴趣 is a catalog view now; the entry opens it preselected. */
   onOpenDisliked: () => void;
@@ -36,7 +36,7 @@ export function WorkbenchWorkspace({onNavigate, onOpenDisliked, onOpenAnalysis, 
   /** The account section: the former standalone account page, folded in. */
   accounts?: ManagerAccount[];
   activeManagerId?: string;
-  onSwitchIdentity?: () => void;
+  onLogout?: () => void;
   onOpenChat?: () => void;
   activeCount?: number;
   cartCount: number;
@@ -64,12 +64,12 @@ export function WorkbenchWorkspace({onNavigate, onOpenDisliked, onOpenAnalysis, 
     <header className={styles.heading}>
       <div><p className={styles.eyebrow}>账号与工具</p><h2 id="workbench-title">{TERMS.workbench}</h2></div>
     </header>
-    {accounts && onSwitchIdentity && onOpenChat && (
+    {accounts && onLogout && onOpenChat && (
       <ManagerProfileWorkspace
         embedded
         accounts={accounts}
         activeManagerId={activeManagerId ?? ""}
-        onSwitchIdentity={onSwitchIdentity}
+        onLogout={onLogout}
         onOpenChat={onOpenChat}
       />
     )}

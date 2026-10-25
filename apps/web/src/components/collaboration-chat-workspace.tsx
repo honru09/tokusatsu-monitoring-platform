@@ -1388,7 +1388,6 @@ export function CollaborationChatWorkspace({
   pendingBundle = null,
   onPendingBundleConsumed,
   onOpenItem,
-  onSwitchAccount,
   cartCount,
   onCartMigrated,
   onUnreadCleared,
@@ -1404,7 +1403,6 @@ export function CollaborationChatWorkspace({
   pendingBundle?: PendingCollaborationBundle | null;
   onPendingBundleConsumed?: () => void;
   onOpenItem: (id: string) => Promise<boolean>;
-  onSwitchAccount: () => void;
   cartCount: number;
   onCartMigrated: () => void;
   onUnreadCleared: () => void;
@@ -2368,15 +2366,12 @@ export function CollaborationChatWorkspace({
         >
           <span>{selectionMode ? "完成" : "选择"}</span>
         </button>
-        <button
-          type="button"
+        <span
           className="collaboration-account-button"
-          onClick={onSwitchAccount}
-          aria-label={`切换账号，当前为${account.displayName}`}
+          aria-label={`当前账号：${account.displayName}`}
         >
           <small>{account.displayName}</small>
-          <span>切换</span>
-        </button>
+        </span>
       </header>
 
       <details className={styles.activityDetails}>

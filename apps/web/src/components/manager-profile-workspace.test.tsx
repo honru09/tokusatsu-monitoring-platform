@@ -15,7 +15,7 @@ describe("ManagerProfileWorkspace", () => {
     vi.unstubAllGlobals();
   });
 
-  it("shows one selected manager rather than parallel profile cards", () => {
+  it("shows only the logged-in account, with logout instead of switching", () => {
     (
       globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true;
@@ -23,6 +23,7 @@ describe("ManagerProfileWorkspace", () => {
     host = document.createElement("div");
     document.body.append(host);
     root = createRoot(host);
+    const onLogout = vi.fn();
     act(() => {
       root.render(
         <ManagerProfileWorkspace
@@ -31,17 +32,25 @@ describe("ManagerProfileWorkspace", () => {
             { id: "two", key: "two", displayName: "润", avatarInitial: "润", position: 2, active: true, online: false, stats: { shares: 7, favorites: 8, dislikes: 9 } },
           ]}
           activeManagerId="one"
-          onSwitchIdentity={vi.fn()}
+          onLogout={onLogout}
           onOpenChat={vi.fn()}
         />,
       );
     });
 
     expect(host.querySelectorAll(".manager-profile-card")).toHaveLength(1);
-    expect(host.querySelector(".manager-profile-card")?.textContent).toContain("龙");
-    const second = host.querySelectorAll<HTMLButtonElement>('[role="tab"]')[1];
-    act(() => second.click());
-    expect(host.querySelector(".manager-profile-card")?.textContent).toContain("润");
-    expect(host.querySelector(".manager-profile-card")?.textContent).not.toContain("当前账号");
+    const card = host.querySelector(".manager-profile-card");
+    expect(card?.textContent).toContain("龙");
+    expect(card?.textContent).toContain("当前账号");
+    expect(card?.textContent).not.toContain("润");
+    // No identity switcher remains: no tabs, no switch button.
+    expect(host.querySelectorAll('[role="tab"]')).toHaveLength(0);
+    expect(host.textContent).not.toContain("切换账号");
+    const logout = [...host.querySelectorAll("button")].find(
+      (button) => button.textContent === "退出登录",
+    );
+    expect(logout).toBeTruthy();
+    act(() => logout!.click());
+    expect(onLogout).toHaveBeenCalledTimes(1);
   });
 });

@@ -65,6 +65,33 @@ describe("backend proxy", () => {
     expect(upstreamHeaders.get("x-forwarded-for")).toBeNull();
   });
 
+  it("translates the session cookie into a Bearer header", async () => {
+    let upstreamHeaders = new Headers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((_url: URL, init: RequestInit) => {
+        upstreamHeaders = new Headers(init.headers);
+        return Promise.resolve(Response.json({ ok: true }));
+      }),
+    );
+
+    const response = await GET(
+      new Request("http://localhost/backend/auth/me", {
+        headers: {
+          cookie:
+            "other=1; kamenradar-session=test-session-token; theme=dark",
+        },
+      }),
+      { params: Promise.resolve({ path: ["auth", "me"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstreamHeaders.get("authorization")).toBe(
+      "Bearer test-session-token",
+    );
+    expect(upstreamHeaders.get("cookie")).toBeNull();
+  });
+
   it("keeps the AI proxy budget above the gateway deadline", () => {
     const original = process.env.AI_PROXY_TIMEOUT_MS;
     delete process.env.AI_PROXY_TIMEOUT_MS;

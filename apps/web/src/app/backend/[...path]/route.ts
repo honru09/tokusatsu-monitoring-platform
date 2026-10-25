@@ -1,5 +1,6 @@
 import { proxyTimeoutMs } from "../../../lib/proxy-timeout";
 import { forwardedClientIp } from "../../../lib/forwarded-client-ip";
+import { sessionTokenFromCookieHeader } from "../../../lib/session";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -61,6 +62,14 @@ async function proxy(
   }
   const clientIp = forwardedClientIp(request.headers);
   if (clientIp) headers.set("x-client-ip", clientIp);
+  // The session token travels as a cookie; the API expects a Bearer
+  // header, so translate it here. A client-supplied Authorization
+  // header is never forwarded - the cookie is the only credential
+  // channel, which keeps the header allowlist closed.
+  const sessionToken = sessionTokenFromCookieHeader(
+    request.headers.get("cookie"),
+  );
+  if (sessionToken) headers.set("authorization", `Bearer ${sessionToken}`);
   const hasBody = !["GET", "HEAD"].includes(request.method);
   const isAiRequest = path[0] === "ai";
   const timeoutMs = proxyTimeoutMs(path);

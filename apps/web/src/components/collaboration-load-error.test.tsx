@@ -136,7 +136,6 @@ describe("Collaboration chat load error state", () => {
           pendingItem={null}
           onPendingItemConsumed={() => undefined}
           onOpenItem={vi.fn(async () => true)}
-          onSwitchAccount={() => undefined}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}

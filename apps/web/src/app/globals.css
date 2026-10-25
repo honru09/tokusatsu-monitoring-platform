@@ -1512,23 +1512,12 @@ summary {
 .product-card-note-trigger > span,
 .cart-fab,
 .collaboration-account-button > span,
-.manager-account-avatar,
 .profile-avatar {
   box-shadow:
     inset 0 0.5px 0 rgba(255, 255, 255, 0.74),
     0 7px 20px rgba(16, 24, 40, 0.14);
 }
 
-.profile-account-switch {
-  width: 100%;
-  min-height: 46px;
-  margin-top: 18px;
-  border-radius: 14px;
-  background: rgba(0, 122, 255, 0.1);
-  color: var(--apple-blue);
-  font-size: 13px;
-  font-weight: 650;
-}
 
 /* Fixed manager selection */
 .manager-gate {
@@ -1632,81 +1621,12 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   line-height: 1.08;
 }
 
-.manager-gate-copy {
-  max-width: 38ch;
-  margin-top: 10px;
-  color: var(--apple-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-}
 
-.manager-account-grid {
-  display: grid;
-  gap: 10px;
-  margin-top: 28px;
-}
 
-.manager-account-choice {
-  display: grid;
-  min-height: 76px;
-  grid-template-columns: 48px minmax(0, 1fr) 24px;
-  align-items: center;
-  gap: 13px;
-  border: 0.5px solid rgba(60, 60, 67, 0.09);
-  border-radius: 19px;
-  background: rgba(255, 255, 255, 0.68);
-  padding: 10px 14px;
-  text-align: left;
-  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.92);
-  transition:
-    transform 160ms var(--ease-apple-spring),
-    background 160ms ease,
-    box-shadow 160ms ease;
-}
 
-.manager-account-choice:hover {
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: var(--apple-shadow-card);
-}
 
-.manager-account-choice:active {
-  transform: scale(0.985);
-}
 
-.manager-account-avatar {
-  display: grid;
-  place-items: center;
-  border-radius: 15px;
-  background: linear-gradient(145deg, #16181c, #353a43);
-  color: white;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
 
-.manager-account-avatar {
-  width: 48px;
-  height: 48px;
-  font-size: 17px;
-}
-.manager-account-copy {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-.manager-account-copy strong {
-  color: var(--apple-label);
-  font-size: 15px;
-  font-weight: 650;
-}
-.manager-account-copy small {
-  color: var(--apple-secondary);
-  font-size: 11px;
-}
-.manager-account-arrow {
-  display: grid;
-  place-items: center;
-  color: var(--apple-tertiary);
-}
 .manager-gate-footnote {
   display: flex;
   align-items: center;
@@ -2407,9 +2327,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
     margin-top: 24px;
     font-size: 1.8rem;
   }
-  .manager-account-choice {
-    min-height: 72px;
-  }
+  
 
   .workspace-collaboration .procurement-header {
     display: none;

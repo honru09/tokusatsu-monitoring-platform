@@ -208,7 +208,6 @@ describe("Telegram-style collaboration actions", () => {
           pendingItem={null}
           onPendingItemConsumed={() => undefined}
           onOpenItem={openItemMock}
-          onSwitchAccount={() => undefined}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}
@@ -307,7 +306,6 @@ describe("Telegram-style collaboration actions", () => {
           pendingItem={productMessage.item}
           onPendingItemConsumed={() => undefined}
           onOpenItem={openItemMock}
-          onSwitchAccount={() => undefined}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}
@@ -352,7 +350,6 @@ describe("Telegram-style collaboration actions", () => {
           pendingItem={productMessage.item}
           onPendingItemConsumed={() => undefined}
           onOpenItem={openItemMock}
-          onSwitchAccount={() => undefined}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}
@@ -491,7 +488,6 @@ describe("Telegram-style collaboration actions", () => {
           pendingItem={null}
           onPendingItemConsumed={() => undefined}
           onOpenItem={openItemMock}
-          onSwitchAccount={() => undefined}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}
@@ -534,7 +530,6 @@ describe("Telegram-style collaboration actions", () => {
           pendingItem={null}
           onPendingItemConsumed={() => undefined}
           onOpenItem={openItemMock}
-          onSwitchAccount={() => undefined}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}
@@ -953,7 +948,6 @@ describe("copy auto-accounting", () => {
           pendingItem={null}
           onPendingItemConsumed={() => undefined}
           onOpenItem={async () => true}
-          onSwitchAccount={() => undefined}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}
