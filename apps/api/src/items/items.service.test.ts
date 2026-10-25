@@ -1400,6 +1400,12 @@ describe("ItemsService.purchase receipt limits", () => {
           receipts: [],
         }),
       },
+      managerAccount: {
+        findFirst: vi.fn(async () => null),
+      },
+      itemDecision: {
+        upsert: vi.fn(async () => ({})),
+      },
       negotiationCase: {
         updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },

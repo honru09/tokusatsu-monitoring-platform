@@ -1790,6 +1790,41 @@ export class ItemsService {
    * marked success keep their original statusChangedAt, and failed cases
    * are left alone (the purchase may belong to a different listing round).
    */
+  /**
+   * A registered purchase is the terminal decision for its catalog
+   * items, so record decision=bought alongside the negotiation close.
+   * The bundle DTO only carries the free-text actor: the decider is
+   * whoever that actor resolves to (the same lookup the favorite /
+   * dislike activity attribution uses). An actor that is not a manager
+   * account id leaves decisions untouched rather than attributing the
+   * purchase to the wrong person.
+   */
+  private async markItemsBoughtDecision(
+    tx: Prisma.TransactionClient,
+    itemIds: string[],
+    actor: string,
+  ) {
+    if (!itemIds.length) return;
+    const decider = await tx.managerAccount.findFirst({
+      where: { id: actor, active: true },
+      select: { id: true },
+    });
+    if (!decider) return;
+    const now = new Date();
+    for (const itemId of itemIds) {
+      await tx.itemDecision.upsert({
+        where: { itemId },
+        create: {
+          itemId,
+          status: "bought",
+          decidedById: decider.id,
+          decidedAt: now,
+        },
+        update: { status: "bought", decidedById: decider.id, decidedAt: now },
+      });
+    }
+  }
+
   private async closeNegotiationCasesForPurchasedItems(
     tx: Prisma.TransactionClient,
     itemIds: string[],
@@ -2129,6 +2164,7 @@ export class ItemsService {
           tx,
           normalized.itemIds,
         );
+        await this.markItemsBoughtDecision(tx, normalized.itemIds, actor);
         await ensureInventoryOrderFromBundle(tx, {
           bundleId: created.id,
           purchaseCost: normalized.totalPurchaseAmountYen,
@@ -2374,6 +2410,7 @@ export class ItemsService {
           tx,
           normalized.itemIds,
         );
+        await this.markItemsBoughtDecision(tx, normalized.itemIds, actor);
       } else {
         if (pricingMode !== before.row.pricingMode)
           throw new BadRequestException(

@@ -178,6 +178,12 @@ function registrationHarness() {
       update: vi.fn(async () => ({})),
       updateMany: vi.fn(async () => ({ count: 1 })),
     },
+    managerAccount: {
+      findFirst: vi.fn(async () => null),
+    },
+    itemDecision: {
+      upsert: vi.fn(async () => ({})),
+    },
     negotiationCase: {
       updateMany: vi.fn(
         async ({
@@ -270,6 +276,49 @@ describe("unified purchase registration", () => {
     expect(alreadySuccess.statusChangedAt).toEqual(
       new Date("2026-10-21T00:00:00.000Z"),
     );
+  });
+
+  it("records decision=bought for the purchased items when the actor is a manager account", async () => {
+    const harness = registrationHarness();
+    harness.tx.managerAccount.findFirst = vi.fn(async () => ({
+      id: "manager-1",
+    }));
+    const service = new ItemsService(harness.prisma as never);
+
+    await service.createPurchaseBundle({
+      pricingMode: "per_item",
+      members: [{ itemId: "item-1", amountYen: 5_000, quantity: 1 }],
+      actor: "manager-1",
+      reason: "登记购买",
+    } as never);
+
+    expect(harness.tx.itemDecision.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { itemId: "item-1" },
+        create: expect.objectContaining({
+          itemId: "item-1",
+          status: "bought",
+          decidedById: "manager-1",
+        }),
+        update: expect.objectContaining({
+          status: "bought",
+          decidedById: "manager-1",
+        }),
+      }),
+    );
+  });
+
+  it("leaves decisions untouched when the actor does not resolve to an account", async () => {
+    const harness = registrationHarness();
+    const service = new ItemsService(harness.prisma as never);
+
+    await service.createPurchaseBundle({
+      pricingMode: "per_item",
+      members: [{ itemId: "item-1", amountYen: 5_000, quantity: 1 }],
+      ...actorReason,
+    } as never);
+
+    expect(harness.tx.itemDecision.upsert).not.toHaveBeenCalled();
   });
 
   it("registers an off-catalog buy by creating the item inside the same transaction", async () => {

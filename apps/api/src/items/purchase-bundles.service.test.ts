@@ -202,6 +202,12 @@ function purchaseHarness() {
         return { id: `audit-${audits.length}`, ...data };
       }),
     },
+    managerAccount: {
+      findFirst: vi.fn(async () => null),
+    },
+    itemDecision: {
+      upsert: vi.fn(async () => ({})),
+    },
     negotiationCase: {
       updateMany: vi.fn(async () => ({ count: 0 })),
     },
