@@ -461,10 +461,10 @@ export function ShippingWorkspace({
               aria-hidden="true"
             />
             <span
-              className={`absolute inset-y-0 left-0 rounded-full transition-all ${
+              className={`absolute inset-y-0 left-0 w-full origin-left rounded-full transition-[transform,background-color] duration-150 ${
                 overCap ? "bg-[#ff3b30]" : inBand ? "bg-emerald-500" : "bg-ink/70"
               }`}
-              style={{ width: `${fillPercent}%` }}
+              style={{ transform: `scaleX(${fillPercent / 100})` }}
               aria-hidden="true"
             />
           </div>

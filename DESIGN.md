@@ -191,6 +191,7 @@ card:
 - 浮层入场从 scale(0.96) + opacity 开始，transform-origin 对准触发点。
 - 只动 transform 与 opacity。
 - 遵循 `prefers-reduced-motion`，开启时关闭上述动效。
+- 登记例外（原生 details 展开）：`::details-content` 的 height 过渡（detail-disclosure、editorial-communications、simple-apple 三处）是命名例外——原生 `<details>` 的内容高度无法以 transform/opacity 表达，只能靠 `interpolate-size: allow-keywords` + height 插值实现平滑展开收起，且三处均在 `prefers-reduced-motion` 下关闭。除此之外不新增 width/height 过渡，进度类填充一律用 scaleX。
 
 ## 禁止项
 

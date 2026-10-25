@@ -168,7 +168,10 @@ function ProgressTrack({
       aria-valuenow={Math.round(capped)}
       aria-label={label}
     >
-      <div className={fill} style={{ width: `${capped}%` }} />
+      <div
+        className={fill}
+        style={{ transform: `scaleX(${capped / 100})` }}
+      />
     </div>
   );
 }

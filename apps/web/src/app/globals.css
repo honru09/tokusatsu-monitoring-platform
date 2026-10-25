@@ -876,9 +876,11 @@ textarea:focus-visible {
   background: rgba(29, 29, 31, 0.08);
 }
 .inventory-orders-workspace .inventory-order-track > div {
+  width: 100%;
   height: 100%;
   border-radius: inherit;
-  transition: width 220ms var(--ease-apple-out);
+  transform-origin: left;
+  transition: transform 220ms var(--ease-apple-out);
 }
 .inventory-orders-workspace .inventory-order-track-fill-moss {
   background: linear-gradient(90deg, #34c759, #30d158);
