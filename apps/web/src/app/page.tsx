@@ -69,7 +69,10 @@ import {
   type ManagerAccount,
 } from "../components/manager-account-gate";
 import { WorkspaceHistoryOrb } from "../components/workspace-history-orb";
-import { useFloatingYield } from "../lib/floating-yield";
+import {
+  useFloatingYield,
+  useStickyHeaderYield,
+} from "../lib/floating-yield";
 /** Market slice of the monitoring overview payload. The type used to
  * live with the retired home overview module; the payload itself still
  * feeds the todo system queue and the monitoring workspace. */
@@ -3938,8 +3941,11 @@ export default function Dashboard() {
     useState<PurchaseReceiptPreviewRequest | null>(null);
   // Floating-control yield, shell side (see lib/floating-yield.ts): the
   // recent-pages orb yields while any modal sheet owned by this shell
-  // is open, and while the bundle-share bottom bar is up. The states
-  // themselves stay exactly where they were; only the claim is new.
+  // is open, while the bundle-share bottom bar is up, and while the
+  // catalog toolbar below is stuck - a dragged orb parked at the top
+  // of the viewport would otherwise sit on the toolbar's title. The
+  // states themselves stay exactly where they were; only the claim
+  // is new.
   const shellSheetOpen = Boolean(
     selected ||
       sellerId ||
@@ -3959,6 +3965,9 @@ export default function Dashboard() {
     "bundle-share-bar",
     workspace !== "collaboration" && bundleShareItems.length > 0,
   );
+  const catalogToolbarRef = useRef<HTMLElement>(null);
+  const catalogToolbarSentinelRef = useRef<HTMLSpanElement>(null);
+  useStickyHeaderYield(catalogToolbarSentinelRef, catalogToolbarRef);
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translationErrors, setTranslationErrors] = useState<
     Record<string, string>
@@ -7535,7 +7544,12 @@ export default function Dashboard() {
               </div>
             </details>
 
-            <section className="catalog-toolbar workspace-surface js-shell-reveal mt-3 rounded-2xl border border-blue-100 bg-white p-3 shadow-panel">
+            <span
+              ref={catalogToolbarSentinelRef}
+              aria-hidden="true"
+              style={{ display: "block", height: 0 }}
+            />
+            <section ref={catalogToolbarRef} className="catalog-toolbar workspace-surface js-shell-reveal mt-3 rounded-2xl border border-blue-100 bg-white p-3 shadow-panel">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-1">
                   <h2

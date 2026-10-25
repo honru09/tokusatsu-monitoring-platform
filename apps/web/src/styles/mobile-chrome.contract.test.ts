@@ -10,6 +10,10 @@ const pageTsx = readFileSync(
   new URL("../app/page.tsx", import.meta.url),
   "utf8",
 );
+const yieldTs = readFileSync(
+  new URL("../lib/floating-yield.ts", import.meta.url),
+  "utf8",
+);
 
 describe("mobile chrome contracts", () => {
   it("docks the collaboration floating controls above the composer on phones", () => {
@@ -61,5 +65,24 @@ describe("mobile chrome contracts", () => {
     // Shell: modal sheets and the bundle-share bottom bar claim it too.
     expect(pageTsx).toContain('useFloatingYield("shell-sheet", shellSheetOpen)');
     expect(pageTsx).toContain('useFloatingYield(\n    "bundle-share-bar",');
+  });
+
+  it("claims the yield while the catalog toolbar is stuck", () => {
+    // The catalog toolbar is the catalog's sticky section header
+    // (.catalog-toolbar, position: sticky in simple-apple.css): its
+    // title must never sit under a floating control, so the toolbar
+    // claims the same yield while stuck. The hook defaults to the
+    // catalog owner, the shell wires it to the toolbar, and the
+    // sentinel the stuck check reads from sits right before it.
+    expect(yieldTs).toContain('owner = "catalog-sticky-header"');
+    expect(pageTsx).toContain(
+      "useStickyHeaderYield(catalogToolbarSentinelRef, catalogToolbarRef)",
+    );
+    expect(pageTsx).toContain("ref={catalogToolbarRef}");
+    expect(pageTsx).toContain('className="catalog-toolbar ');
+    const sentinelAt = pageTsx.indexOf("ref={catalogToolbarSentinelRef}");
+    const toolbarAt = pageTsx.indexOf("ref={catalogToolbarRef}");
+    expect(sentinelAt).toBeGreaterThan(-1);
+    expect(toolbarAt).toBeGreaterThan(sentinelAt);
   });
 });
