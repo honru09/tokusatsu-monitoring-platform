@@ -5,7 +5,6 @@ import { ItemsController } from "./items/items.controller.js";
 import { ItemsService } from "./items/items.service.js";
 import { PrismaService } from "./prisma.service.js";
 import { TimeController } from "./time.controller.js";
-import { MetricsController } from "./metrics.controller.js";
 import { MonitoringController } from "./monitoring/monitoring.controller.js";
 import { MonitoringService } from "./monitoring/monitoring.service.js";
 import { MonitoringConfigController } from "./monitoring/monitoring-config.controller.js";
@@ -35,7 +34,6 @@ import { ResaleModule } from "./resale/resale.module.js";
   controllers: [
     HealthController,
     TimeController,
-    MetricsController,
     MonitoringController,
     MonitoringConfigController,
     ItemsController,
