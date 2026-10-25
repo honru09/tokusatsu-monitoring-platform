@@ -18,6 +18,7 @@ import { EditorialReadingProgress } from "../components/editorial-reading-progre
 import gsap from "gsap";
 import dynamic from "next/dynamic";
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -108,7 +109,10 @@ import {
   shippingLabel,
   useLiveAuctionTimeline,
 } from "../lib/listing-display";
-import { ProductCard } from "../components/product-card/product-card";
+import {
+  ProductCard,
+  type ProductCardPatch,
+} from "../components/product-card/product-card";
 import {
   ArchiveIcon,
   CartIcon,
@@ -3704,6 +3708,78 @@ function DeleteConfirmationDialog({
   );
 }
 
+/**
+ * The handlers a catalog card can invoke, bundled behind one stable
+ * ref. The dashboard refreshes the bundle every render, so the
+ * callbacks a card calls are never stale, while the ref identity the
+ * memoized row receives never changes.
+ */
+type CatalogCardActions = {
+  open: (item: Item) => void;
+  patch: (id: string, patch: ProductCardPatch) => Promise<boolean | undefined>;
+  ignore: (item: Item) => void;
+  remove: (item: Item) => void;
+  purchase: (item: Item) => void;
+  cart: (itemId: string, present: boolean) => Promise<boolean>;
+  share: (item: Item) => void;
+  sendToManager: (item: Item) => void;
+  toggleBundleShare: (item: Item) => void;
+};
+
+/**
+ * Catalog grid row: a memoized shell around ProductCard. The dashboard
+ * re-renders on every keystroke, poll and timer tick, and each card
+ * used to re-render with it because every callback prop was a fresh
+ * closure. The row takes the item, primitive display props and the
+ * stable actions ref, so memo skips every card whose item and flags
+ * did not change.
+ */
+const CatalogCard = memo(function CatalogCard({
+  item,
+  serverOffset,
+  nowTick,
+  language,
+  translatedTitle,
+  exchangeRate,
+  inCart,
+  inBundleShare,
+  actionsRef,
+}: {
+  item: Item;
+  serverOffset: number;
+  nowTick: number;
+  language: "zh" | "original";
+  translatedTitle?: string;
+  exchangeRate?: number;
+  inCart: boolean;
+  inBundleShare: boolean;
+  actionsRef: { current: CatalogCardActions | null };
+}) {
+  const actions = actionsRef.current;
+  if (!actions) return null;
+  return (
+    <ProductCard
+      item={item}
+      serverOffset={serverOffset}
+      nowTick={nowTick}
+      language={language}
+      translatedTitle={translatedTitle}
+      exchangeRate={exchangeRate}
+      inCart={inCart}
+      inBundleShare={inBundleShare}
+      onOpen={() => actions.open(item)}
+      onPatch={(patch) => actions.patch(item.id, patch)}
+      onIgnore={() => actions.ignore(item)}
+      onDelete={() => actions.remove(item)}
+      onPurchase={() => actions.purchase(item)}
+      onCart={() => actions.cart(item.id, !inCart)}
+      onShare={() => actions.share(item)}
+      onSendToManager={() => actions.sendToManager(item)}
+      onToggleBundleShare={() => actions.toggleBundleShare(item)}
+    />
+  );
+});
+
 export default function Dashboard() {
   const dashboardRef = useRef<HTMLElement>(null);
   const analyzedUrlTimerRef = useRef<number | null>(null);
@@ -6409,6 +6485,24 @@ export default function Dashboard() {
       .catch(() => undefined);
   }
 
+  // Latest-handler bundle for the memoized catalog rows (see
+  // CatalogCard): refreshed every render so card callbacks always run
+  // the current closures, while the ref identity stays stable.
+  const catalogActionsRef = useRef<CatalogCardActions | null>(null);
+  catalogActionsRef.current = {
+    open: openItemDetail,
+    patch: patchItem,
+    ignore: setIgnoreItem,
+    remove: setDeleteItem,
+    purchase: openPurchaseRegistrationForItem,
+    cart: (itemId, present) => updateCart(itemId, present),
+    share: (item) => {
+      void shareItems([item.id]);
+    },
+    sendToManager: openManagerConversation,
+    toggleBundleShare: toggleBundleShareItem,
+  };
+
   function closeItemDetail() {
     if (detailHistoryActiveRef.current) {
       window.history.back();
@@ -7772,34 +7866,21 @@ export default function Dashboard() {
                 {items.length ? (
                   <div className="procurement-grid grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                     {items.map((item) => (
-                      <ProductCard
+                      <CatalogCard
                         key={item.id}
                         item={item}
                         serverOffset={serverOffset}
                         nowTick={nowTick}
                         language={language}
                         translatedTitle={translations[`${item.id}:title`]}
-                        onOpen={() => openItemDetail(item)}
-                        onPatch={(patch) => patchItem(item.id, patch)}
-                        onIgnore={() => setIgnoreItem(item)}
-                        onDelete={() => setDeleteItem(item)}
-                        onPurchase={() => openPurchaseRegistrationForItem(item)}
                         exchangeRate={exchangeRate?.rate}
                         inCart={cart.items.some(
                           (entry) => entry.id === item.id,
                         )}
-                        onCart={() =>
-                          updateCart(
-                            item.id,
-                            !cart.items.some((entry) => entry.id === item.id),
-                          )
-                        }
-                        onShare={() => void shareItems([item.id])}
-                        onSendToManager={() => openManagerConversation(item)}
                         inBundleShare={bundleShareItems.some(
                           (entry) => entry.id === item.id,
                         )}
-                        onToggleBundleShare={() => toggleBundleShareItem(item)}
+                        actionsRef={catalogActionsRef}
                       />
                     ))}
                   </div>

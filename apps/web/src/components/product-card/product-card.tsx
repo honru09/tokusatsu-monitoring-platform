@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { memo, useEffect, useRef, useState } from "react";
 import { NoteDialog } from "../note-dialog";
 import { isUnverifiableListing } from "../../lib/item-availability";
 import { itemDisplayTitle } from "../../lib/listing-display";
@@ -32,7 +32,7 @@ export type { ProductCardItem, ProductCardPatch, ProductCardProps } from "./prod
  * bundle sending) and the read-only public share snapshot; both are
  * selection/snapshot surfaces, not browsing cards.
  */
-export function ProductCard({
+function ProductCardImpl({
   item,
   serverOffset,
   nowTick,
@@ -138,3 +138,12 @@ export function ProductCard({
     </article>
   );
 }
+
+/**
+ * Memoized so list surfaces that hand the card stable props (the
+ * catalog grid does, via CatalogCard in app/page.tsx) can skip
+ * re-rendering every card on unrelated parent state changes - typing
+ * in the catalog search box no longer re-renders the whole page of
+ * cards. Surfaces still passing fresh closures render as before.
+ */
+export const ProductCard = memo(ProductCardImpl);
