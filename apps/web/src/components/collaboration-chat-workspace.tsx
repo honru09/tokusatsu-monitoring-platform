@@ -2107,8 +2107,17 @@ export function CollaborationChatWorkspace({
 
       <form className="collaboration-composer" onSubmit={send}>
         {(error || reactionError) && (
-          <div className="collaboration-error" role="alert">
-            {reactionError || error}
+          <div className="collaboration-error" role="alert" data-testid="load-error">
+            <span>{reactionError || error}</span>
+            {error && (
+              <button
+                type="button"
+                data-testid="retry-collaboration"
+                onClick={() => void loadMessages()}
+              >
+                重试
+              </button>
+            )}
           </div>
         )}
         {attachedBundleItems.length > 0 && (

@@ -1877,12 +1877,21 @@ function FavoritesWorkspace({
         </div>
       </div>
       {error && (
-        <p
+        <div
           role="alert"
-          className="mt-4 rounded-xl bg-rust p-3 text-xs font-bold text-white"
+          data-testid="load-error"
+          className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-rust p-3 text-xs font-bold text-white"
         >
-          {error}
-        </p>
+          <span>{error}</span>
+          <button
+            type="button"
+            data-testid="retry-favorites"
+            className="shrink-0 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-bold text-white"
+            onClick={() => void load()}
+          >
+            重试
+          </button>
+        </div>
       )}
       {loading ? (
         <p className="favorites-empty mt-6 rounded-2xl p-8 text-center text-sm">
@@ -4864,6 +4873,7 @@ export default function Dashboard() {
   const [linkPage, setLinkPage] = useState(1);
   const [linkPageCount, setLinkPageCount] = useState(1);
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
+  const [purchasesError, setPurchasesError] = useState("");
   const [purchaseBundles, setPurchaseBundles] = useState<PurchaseBundle[]>([]);
   const [purchaseBundlesTotal, setPurchaseBundlesTotal] = useState(0);
   const [purchaseGrandTotal, setPurchaseGrandTotal] = useState(0);
@@ -4897,6 +4907,7 @@ export default function Dashboard() {
   const [dislikedPage, setDislikedPage] = useState(1);
   const [dislikedPageCount, setDislikedPageCount] = useState(1);
   const [exchangeRate, setExchangeRate] = useState<ExchangeRate | null>(null);
+  const [exchangeRateFailed, setExchangeRateFailed] = useState(false);
   const [cart, setCart] = useState<CartPayload>({
     cartId: "",
     items: [],
@@ -5599,8 +5610,17 @@ export default function Dashboard() {
       const response = await fetch(`${API}/exchange-rate`, {
         cache: "no-store",
       });
-      if (response.ok) setExchangeRate((await response.json()) as ExchangeRate);
-    } catch {}
+      if (response.ok) {
+        setExchangeRate((await response.json()) as ExchangeRate);
+        setExchangeRateFailed(false);
+      } else {
+        setExchangeRateFailed(true);
+      }
+    } catch {
+      // Non-blocking: prices keep rendering in yen and the catalog shows
+      // a quiet note until a later poll recovers the rate.
+      setExchangeRateFailed(true);
+    }
   }, []);
   const loadCart = useCallback(async (signal?: AbortSignal) => {
     const response = await fetch(`${API}/cart`, {
@@ -5647,17 +5667,19 @@ export default function Dashboard() {
       const response = await fetch(`${API}/items/purchases`, {
         cache: "no-store",
       });
-      if (response.ok) {
-        const payload = (await response.json()) as {
-          purchases?: PurchaseRecord[];
-          totalPurchaseAmountYen?: number;
-        };
-        setPurchases(payload.purchases ?? []);
-        if (payload.totalPurchaseAmountYen != null) {
-          setPurchaseGrandTotal(payload.totalPurchaseAmountYen);
-        }
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      const payload = (await response.json()) as {
+        purchases?: PurchaseRecord[];
+        totalPurchaseAmountYen?: number;
+      };
+      setPurchases(payload.purchases ?? []);
+      if (payload.totalPurchaseAmountYen != null) {
+        setPurchaseGrandTotal(payload.totalPurchaseAmountYen);
       }
-    } catch {}
+      setPurchasesError("");
+    } catch {
+      setPurchasesError("采购记录加载失败，请稍后重试");
+    }
   }, []);
   const loadPurchaseBundles = useCallback(async (pageToLoad = 1) => {
     setPurchaseBundlesLoading(true);
@@ -7982,6 +8004,19 @@ export default function Dashboard() {
             {workspace === "purchases" && (
               <>
                 <div className="purchases-next-step"><span>登记完成后，继续跟踪到货与库存。</span><button type="button" onClick={()=>navigateWorkspace("orders")}>查看库存订单 <span aria-hidden="true">↗</span></button></div>
+                {purchasesError && (
+                  <div role="alert" data-testid="load-error" className="quiet-inline-alert mt-3">
+                    <span>{purchasesError}</span>
+                    <button
+                      type="button"
+                      data-testid="retry-purchases"
+                      className="quiet-inline-alert-action"
+                      onClick={() => void loadPurchases()}
+                    >
+                      重试
+                    </button>
+                  </div>
+                )}
                 <PurchaseRecordsPanel
                   purchases={purchases}
                   bundles={purchaseBundles}
@@ -8836,11 +8871,17 @@ export default function Dashboard() {
                 </div>
               )}
             </section>
+            {exchangeRateFailed && !exchangeRate && (
+              <p className="mt-3 text-xs font-semibold text-ink/50">
+                汇率暂不可用，人民币价格稍后恢复。
+              </p>
+            )}
             {error && (
-              <div role="alert" className="quiet-inline-alert mt-3">
+              <div role="alert" data-testid="load-error" className="quiet-inline-alert mt-3">
                 <span>商品同步暂时不可用，当前已加载内容会继续保留。</span>
                 <button
                   type="button"
+                  data-testid="retry-catalog"
                   className="quiet-inline-alert-action"
                   onClick={() => void load()}
                   disabled={loading}
