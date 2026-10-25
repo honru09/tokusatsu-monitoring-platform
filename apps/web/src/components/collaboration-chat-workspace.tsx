@@ -284,14 +284,21 @@ export function NegotiationAnalysisPanel({
               >
                 {copiedKey === key ? "✓ 已复制" : "复制这份话术"}
               </button>
-              <a
-                href={group.firstItemUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="collaboration-product-action is-secondary"
-              >
-                去留言 ↗
-              </a>
+              {/* The API hands back an empty firstItemUrl when the
+                  group's first item has no source URL; an anchor with
+                  an empty href would just reopen this page, so the
+                  link is only rendered when there is somewhere to go.
+                  Copying the script above works either way. */}
+              {group.firstItemUrl.trim() ? (
+                <a
+                  href={group.firstItemUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="collaboration-product-action is-secondary"
+                >
+                  去留言 ↗
+                </a>
+              ) : null}
             </div>
           </article>
         );

@@ -113,6 +113,36 @@ describe("NegotiationAnalysisPanel", () => {
     expect(links).toContain("https://example.com/c");
   });
 
+  it("omits the item link for a group without a first item URL but still copies", async () => {
+    const onCopied = vi.fn();
+    const urlLessGroup: NegotiationAnalysisGroupResult = {
+      ...singleGroup,
+      sellerId: "seller-3",
+      sellerName: "无链接卖家",
+      firstItemUrl: "",
+    };
+    await act(async () => {
+      root.render(
+        <NegotiationAnalysisPanel
+          groups={[urlLessGroup]}
+          onCopied={onCopied}
+          onClose={() => undefined}
+        />,
+      );
+    });
+    expect(host.querySelectorAll("a")).toHaveLength(0);
+    expect(host.textContent).not.toContain("去留言");
+    const copy = [...host.querySelectorAll("button")].find(
+      (button) => button.textContent === "复制这份话术",
+    );
+    expect(copy).toBeTruthy();
+    await act(async () => {
+      copy!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(writeText).toHaveBeenCalledWith(urlLessGroup.script);
+    expect(onCopied).toHaveBeenCalledWith(["c"]);
+  });
+
   it("copies exactly one group's script per copy button", async () => {
     const onCopied = vi.fn();
     await act(async () => {
