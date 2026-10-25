@@ -2,6 +2,7 @@
 import { YahooDiscount } from "./yahoo-discount";
 import { yahooFleamarketDiscount } from "../lib/yahoo-discount";
 import { LoadError } from "./load-error";
+import { WorkspaceHeaderArt } from "./workspace-header-art";
 import { EmptyState } from "./empty-state";
 import { SafeItemImage } from "./item-image";
 import { useFloatingControl } from "../lib/use-floating-control";
@@ -2384,6 +2385,7 @@ export function CollaborationChatWorkspace({
   return (
     <section className={`collaboration-chat ${styles.chat}`} aria-label="管理者协作消息" onPointerDownCapture={() => { pointerInputRef.current = true; }} onKeyDownCapture={() => { pointerInputRef.current = false; }}>
       <header className="collaboration-heading">
+        <WorkspaceHeaderArt art="chat" />
         <div className="min-w-0 flex-1">
           <h2>{other ? `与${other.displayName}的对话` : "管理者对话"}</h2>
           <p>{other?.online ? "对方在线" : "商品与采购，在这里一起确认"}</p>

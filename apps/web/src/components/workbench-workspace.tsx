@@ -5,6 +5,7 @@ import { TERMS } from "../lib/terms";
 import { useEffect, useRef } from "react";
 import styles from "./workbench-workspace.module.css";
 import { AppleActionRail } from "./apple-action-rail";
+import { WorkspaceHeaderArt } from "./workspace-header-art";
 import { PushSettings } from "./push-settings";
 import { ManagerProfileWorkspace } from "./manager-profile-workspace";
 import type { ManagerAccount } from "./manager-account-gate";
@@ -63,6 +64,7 @@ export function WorkbenchWorkspace({onNavigate, onOpenDisliked, onOpenAnalysis, 
   return <section ref={root} className={styles.workspace} aria-labelledby="workbench-title">
     <header className={styles.heading}>
       <div><p className={styles.eyebrow}>账号与工具</p><h2 id="workbench-title">{TERMS.workbench}</h2></div>
+      <WorkspaceHeaderArt art="dashboard" />
     </header>
     {accounts && onLogout && onOpenChat && (
       <ManagerProfileWorkspace

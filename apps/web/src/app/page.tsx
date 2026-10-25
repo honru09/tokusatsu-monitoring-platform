@@ -3,6 +3,7 @@
 import { useGSAP } from "@gsap/react";
 import { PrimaryNavigation } from "../components/primary-navigation";
 import { LoadError } from "../components/load-error";
+import { WorkspaceHeaderArt } from "../components/workspace-header-art";
 import { EmptyState } from "../components/empty-state";
 import { TodoHome } from "../components/todo-home";
 import { TERMS } from "../lib/terms";
@@ -7551,7 +7552,8 @@ export default function Dashboard() {
             />
             <section ref={catalogToolbarRef} className="catalog-toolbar workspace-surface js-shell-reveal mt-3 rounded-2xl border border-blue-100 bg-white p-3 shadow-panel">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-1">
+                <WorkspaceHeaderArt art="catalog" />
+                <div className="flex min-w-0 flex-1 items-center gap-1">
                   <h2
                     id="inventory"
                     className="font-heading text-lg font-black"

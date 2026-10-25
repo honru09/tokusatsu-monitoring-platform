@@ -8,6 +8,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { LoadError } from "./load-error";
+import { WorkspaceHeaderArt } from "./workspace-header-art";
 import { FinancePanel } from "./finance-panel";
 import { EmptyState } from "./empty-state";
 import { ImageGlyph, SafeItemImage } from "./item-image";
@@ -211,7 +212,8 @@ export function TodoHome({
   return (
     <section className={styles.home} aria-labelledby="todo-title">
       <header className={styles.header}>
-        <div>
+        <WorkspaceHeaderArt art="todo" />
+        <div className="min-w-0 flex-1">
           <h2 id="todo-title">{TERMS.todo}</h2>
           <p>
             {loading
