@@ -75,6 +75,9 @@ export function parsePurchasesTabParam(
   return (PURCHASES_TABS as readonly string[]).includes(value)
     ? (value as PurchasesTab)
     : null;
+}
+
+/**
  * Segments inside the 算账 (cost-tool) workspace. The procurement
  * calculator and the logistics profit view used to be standalone
  * workspaces; they are segments of the one cost tool now.

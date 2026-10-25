@@ -1,3 +1,4 @@
+import React from "react";
 import {
   DEFAULT_FEE_PERCENT,
   DEFAULT_SHIPPING_PER_UNIT_CNY,

@@ -198,6 +198,10 @@ describe("workspace URL deep-link", () => {
     // The merged page itself stays a workbench child.
     expect(initialWorkspaceNavigationState("purchases")).toEqual({
       workspace: "purchases",
+      trail: ["workbench"],
+    });
+  });
+
   it("maps pre-merge cost workspace ids to their cost-tool segment", () => {
     // Calculator and logistics are segments of 算账 now, not pages.
     expect(parseWorkspaceParam("calculator")).toBeNull();
