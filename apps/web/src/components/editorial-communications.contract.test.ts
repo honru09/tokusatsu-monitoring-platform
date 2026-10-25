@@ -20,8 +20,8 @@ describe("editorial communications product action contracts", () => {
       /\.chat :global\(\.collaboration-product-action\)\s*\{([^{}]*)\}/,
     );
     expect(rule).toBeTruthy();
-    expect(rule).toMatch(/height:\s*40px/);
-    expect(rule).toMatch(/min-height:\s*40px/);
+    expect(rule).toMatch(/height:\s*44px/);
+    expect(rule).toMatch(/min-height:\s*44px/);
     expect(rule).toMatch(/border-radius:\s*999px/);
     expect(rule).toMatch(/font-size:\s*12px/);
   });
