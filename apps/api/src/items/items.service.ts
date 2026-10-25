@@ -329,7 +329,7 @@ export function normalizePurchaseMembers(
   pricingMode: PurchasePricingMode,
   requestedTotal?: number,
 ) {
-  const itemIds = members.map(({ itemId }) => itemId.trim());
+  const itemIds = members.map(({ itemId }) => itemId?.trim() ?? "");
   if (itemIds.some((itemId) => !itemId))
     throw new BadRequestException("购买批次成员商品 ID 不能为空");
   if (new Set(itemIds).size !== itemIds.length)
@@ -343,7 +343,7 @@ export function normalizePurchaseMembers(
       Number.isInteger(member.quantity) &&
       member.quantity >= 1
     )
-      quantityByItemId.set(member.itemId.trim(), member.quantity);
+      quantityByItemId.set(member.itemId!.trim(), member.quantity);
   }
 
   if (pricingMode === "per_item") {
@@ -358,7 +358,7 @@ export function normalizePurchaseMembers(
     return {
       itemIds,
       amountByItemId: new Map(
-        members.map((member) => [member.itemId.trim(), member.amountYen!]),
+        members.map((member) => [member.itemId!.trim(), member.amountYen!]),
       ),
       quantityByItemId,
       totalPurchaseAmountYen,

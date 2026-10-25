@@ -282,7 +282,7 @@ describe("unified purchase registration", () => {
     const harness = registrationHarness();
     harness.tx.managerAccount.findFirst = vi.fn(async () => ({
       id: "manager-1",
-    }));
+    })) as never;
     const service = new ItemsService(harness.prisma as never);
 
     await service.createPurchaseBundle({
