@@ -46,6 +46,7 @@ import {
 import { MarketIntelWorkspace } from "../components/market-intel-workspace";
 import { YahooDiscount } from "../components/yahoo-discount";
 import { InventoryOrdersWorkspace } from "../components/inventory-orders-workspace";
+import { ShippingWorkspace } from "../components/shipping-workspace";
 import { PurchaseRecordsWorkspace } from "../components/purchase-records-workspace";
 import { ContextInfo } from "../components/context-info";
 import { ResaleWorkspace } from "../components/resale-workspace";
@@ -6805,6 +6806,7 @@ export default function Dashboard() {
                 [
                   ["records", TERMS.purchases],
                   ["orders", TERMS.orders],
+                  ["shipping", TERMS.shipping],
                 ] as const
               ).map(([tab, label]) => (
                 <button
@@ -6892,6 +6894,12 @@ export default function Dashboard() {
                   exchangeRate={exchangeRate?.rate}
                 />
               </section>
+            )}
+            {purchasesTab === "shipping" && (
+              <ShippingWorkspace
+                apiBaseUrl={API}
+                accountId={activeManagerId}
+              />
             )}
           </div>
         )}
