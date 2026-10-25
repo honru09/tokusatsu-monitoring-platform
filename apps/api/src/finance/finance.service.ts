@@ -7,7 +7,15 @@ export class FinanceService {
 
   async summary() {
     const [bundleAggregate, salesAggregate] = await Promise.all([
+      // Only unarchived bundles count as cost, matching the purchases
+      // ledger (listPurchases / listPurchaseBundles both filter
+      // archivedAt: null). Archived bundles are the emptied shells left
+      // behind when a single-item bundle is merged into another one:
+      // their members (and the spend) moved to the surviving bundle, but
+      // the shell keeps its old totalPurchaseAmount for the audit trail,
+      // so summing it here would double-count that spend.
       this.prisma.purchaseBundle.aggregate({
+        where: { archivedAt: null },
         _sum: { totalPurchaseAmount: true },
       }),
       // Income comes from sales_records (JPY): ResaleListing has no sold
