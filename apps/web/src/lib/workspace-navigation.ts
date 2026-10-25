@@ -66,7 +66,7 @@ export const ALL_WORKSPACES = [
 
 export const PRIMARY_WORKSPACES = new Set<Workspace>([
   "inventory",
-  "assistant",
+  "catalog",
   "collaboration",
   "workbench",
 ]);
@@ -85,11 +85,7 @@ export function initialWorkspaceNavigationState(
 ): WorkspaceNavigationState {
   return {
     workspace,
-    trail: PRIMARY_WORKSPACES.has(workspace)
-      ? []
-      : workspace === "catalog"
-        ? ["inventory"]
-        : ["workbench"],
+    trail: PRIMARY_WORKSPACES.has(workspace) ? [] : ["workbench"],
   };
 }
 

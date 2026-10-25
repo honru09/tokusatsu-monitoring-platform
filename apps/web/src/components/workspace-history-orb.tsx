@@ -5,32 +5,34 @@ import type {
   Workspace,
 } from "../lib/workspace-navigation";
 import { useFloatingControl } from "../lib/use-floating-control";
+import { TERMS } from "../lib/terms";
 import styles from "./workspace-history-orb.module.css";
 
 const workspaceLabels: Record<Workspace, string> = {
-  inventory: "首页",
-  catalog: "在售商品",
-  links: "链接专区",
-  purchases: "购买记录",
-  orders: "库存订单",
-  favorites: "收藏",
-  sellers: "卖家",
-  intel: "资讯专区",
-  disliked: "不感兴趣",
-  monitoring: "监控运行",
-  resale: "闲鱼上架",
+  inventory: TERMS.todo,
+  catalog: TERMS.catalog,
+  links: TERMS.links,
+  purchases: TERMS.purchases,
+  orders: TERMS.orders,
+  favorites: TERMS.favorites,
+  sellers: TERMS.sellers,
+  intel: TERMS.intel,
+  disliked: TERMS.disliked,
+  monitoring: TERMS.monitoring,
+  resale: TERMS.resale,
   ai: "AI 状态",
-  logistics: "物流测算",
-  calculator: "进货计算器",
+  logistics: TERMS.logistics,
+  calculator: TERMS.calculator,
   operations: "运营台",
-  assistant: "AI",
-  collaboration: "消息",
-  workbench: "工作台",
-  profile: "个人主页",
+  assistant: TERMS.aiAssistant,
+  collaboration: TERMS.messages,
+  workbench: TERMS.workbench,
+  profile: "账号",
 };
 
 const workspaceGlyphs: Record<Workspace, string> = {
-  inventory: "m3 10 9-7 9 7M5 9v11h5v-6h4v6h5V9",
+  inventory:
+    "M7 4h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm2.5 10.5 2 2 3.5-4",
   catalog: "M5 8h14l1 12H4L5 8Zm3 0V6a4 4 0 0 1 8 0v2",
   links:
     "m10 14 4-4M9 16l-2 2a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 0 2-2a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0",

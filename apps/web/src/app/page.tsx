@@ -7319,19 +7319,16 @@ export default function Dashboard() {
     : 100;
   const navigationWorkspace:
     | "inventory"
-    | "assistant"
+    | "catalog"
     | "collaboration"
     | "workbench" =
-    workspace === "assistant"
-      ? "assistant"
-      : workspace === "collaboration"
-        ? "collaboration"
+    workspace === "collaboration"
+      ? "collaboration"
+      : ["catalog", "links", "favorites", "sellers"].includes(workspace)
+        ? "catalog"
         : [
-              "links",
               "purchases",
               "orders",
-              "favorites",
-              "sellers",
               "intel",
               "logistics",
               "calculator",
@@ -7341,6 +7338,7 @@ export default function Dashboard() {
               "monitoring",
               "resale",
               "ai",
+              "assistant",
               "profile",
             ].includes(workspace)
           ? "workbench"

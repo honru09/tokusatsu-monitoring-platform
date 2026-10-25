@@ -24,6 +24,7 @@ export const TERMS = {
   orders: "库存订单",
   calculator: "采购测算",
   logistics: "物流",
+  intel: "市场情报",
   resale: "转售",
   monitoring: "监控设置",
   disliked: "不感兴趣",

@@ -98,9 +98,20 @@ describe("workspace navigation stack", () => {
   it("does not create back history when switching between primary pages", () => {
     const state = navigateWorkspaceState(
       { workspace: "inventory", trail: [] },
+      "catalog",
+    );
+    expect(state).toEqual({ workspace: "catalog", trail: [] });
+  });
+
+  it("treats the assistant as a nested page now that it left the primary slots", () => {
+    const state = navigateWorkspaceState(
+      { workspace: "inventory", trail: [] },
       "assistant",
     );
-    expect(state).toEqual({ workspace: "assistant", trail: [] });
+    expect(state).toEqual({ workspace: "assistant", trail: ["inventory"] });
+    expect(initialWorkspaceNavigationState("assistant").trail).toEqual([
+      "workbench",
+    ]);
   });
 
   it("treats collaboration as a primary destination and profile as a nested page", () => {
@@ -144,7 +155,7 @@ describe("workspace URL deep-link", () => {
     ]);
     expect(initialWorkspaceNavigationState("catalog")).toEqual({
       workspace: "catalog",
-      trail: ["inventory"],
+      trail: [],
     });
   });
   it("accepts known workspace query values and rejects junk", () => {

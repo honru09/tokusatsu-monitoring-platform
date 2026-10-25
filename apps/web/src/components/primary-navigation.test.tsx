@@ -36,7 +36,7 @@ describe("PrimaryNavigation", () => {
       Array.from(host.querySelectorAll("button")).map(
         (button) => button.textContent,
       ),
-    ).toEqual(["首页", "AI", "消息", "工作台"]);
+    ).toEqual(["待办", "选货", "消息", "工作台"]);
     expect(host.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
     act(() =>
       host.querySelector<HTMLButtonElement>('[aria-label="工作台"]')!.click(),
@@ -80,6 +80,25 @@ describe("PrimaryNavigation", () => {
     ).toBe("99+");
     act(() => render(0));
     expect(host.querySelector(".message-unread-badge")).toBeNull();
+  });
+
+  it("shows the pending count on the todo slot and hides it at zero", () => {
+    const render = (todoCount: number) =>
+      root.render(
+        <PrimaryNavigation
+          activeWorkspace="catalog"
+          unreadCount={0}
+          todoCount={todoCount}
+          onNavigate={() => undefined}
+        />,
+      );
+    act(() => render(7));
+    expect(host.querySelector('[aria-label="7 件待处理"]')?.textContent).toBe(
+      "7",
+    );
+    expect(host.querySelector(".todo-count-badge")).not.toBeNull();
+    act(() => render(0));
+    expect(host.querySelector(".todo-count-badge")).toBeNull();
   });
 
   it("only opts into selection motion after pointer input, not keyboard input", () => {

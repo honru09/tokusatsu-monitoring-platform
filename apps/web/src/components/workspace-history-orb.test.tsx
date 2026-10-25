@@ -109,7 +109,7 @@ describe("WorkspaceHistoryOrb", () => {
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     const catalog = Array.from(
       host.querySelectorAll<HTMLButtonElement>("[data-history-entry]"),
-    ).find((button) => button.textContent?.includes("在售商品"));
+    ).find((button) => button.textContent?.includes("选货"));
     expect(catalog).toBeTruthy();
 
     act(() => catalog?.click());

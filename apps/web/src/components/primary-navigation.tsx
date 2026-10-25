@@ -3,19 +3,20 @@
 import React, { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { animate, motion, useReducedMotion } from "motion/react";
 import { springs } from "../lib/motion-tokens";
+import { TERMS } from "../lib/terms";
 import styles from "./primary-navigation.module.css";
 
 export type PrimaryWorkspace =
   | "inventory"
-  | "assistant"
+  | "catalog"
   | "collaboration"
   | "workbench";
 
 const destinations = [
-  { key: "inventory", label: "首页" },
-  { key: "assistant", label: "AI" },
-  { key: "collaboration", label: "消息" },
-  { key: "workbench", label: "工作台" },
+  { key: "inventory", label: TERMS.todo },
+  { key: "catalog", label: TERMS.catalog },
+  { key: "collaboration", label: TERMS.messages },
+  { key: "workbench", label: TERMS.workbench },
 ] as const;
 
 function NavigationIcon({ workspace }: { workspace: PrimaryWorkspace }) {
@@ -31,12 +32,14 @@ function NavigationIcon({ workspace }: { workspace: PrimaryWorkspace }) {
     >
       {workspace === "inventory" ? (
         <>
-          <path d="m3.5 10 8.5-7 8.5 7M5.5 8.5V20h5v-6h3v6h5V8.5" />
+          <rect x="5" y="4.5" width="14" height="17" rx="2.5" />
+          <path d="M9 4.5a3 3 0 0 1 6 0" />
+          <path d="m9.5 14.5 2 2 3.5-4" />
         </>
-      ) : workspace === "assistant" ? (
+      ) : workspace === "catalog" ? (
         <>
-          <path d="m10 3 2.3 6.7L19 12l-6.7 2.3L10 21l-2.3-6.7L1 12l6.7-2.3L10 3Z" />
-          <path d="m19 2 .9 2.1L22 5l-2.1.9L19 8l-.9-2.1L16 5l2.1-.9L19 2Z" />
+          <path d="M5 8h14l-1.2 12.5H6.2L5 8Z" />
+          <path d="M8.5 10.5V6.5a3.5 3.5 0 0 1 7 0v4" />
         </>
       ) : workspace === "collaboration" ? (
         <>
@@ -59,10 +62,13 @@ function NavigationIcon({ workspace }: { workspace: PrimaryWorkspace }) {
 export const PrimaryNavigation = memo(function PrimaryNavigation({
   activeWorkspace,
   unreadCount,
+  todoCount = 0,
   onNavigate,
 }: {
   activeWorkspace: PrimaryWorkspace;
   unreadCount: number;
+  /** Pending decision-queue total shown on the todo slot. */
+  todoCount?: number;
   onNavigate: (workspace: PrimaryWorkspace) => void;
 }) {
   const [pointerMotion, setPointerMotion] = useState(false);
@@ -141,6 +147,14 @@ export const PrimaryNavigation = memo(function PrimaryNavigation({
             whileTap={!motionReady || !pointerMotion || reduceMotion ? undefined : { transform: "translateY(1px) scale(0.9)" }}
             transition={pointerMotion && !reduceMotion ? springs.applePress : { duration: 0 }}>
             <NavigationIcon workspace={key} />
+            {key === "inventory" && todoCount > 0 && (
+              <span
+                className="todo-count-badge"
+                aria-label={`${todoCount} 件待处理`}
+              >
+                {todoCount > 99 ? "99+" : todoCount}
+              </span>
+            )}
             {key === "collaboration" && unreadCount > 0 && (
               <span
                 className="message-unread-badge"
