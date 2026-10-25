@@ -15,6 +15,7 @@ import {
   processUrlAnalysis,
   processCleanup,
   processDislikedCleanup,
+  processSellerCatalogue,
   scheduleStatus,
 } from "./processors.js";
 import { processMarketIntel } from "./market-intel.processor.js";
@@ -109,6 +110,11 @@ const workers = [
     // limiter leaves headroom for normal status refreshes while draining the
     // historical seller queue independently.
     limiter: { max: 18, duration: 60_000 },
+  }),
+  new Worker("seller-catalogue-refresh", processSellerCatalogue, {
+    connection,
+    concurrency: 1,
+    limiter: { max: 6, duration: 60_000 },
   }),
   new Worker("url-analysis", processUrlAnalysis, {
     connection,

@@ -167,4 +167,92 @@ describe("SellerProfile", () => {
     expect(document.body.textContent).toContain("SHF 仮面ライダー");
     expect(document.body.textContent).toContain("Mercari");
   });
+
+  it("enqueues catalogue refresh on open and re-fetches analysis after delay", async () => {
+    vi.useFakeTimers();
+
+    const initialAnalysis = {
+      seller: {
+        id: "s1",
+        name: "田中ホビー店",
+        sellerType: "store",
+        source: { key: "mercari", displayName: "Mercari" },
+      },
+      items: [item({ id: "i1", titleRaw: "仮面ライダー DXベルト" })],
+      total: 1,
+      page: 1,
+      limit: 48,
+      pageCount: 1,
+      analysis: {
+        sellerType: "普通卖家",
+        profile: "个人闲置。",
+        negotiationJa: "コメント失礼いたします。",
+        negotiationZh: "打扰了。",
+      },
+      mode: "rules",
+    };
+
+    const refreshedAnalysis = {
+      ...initialAnalysis,
+      items: [
+        item({ id: "i1", titleRaw: "仮面ライダー DXベルト" }),
+        item({ id: "i2", titleRaw: "ウルトラマン 怪獣ソフビ" }),
+      ],
+      total: 2,
+    };
+
+    let fetchCount = 0;
+    let refreshEnqueued = false;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/analysis/seller/s1/refresh")) {
+          refreshEnqueued = true;
+          return new Response(JSON.stringify({ enqueued: true }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        if (url.includes("/analysis/seller/s1")) {
+          fetchCount += 1;
+          const payload = fetchCount > 1 ? refreshedAnalysis : initialAnalysis;
+          return new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        throw new Error(`unexpected fetch ${url}`);
+      }),
+    );
+
+    await act(async () => {
+      root.render(
+        <SellerProfile
+          sellerId="s1"
+          onClose={() => undefined}
+          onOpenItem={() => undefined}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(refreshEnqueued).toBe(true);
+    expect(document.body.textContent).toContain("正在补全同店商品…");
+    expect(fetchCount).toBe(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+
+    expect(fetchCount).toBe(2);
+    expect(document.body.textContent).not.toContain("正在补全同店商品…");
+    expect(document.body.textContent).toContain("ウルトラマン 怪獣ソフビ");
+
+    vi.useRealTimers();
+  });
 });

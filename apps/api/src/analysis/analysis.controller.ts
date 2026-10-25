@@ -52,4 +52,9 @@ export class AnalysisController {
       Number(limit ?? 48),
     );
   }
+
+  @Post("seller/:id/refresh")
+  refreshSeller(@Param("id") id: string) {
+    return this.analysis.refreshSeller(id);
+  }
 }

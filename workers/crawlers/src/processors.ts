@@ -109,7 +109,11 @@ import {
   refreshFailureCountOf,
   shouldUseDetailRefresh,
 } from "./status-refresh-policy.js";
-import { recordMonitoringKeywordMatch } from "./monitoring-keywords.js";
+import {
+  getMonitoringKeywordUniverse,
+  matchesMonitoringKeywordUniverse,
+  recordMonitoringKeywordMatch,
+} from "./monitoring-keywords.js";
 
 export {
   classificationJobId,
@@ -1438,6 +1442,201 @@ export async function backfillExplicitMercariProfileUrls() {
     updated += 1;
   }
   return updated;
+}
+
+export interface SellerCatalogueJobData {
+  sellerId: string;
+}
+
+export type SellerCatalogueJobResult =
+  | { supported: false; error?: string }
+  | { notFound: true }
+  | {
+      fetched: number;
+      kept: number;
+      droppedOffType: number;
+      created: number;
+      updated: number;
+    };
+
+export function extractMercariExternalSellerId(seller: {
+  sourceSellerId?: string | null;
+  profileUrl?: string | null;
+  sourceData?: unknown;
+}): string | undefined {
+  if (seller.sourceSellerId && /^\d+$/.test(seller.sourceSellerId.trim())) {
+    return seller.sourceSellerId.trim();
+  }
+  if (seller.profileUrl) {
+    const match = seller.profileUrl.match(/\/user\/profile\/(\d+)/);
+    if (match?.[1]) return match[1];
+  }
+  if (seller.sourceData && typeof seller.sourceData === "object") {
+    const data = seller.sourceData as Record<string, unknown>;
+    const sellerId =
+      data.sellerId ??
+      (data.seller && typeof data.seller === "object"
+        ? (data.seller as Record<string, unknown>).id
+        : undefined);
+    if (typeof sellerId === "string" && /^\d+$/.test(sellerId.trim())) {
+      return sellerId.trim();
+    }
+    if (typeof sellerId === "number") {
+      return String(sellerId);
+    }
+    const profileUrl =
+      typeof data.sellerProfileUrl === "string"
+        ? data.sellerProfileUrl
+        : typeof data.profileUrl === "string"
+          ? data.profileUrl
+          : undefined;
+    if (profileUrl) {
+      const match = profileUrl.match(/\/user\/profile\/(\d+)/);
+      if (match?.[1]) return match[1];
+    }
+  }
+  return undefined;
+}
+
+export async function processSellerCatalogue(
+  job: Job<SellerCatalogueJobData>,
+): Promise<SellerCatalogueJobResult> {
+  const { sellerId } = job.data;
+  if (!sellerId) {
+    throw new Error("Missing sellerId in seller-catalogue job data");
+  }
+
+  const seller = await prisma.seller.findUnique({
+    where: { id: sellerId },
+    include: { source: true },
+  });
+
+  if (!seller) {
+    return { notFound: true };
+  }
+
+  if (seller.source.key !== "mercari") {
+    return { supported: false };
+  }
+
+  const externalId = extractMercariExternalSellerId(seller);
+  if (!externalId) {
+    return { supported: false, error: "missing_external_id" };
+  }
+
+  const adapter = adapters["mercari"] as MercariAdapter | undefined;
+  if (!adapter) {
+    throw new Error("Mercari adapter not registered");
+  }
+
+  const candidates = (
+    await adapter.fetchSellerListings(externalId, 60)
+  ).slice(0, 60);
+
+  let fetched = 0;
+  let kept = 0;
+  let droppedOffType = 0;
+  let created = 0;
+  let updated = 0;
+
+  const keywordUniverse = await getMonitoringKeywordUniverse();
+
+  for (const candidate of candidates) {
+    fetched += 1;
+    try {
+      const titleHint = candidate.titleHint?.trim();
+      if (
+        titleHint &&
+        !matchesMonitoringKeywordUniverse(titleHint, keywordUniverse)
+      ) {
+        droppedOffType += 1;
+        continue;
+      }
+
+      const raw = await adapter.fetchDetail(candidate);
+      const normalized = await adapter.normalize(raw);
+
+      normalized.sellerName = normalized.sellerName || seller.name;
+      normalized.sellerProfileUrl =
+        normalized.sellerProfileUrl ||
+        seller.profileUrl ||
+        `https://jp.mercari.com/user/profile/${externalId}`;
+      if (seller.sellerType) {
+        normalized.sellerType =
+          normalized.sellerType || (seller.sellerType as any);
+      }
+
+      const quality = assessInventoryQuality(normalized, { scope: "toys" });
+      const isExcluded = isExcludedNormalizedItem(normalized);
+      const isNonToy =
+        (normalized.categoryToyType === "other" ||
+          normalized.categoryToyType === "unknown") &&
+        (normalized.categoryIp === "other" ||
+          normalized.categoryIp === "unknown");
+
+      if (!quality.eligible || isExcluded || isNonToy) {
+        droppedOffType += 1;
+        continue;
+      }
+
+      const existing = await prisma.item.findUnique({
+        where: {
+          sourceId_sourceItemId: {
+            sourceId: seller.sourceId,
+            sourceItemId: normalized.sourceItemId,
+          },
+        },
+        select: { id: true, sellerId: true },
+      });
+
+      const saved = await persistNormalized(
+        seller.sourceId,
+        normalized,
+        false,
+        "search",
+      );
+
+      if (saved.sellerId !== seller.id) {
+        await prisma.item.update({
+          where: { id: saved.id },
+          data: { sellerId: seller.id },
+        });
+      }
+
+      if (existing) {
+        updated += 1;
+      } else {
+        created += 1;
+      }
+      kept += 1;
+    } catch (itemError) {
+      console.warn(
+        JSON.stringify({
+          event: "seller_catalogue_item_failed",
+          sellerId: seller.id,
+          sourceItemId: candidate.sourceItemId,
+          error: String(itemError).slice(0, 200),
+        }),
+      );
+    }
+  }
+
+  const existingSourceData =
+    seller.sourceData && typeof seller.sourceData === "object"
+      ? (seller.sourceData as Record<string, unknown>)
+      : {};
+
+  await prisma.seller.update({
+    where: { id: seller.id },
+    data: {
+      sourceData: {
+        ...existingSourceData,
+        lastCatalogueRefreshAt: new Date().toISOString(),
+      },
+    },
+  });
+
+  return { fetched, kept, droppedOffType, created, updated };
 }
 
 /**

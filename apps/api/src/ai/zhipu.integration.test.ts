@@ -7,7 +7,7 @@ import type { PrismaService } from "../prisma.service.js";
 const databaseUrl=process.env.RESALE_TEST_DATABASE_URL;
 const suite=databaseUrl ? describe : describe.skip;
 suite("Zhipu quota and actual gateway persistence",()=>{
- const db=new PrismaClient({datasources:{db:{url:databaseUrl}}});
+ const db = databaseUrl ? new PrismaClient({datasources:{db:{url:databaseUrl}}}) : (null as unknown as PrismaClient);
  const schema=recordResponseSchema<{translated:string}>("test.zhipu.translation",1,value=>value && typeof value === 'object' && 'translated' in value && typeof value.translated === 'string' ? {success:true,value:{translated:value.translated}} : {success:false,issues:[{path:'translated',code:'invalid'}]});
  const request=(text='商品翻译')=>({task:'translation' as const,maxTokens:4096,dataClass:'public_market' as const,messages:[{role:'user' as const,content:text}],responseSchema:schema});
  beforeAll(async()=>{await db.$connect();});

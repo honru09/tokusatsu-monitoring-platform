@@ -556,6 +556,16 @@ export class MercariAdapter implements SourceAdapter {
     return normalizeRawItem(raw);
   }
 
+  async fetchSellerListings(
+    sellerExternalId: string,
+    limit = 60,
+  ): Promise<SearchResult[]> {
+    const safeLimit = Math.max(1, Math.min(limit, 60));
+    const profileUrl = `https://jp.mercari.com/user/profile/${sellerExternalId}`;
+    const html = await this.fetchAllowed(profileUrl);
+    return parseMercariSearchHtml(html, profileUrl, safeLimit);
+  }
+
   private async fetchAllowed(url: string): Promise<string> {
     const parsed = new URL(url);
     const origin = parsed.origin;

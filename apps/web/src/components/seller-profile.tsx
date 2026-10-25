@@ -408,12 +408,15 @@ export function SellerProfile<TItem extends SellerProfileItem>({
   const [moreError, setMoreError] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshingCatalogue, setRefreshingCatalogue] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<SellerStatusFilter>("all");
   const [sort, setSort] = useState<SellerSort>("default");
   const dialogRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const requestRef = useRef(0);
+  const catalogueTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const initialRefreshDoneRef = useRef<string | null>(null);
 
   useDialogFocus({
     active: true,
@@ -499,7 +502,7 @@ export function SellerProfile<TItem extends SellerProfileItem>({
   }, [bundleReady, flash, onBundleCopied, parsedTargetPriceYen, selectedItems]);
 
   const load = useCallback(
-    async (price?: string) => {
+    async (price?: string): Promise<SellerAnalysis<TItem> | null> => {
       const request = ++requestRef.current;
       setAnalyzing(true);
       setError("");
@@ -513,7 +516,7 @@ export function SellerProfile<TItem extends SellerProfileItem>({
         );
         if (!response.ok) throw new Error(`API ${response.status}`);
         const payload: unknown = await response.json();
-        if (request !== requestRef.current) return;
+        if (request !== requestRef.current) return null;
         if (!isSellerPayload(payload)) throw new Error("商家数据不完整");
         const next = {
           ...(payload as SellerAnalysis<TItem>),
@@ -527,9 +530,11 @@ export function SellerProfile<TItem extends SellerProfileItem>({
             ? { ...next, items: current.items, page: current.page }
             : next,
         );
+        return next;
       } catch (reason) {
-        if (request !== requestRef.current) return;
+        if (request !== requestRef.current) return null;
         setError(reason instanceof Error ? reason.message : "商家分析失败");
+        return null;
       } finally {
         if (request === requestRef.current) {
           setLoading(false);
@@ -585,6 +590,64 @@ export function SellerProfile<TItem extends SellerProfileItem>({
       requestRef.current += 1;
     };
   }, [load]);
+
+  useEffect(() => {
+    initialRefreshDoneRef.current = null;
+    setRefreshingCatalogue(false);
+    catalogueTimersRef.current.forEach((t) => clearTimeout(t));
+    catalogueTimersRef.current = [];
+  }, [sellerId]);
+
+  useEffect(() => {
+    if (!data || initialRefreshDoneRef.current === sellerId) return;
+    initialRefreshDoneRef.current = sellerId;
+    const initialCount = Math.max(data.total, data.items.length);
+
+    let cancelled = false;
+
+    const triggerRefresh = async () => {
+      try {
+        const res = await fetch(`${API}/analysis/seller/${sellerId}/refresh`, {
+          method: "POST",
+        });
+        if (!res.ok || cancelled) return;
+        const result = (await res.json()) as { enqueued?: boolean; reason?: string };
+        if (cancelled || !result?.enqueued) return;
+
+        setRefreshingCatalogue(true);
+
+        const timer6s = setTimeout(async () => {
+          if (cancelled) return;
+          const fresh = await load();
+          if (cancelled) return;
+          const count = fresh ? Math.max(fresh.total, fresh.items.length) : 0;
+          if (count > initialCount) {
+            setRefreshingCatalogue(false);
+            if (timer15s) clearTimeout(timer15s);
+          }
+        }, 6000);
+
+        const timer15s = setTimeout(async () => {
+          if (cancelled) return;
+          await load();
+          if (cancelled) return;
+          setRefreshingCatalogue(false);
+        }, 15000);
+
+        catalogueTimersRef.current.push(timer6s, timer15s);
+      } catch {
+        // Silently ignore background catalogue refresh failures
+      }
+    };
+
+    void triggerRefresh();
+
+    return () => {
+      cancelled = true;
+      catalogueTimersRef.current.forEach((t) => clearTimeout(t));
+      catalogueTimersRef.current = [];
+    };
+  }, [data ? data.seller.id : null, load, sellerId]);
 
   const seller = data?.seller;
   const stats = data?.stats ?? null;
@@ -769,6 +832,17 @@ export function SellerProfile<TItem extends SellerProfileItem>({
         </div>
 
         {/* Products */}
+        {refreshingCatalogue ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-1.5 px-1 text-xs text-meta"
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent/70 animate-pulse" />
+            <span>正在补全同店商品…</span>
+          </div>
+        ) : null}
+
         <section className={styles.surface} aria-label="商品">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h3 className="font-heading text-base font-bold text-ink">商品</h3>

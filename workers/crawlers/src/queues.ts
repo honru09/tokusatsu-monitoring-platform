@@ -43,6 +43,13 @@ export const statusQueue = new Queue("item-status-refresh", { connection });
 export const sellerBackfillQueue = new Queue("seller-profile-backfill", {
   connection,
 });
+export const sellerCatalogueQueue = new Queue("seller-catalogue-refresh", {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 30_000 },
+  },
+});
 export const urlAnalysisQueue = new Queue("url-analysis", { connection });
 export const maintenanceQueue = new Queue("inventory-maintenance", {
   connection,

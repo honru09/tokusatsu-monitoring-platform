@@ -183,3 +183,104 @@ export async function recordMonitoringKeywordMatch(
     return winner.keyword.categoryId;
   });
 }
+
+export const DEFAULT_MONITORING_TERMS = [
+  "仮面ライダー",
+  "假面骑士",
+  "kamen rider",
+  "ウルトラマン",
+  "奥特曼",
+  "ultraman",
+  "スーパー戦隊",
+  "超级战队",
+  "super sentai",
+  "ゴジラ",
+  "哥斯拉",
+  "godzilla",
+  "特撮",
+  "s.h.figuarts",
+  "figuarts",
+  "フィギュアーツ",
+  "shf",
+  "真骨彫",
+  "真骨彫製法",
+  "s.i.c.",
+  "sic",
+  "csm",
+  "変身ベルト",
+  "ソフビ",
+  "ガシャポン",
+  "ガチャ",
+  "食玩",
+  "指人形",
+  "ミニフィギュア",
+];
+
+const GENERIC_KEYWORD_MODIFIERS = new Set([
+  "まとめ売り",
+  "まとめ",
+  "セット",
+  "大量",
+  "ジャンク",
+  "新品",
+  "美品",
+  "中古",
+  "未開封",
+  "送料無料",
+  "即決",
+  "1円",
+]);
+
+export async function getMonitoringKeywordUniverse(): Promise<string[]> {
+  try {
+    const records = await prisma.monitoringKeyword.findMany({
+      where: { enabled: true },
+      select: { keyword: true, normalizedKeyword: true },
+    });
+    if (records.length > 0) {
+      const set = new Set<string>();
+      for (const record of records) {
+        for (const raw of [record.keyword, record.normalizedKeyword]) {
+          if (!raw) continue;
+          const trimmed = raw.trim();
+          if (
+            trimmed &&
+            !GENERIC_KEYWORD_MODIFIERS.has(trimmed.toLowerCase())
+          ) {
+            set.add(trimmed);
+          }
+          for (const token of trimmed.split(/\s+/)) {
+            const cleanToken = token.trim();
+            if (
+              cleanToken.length >= 2 &&
+              !GENERIC_KEYWORD_MODIFIERS.has(cleanToken.toLowerCase())
+            ) {
+              set.add(cleanToken);
+            }
+          }
+        }
+      }
+      return Array.from(set);
+    }
+  } catch {
+    // Database or table unavailable
+  }
+  return [...DEFAULT_MONITORING_TERMS];
+}
+
+export function matchesMonitoringKeywordUniverse(
+  title: string,
+  universe: readonly string[] = DEFAULT_MONITORING_TERMS,
+): boolean {
+  if (!title) return false;
+  const normalized = title.normalize("NFKC").toLowerCase();
+  for (const term of universe) {
+    if (!term) continue;
+    const cleanTerm = term.normalize("NFKC").toLowerCase();
+    if (cleanTerm.length >= 2 && normalized.includes(cleanTerm)) {
+      return true;
+    }
+  }
+  return false;
+}
+

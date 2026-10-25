@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, SourceChannel, ToyType } from "@tokusatsu/db";
+import { Queue } from "bullmq";
+import { Redis } from "ioredis";
 import {
   compareProcurementCandidates,
   procurementConfigFromEnv,
@@ -1190,5 +1192,58 @@ export class AnalysisService {
         mode: "rules",
       };
     }
+  }
+
+  async refreshSeller(id: string): Promise<
+    | { enqueued: false; reason: "unsupported_source" | "fresh" }
+    | { enqueued: true }
+  > {
+    const seller = await this.prisma.seller.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        sourceData: true,
+        source: { select: { key: true } },
+      },
+    });
+
+    if (!seller) {
+      throw new NotFoundException(`Seller ${id} not found`);
+    }
+
+    if (seller.source.key !== "mercari") {
+      return { enqueued: false, reason: "unsupported_source" };
+    }
+
+    const sourceData = (seller.sourceData as Record<string, unknown> | null) ?? null;
+    const lastCatalogueRefreshAt = sourceData?.lastCatalogueRefreshAt;
+    if (typeof lastCatalogueRefreshAt === "string") {
+      const lastTime = new Date(lastCatalogueRefreshAt).getTime();
+      const sixHoursMs = 6 * 60 * 60 * 1000;
+      if (Number.isFinite(lastTime) && Date.now() - lastTime < sixHoursMs) {
+        return { enqueued: false, reason: "fresh" };
+      }
+    }
+
+    const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+      maxRetriesPerRequest: null,
+    });
+    const queue = new Queue("seller-catalogue-refresh", { connection: redis });
+    try {
+      await queue.add(
+        "refresh",
+        { sellerId: seller.id },
+        {
+          jobId: `seller-catalogue-${seller.id}`,
+          removeOnComplete: 100,
+          removeOnFail: 100,
+        },
+      );
+    } finally {
+      await queue.close();
+      await redis.quit();
+    }
+
+    return { enqueued: true };
   }
 }
