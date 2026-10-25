@@ -501,16 +501,34 @@ textarea:focus-visible {
   font-family: var(--font-sans);
   font-optical-sizing: auto;
 }
+/* Purchases workspace width contract: the merged records / orders /
+   shipping tabs share this root. Nothing inside may widen the layout
+   past the viewport - a state-dependent wide row (a packed parcel line,
+   a long unbroken string) otherwise leaves the whole subtree laid out
+   against a wider box than the phone screen. Clip at the root, let
+   grid/flex children shrink, and cap replaced elements at the box. */
+.procurement-workspace {
+  width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
 .purchases-workspace {
   width: 100%;
   max-width: 820px;
   margin-inline: auto;
+  min-width: 0;
+  overflow-x: clip;
 }
 .inventory-orders-page {
   width: 100%;
   max-width: 1180px;
   margin-inline: auto;
   padding-block: 4px 24px;
+  min-width: 0;
+  overflow-x: clip;
+}
+.procurement-workspace :is(input, select, textarea, table) {
+  max-width: 100%;
 }
 
 .workspace-purchases .cart-fab {
