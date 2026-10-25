@@ -554,6 +554,56 @@ describe("CollaborationService", () => {
     });
   });
 
+  it("persists and hydrates sender targetPriceYen on single-item and bundle shares", async () => {
+    const { service, prisma } = fixture();
+    const singleWithTarget = await service.send({
+      senderId: "manager-1",
+      recipientId: "manager-2",
+      text: "帮看这件",
+      itemId: "item-1",
+      targetPriceYen: 300,
+    });
+    expect(singleWithTarget.targetPriceYen).toBe(300);
+    expect(singleWithTarget.item).toMatchObject({
+      id: "item-1",
+      targetPriceYen: 300,
+    });
+    expect(singleWithTarget).toMatchObject({
+      bundleItemTargets: { "item-1": 300 },
+    });
+
+    const singleWithTextTarget = await service.send({
+      senderId: "manager-1",
+      recipientId: "manager-2",
+      text: "预期价 300",
+      itemId: "item-1",
+    });
+    expect(singleWithTextTarget.targetPriceYen).toBe(300);
+    expect(singleWithTextTarget.item).toMatchObject({
+      id: "item-1",
+      targetPriceYen: 300,
+    });
+
+    const bundleWithTotalTarget = await service.send({
+      senderId: "manager-1",
+      recipientId: "manager-2",
+      text: "两件打包",
+      itemIds: ["item-1", "item-2"],
+      targetPriceYen: 1500,
+    });
+    expect(bundleWithTotalTarget.targetPriceYen).toBe(1500);
+
+    await service.updateShareRoundItem("round-1", "item-1", {
+      accountId: "manager-1",
+      targetPriceYen: 450,
+    });
+    expect(prisma.directMessage.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { roundId: "round-1" },
+      }),
+    );
+  });
+
   it("still parses the legacy bundle text prefix on read", async () => {
     const { service, prisma } = fixture();
     prisma.directMessage.findMany.mockResolvedValueOnce([

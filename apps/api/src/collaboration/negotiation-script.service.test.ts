@@ -78,17 +78,18 @@ describe("NegotiationScriptService", () => {
       itemIds: ["item-1", "item-2"],
       fallback: true,
     });
-    // Group target: 8,000 target + 6,000 listed fallback = 14,000.
+    // Group target sums only explicit target prices (never falls back to priceCurrent).
     expect(sellerGroup.script).toBe(
       buildBundleNegotiationScript(
         [
           { titleRaw: "仮面ライダー フィギュア", priceCurrent: 10_000 },
           { titleRaw: "ウルトラマン ソフビ", priceCurrent: 6_000 },
         ],
-        14_000,
+        8_000,
       ),
     );
-    expect(sellerGroup.script).toContain("合計14,000円");
+    expect(sellerGroup.script).toContain("合計8,000円");
+    expect(sellerGroup.script).not.toContain("14,000円");
     const singleGroup = result.groups[1];
     expect(singleGroup).toMatchObject({
       sellerId: null,
@@ -97,6 +98,31 @@ describe("NegotiationScriptService", () => {
       fallback: true,
     });
     expect(singleGroup.script).toContain("5,000円にお値下げ可能でしょうか？");
+  });
+
+  it("uses generic wording without priceCurrent when round items have no target price", async () => {
+    const gateway = { executeJson: vi.fn() };
+    const { service, prisma } = fixture(gateway);
+    prisma.shareRoundItem.findMany.mockResolvedValueOnce([
+      { roundId: "round-1", itemId: "item-3", targetPriceYen: null, copiedAt: null },
+    ]);
+    prisma.item.findMany.mockResolvedValueOnce([
+      {
+        id: "item-3",
+        titleRaw: "戦隊 ロボット",
+        priceCurrent: 600,
+        shippingFee: 300,
+        sourceUrl: "https://example.com/items/3",
+        sellerId: null,
+        seller: null,
+      },
+    ]);
+    const result = await service.negotiationScript("round-1");
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].script).toContain(
+      "お気持ちお値下げいただくことは可能でしょうか？",
+    );
+    expect(result.groups[0].script).not.toContain("600円");
   });
 
   it("falls back to the template when generation fails", async () => {
@@ -108,7 +134,7 @@ describe("NegotiationScriptService", () => {
     const result = await service.negotiationScript("round-1");
     expect(gateway.executeJson).toHaveBeenCalledTimes(2);
     expect(result.groups.every((group) => group.fallback)).toBe(true);
-    expect(result.groups[0].script).toContain("合計14,000円");
+    expect(result.groups[0].script).toContain("合計8,000円");
   });
 
   it("returns the generated script with one call per seller group", async () => {

@@ -55,6 +55,29 @@ function encodeBundleMessageText(
   return cleanText ? `${header}\n${cleanText}` : header;
 }
 
+function parseTargetPriceFromText(
+  text: string | null | undefined,
+): number | null {
+  if (!text) return null;
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const pureMatch = trimmed.match(
+    /^[¥￥]?\s*(\d{2,7})\s*(?:円|日元|jpy|yen)?$/i,
+  );
+  if (pureMatch?.[1]) {
+    const parsed = Math.round(Number(pureMatch[1]));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+  const labelledMatch = trimmed.match(
+    /(?:预期价?|目标价?|心理价?|期望价?|砍到|砍价到?)\s*[：:是为]?\s*[¥￥]?\s*(\d{2,7})\s*(?:円|日元|jpy|yen)?/i,
+  );
+  if (labelledMatch?.[1]) {
+    const parsed = Math.round(Number(labelledMatch[1]));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+  return null;
+}
+
 function parseBundleMessageText(rawText: string | null | undefined): {
   cleanText: string | null;
   itemIds: string[];
@@ -371,11 +394,28 @@ export class CollaborationService {
     // positive whole yen values for items that are actually being sent.
     const itemTargets = new Map<string, number>();
     for (const itemId of requestedItemIds) {
-      const raw = body.itemTargets?.[itemId];
-      if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
-        itemTargets.set(itemId, Math.round(raw));
+      const raw = body.itemTargets?.[itemId] as number | string | undefined;
+      const num =
+        typeof raw === "number"
+          ? raw
+          : typeof raw === "string" && raw.trim()
+            ? Number(raw.trim())
+            : Number.NaN;
+      if (Number.isFinite(num) && num > 0) {
+        itemTargets.set(itemId, Math.round(num));
       }
     }
+    const explicitTargetPriceYen =
+      typeof body.targetPriceYen === "number" &&
+      Number.isFinite(body.targetPriceYen) &&
+      body.targetPriceYen > 0
+        ? Math.round(body.targetPriceYen)
+        : null;
+    const effectiveTargetPriceYen =
+      explicitTargetPriceYen ??
+      (requestedItemIds.length === 1 && itemTargets.size === 0
+        ? parseTargetPriceFromText(cleanText)
+        : null);
     // A bundle (or any send carrying target prices) becomes a share round so
     // membership and per-item targets live in rows, not in the message text.
     // Plain single-item shares keep the legacy shape.
@@ -383,12 +423,12 @@ export class CollaborationService {
       requestedItemIds.length > 0 &&
       (requestedItemIds.length > 1 ||
         itemTargets.size > 0 ||
-        Boolean(body.targetPriceYen));
-    if (useRound && body.targetPriceYen && itemTargets.size === 0) {
+        Boolean(effectiveTargetPriceYen));
+    if (useRound && effectiveTargetPriceYen && itemTargets.size === 0) {
       // Legacy callers only know the bundle-level target; keep it on the
       // primary item so the round rows still carry a target price.
       const primary = requestedItemIds[0];
-      if (primary) itemTargets.set(primary, Math.round(body.targetPriceYen));
+      if (primary) itemTargets.set(primary, effectiveTargetPriceYen);
     }
 
     const encodedText = useRound
@@ -396,7 +436,7 @@ export class CollaborationService {
       : encodeBundleMessageText(
           cleanText,
           requestedItemIds,
-          body.targetPriceYen,
+          effectiveTargetPriceYen,
         );
 
     const created = await this.prisma.$transaction(async (tx) => {
@@ -601,6 +641,12 @@ export class CollaborationService {
       data,
       include: { item: { include: messageItemInclude } },
     });
+    if (body.targetPriceYen !== undefined || typeof body.copied === "boolean") {
+      await this.prisma.directMessage.updateMany({
+        where: { roundId },
+        data: { updatedAt: new Date() },
+      });
+    }
     const decision = (await this.decisionMap([itemId])).get(itemId) ?? null;
     return {
       ...updated,
@@ -1129,11 +1175,76 @@ export class CollaborationService {
       for (const row of round?.items ?? []) decisionItemIds.add(row.itemId);
     }
     const decisions = await this.decisionMap(decisionItemIds);
-    const withDecision = (value: unknown): unknown => {
+    const roundTargetByItemId = new Map<string, number>();
+    for (const round of roundsById.values()) {
+      for (const row of round.items ?? []) {
+        if (
+          typeof row.targetPriceYen === "number" &&
+          row.targetPriceYen > 0 &&
+          !roundTargetByItemId.has(row.itemId)
+        ) {
+          roundTargetByItemId.set(row.itemId, row.targetPriceYen);
+        }
+      }
+    }
+    const unroundedItemIds = new Set<string>();
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (!msg || msg.roundId) continue;
+      if (msg.itemId && !roundTargetByItemId.has(msg.itemId)) {
+        unroundedItemIds.add(msg.itemId);
+      }
+      for (const id of parsedByIndex[i]?.itemIds ?? []) {
+        if (!roundTargetByItemId.has(id)) unroundedItemIds.add(id);
+      }
+    }
+    const shareRoundItemDelegate = this.prisma.shareRoundItem as unknown as {
+      findMany?: (args: unknown) => Promise<
+        Array<{ itemId: string; targetPriceYen: number | null }>
+      >;
+    };
+    if (
+      unroundedItemIds.size > 0 &&
+      typeof shareRoundItemDelegate?.findMany === "function"
+    ) {
+      const roundRows = await shareRoundItemDelegate.findMany({
+        where: {
+          itemId: { in: [...unroundedItemIds] },
+          targetPriceYen: { not: null },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { itemId: true, targetPriceYen: true },
+      });
+      for (const row of roundRows) {
+        if (
+          typeof row.targetPriceYen === "number" &&
+          row.targetPriceYen > 0 &&
+          !roundTargetByItemId.has(row.itemId)
+        ) {
+          roundTargetByItemId.set(row.itemId, row.targetPriceYen);
+        }
+      }
+    }
+    const withDecision = (
+      value: unknown,
+      targetPriceYen?: number | null,
+    ): unknown => {
       if (!value || typeof value !== "object") return value;
-      const record = value as Record<string, unknown> & { id?: string };
+      const record = value as Record<string, unknown> & {
+        id?: string;
+        targetPriceYen?: number | null;
+      };
+      const resolvedTarget =
+        targetPriceYen !== undefined
+          ? targetPriceYen
+          : typeof record.targetPriceYen === "number"
+            ? record.targetPriceYen
+            : typeof record.id === "string"
+              ? (roundTargetByItemId.get(record.id) ?? null)
+              : null;
       return {
         ...record,
+        ...(resolvedTarget !== null ? { targetPriceYen: resolvedTarget } : {}),
         decision:
           (typeof record.id === "string"
             ? decisions.get(record.id)
@@ -1156,58 +1267,111 @@ export class CollaborationService {
       const round = msg.roundId ? roundsById.get(msg.roundId) : undefined;
       if (round) {
         const rows = round.items ?? [];
+        const definedTargets = rows
+          .map((row) => row.targetPriceYen)
+          .filter(
+            (value): value is number =>
+              typeof value === "number" && Number.isFinite(value) && value > 0,
+          );
+        const inferredSingleTarget =
+          rows.length === 1 ? parseTargetPriceFromText(parsed.cleanText) : null;
+        const bundleTargetPriceYen =
+          parsed.targetPriceYen ??
+          (definedTargets.length > 0
+            ? definedTargets.reduce((sum, value) => sum + value, 0)
+            : null) ??
+          inferredSingleTarget;
         const bundleItems = rows
           .map((row) => {
             const item =
               row.item ??
               itemsById.get(row.itemId) ??
               (msg.itemId === row.itemId ? msg.item : null);
+            const rowTarget =
+              row.targetPriceYen ??
+              (rows.length === 1 ? bundleTargetPriceYen : null);
             return item
               ? {
                   ...(item as Record<string, unknown>),
-                  targetPriceYen: row.targetPriceYen ?? null,
+                  targetPriceYen: rowTarget,
                   copiedAt: row.copiedAt ?? null,
                   decision: decisions.get(row.itemId) ?? null,
                 }
               : null;
           })
           .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
-        const targets = rows.map((row) => row.targetPriceYen);
-        const bundleTargetPriceYen =
-          parsed.targetPriceYen ??
-          (rows.length > 0 &&
-          targets.every((value) => typeof value === "number")
-            ? targets.reduce((sum, value) => sum + (value ?? 0), 0)
-            : null);
+        const primaryRow = msg.itemId
+          ? rows.find((row) => row.itemId === msg.itemId)
+          : rows[0];
+        const primaryItemTarget =
+          primaryRow?.targetPriceYen ??
+          (rows.length === 1 ? bundleTargetPriceYen : null);
+        const primaryBundleItem = msg.itemId
+          ? bundleItems.find(
+              (entry) => (entry as { id?: string }).id === msg.itemId,
+            )
+          : bundleItems[0];
         return {
           ...msg,
           text: parsed.cleanText,
           replyTo,
-          item: withDecision(msg.item),
+          item: msg.item
+            ? withDecision(msg.item, primaryItemTarget)
+            : (primaryBundleItem ?? msg.item),
           roundId: round.id,
           bundleItems,
           bundleItemTargets: Object.fromEntries(
-            rows.map((row) => [row.itemId, row.targetPriceYen ?? null]),
+            rows.map((row) => [
+              row.itemId,
+              row.targetPriceYen ??
+                (rows.length === 1 ? bundleTargetPriceYen : null),
+            ]),
           ),
           targetPriceYen: bundleTargetPriceYen,
         };
       }
+      const candidateIds =
+        parsed.itemIds.length > 0
+          ? parsed.itemIds
+          : msg.itemId
+            ? [msg.itemId]
+            : [];
+      const candidateRoundTargets = candidateIds
+        .map((id) => roundTargetByItemId.get(id) ?? null)
+        .filter((value): value is number => typeof value === "number" && value > 0);
+      const fallbackTargetPriceYen =
+        parsed.targetPriceYen ??
+        (candidateRoundTargets.length > 0
+          ? candidateRoundTargets.reduce((sum, value) => sum + value, 0)
+          : null) ??
+        (candidateIds.length === 1
+          ? parseTargetPriceFromText(parsed.cleanText)
+          : null);
       const bundleItems = parsed.itemIds
         .map((id) => itemsById.get(id) ?? (msg.itemId === id ? msg.item : null))
         .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-        .map((entry) => withDecision(entry));
+        .map((entry) => {
+          const id = (entry as { id?: string }).id;
+          const itemTarget =
+            (id ? roundTargetByItemId.get(id) : undefined) ??
+            (parsed.itemIds.length === 1 ? fallbackTargetPriceYen : null);
+          return withDecision(entry, itemTarget);
+        });
+      const singleItemTarget =
+        (msg.itemId ? roundTargetByItemId.get(msg.itemId) : undefined) ??
+        (candidateIds.length <= 1 ? fallbackTargetPriceYen : null);
       return {
         ...msg,
         text: parsed.cleanText,
         replyTo,
-        item: withDecision(msg.item),
+        item: withDecision(msg.item, singleItemTarget),
         bundleItems:
           bundleItems.length > 0
             ? bundleItems
             : msg.item
-              ? [withDecision(msg.item)]
+              ? [withDecision(msg.item, singleItemTarget)]
               : [],
-        targetPriceYen: parsed.targetPriceYen,
+        targetPriceYen: fallbackTargetPriceYen,
       };
     });
   }

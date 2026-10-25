@@ -35,6 +35,7 @@ export class SendDirectMessageDto {
   itemIds?: string[];
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   targetPriceYen?: number;
@@ -140,6 +141,7 @@ export class ShareRoundItemDto {
   itemId!: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   targetPriceYen?: number;
@@ -167,6 +169,12 @@ export class AnalyzeSelectionItemDto {
   @IsOptional()
   @IsString()
   roundId?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  targetPriceYen?: number | null;
 }
 
 export class AnalyzeSelectionDto {

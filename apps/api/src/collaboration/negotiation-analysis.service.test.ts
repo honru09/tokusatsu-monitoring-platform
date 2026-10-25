@@ -169,8 +169,8 @@ describe("NegotiationScriptService.analyzeSelection", () => {
       sellerId: "seller-2",
       sellerName: "別の店",
       itemIds: ["item-3"],
-      // No round anywhere: the target falls back to the listed price.
-      targetTotalYen: 7_000,
+      // No round anywhere: never fall back to listed price.
+      targetTotalYen: 0,
       listedTotalYen: 7_000,
       firstItemUrl: "https://example.com/items/3",
     });
@@ -179,6 +179,10 @@ describe("NegotiationScriptService.analyzeSelection", () => {
       targetPriceYen: null,
       targetMissing: true,
     });
+    expect(otherGroup.script).toContain(
+      "お気持ちお値下げいただくことは可能でしょうか？",
+    );
+    expect(otherGroup.script).not.toContain("7,000円");
   });
 
   it("prefers the given round's target over the item's latest round", async () => {
@@ -226,11 +230,15 @@ describe("NegotiationScriptService.analyzeSelection", () => {
       sellerId: null,
       sellerName: null,
       itemIds: ["item-4"],
-      targetTotalYen: 3_000,
+      targetTotalYen: 0,
       listedTotalYen: 3_000,
       firstItemUrl: "https://example.com/items/4",
     });
     expect(result.groups[1].items[0].targetMissing).toBe(true);
+    expect(result.groups[1].script).toContain(
+      "お気持ちお値下げいただくことは可能でしょうか？",
+    );
+    expect(result.groups[1].script).not.toContain("3,000円");
   });
 
   it("returns no groups for an empty selection", async () => {

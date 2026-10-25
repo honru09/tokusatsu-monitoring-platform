@@ -190,11 +190,19 @@ export class NegotiationScriptService {
    * the item's most recent share round, otherwise the item has no target.
    */
   async analyzeSelection(
-    entries: Array<{ itemId: string; roundId?: string | null }>,
+    entries: Array<{
+      itemId: string;
+      roundId?: string | null;
+      targetPriceYen?: number | null;
+    }>,
   ): Promise<{ groups: NegotiationAnalysisGroup[] }> {
     const prisma = this.rounds();
     // Dedupe by itemId, keeping the first occurrence (and its roundId).
-    const deduped: Array<{ itemId: string; roundId?: string | null }> = [];
+    const deduped: Array<{
+      itemId: string;
+      roundId?: string | null;
+      targetPriceYen?: number | null;
+    }> = [];
     const seen = new Set<string>();
     for (const entry of entries) {
       if (seen.has(entry.itemId)) continue;
@@ -205,16 +213,38 @@ export class NegotiationScriptService {
 
     const targetByItemId = new Map<string, number | null>();
     for (const entry of deduped) {
-      const rows = entry.roundId
-        ? await prisma.shareRoundItem.findMany({
-            where: { roundId: entry.roundId, itemId: entry.itemId },
-          })
-        : await prisma.shareRoundItem.findMany({
-            where: { itemId: entry.itemId },
-            orderBy: { createdAt: "desc" },
-            take: 1,
-          });
-      targetByItemId.set(entry.itemId, rows[0]?.targetPriceYen ?? null);
+      let resolvedTarget: number | null = null;
+      if (entry.roundId) {
+        const rows = await prisma.shareRoundItem.findMany({
+          where: { roundId: entry.roundId, itemId: entry.itemId },
+        });
+        const fromRound = rows[0]?.targetPriceYen;
+        if (typeof fromRound === "number" && fromRound > 0) {
+          resolvedTarget = fromRound;
+        }
+      }
+      if (resolvedTarget === null) {
+        const rows = await prisma.shareRoundItem.findMany({
+          where: { itemId: entry.itemId },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        });
+        const latest = rows.find(
+          (row) => typeof row.targetPriceYen === "number" && row.targetPriceYen > 0,
+        )?.targetPriceYen;
+        if (typeof latest === "number" && latest > 0) {
+          resolvedTarget = latest;
+        }
+      }
+      if (
+        resolvedTarget === null &&
+        typeof entry.targetPriceYen === "number" &&
+        Number.isFinite(entry.targetPriceYen) &&
+        entry.targetPriceYen > 0
+      ) {
+        resolvedTarget = Math.round(entry.targetPriceYen);
+      }
+      targetByItemId.set(entry.itemId, resolvedTarget);
     }
 
     const items = await prisma.item.findMany({
@@ -253,7 +283,11 @@ export class NegotiationScriptService {
           targetMissing: item.targetPriceYen == null,
         })),
         targetTotalYen: group.items.reduce(
-          (sum, item) => sum + (item.targetPriceYen ?? item.priceCurrent),
+          (sum, item) =>
+            sum +
+            (typeof item.targetPriceYen === "number" && item.targetPriceYen > 0
+              ? item.targetPriceYen
+              : 0),
           0,
         ),
         listedTotalYen: group.items.reduce(
@@ -338,12 +372,18 @@ export class NegotiationScriptService {
     items: NegotiationScriptItem[];
   }): Promise<NegotiationScriptGroup> {
     const itemIds = group.items.map((item) => item.id);
-    // Per-item targets win; an item without a target contributes its listed
-    // price, so a round with no targets asks for the listed total.
-    const targetTotalYen = group.items.reduce(
-      (sum, item) => sum + (item.targetPriceYen ?? item.priceCurrent),
-      0,
-    );
+    // Sum only explicit sender target prices; never substitute priceCurrent
+    // when a target price is absent so no-target groups use the generic ask.
+    const definedTargets = group.items
+      .map((item) => item.targetPriceYen)
+      .filter(
+        (value): value is number =>
+          typeof value === "number" && Number.isFinite(value) && value > 0,
+      );
+    const targetTotalYen =
+      definedTargets.length > 0
+        ? definedTargets.reduce((sum, value) => sum + value, 0)
+        : null;
     const template = buildBundleNegotiationScript(group.items, targetTotalYen);
     const fallbackGroup: NegotiationScriptGroup = {
       sellerId: group.sellerId,
@@ -368,7 +408,7 @@ export class NegotiationScriptService {
           {
             role: "system",
             content:
-              "你是日本中古特摄采购谈判顾问。根据输入的同一卖家商品、现价、运费和逐件目标价，生成一条礼貌、自然、可直接贴到该卖家任一商品留言区的合并砍价日语消息 scriptJa，并提供逐意对应的简体中文翻译 scriptZh。逐件列出标题和现价，说明可同梱発送，希望以目标总价成交并表示可立即购买。禁止虚构商品状态或卖家信息。只输出 JSON：{\"scriptJa\":\"...\",\"scriptZh\":\"...\"}。",
+              "你是日本中古特摄采购谈判顾问。根据输入的同一卖家商品、现价、运费和逐件目标价，生成一条礼貌、自然、可直接贴到该卖家任一商品留言区的合并砍价日语消息 scriptJa，并提供逐意对应的简体中文翻译 scriptZh。逐件列出标题和现价，说明可同梱発送，若有目标总价则礼貌询问能否以目标总价成交，若无目标总价则礼貌询问能否小幅议价，并表示可立即购买。严禁把商品现价当作目标砍价金额。禁止虚构商品状态或卖家信息。只输出 JSON：{\"scriptJa\":\"...\",\"scriptZh\":\"...\"}。",
           },
           {
             role: "user",
@@ -378,7 +418,7 @@ export class NegotiationScriptService {
                 title: item.titleRaw,
                 priceCurrentYen: item.priceCurrent,
                 shippingFeeYen: item.shippingFee,
-                targetPriceYen: item.targetPriceYen ?? item.priceCurrent,
+                targetPriceYen: item.targetPriceYen ?? null,
                 sourceUrl: item.sourceUrl,
               })),
               listedTotalYen: group.items.reduce(
