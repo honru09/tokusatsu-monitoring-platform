@@ -2600,6 +2600,7 @@ function DetailDrawer({
                 images={item.images}
                 alt={detailTitle}
                 showThumbnails
+                wideEmptyPlaceholder
                 className="detail-gallery"
                 imageClassName="object-contain"
               />

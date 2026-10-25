@@ -4,7 +4,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { useReducedMotion } from "motion/react";
 import { motionTokens } from "../lib/motion-tokens";
 import styles from "./image-gallery.module.css";
-import { ITEM_PLACEHOLDER_SRC } from "./item-image";
+import { DETAIL_PLACEHOLDER_SRC, ITEM_PLACEHOLDER_SRC } from "./item-image";
 
 type GalleryImage = { url: string; position: number };
 
@@ -25,15 +25,49 @@ function ChevronIcon({ direction }: { direction: "left" | "right" }) {
   );
 }
 
-function ImagePlaceholder({ label }: { label: string }) {
+function SquarePlaceholderTile() {
+  return (
+    <span
+      aria-hidden="true"
+      className="block aspect-square w-20 rounded-2xl bg-cover bg-center"
+      style={{ backgroundImage: `url(${ITEM_PLACEHOLDER_SRC})` }}
+    />
+  );
+}
+
+/**
+ * Wide tile for the detail gallery's empty state: the frame there is
+ * landscape, so the square card tile would float in a tall box. Falls
+ * back to the square tile if the asset itself fails to load.
+ */
+function WidePlaceholderTile() {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <SquarePlaceholderTile />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={DETAIL_PLACEHOLDER_SRC}
+      alt=""
+      width={960}
+      height={640}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="block aspect-[3/2] w-52 rounded-2xl object-cover"
+    />
+  );
+}
+
+function ImagePlaceholder({
+  label,
+  wide = false,
+}: {
+  label: string;
+  wide?: boolean;
+}) {
   return (
     <div className="pointer-events-none grid h-full place-items-center bg-paper text-ink/60">
       <div className="flex flex-col items-center gap-2 text-center">
-        <span
-          aria-hidden="true"
-          className="block aspect-square w-20 rounded-2xl bg-cover bg-center"
-          style={{ backgroundImage: `url(${ITEM_PLACEHOLDER_SRC})` }}
-        />
+        {wide ? <WidePlaceholderTile /> : <SquarePlaceholderTile />}
         <span className="text-[11px] font-medium">{label}</span>
       </div>
     </div>
@@ -52,6 +86,7 @@ export function ImageGallery({
   fallbackClassName = "",
   quietControls = false,
   showThumbnails = false,
+  wideEmptyPlaceholder = false,
   onSurfaceClick,
 }: {
   images: GalleryImage[];
@@ -62,6 +97,8 @@ export function ImageGallery({
   /** Soften chevrons / chrome for decision cards (platform + count live outside). */
   quietControls?: boolean;
   showThumbnails?: boolean;
+  /** Use the wide placeholder tile for the empty state (detail gallery). */
+  wideEmptyPlaceholder?: boolean;
   /** Optional detail action for the image surface. Gallery controls stay above it. */
   onSurfaceClick?: () => void;
 }) {
@@ -223,7 +260,7 @@ export function ImageGallery({
         </>
       ) : (
         <div className={`pointer-events-none h-full ${fallbackClassName}`}>
-          <ImagePlaceholder label="图片暂不可用" />
+          <ImagePlaceholder label="图片暂不可用" wide={wideEmptyPlaceholder} />
         </div>
       )}
       {count > 1 && (

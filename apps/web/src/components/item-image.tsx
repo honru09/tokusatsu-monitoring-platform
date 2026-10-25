@@ -25,6 +25,10 @@ export function ImageGlyph({ className = "h-5 w-5" }: { className?: string }) {
 /** Placeholder treatment shared by every item surface with no photo. */
 export const ITEM_PLACEHOLDER_SRC = "/illustrations/item-placeholder.webp";
 
+/** Wide placeholder for the detail gallery, whose frame is landscape. */
+export const DETAIL_PLACEHOLDER_SRC =
+  "/illustrations/detail-placeholder-wide.webp";
+
 /**
  * The designed missing-photo tile: pale blue ground with the framed
  * helmet mark. Rendered as an image so catalog cards, chat cards,

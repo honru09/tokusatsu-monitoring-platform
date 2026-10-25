@@ -140,6 +140,34 @@ describe("ImageGallery", () => {
     expect(host.querySelector("img")).toBeNull();
   });
 
+  it("uses the wide placeholder tile for the detail empty state when asked", () => {
+    act(() => {
+      root.render(
+        <ImageGallery images={[]} alt="测试商品" wideEmptyPlaceholder />,
+      );
+    });
+
+    expect(host.textContent).toContain("图片暂不可用");
+    const tile = host.querySelector<HTMLImageElement>(
+      'img[src="/illustrations/detail-placeholder-wide.webp"]',
+    );
+    expect(tile).not.toBeNull();
+    expect(tile?.getAttribute("width")).toBe("960");
+    expect(tile?.getAttribute("height")).toBe("640");
+    expect(tile?.className).toContain("aspect-[3/2]");
+  });
+
+  it("keeps the square tile for the default empty state", () => {
+    act(() => {
+      root.render(<ImageGallery images={[]} alt="测试商品" />);
+    });
+
+    expect(host.textContent).toContain("图片暂不可用");
+    expect(
+      host.querySelector('img[src="/illustrations/detail-placeholder-wide.webp"]'),
+    ).toBeNull();
+  });
+
   it("preserves the last loaded photo while the requested photo loads", () => {
     act(() => {
       root.render(
