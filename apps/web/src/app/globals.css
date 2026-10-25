@@ -2249,7 +2249,15 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 }
 
 .collaboration-composer {
-  z-index: 3;
+  /* The floating dock is position:fixed at z-index 80 (90 while dragging)
+     and, on phones, parks directly above this form, so a quoted-item
+     strip or bundle panel inside the form painted underneath it. Keep
+     the whole composer above the dock yet below the bottom nav (100)
+     and dialogs (120 / shell overlay root 200). With no strip or panel
+     open the dock sits clear of the single textarea row, so its normal
+     position and dragging are unaffected. */
+  position: relative;
+  z-index: 95;
   display: grid;
   flex: 0 0 auto;
   gap: 7px;
@@ -2265,9 +2273,15 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   font-size: 10px;
 }
 .collaboration-composer-context {
-  display: grid;
+  /* One row, however many children render: icon + text on their own,
+     plus a target-price input when an item is quoted. The old 3-column
+     grid (icon | text | close) forced that input into the 40px close
+     track and dropped the close button onto a second row. Flex lets
+     the text span (min-w-0 flex-1 in the markup) absorb the squeeze
+     while the icon, input and close button keep their full size. */
+  display: flex;
   min-height: 48px;
-  grid-template-columns: 34px minmax(0, 1fr) 40px;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
   border-radius: 14px;
@@ -2276,6 +2290,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 }
 .collaboration-composer-context-icon {
   display: grid;
+  flex: 0 0 auto;
   width: 32px;
   height: 32px;
   place-items: center;
@@ -2285,6 +2300,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 }
 .collaboration-composer-context span:nth-child(2) {
   display: grid;
+  min-width: 0;
   gap: 1px;
 }
 .collaboration-composer-context small {
@@ -2298,8 +2314,13 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.collaboration-composer-context > input {
+  flex: 0 0 auto;
+  min-width: 0;
+}
 .collaboration-composer-context > button {
   display: grid;
+  flex: 0 0 auto;
   width: 40px;
   height: 40px;
   place-items: center;
