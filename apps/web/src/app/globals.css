@@ -316,8 +316,7 @@ h3 {
 .product-card-title {
   letter-spacing: var(--tracking-title);
 }
-.product-card-market,
-.favorite-mini-card {
+.product-card-market {
   font-variant-numeric: tabular-nums lining-nums;
 }
 .font-black {
@@ -1305,13 +1304,10 @@ summary {
 
 .workspace-surface,
 .portal-card,
-.workbench-favorite-entry,
 .workbench-quick-card,
 .menu-group,
 .profile-account-card,
 .profile-permission-card,
-.favorites-workspace > section,
-.seller-directory-card,
 .logistics-workspace > section,
 .market-intel-workspace > section,
 .ai-system-workspace > section {
@@ -3966,9 +3962,6 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 
 /* Existing feature surfaces share one crisp Apple content plane. */
 .workspace-surface,
-.favorite-mini-card,
-.seller-directory-card,
-.workbench-favorite-entry,
 .workbench-quick-card,
 .profile-account-card,
 .profile-permission-card,
@@ -5631,163 +5624,10 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   box-shadow: var(--glass-rim);
 }
 
-.favorite-mini-card,
-.seller-directory-card {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border: 0.5px solid var(--glass-stroke);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow:
-    0 0 0 0.5px rgba(29, 29, 31, 0.06),
-    0 10px 30px rgba(31, 52, 70, 0.065);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  color: var(--glass-ink);
-  transition:
-    transform 180ms var(--ease-apple-spring),
-    box-shadow 180ms var(--ease-apple-out);
-}
-.favorite-mini-card::before,
-.seller-directory-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.28),
-    transparent 34%
-  );
-  z-index: 0;
-}
-.favorite-mini-card::after,
-.seller-directory-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow:
-    var(--glass-rim),
-    inset 0 -8px 18px rgba(15, 23, 42, 0.02);
-  z-index: 0;
-}
-.favorite-mini-card > *,
-.seller-directory-card > * {
-  position: relative;
-  z-index: 1;
-}
-@media (hover: hover) and (pointer: fine) {
-  .favorite-mini-card:hover,
-  .seller-directory-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--glass-shadow-lift);
-  }
-}
-.favorite-mini-card:active,
-.seller-directory-card:active {
-  transform: scale(0.985);
-}
 .note-dialog {
   width: min(100%, 320px);
   max-width: 320px;
 }
-.seller-directory {
-  width: min(100%, 1180px);
-  margin-inline: auto;
-  padding: clamp(14px, 2vw, 22px);
-  color: var(--glass-ink);
-}
-.seller-directory-card {
-  min-height: 132px;
-}
-.seller-directory input {
-  border: 0.5px solid var(--glass-stroke) !important;
-  background: var(--glass-fill) !important;
-  color: var(--glass-ink);
-  box-shadow: inset 0 0 0 0.5px var(--glass-edge);
-}
-.seller-segment-section {
-  min-width: 0;
-}
-.seller-segment-strip {
-  display: flex;
-  max-width: 100%;
-  gap: 7px;
-  padding: 2px 1px 7px;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
-  scrollbar-width: none;
-  scroll-snap-type: x proximity;
-}
-.seller-segment-strip::-webkit-scrollbar {
-  display: none;
-}
-.seller-segment-chip {
-  display: inline-flex;
-  min-width: max-content;
-  min-height: 44px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 13px;
-  color: var(--glass-ink-secondary);
-  background: rgba(255, 255, 255, 0.48);
-  border: 0.5px solid var(--glass-stroke-soft);
-  border-radius: 999px;
-  box-shadow:
-    inset 0 0 0 0.5px var(--glass-edge),
-    0 1px 2px rgba(15, 23, 42, 0.04);
-  font-size: 12px;
-  font-weight: 650;
-  scroll-snap-align: start;
-  transition:
-    color 160ms var(--ease-apple-out),
-    background 160ms var(--ease-apple-out),
-    transform var(--glass-press-duration) var(--ease-apple-spring);
-  /* No blur — fill/rim only */
-}
-.seller-segment-chip:active {
-  transform: scale(0.97);
-}
-.seller-segment-chip b {
-  color: var(--glass-ink-tertiary);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-.seller-segment-chip[aria-pressed="true"] {
-  color: #f5f7fa;
-  background: var(--glass-ink);
-  border-color: transparent;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.18) inset,
-    0 2px 8px rgba(15, 23, 42, 0.16);
-  animation: glass-chip-select 220ms var(--ease-apple-spring) both;
-}
-.seller-segment-chip[aria-pressed="true"] b {
-  color: rgba(255, 255, 255, 0.68);
-}
-.seller-segment-description {
-  max-width: 70ch;
-  margin: 5px 2px 0;
-  color: var(--glass-ink-secondary);
-  font-size: 11px;
-  line-height: 1.55;
-}
-.seller-directory-card .seller-count-chip {
-  border: 0.5px solid var(--glass-stroke-soft);
-  background: rgba(255, 255, 255, 0.55);
-  color: var(--glass-ink-secondary);
-  box-shadow: inset 0 0 0 0.5px var(--glass-edge);
-}
-.seller-directory-card .seller-meta-chip {
-  border: 0.5px solid var(--glass-stroke-soft);
-  background: rgba(255, 255, 255, 0.48);
-  color: var(--glass-ink-secondary);
-}
-
 .product-card {
   position: relative;
   container-type: inline-size;
@@ -6601,10 +6441,6 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   .primary-navigation-icon,
   .liquid-glass-capsule,
   .liquid-glass-pill,
-  .favorite-mini-card,
-  .seller-directory-card,
-  .seller-segment-chip,
-  .workbench-favorite-entry,
   .workbench-quick-card,
   .logistics-workspace .logistics-item-card,
   .favorites-workspace .favorites-toolbar [role="tab"] {
@@ -6613,10 +6449,6 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   }
   .ios-segment button:active,
   .primary-navigation-item:active,
-  .favorite-mini-card:hover,
-  .favorite-mini-card:active,
-  .seller-directory-card:hover,
-  .seller-directory-card:active,
   .workbench-favorite-entry:active,
   .workbench-quick-card:active {
     transform: none !important;
@@ -6632,9 +6464,6 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   .inventory-orders-workspace .inventory-order-card,
   .inventory-order-sheet,
   .modal-panel.inventory-order-sheet,
-  .favorite-mini-card,
-  .seller-directory-card,
-  .workbench-favorite-entry,
   .workbench-quick-card,
   .logistics-workspace .logistics-item-card,
   .procurement-shell .js-product-card,

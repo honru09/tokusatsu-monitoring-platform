@@ -132,7 +132,7 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
   background:var(--ui-surface) !important;border:1px solid #ffffffe6 !important;
   border-radius:22px;box-shadow:var(--ui-shadow) !important;backdrop-filter:none !important;
 }
-.procurement-shell :is(.favorite-mini-card,.seller-directory-card,.purchase-history-card) {
+.procurement-shell :is(.purchase-history-card) {
   background:var(--ui-reading) !important;border:1px solid var(--ui-line);
   border-radius:18px !important;box-shadow:var(--ui-shadow) !important;
 }
@@ -286,15 +286,6 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 .procurement-shell .primary-navigation-item {opacity:1;color:var(--ui-secondary);min-height:44px;}
 .procurement-shell .primary-navigation-item[aria-current="page"] {color:var(--ui-accent-ink);}
 .procurement-shell .primary-navigation-label {font-size:12px !important;opacity:1;}
-.procurement-shell .seller-directory {padding:24px;border-radius:22px !important;}
-.procurement-shell .seller-directory h2 {font-size:24px;font-weight:600;}
-.procurement-shell .seller-directory-card::before,
-.procurement-shell .seller-directory-card::after {display:none;}
-.procurement-shell .seller-directory-card {transition:border-color var(--ui-feedback),background-color var(--ui-feedback);padding:16px;}
-.procurement-shell .seller-directory-card>b,
-.procurement-shell .seller-directory-card b {font-size:15px;font-weight:600;}
-.procurement-shell .seller-meta-chip {font-size:12px;border-radius:0;background:transparent !important;padding:0;}
-.procurement-shell .seller-segment-chip {min-height:44px;border-radius:6px;box-shadow:none;}
 .procurement-shell .purchase-history-card {padding:24px;}
 .procurement-shell .purchase-history-card h3 {font-size:16px;font-weight:600;}
 .procurement-shell .purchase-history-card p {font-size:13px;}
@@ -313,9 +304,6 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 .procurement-shell .favorites-toolbar [role="tablist"] {border-radius:14px;background:#e8ecf1;}
 .procurement-shell .favorites-toolbar [role="tab"] {font-size:14px;}
 .procurement-shell .favorites-toolbar [aria-selected="true"] {background:white;border-radius:11px;box-shadow:0 2px 8px #20303c12;color:var(--ui-accent);}
-.procurement-shell :is(.favorites-editorial-grid,.seller-editorial-grid) {grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
-.procurement-shell .favorite-mini-card {padding:16px;gap:16px;min-height:140px;}
-.procurement-shell .favorite-mini-card :is(p,small) {font-size:13px;}
 .procurement-shell .purchases-next-step {display:flex;align-items:center;justify-content:space-between;gap:16px;margin:24px 0;padding-block:16px;border-block:1px solid var(--ui-line);font-size:13px;color:var(--ui-secondary);}
 .procurement-shell .purchases-next-step button {min-height:44px;color:var(--ui-accent);font-size:14px;font-weight:550;white-space:nowrap;}
 .procurement-shell.share-workspace .share-editorial-header {border-bottom:1px solid var(--ui-line);}
@@ -333,7 +321,6 @@ html.manager-gate-open,body.manager-gate-open {background:#e9f2f8 !important;}
   .procurement-shell .header-tool-cluster>button:hover {background:#ffffffe6 !important;box-shadow:0 4px 12px #1828380f !important;}
   .procurement-shell .product-card:hover {transform:none;border-color:#cadcf0 !important;box-shadow:inset 0 1px 0 white,0 12px 32px #1828381a !important;}
   .procurement-shell .home-menu-entry:hover {background:#eaf0f3 !important;}
-  .procurement-shell .seller-directory-card:hover {transform:none !important;border-color:#9eafb9;background:#fafcfd !important;}
 }
 @media(min-width:1024px) {
   :root {--app-nav-height:0px;--app-nav-clearance:0px;}
@@ -376,10 +363,7 @@ html.manager-gate-open,body.manager-gate-open {background:#e9f2f8 !important;}
   .procurement-shell .product-card-body {padding:12px;}
   .procurement-shell .product-card-title {font-size:14px;}
   .procurement-shell .product-card-decision .product-card-total dd {font-size:22px;}
-  .procurement-shell .seller-directory {padding:16px;}
   .procurement-shell .purchase-history-card {padding:16px;}
-  .procurement-shell :is(.favorites-editorial-grid,.seller-editorial-grid) {grid-template-columns:1fr;gap:12px;}
-  .procurement-shell .favorite-mini-card {padding:12px;gap:12px;}
   .procurement-shell .purchases-next-step {flex-wrap:wrap;gap:8px;}
 }
 @media(max-width:639px) {
@@ -419,7 +403,7 @@ html.manager-gate-open,body.manager-gate-open {background:#e9f2f8 !important;}
   :is(.procurement-shell,.shell-overlay-root) [data-apple-feedback-ready] {transition:none !important;}
   .procurement-shell .procurement-content>section,
   .procurement-shell .procurement-content>div {animation:none !important;}
-  .procurement-shell :is(.header-tools button,.product-card-actions>button,.catalog-mode-indicator,.home-library-entry,.home-value-king-entry,.home-menu-entry,.home-task-bridge button,.seller-directory-card) {transition:none !important;animation:none !important;}
+  .procurement-shell :is(.header-tools button,.product-card-actions>button,.catalog-mode-indicator,.home-library-entry,.home-value-king-entry,.home-menu-entry,.home-task-bridge button) {transition:none !important;animation:none !important;}
   .procurement-shell :is(.header-tools button,.home-library-entry,.home-value-king-entry,.home-task-bridge button,.product-card-actions>button):active {transform:none;}
 }
 html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer,.home-xianyu-drawer)::details-content {transition:none;}

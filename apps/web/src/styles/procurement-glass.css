@@ -243,9 +243,6 @@
   font-size: 0.9375rem;
   overflow-wrap: anywhere;
 }
-.favorite-mini-card .yahoo-discount {
-  padding-block: 4px;
-}
 .collaboration-product-copy .yahoo-discount,
 .assistant-result-copy .yahoo-discount {
   display: grid;
@@ -262,9 +259,6 @@
 }
 .workspace-calculator .cart-fab {
   display: none;
-}
-.favorite-mini-card :is(b, span) {
-  overflow-wrap: anywhere;
 }
 .product-card-decision > .yahoo-discount {
   grid-template-columns: minmax(0, 1fr) auto;
