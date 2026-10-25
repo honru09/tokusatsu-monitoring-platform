@@ -92,7 +92,7 @@ describe("PurchaseRecordsWorkspace", () => {
     expect(props.onRegisterJob).toHaveBeenCalledWith("job-1");
 
     const bundleButton = [...host.querySelectorAll("button")].find(
-      (button) => button.textContent?.includes("登记已完成"),
+      (button) => button.textContent?.includes("登记购买"),
     );
     act(() => bundleButton?.click());
     expect(props.onRegisterSelected).toHaveBeenCalledTimes(1);

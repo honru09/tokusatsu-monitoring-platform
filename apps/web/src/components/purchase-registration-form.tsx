@@ -8,6 +8,7 @@ import { getShellOverlayRoot } from "../lib/shell-overlay";
 import { useTransactionPresentation } from "../lib/use-transaction-presentation";
 import { TERMS } from "../lib/terms";
 import { CostEstimatePanel } from "./cost-estimate-panel";
+import { SafeItemImage } from "./item-image";
 import transactionStyles from "./transaction-feedback.module.css";
 
 /**
@@ -374,7 +375,7 @@ export function PurchaseRegistrationForm({
 
   return createPortal(
     <div
-      className="modal-backdrop absolute inset-0 z-[88] grid place-items-center overflow-y-auto bg-ink/50 p-3 sm:p-6"
+      className="modal-backdrop absolute inset-0 z-[88] flex items-end justify-center overflow-y-auto bg-ink/50 p-0 sm:grid sm:place-items-center sm:p-6"
       onMouseDown={saving ? undefined : onClose}
     >
       <section
@@ -390,9 +391,13 @@ export function PurchaseRegistrationForm({
         onKeyDownCapture={() => {
           pointerInputRef.current = false;
         }}
-        className={`modal-panel ${transactionStyles.dialog} max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-3xl bg-paper p-4 shadow-modal`}
+        className={`modal-panel ${transactionStyles.dialog} max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-b-none rounded-t-3xl bg-paper p-4 shadow-modal sm:max-h-[88dvh] sm:rounded-3xl`}
         onMouseDown={(event) => event.stopPropagation()}
       >
+        <div
+          className="mx-auto mb-3 h-1 w-9 rounded-full bg-ink/15 sm:hidden"
+          aria-hidden="true"
+        />
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2
@@ -483,9 +488,9 @@ export function PurchaseRegistrationForm({
             return (
               <div
                 key={row.key}
-                className={`grid grid-cols-[44px_48px_minmax(0,1fr)] items-center gap-2 rounded-2xl p-2 shadow-sm ${selected ? "bg-white" : "bg-fog/40 opacity-60"}`}
+                className={`grid grid-cols-[36px_minmax(0,1fr)] items-start gap-2 rounded-2xl p-2 shadow-sm sm:grid-cols-[44px_48px_minmax(0,1fr)] sm:items-center ${selected ? "bg-white" : "bg-fog/40 opacity-60"}`}
               >
-                <label className="grid h-11 w-11 place-items-center">
+                <label className="grid h-11 w-9 place-items-center sm:w-11">
                   <input
                     type="checkbox"
                     checked={selected}
@@ -500,18 +505,22 @@ export function PurchaseRegistrationForm({
                     className="h-5 w-5 accent-moss"
                   />
                 </label>
-                <div className="h-12 w-12 overflow-hidden rounded-xl bg-fog">
-                  {row.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={row.imageUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
+                <div className="hidden h-12 w-12 overflow-hidden rounded-xl bg-fog sm:block">
+                  <SafeItemImage
+                    src={row.imageUrl}
+                    alt={row.title || "站外商品"}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-start justify-between gap-2">
+                    <span className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-fog sm:hidden">
+                      <SafeItemImage
+                        src={row.imageUrl}
+                        alt={row.title || "站外商品"}
+                        className="h-full w-full object-cover"
+                      />
+                    </span>
                     {offCatalog ? (
                       <input
                         value={row.title}
@@ -524,7 +533,7 @@ export function PurchaseRegistrationForm({
                         className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/10 bg-fog/50 px-3 text-sm text-ink"
                       />
                     ) : (
-                      <p className="line-clamp-2 text-xs font-semibold leading-5 text-ink">
+                      <p className="line-clamp-2 text-[13px] font-semibold leading-5 text-ink">
                         {row.title}
                       </p>
                     )}

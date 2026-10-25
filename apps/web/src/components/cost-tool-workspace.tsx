@@ -7,6 +7,7 @@ import { displayListingTitle } from "../lib/listing-title";
 import { TERMS } from "../lib/terms";
 import type { CostToolSegment } from "../lib/workspace-navigation";
 import styles from "./operations-editorial.module.css";
+import { EmptyState } from "./empty-state";
 import {
   calculateQuote,
   cents,
@@ -865,11 +866,12 @@ export function LogisticsWorkspace({ apiBaseUrl, exchangeRate }: Props) {
                 加载中…
               </p>
             ) : items.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-black/10 p-8 text-center sm:col-span-2">
-                <p className="text-sm font-semibold text-ink">暂无可计算商品</p>
-                <p className="mt-1 text-xs leading-5 text-ink/45">
-                  这里只显示已收藏或已购买的线上商品。
-                </p>
+              <div className="rounded-2xl border border-dashed border-black/10 sm:col-span-2">
+                <EmptyState
+                  art="chart"
+                  title="暂无可计算商品"
+                  description="这里只显示已收藏或已购买的线上商品。"
+                />
               </div>
             ) : (
               items.map((item, index) => {

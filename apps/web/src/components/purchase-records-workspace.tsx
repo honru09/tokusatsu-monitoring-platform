@@ -69,7 +69,7 @@ export function PurchaseRecordsWorkspace({
     <div className="purchases-workspace">
       <section className="ios-surface workspace-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel">
         <>
-          <div className="mb-4 rounded-2xl border border-white/60 bg-white/45 p-3 shadow-sm ring-1 ring-ink/5 backdrop-blur-none">
+          <div className="mb-4 border-b border-ink/8 pb-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-1">
                 <h2 className="text-sm font-bold text-ink">
@@ -99,7 +99,7 @@ export function PurchaseRecordsWorkspace({
                 >
                   {selectedPurchaseJobIds.length > 1
                     ? `打包登记 · ${selectedPurchaseJobIds.length}`
-                    : "登记已完成"}
+                    : "登记购买"}
                 </button>
               )}
             </div>
