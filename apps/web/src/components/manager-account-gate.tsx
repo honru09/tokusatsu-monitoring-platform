@@ -61,6 +61,7 @@ export function ManagerAccountGate({
   const [password, setPassword] = useState("");
   const [failure, setFailure] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [heroFailed, setHeroFailed] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -97,6 +98,22 @@ export function ManagerAccountGate({
     >
       <div className="manager-gate-aurora" aria-hidden="true" />
       <section className="manager-gate-panel">
+        {!heroFailed ? (
+          <div
+            aria-hidden="true"
+            className="mb-5 block aspect-[960/368] w-full overflow-hidden rounded-2xl"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/illustrations/login-hero.webp"
+              alt=""
+              width={960}
+              height={368}
+              onError={() => setHeroFailed(true)}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : null}
         <div className="manager-gate-brand" aria-hidden="true">
           {logo}
           <span>假面采购</span>
