@@ -7051,3 +7051,200 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
     -webkit-backdrop-filter: none !important;
   }
 }
+
+/* ── Visual polish pass: shared empty state, image fallback, panel and
+   skeleton treatments ─────────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 20px;
+  text-align: center;
+}
+.empty-state-compact {
+  padding: 16px 12px;
+  gap: 4px;
+}
+.empty-state-glyph {
+  width: 52px;
+  height: 52px;
+  color: rgba(29, 29, 31, 0.34);
+  margin-bottom: 4px;
+}
+.empty-state-compact .empty-state-glyph {
+  width: 40px;
+  height: 40px;
+}
+.empty-state-glyph-disc {
+  fill: rgba(29, 29, 31, 0.045);
+  stroke: none;
+}
+.empty-state-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(29, 29, 31, 0.78);
+}
+.empty-state-description {
+  max-width: 34ch;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(29, 29, 31, 0.48);
+}
+.empty-state > button,
+.empty-state > a {
+  margin-top: 8px;
+}
+
+.safe-item-image-placeholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  background: #eff1f4;
+  color: rgba(29, 29, 31, 0.32);
+}
+
+/* Cost estimate inside the detail drawer: same card language as the
+   drawer's other sections instead of a naked definition list. */
+.cost-estimate-panel {
+  border: 0.5px solid rgba(60, 60, 67, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px 14px;
+}
+.cost-estimate-panel dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+.cost-estimate-panel dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cost-estimate-panel dt {
+  font-size: 12px;
+  color: rgba(29, 29, 31, 0.55);
+}
+.cost-estimate-panel dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground);
+}
+.cost-estimate-panel > p {
+  margin: 10px 0 0;
+  border-top: 0.5px solid rgba(60, 60, 67, 0.09);
+  padding-top: 8px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(29, 29, 31, 0.45);
+}
+
+/* Skeleton rows for the todo home's first paint. */
+.skeleton-rows {
+  display: grid;
+  gap: 8px;
+}
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.65);
+  padding: 10px 12px;
+}
+.skeleton-block {
+  border-radius: 8px;
+  background: linear-gradient(
+    100deg,
+    rgba(29, 29, 31, 0.06) 40%,
+    rgba(29, 29, 31, 0.11) 50%,
+    rgba(29, 29, 31, 0.06) 60%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton-thumb {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+}
+.skeleton-lines {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+}
+.skeleton-line {
+  height: 10px;
+}
+.skeleton-line.short {
+  width: 45%;
+}
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -80% 0;
+  }
+}
+
+/* Nav badge: settle with one small pop when its meaning swaps
+   (unread count -> pending-decision count), not on every number. */
+@keyframes badge-source-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.message-unread-badge.is-source-swap {
+  animation: badge-source-pop 180ms var(--ease-apple-out) both;
+}
+
+/* Share-round rows: the decision row sits in its own quiet band so it
+   stops reading as a second copy-progress signal. */
+.share-round-decision-row {
+  margin-top: 6px;
+  border-radius: 10px;
+  background: rgba(29, 29, 31, 0.035);
+  padding: 5px 8px;
+}
+
+/* Quoted item + its decision controls travel as one unit. */
+.collaboration-reply-decision {
+  display: grid;
+  gap: 5px;
+  border-left: 2px solid rgba(0, 113, 227, 0.35);
+  padding-left: 8px;
+}
+
+/* Desktop: reveal the message action bar on hover too, not only on tap. */
+@media (hover: hover) and (pointer: fine) {
+  .collaboration-message:hover .collaboration-message-actions,
+  .collaboration-message:focus-within .collaboration-message-actions {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+    transition-delay: 0s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block {
+    animation: none;
+  }
+  .message-unread-badge.is-source-swap {
+    animation: none;
+  }
+}
