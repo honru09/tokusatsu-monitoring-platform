@@ -1618,16 +1618,16 @@ function FavoritesWorkspace({
           message={error}
           onRetry={() => void load()}
           retryTestId="retry-favorites"
-          className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-rust p-3 text-xs font-bold text-white"
-          actionClassName="shrink-0 rounded-lg bg-white/20 px-3 py-1.5 text-xs font-bold text-white"
+          className="mt-4 flex items-center justify-between gap-3 rounded-[20px] bg-rust p-3.5 text-xs font-semibold text-white"
+          actionClassName="shrink-0 rounded-full bg-white/20 px-4 py-1.5 text-xs font-semibold text-white"
         />
       )}
       {loading ? (
-        <p className="favorites-empty mt-6 rounded-2xl p-8 text-center text-sm">
+        <p className="favorites-empty mt-6 rounded-[28px] border border-black/[0.06] bg-white p-8 text-center text-sm shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
           正在读取收藏…
         </p>
       ) : items.length === 0 ? (
-        <div className="favorites-empty mt-6 rounded-2xl">
+        <div className="favorites-empty mt-6 rounded-[28px] border border-black/[0.06] bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
           <EmptyState
             art="favorites"
             title="还没有收藏商品"
@@ -1636,7 +1636,7 @@ function FavoritesWorkspace({
         </div>
       ) : (
         <>
-          <div className="favorites-toolbar mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-2">
+          <div className="favorites-toolbar mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-black/[0.06] bg-white p-3.5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
             <div
               role="tablist"
               aria-label="收藏商品类型"
@@ -1648,7 +1648,7 @@ function FavoritesWorkspace({
                 const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (selected + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
                 tabs[next]?.focus(); tabs[next]?.click();
               }}
-              className="grid min-w-[220px] flex-1 grid-cols-2 rounded-xl p-1 sm:flex-none"
+              className="grid min-w-[220px] flex-1 grid-cols-2 rounded-full border border-black/[0.06] bg-fog/60 p-1 sm:flex-none"
             >
               {browseableListingTypes.map((mode) => (
                 <button
@@ -1662,13 +1662,13 @@ function FavoritesWorkspace({
                     if (mode !== "auction" && sortMode.startsWith("ending"))
                       setSortMode("price-asc");
                   }}
-                  className={`min-h-11 rounded-lg px-3 text-xs font-bold transition-[background-color,color,box-shadow] ${listingMode === mode ? "text-ink" : "text-ink/50"}`}
+                  className={`min-h-11 rounded-full px-4 text-xs font-semibold transition ${listingMode === mode ? "bg-white text-ink shadow-sm" : "text-ink/60 hover:text-ink"}`}
                 >
                   {listingTypeLabel(mode)} · {counts[mode]}
                 </button>
               ))}
             </div>
-            <label className="flex min-h-11 items-center gap-2 text-xs font-semibold text-ink/50">
+            <label className="flex min-h-11 items-center gap-2 text-xs font-semibold text-ink/60">
               排序
               <select
                 value={sortMode}
@@ -1681,7 +1681,7 @@ function FavoritesWorkspace({
                       | "ending-desc",
                   )
                 }
-                className="min-h-11 rounded-xl px-3 text-xs font-bold"
+                className="min-h-11 rounded-full border border-black/[0.08] bg-white px-4 text-xs font-semibold text-ink shadow-sm"
               >
                 <option value="price-asc">价格从低到高</option>
                 <option value="price-desc">价格从高到低</option>
@@ -1719,7 +1719,7 @@ function FavoritesWorkspace({
                 />
               ))
             ) : (
-              <div className="favorites-empty rounded-2xl col-span-2 md:col-span-3 lg:col-span-4 2xl:col-span-5">
+              <div className="favorites-empty rounded-[28px] border border-black/[0.06] bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)] col-span-2 md:col-span-3 lg:col-span-4 2xl:col-span-5">
                 <EmptyState
                   art="favorites"
                   title={`收藏中暂无${listingTypeLabel(listingMode)}商品`}
@@ -7712,12 +7712,12 @@ export default function Dashboard() {
                 {urgentAuctionsError && !urgentAuctionPool.length ? (
                   <p
                     role="alert"
-                    className="mt-3 rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-800"
+                    className="mt-3 rounded-[20px] bg-amber-50 p-4 text-xs font-semibold text-amber-800"
                   >
                     临期拍卖暂时无法读取：{urgentAuctionsError}
                   </p>
                 ) : urgentAuctionsLoading && !urgentAuctionPool.length ? (
-                  <p className="mt-3 rounded-xl bg-fog/55 p-6 text-center text-xs text-ink/45">
+                  <p className="mt-3 rounded-[20px] bg-black/5 p-6 text-center text-xs text-ink/50">
                     正在核对全库临期拍卖…
                   </p>
                 ) : urgentAuctionSelection.items.length ? (
@@ -7755,7 +7755,7 @@ export default function Dashboard() {
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-3 rounded-xl border border-dashed border-amber-200 bg-amber-50/35 p-6 text-center text-xs text-ink/50">
+                  <p className="mt-3 rounded-[20px] border border-dashed border-black/10 bg-black/[0.02] p-6 text-center text-xs text-ink/50">
                     当前全库筛选条件下，没有同时满足临期与价格事实条件的拍卖。
                   </p>
                 )}
@@ -7967,7 +7967,7 @@ export default function Dashboard() {
             )}
             {loading && items.length === 0 ? (
               <div
-                className="mt-3 rounded-2xl border border-dashed border-blue-200 bg-white p-4"
+                className="mt-3 rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
                 role="status"
                 aria-label="正在同步采购情报"
               >
@@ -8007,7 +8007,7 @@ export default function Dashboard() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-blue-200 bg-white">
+                  <div className="rounded-[28px] border border-black/[0.06] bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
                     <EmptyState
                       art="search"
                       title={
@@ -8022,7 +8022,7 @@ export default function Dashboard() {
                       <button
                         type="button"
                         onClick={resetFilters}
-                        className="min-h-11 rounded-xl border border-ink/15 bg-white px-4 text-xs font-bold text-ink transition-colors hover:bg-blue-50"
+                        className="min-h-11 rounded-full border border-black/[0.12] bg-white px-5 text-xs font-semibold text-ink transition-colors hover:bg-black/5"
                       >
                         清除筛选
                       </button>
@@ -8034,7 +8034,7 @@ export default function Dashboard() {
             {total > 0 && (
               <nav
                 aria-label="商品分页"
-                className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-white px-3 py-2 shadow-panel"
+                className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-black/[0.06] bg-white px-4 py-3 shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
               >
                 <p className="text-xs text-slate-500" aria-live="polite">
                   显示第 <b className="font-mono text-ink">{pageStart}</b>–
@@ -8047,7 +8047,7 @@ export default function Dashboard() {
                     aria-label="转到第一页"
                     disabled={page <= 1 || loading}
                     onClick={() => setPage(1)}
-                    className="relative min-h-11 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-moss hover:bg-blue-50 disabled:opacity-35"
+                    className="relative min-h-11 rounded-full border border-black/[0.08] bg-white px-4 text-xs font-semibold text-ink hover:bg-black/5 disabled:opacity-35"
                   >
                     首页
                   </button>
@@ -8058,7 +8058,7 @@ export default function Dashboard() {
                     onClick={() =>
                       setPage((current) => Math.max(1, current - 1))
                     }
-                    className="relative min-h-11 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-moss hover:bg-blue-50 disabled:opacity-35"
+                    className="relative min-h-11 rounded-full border border-black/[0.08] bg-white px-4 text-xs font-semibold text-ink hover:bg-black/5 disabled:opacity-35"
                   >
                     上一页
                   </button>
@@ -8075,7 +8075,7 @@ export default function Dashboard() {
                     onClick={() =>
                       setPage((current) => Math.min(totalPages, current + 1))
                     }
-                    className="relative min-h-11 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-moss hover:bg-blue-50 disabled:opacity-35"
+                    className="relative min-h-11 rounded-full border border-black/[0.08] bg-white px-4 text-xs font-semibold text-ink hover:bg-black/5 disabled:opacity-35"
                   >
                     下一页
                   </button>
@@ -8084,7 +8084,7 @@ export default function Dashboard() {
                     aria-label="转到最后一页"
                     disabled={page >= totalPages || loading}
                     onClick={() => setPage(totalPages)}
-                    className="relative min-h-11 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-moss hover:bg-blue-50 disabled:opacity-35"
+                    className="relative min-h-11 rounded-full border border-black/[0.08] bg-white px-4 text-xs font-semibold text-ink hover:bg-black/5 disabled:opacity-35"
                   >
                     末页
                   </button>
@@ -8121,7 +8121,7 @@ export default function Dashboard() {
             )}
             {catalogView === "links" && (
               <div className="link-editorial-layout">
-                <section className="ios-surface workspace-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel">
+                <section className="ios-surface workspace-surface mb-4 rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
                 <div className="link-editorial-heading">
                   <div className="flex min-w-0 items-center gap-1">
                     <h2 className="font-heading text-xl font-bold">
@@ -8148,7 +8148,7 @@ export default function Dashboard() {
                     }
                     aria-label="刷新链接专区"
                     title="刷新"
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-moss shadow-sm transition-colors hover:bg-blue-50"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-black/[0.08] bg-white text-ink shadow-sm transition-colors hover:bg-black/5"
                   >
                     <RefreshIcon />
                   </button>
@@ -8185,13 +8185,13 @@ export default function Dashboard() {
                       }}
                       aria-describedby="url-help-links"
                       placeholder={"粘贴商品链接，每行一个"}
-                      className="min-h-[92px] min-w-0 resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
+                      className="min-h-[92px] min-w-0 resize-y rounded-[20px] border border-black/[0.08] bg-fog/55 px-3.5 py-2.5 text-sm leading-6 text-ink placeholder:text-ink/35"
                     />
                     <button
                       type="button"
                       disabled={urlSubmitting || urlInputCount === 0}
                       onClick={() => void analyzeUrl()}
-                      className="min-h-11 shrink-0 rounded-xl bg-moss px-4 text-sm font-bold text-white transition-[background-color,transform] hover:bg-blue-800 disabled:opacity-45"
+                      className="min-h-11 shrink-0 rounded-full bg-moss px-5 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] hover:bg-blue-700 disabled:opacity-45"
                     >
                       {urlSubmitting ? "提交中…" : "开始导入"}
                     </button>
@@ -8204,7 +8204,7 @@ export default function Dashboard() {
                     {urlMessage}
                   </div>
                 </div>
-                <div className="link-task-list mt-3 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-ink/5">
+                <div className="link-task-list mt-3 overflow-hidden rounded-[20px] border border-black/[0.06] bg-white shadow-sm">
                   <button
                     type="button"
                     aria-expanded={importsExpanded}
@@ -8306,7 +8306,7 @@ export default function Dashboard() {
                                     type="button"
                                     disabled={importActionId === entry.id}
                                     onClick={() => void retryImport(entry.id)}
-                                    className="min-h-11 rounded-xl bg-moss px-3 text-xs font-semibold text-white disabled:opacity-45"
+                                    className="min-h-11 rounded-full bg-moss px-4 text-xs font-semibold text-white disabled:opacity-45"
                                   >
                                     重试
                                   </button>
@@ -8318,7 +8318,7 @@ export default function Dashboard() {
                                     onClick={() =>
                                       void removeImport(entry.id)
                                     }
-                                    className="min-h-11 rounded-xl bg-fog px-3 text-xs font-semibold text-ink/60 disabled:opacity-45"
+                                    className="min-h-11 rounded-full bg-black/5 px-4 text-xs font-semibold text-ink/70 transition-colors hover:bg-black/10 disabled:opacity-45"
                                   >
                                     清除
                                   </button>
@@ -8346,7 +8346,7 @@ export default function Dashboard() {
                 <div className="mt-2 grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {linkItems.length === 0 ? (
                     linkError ? null : (
-                      <p className="rounded-xl border border-dashed p-6 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
+                      <p className="rounded-[20px] border border-dashed border-black/10 bg-black/[0.02] p-6 text-center text-sm text-ink/50 sm:col-span-2 lg:col-span-3">
                         分析完成后商品会显示在这里
                       </p>
                     )
@@ -8387,9 +8387,9 @@ export default function Dashboard() {
                 {linkTotal > 0 && linkPageCount > 1 && (
                   <nav
                     aria-label="链接商品分页"
-                    className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2"
+                    className="mt-3 flex items-center justify-between gap-2 rounded-[20px] border border-black/[0.06] bg-white px-4 py-3 shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
                   >
-                    <span className="text-[10px] text-meta">
+                    <span className="text-[11px] text-meta">
                       第 {linkPage} / {linkPageCount} 页 · 共 {linkTotal} 条
                     </span>
                     <div className="flex gap-1.5">
@@ -8401,7 +8401,7 @@ export default function Dashboard() {
                           setLinkPage(next);
                           void loadLinkItems(next);
                         }}
-                        className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
+                        className="min-h-9 rounded-full border border-black/[0.08] bg-white px-3 text-[11px] font-semibold text-ink hover:bg-black/5 disabled:opacity-35"
                       >
                         上一页
                       </button>
@@ -8413,7 +8413,7 @@ export default function Dashboard() {
                           setLinkPage(next);
                           void loadLinkItems(next);
                         }}
-                        className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
+                        className="min-h-9 rounded-full border border-black/[0.08] bg-white px-3 text-[11px] font-semibold text-ink hover:bg-black/5 disabled:opacity-35"
                       >
                         下一页
                       </button>
@@ -8424,8 +8424,8 @@ export default function Dashboard() {
               </div>
             )}
             {catalogView === "disliked" && (
-              <section className="ios-surface js-shell-reveal rounded-2xl border border-blue-100 p-4 shadow-panel">
-                <div className="flex items-center justify-between gap-3 border-b border-blue-100 pb-3">
+              <section className="ios-surface js-shell-reveal rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
+                <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
                   <h2 className="font-heading text-lg font-bold">
                     不感兴趣 · {dislikedTotal}
                   </h2>
@@ -8434,7 +8434,7 @@ export default function Dashboard() {
                     onClick={() => void loadDisliked()}
                     aria-label="刷新不感兴趣商品"
                     title="刷新"
-                    className="grid h-11 w-11 place-items-center rounded-lg border border-blue-200 text-moss hover:bg-blue-50"
+                    className="grid h-11 w-11 place-items-center rounded-full border border-black/[0.08] bg-white text-ink shadow-sm transition-colors hover:bg-black/5"
                   >
                     <RefreshIcon />
                   </button>
@@ -8448,7 +8448,7 @@ export default function Dashboard() {
                 )}
                 {dislikedItems.length === 0 ? (
                   dislikedError ? null : (
-                    <div className="mt-3 rounded-xl border border-dashed border-blue-200">
+                    <div className="mt-3 rounded-[20px] border border-dashed border-black/10 bg-black/[0.02]">
                       <EmptyState
                         art="box"
                         title="暂无不感兴趣的商品"
@@ -8496,9 +8496,9 @@ export default function Dashboard() {
                 {dislikedTotal > 0 && dislikedPageCount > 1 && (
                   <nav
                     aria-label="不感兴趣商品分页"
-                    className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2"
+                    className="mt-3 flex items-center justify-between gap-2 rounded-[20px] border border-black/[0.06] bg-white px-4 py-3 shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
                   >
-                    <span className="text-[10px] text-meta">
+                    <span className="text-[11px] text-meta">
                       第 {dislikedPage} / {dislikedPageCount} 页 · 共{" "}
                       {dislikedTotal} 条
                     </span>
@@ -8511,7 +8511,7 @@ export default function Dashboard() {
                           setDislikedPage(next);
                           void loadDisliked(next);
                         }}
-                        className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
+                        className="min-h-9 rounded-full border border-black/[0.08] bg-white px-3 text-[11px] font-semibold text-ink hover:bg-black/5 disabled:opacity-35"
                       >
                         上一页
                       </button>
@@ -8526,7 +8526,7 @@ export default function Dashboard() {
                           setDislikedPage(next);
                           void loadDisliked(next);
                         }}
-                        className="min-h-9 rounded-lg border border-blue-200 px-2.5 text-[10px] font-bold text-moss disabled:opacity-35"
+                        className="min-h-9 rounded-full border border-black/[0.08] bg-white px-3 text-[11px] font-semibold text-ink hover:bg-black/5 disabled:opacity-35"
                       >
                         下一页
                       </button>

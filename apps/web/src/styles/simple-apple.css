@@ -268,7 +268,7 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 .procurement-shell .catalog-mode-indicator {position:absolute;inset:3px auto 3px 3px;width:calc(50% - 3px);border-radius:9999px;background:white;box-shadow:0 2px 8px #22303b12;transition:transform var(--ui-selection-motion);pointer-events:none;}
 .procurement-shell :is(.catalog-filter-button,.catalog-refresh-button) {min-height:44px;color:var(--ui-accent);border-color:var(--ui-line);border-radius:9999px;background:white;}
 .procurement-shell .catalog-clear-button {color:var(--ui-secondary);background:transparent;}
-.procurement-shell .urgent-auction-zone {border-radius:8px !important;box-shadow:none !important;}
+.procurement-shell .urgent-auction-zone {border-radius:28px !important;border:1px solid rgba(0,0,0,0.06) !important;background:#ffffff !important;box-shadow:0 10px 30px rgba(0,0,0,0.06) !important;overflow:hidden;}
 .procurement-shell .modal-panel {background:#ffffff !important;border:1px solid rgba(0,0,0,0.06) !important;border-radius:28px;box-shadow:var(--ui-shadow-raised) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}
 .procurement-shell .modal-panel.product-detail-panel {background:#ffffff !important;}
 .procurement-shell .settings-dialog-panel>div+div {gap:0;}
@@ -301,9 +301,9 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 .procurement-shell .portal-heading h2 {font-size:28px;font-weight:650;}
 .procurement-shell .portal-heading p {font-size:13px;}
 .procurement-shell .favorites-toolbar {padding:0 0 16px;border-radius:0;background:transparent;box-shadow:none;border-bottom:1px solid var(--ui-line);}
-.procurement-shell .favorites-toolbar [role="tablist"] {border-radius:14px;background:#e8ecf1;}
-.procurement-shell .favorites-toolbar [role="tab"] {font-size:14px;}
-.procurement-shell .favorites-toolbar [aria-selected="true"] {background:white;border-radius:11px;box-shadow:0 2px 8px #20303c12;color:var(--ui-accent);}
+.procurement-shell .favorites-toolbar [role="tablist"] {border-radius:9999px;background:#e8ecf1;padding:3px;}
+.procurement-shell .favorites-toolbar [role="tab"] {font-size:14px;border-radius:9999px;}
+.procurement-shell .favorites-toolbar [aria-selected="true"] {background:white;border-radius:9999px;box-shadow:0 2px 8px #20303c12;color:var(--ui-accent);}
 .procurement-shell .purchases-next-step {display:flex;align-items:center;justify-content:space-between;gap:16px;margin:24px 0;padding-block:16px;border-block:1px solid var(--ui-line);font-size:13px;color:var(--ui-secondary);}
 .procurement-shell .purchases-next-step button {min-height:44px;color:var(--ui-accent);font-size:14px;font-weight:550;white-space:nowrap;}
 .procurement-shell.share-workspace .share-editorial-header {border-bottom:1px solid var(--ui-line);}
