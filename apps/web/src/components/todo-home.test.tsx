@@ -124,6 +124,51 @@ describe("TodoHome", () => {
     expect(host.textContent).not.toContain("待评估");
   });
 
+  it("opens the inventory tab from the inventory queue instead of a workspace jump", async () => {
+    stubEndpoints({
+      "inventory-orders": {
+        orders: [
+          {
+            id: "order-1",
+            orderNumber: "PO-1",
+            name: "腰带库存",
+            status: "partially_sold",
+            remainingQuantity: 2,
+            purchasedAt: "2026-10-01T00:00:00.000Z",
+            imageUrl: null,
+          },
+        ],
+        total: 1,
+      },
+    });
+    const onNavigate = vi.fn();
+    const onOpenInventory = vi.fn();
+    await act(async () => {
+      root.render(
+        <TodoHome
+          apiBaseUrl="http://api.test"
+          accountId="manager-1"
+          purchasedItemIds={new Set()}
+          dislikedItemIds={new Set()}
+          purchaseAnalyses={[]}
+          failedJobs24h={0}
+          onNavigate={onNavigate}
+          onOpenInventory={onOpenInventory}
+          onPendingCountChange={() => undefined}
+        />,
+      );
+    });
+    const row = [...host.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("腰带库存"),
+    );
+    expect(row).toBeDefined();
+    await act(async () => {
+      row?.click();
+    });
+    expect(onOpenInventory).toHaveBeenCalledTimes(1);
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
   it("shows a retryable error instead of fake-empty queues when collaboration sync fails", async () => {
     fetchMock.mockImplementation((url: string) => {
       if (String(url).includes("collaboration"))
