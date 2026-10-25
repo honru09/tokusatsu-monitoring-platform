@@ -1,0 +1,546 @@
+/* Seller profile: a working page, not a hero. Flat paper ground, white
+   surfaces on the 28/20 radius ladder, black number bricks, no gradients. */
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgba(29, 29, 31, 0.28);
+  backdrop-filter: blur(8px) saturate(115%);
+  -webkit-backdrop-filter: blur(8px) saturate(115%);
+  animation: backdropIn 160ms ease-out both;
+}
+
+/* Phone: a full-height sheet that owns its own scroll. */
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #f4f4f5;
+  color: #1d1d1f;
+  outline: none;
+  animation: sheetIn 240ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@media (min-width: 640px) {
+  .backdrop {
+    padding: 24px;
+  }
+
+  .panel {
+    max-width: 960px;
+    height: min(92dvh, 940px);
+    border-radius: 28px;
+    box-shadow:
+      0 24px 72px rgba(16, 32, 48, 0.28),
+      0 4px 14px rgba(16, 32, 48, 0.12);
+  }
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .panel {
+    animation: none;
+  }
+}
+
+.topbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px 20px;
+  background: #f4f4f5;
+}
+
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 16px 24px;
+}
+
+@media (min-width: 640px) {
+  .scroll {
+    padding-inline: 20px;
+  }
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+/* White 28px surface */
+.surface {
+  min-width: 0;
+  padding: 20px;
+  border-radius: 28px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 639px) {
+  .surface {
+    padding: 16px;
+  }
+}
+
+/* Identity */
+.avatar {
+  display: grid;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 9999px;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+
+.name {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+  /* The full name is the point of this header: wrap, never truncate. */
+  overflow-wrap: anywhere;
+}
+
+/* Black number bricks (same make as the finance bricks on the todo page) */
+.bricks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 639px) {
+  .bricks {
+    gap: 8px;
+  }
+}
+
+.brick {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  padding: 16px 14px 14px;
+  border-radius: 20px;
+  color: #f5f5f7;
+  background: #101014;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 12px 28px -6px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+@media (max-width: 639px) {
+  .brick {
+    padding: 12px 9px 11px;
+    border-radius: 18px;
+  }
+}
+
+.brickLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #a1a1aa;
+  white-space: nowrap;
+}
+
+.brickValue {
+  font-size: clamp(17px, 4.6vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #fff;
+}
+
+.brickValueLong {
+  font-size: clamp(13px, 3.5vw, 20px);
+}
+
+.brickPositive {
+  color: #34c759;
+}
+
+.brickHint {
+  font-size: 11px;
+  font-weight: 500;
+  color: #a1a1aa;
+  white-space: nowrap;
+}
+
+/* Product grid: every tile has the same geometry regardless of content. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 560px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (min-width: 860px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.tileCell {
+  position: relative;
+  min-width: 0;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    border-color: rgba(0, 0, 0, 0.22);
+  }
+}
+
+.tile:active {
+  transform: scale(0.98);
+}
+
+.tileSelected {
+  border-color: #1d1d1f;
+  box-shadow: 0 0 0 1px #1d1d1f;
+}
+
+.tileMedia {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: #e8e8ed;
+}
+
+.tileMedia img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tileBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Fixed: one price row + two title lines, whatever the title length. */
+  height: 84px;
+  padding: 10px 12px 0;
+  overflow: hidden;
+}
+
+.tilePrice {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.tilePriceYen {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.tilePriceCny {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(29, 29, 31, 0.6);
+}
+
+.tileTitle {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 17px;
+  height: 34px;
+  overflow-wrap: anywhere;
+}
+
+.soldBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.mediaChips {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.mediaChip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(16, 16, 20, 0.72);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The check target is 44x44; the visible mark is 26px inside it. */
+.check {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 9999px;
+  cursor: pointer;
+}
+
+.checkMark {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+  background: rgba(16, 16, 20, 0.38);
+  color: transparent;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition:
+    background-color 140ms ease-out,
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.check:active .checkMark {
+  transform: scale(0.9);
+}
+
+.checkOn .checkMark {
+  background: #1d1d1f;
+  color: #fff;
+}
+
+.check:focus-visible {
+  outline: 2px solid #0071e3;
+  outline-offset: -4px;
+}
+
+/* Pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #1d1d1f;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease-out,
+    border-color 160ms ease-out,
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.pill:active {
+  transform: scale(0.97);
+}
+
+.pill:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pillSolid {
+  background: #1d1d1f;
+  border-color: #1d1d1f;
+  color: #fff;
+}
+
+.pillAccent {
+  background: #0071e3;
+  border-color: #0071e3;
+  color: #fff;
+}
+
+.pillCompact {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.pillOn {
+  background: #1d1d1f;
+  border-color: #1d1d1f;
+  color: #fff;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  background: #f4f4f5;
+  color: #1d1d1f;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chipPlatform {
+  background: #1d1d1f;
+  color: #fff;
+}
+
+.field {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 16px;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #f4f4f5;
+  color: #1d1d1f;
+  /* 16px keeps iOS Safari from zooming the page on focus. */
+  font-size: 16px;
+}
+
+/* Pinned bundle bar */
+.bar {
+  flex: none;
+  padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  background: #fff;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -10px 28px -16px rgba(0, 0, 0, 0.3);
+}
+
+@media (min-width: 640px) {
+  .bar {
+    padding-inline: 20px;
+  }
+}
+
+.barHint {
+  flex: none;
+  padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 10px);
+  text-align: center;
+  font-size: 12px;
+  color: rgba(29, 29, 31, 0.6);
+  background: #f4f4f5;
+}
+
+.presets {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.presets::-webkit-scrollbar {
+  display: none;
+}
+
+.raw {
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 4px 14px;
+}
+
+.raw summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(29, 29, 31, 0.6);
+}
