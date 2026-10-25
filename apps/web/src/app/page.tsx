@@ -1594,7 +1594,7 @@ function FavoritesWorkspace({
       ) : items.length === 0 ? (
         <div className="favorites-empty mt-6 rounded-2xl">
           <EmptyState
-            art="box"
+            art="favorites"
             title="还没有收藏商品"
             description="在选货里点商品卡上的收藏，值得跟进的商品会集中到这里。"
           />
@@ -1686,7 +1686,7 @@ function FavoritesWorkspace({
             ) : (
               <div className="favorites-empty rounded-2xl col-span-2 md:col-span-3 lg:col-span-4 2xl:col-span-5">
                 <EmptyState
-                  art="box"
+                  art="favorites"
                   title={`收藏中暂无${listingTypeLabel(listingMode)}商品`}
                   compact
                 />

@@ -1,4 +1,6 @@
-import React, { type ReactNode } from "react";
+"use client";
+
+import React, { useState, type ReactNode } from "react";
 
 export type EmptyStateArt =
   | "check"
@@ -8,12 +10,30 @@ export type EmptyStateArt =
   | "tag"
   | "chart"
   | "link"
-  | "receipt";
+  | "receipt"
+  | "favorites"
+  | "shipping";
+
+/**
+ * Illustration for the empty states that have one. One family: flat,
+ * pale blue ground, ink-navy line work, a single blue accent. Art keys
+ * without an entry keep the line glyph below.
+ */
+const EMPTY_STATE_ARTWORK: Partial<Record<EmptyStateArt, string>> = {
+  check: "/illustrations/empty-todo.webp",
+  search: "/illustrations/empty-catalog.webp",
+  chat: "/illustrations/empty-shares.webp",
+  receipt: "/illustrations/empty-purchases.webp",
+  box: "/illustrations/empty-inventory.webp",
+  shipping: "/illustrations/empty-shipping.webp",
+  favorites: "/illustrations/empty-favorites.webp",
+};
 
 /**
  * Line illustration for empty states, drawn in the site's icon language
  * (24-grid, 1.5 stroke, round caps). One soft disc behind a single motif
- * so every workspace's empty state reads as the same family.
+ * so every workspace's empty state reads as the same family. Also the
+ * fallback when an artwork image fails to load.
  */
 export function EmptyStateGlyph({ art }: { art: EmptyStateArt }) {
   return (
@@ -29,7 +49,7 @@ export function EmptyStateGlyph({ art }: { art: EmptyStateArt }) {
     >
       <circle cx="24" cy="24" r="21" className="empty-state-glyph-disc" />
       {art === "check" && <path d="m16.5 24.5 5 5 10-11" />}
-      {art === "box" && (
+      {(art === "box" || art === "shipping") && (
         <>
           <path d="M15 19.5 24 15l9 4.5v9L24 33l-9-4.5v-9Z" />
           <path d="m15 19.5 9 4.5 9-4.5M24 24v9" />
@@ -53,6 +73,9 @@ export function EmptyStateGlyph({ art }: { art: EmptyStateArt }) {
           <circle cx="19.5" cy="19.5" r="1.6" />
         </>
       )}
+      {art === "favorites" && (
+        <path d="M24 32.5S15.5 27.4 15.5 20.9A4.9 4.9 0 0 1 24 17a4.9 4.9 0 0 1 8.5 3.9c0 6.5-8.5 11.6-8.5 11.6Z" />
+      )}
       {art === "chart" && (
         <>
           <path d="M15 33.5v-19" />
@@ -73,6 +96,43 @@ export function EmptyStateGlyph({ art }: { art: EmptyStateArt }) {
         </>
       )}
     </svg>
+  );
+}
+
+/**
+ * Artwork slot above the empty-state copy. Fixed square ratio so the
+ * layout does not move while the image loads; an art key without an
+ * illustration, or an image that fails to load, falls back to the
+ * line glyph.
+ */
+function EmptyStateArtwork({
+  art,
+  compact,
+}: {
+  art: EmptyStateArt;
+  compact: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  const src = EMPTY_STATE_ARTWORK[art];
+  if (!src || failed) return <EmptyStateGlyph art={art} />;
+  return (
+    <span
+      aria-hidden="true"
+      className={`block aspect-square shrink-0 overflow-hidden rounded-[24%] ${
+        compact ? "w-16" : "w-28"
+      }`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        width={468}
+        height={468}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="h-full w-full object-cover"
+      />
+    </span>
   );
 }
 
@@ -100,7 +160,7 @@ export function EmptyState({
       className={`empty-state${compact ? " empty-state-compact" : ""}`}
       role="status"
     >
-      <EmptyStateGlyph art={art} />
+      <EmptyStateArtwork art={art} compact={compact} />
       <p className="empty-state-title">{title}</p>
       {description ? (
         <p className="empty-state-description">{description}</p>

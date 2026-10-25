@@ -4,6 +4,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { useReducedMotion } from "motion/react";
 import { motionTokens } from "../lib/motion-tokens";
 import styles from "./image-gallery.module.css";
+import { ITEM_PLACEHOLDER_SRC } from "./item-image";
 
 type GalleryImage = { url: string; position: number };
 
@@ -28,20 +29,11 @@ function ImagePlaceholder({ label }: { label: string }) {
   return (
     <div className="pointer-events-none grid h-full place-items-center bg-paper text-ink/60">
       <div className="flex flex-col items-center gap-2 text-center">
-        <svg
+        <span
           aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="h-7 w-7"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="3" y="4" width="18" height="16" rx="3" />
-          <circle cx="9" cy="10" r="1.5" />
-          <path d="m5.5 17 4-4 3 3 2.5-2.5 3.5 3.5" />
-        </svg>
+          className="block aspect-square w-20 rounded-2xl bg-cover bg-center"
+          style={{ backgroundImage: `url(${ITEM_PLACEHOLDER_SRC})` }}
+        />
         <span className="text-[11px] font-medium">{label}</span>
       </div>
     </div>

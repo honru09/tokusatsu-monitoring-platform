@@ -630,7 +630,7 @@ export function ShippingWorkspace({
                 可用库存 · {orders.length} 批
               </h4>
               {orders.length === 0 ? (
-                <EmptyState art="box" title="暂无可发货库存" compact />
+                <EmptyState art="shipping" title="暂无可发货库存" compact />
               ) : (
                 <ul className="mt-2 grid gap-1.5">
                   {orders.map((order) => {
@@ -691,7 +691,7 @@ export function ShippingWorkspace({
           {TERMS.shipping}记录
         </h3>
         {shipments.length === 0 ? (
-          <EmptyState art="box" title="暂无发货记录" compact />
+          <EmptyState art="shipping" title="暂无发货记录" compact />
         ) : (
           <ul className="mt-2 divide-y divide-black/[0.05]">
             {shipments.map((shipment) => (
