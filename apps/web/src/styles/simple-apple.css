@@ -275,13 +275,6 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 .procurement-shell .settings-dialog-panel>div+div>button {min-height:56px;border-radius:0;border-bottom:1px solid var(--ui-line);background:transparent;box-shadow:none;}
 .procurement-shell .primary-navigation {
   gap: 0 !important;
-  padding: 4px 6px !important;
-  background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.06) !important;
-  border-radius: 9999px !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
 }
 .procurement-shell .primary-navigation-item {opacity:1;color:var(--ui-secondary);min-height:44px;}
 .procurement-shell .primary-navigation-item[aria-current="page"] {color:var(--ui-accent-ink);}
@@ -324,10 +317,6 @@ html.manager-gate-open,body.manager-gate-open {background:#f4f4f5 !important;}
 }
 @media(min-width:1024px) {
   :root {--app-nav-height:0px;--app-nav-clearance:0px;}
-  .procurement-shell .primary-navigation {
-    top:14px !important;bottom:auto !important;width:420px !important;height:48px !important;
-    min-height:48px !important;border:1px solid rgba(0,0,0,0.06) !important;border-radius:9999px !important;box-shadow:0 10px 30px rgba(0,0,0,0.08) !important;background:#ffffff !important;
-  }
   .procurement-shell .primary-navigation-item {flex-direction:row;gap:8px;}
   .procurement-shell .primary-navigation-icon {width:20px;height:20px;}
   .procurement-shell .procurement-content {padding-bottom:32px;height:calc(100dvh - var(--app-header-height));min-height:0;}
@@ -374,14 +363,6 @@ html.manager-gate-open,body.manager-gate-open {background:#f4f4f5 !important;}
   .procurement-shell .header-tools {gap:4px !important;}
   .procurement-shell .exchange-rate-inline {font-size:11px;}
   .procurement-shell .brand-logo {width:40px;height:40px;flex-basis:40px;}
-  .procurement-shell .primary-navigation {
-    inset-inline:0 !important;inset-block-end:0 !important;width:100% !important;max-width:none !important;
-    height:calc(var(--app-nav-height) + env(safe-area-inset-bottom)) !important;
-    min-height:calc(var(--app-nav-height) + env(safe-area-inset-bottom)) !important;
-    padding:4px 12px calc(4px + env(safe-area-inset-bottom)) !important;
-    border-radius:0 !important;border-inline:0 !important;border-bottom:0 !important;background:#ffffffed !important;
-    box-shadow:0 -4px 16px #24323b06 !important;
-  }
   .procurement-shell .primary-navigation::after {display:none !important;}
   .procurement-shell .primary-navigation-label {font-size:12px !important;}
   .procurement-shell .header-account-button {border-radius:14px !important;}

@@ -322,15 +322,6 @@
 }
 
 /* Bottom rail: never move with document scroll, never cover the last row. */
-.procurement-shell .primary-navigation {
-  z-index: 100;
-  border-color: rgba(255, 255, 255, 0.88) !important;
-  box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.82) inset,
-    0 -10px 30px rgba(25, 46, 62, 0.08),
-    0 3px 12px rgba(25, 46, 62, 0.05) !important;
-}
-
 .procurement-shell .primary-navigation-item {
   opacity: 0.62;
 }
@@ -504,20 +495,6 @@
   .procurement-shell .modal-panel {
     max-width: calc(100vw - 20px);
     border-radius: 22px !important;
-  }
-
-  .procurement-shell .primary-navigation {
-    position: fixed !important;
-    inset: auto auto max(12px, env(safe-area-inset-bottom)) 50% !important;
-    transform: translateX(-50%) !important;
-    width: min(calc(100% - 24px), 400px) !important;
-    max-width: 400px !important;
-    height: 58px !important;
-    min-height: 58px !important;
-    border-radius: 9999px !important;
-    background: #ffffff !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04) !important;
-    border: 1px solid rgba(0, 0, 0, 0.06) !important;
   }
 
   .procurement-shell .procurement-grid {

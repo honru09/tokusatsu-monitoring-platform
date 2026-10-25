@@ -132,6 +132,11 @@
   pointer-events: none;
   overflow: hidden;
   border-radius: 0 28px 28px 0;
+  /* The artwork ships with its own pale ground. Fade its left edge into
+     the hero gradient so it never reads as a block with a hard vertical
+     seam; the layer itself has no background of its own. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 45%);
+  mask-image: linear-gradient(to right, transparent 0%, black 45%);
 }
 
 .allClear {
