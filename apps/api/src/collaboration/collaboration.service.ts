@@ -9,6 +9,7 @@ import type {
   MarkDirectMessagesReadDto,
   MessageReactionDto,
   SendDirectMessageDto,
+  SetItemDecisionDto,
   StartNegotiationsDto,
   UpdateNegotiationDto,
   UpdateShareRoundItemDto,
@@ -129,8 +130,40 @@ type ShareRoundWithItems = {
   items?: ShareRoundRow[];
 };
 
-function presentShareRound(round: ShareRoundWithItems) {
-  const items = round.items ?? [];
+const decisionStatuses = ["want", "negotiate", "pass", "bought"] as const;
+
+type DecisionRow = {
+  itemId: string;
+  status: string;
+  decidedById: string;
+  decidedAt: Date;
+  decidedBy?: { displayName?: string | null } | null;
+};
+
+function presentDecision(row: DecisionRow) {
+  return {
+    itemId: row.itemId,
+    status: row.status,
+    decidedById: row.decidedById,
+    decidedByName: row.decidedBy?.displayName ?? null,
+    decidedAt: row.decidedAt,
+  };
+}
+
+type DecisionInfo = ReturnType<typeof presentDecision>;
+
+function presentShareRound(
+  round: ShareRoundWithItems,
+  decisions?: Map<string, DecisionInfo>,
+) {
+  const items = (round.items ?? []).map((entry) => {
+    const decision = decisions?.get(entry.itemId) ?? null;
+    const item =
+      entry.item && typeof entry.item === "object"
+        ? { ...(entry.item as Record<string, unknown>), decision }
+        : entry.item;
+    return { ...entry, decision, item };
+  });
   const targets = items.map((entry) => entry.targetPriceYen);
   return {
     ...round,
@@ -442,7 +475,10 @@ export class CollaborationService {
       },
       include: shareRoundInclude,
     });
-    return presentShareRound(round as ShareRoundWithItems);
+    return presentShareRound(
+      round as ShareRoundWithItems,
+      await this.decisionMap(requested.keys()),
+    );
   }
 
   async shareRounds(accountId: string) {
@@ -452,9 +488,16 @@ export class CollaborationService {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 50,
     });
+    const decisions = await this.decisionMap(
+      rounds.flatMap((round) =>
+        ((round as ShareRoundWithItems).items ?? []).map(
+          (entry) => entry.itemId,
+        ),
+      ),
+    );
     return {
       rounds: rounds.map((round) =>
-        presentShareRound(round as ShareRoundWithItems),
+        presentShareRound(round as ShareRoundWithItems, decisions),
       ),
       serverTime: new Date().toISOString(),
     };
@@ -467,7 +510,11 @@ export class CollaborationService {
       include: shareRoundInclude,
     });
     if (!round) throw new NotFoundException("分享轮次不存在");
-    return presentShareRound(round as ShareRoundWithItems);
+    const typed = round as ShareRoundWithItems;
+    return presentShareRound(
+      typed,
+      await this.decisionMap((typed.items ?? []).map((entry) => entry.itemId)),
+    );
   }
 
   async updateShareRoundItem(
@@ -498,7 +545,140 @@ export class CollaborationService {
       data,
       include: { item: { include: messageItemInclude } },
     });
-    return updated;
+    const decision = (await this.decisionMap([itemId])).get(itemId) ?? null;
+    return {
+      ...updated,
+      decision,
+      item: { ...updated.item, decision },
+    };
+  }
+
+  async decisions(accountId: string) {
+    await this.requireAccount(accountId);
+    const rows = await this.prisma.itemDecision.findMany({
+      include: { decidedBy: true },
+      orderBy: [{ decidedAt: "asc" }, { id: "asc" }],
+    });
+    return {
+      decisions: rows.map((row) => presentDecision(row)),
+      serverTime: new Date().toISOString(),
+    };
+  }
+
+  async setDecision(body: SetItemDecisionDto) {
+    if (
+      !decisionStatuses.includes(
+        body.status as (typeof decisionStatuses)[number],
+      )
+    ) {
+      throw new BadRequestException("决定状态无效");
+    }
+    const account = await this.requireAccount(body.accountId);
+    const item = await this.prisma.item.findUnique({
+      where: { id: body.itemId },
+      select: { id: true, ignored: true },
+    });
+    if (!item) throw new NotFoundException("商品不存在");
+    if (body.roundId) {
+      const round = await this.prisma.shareRound.findUnique({
+        where: { id: body.roundId },
+        select: { id: true },
+      });
+      if (!round) throw new NotFoundException("分享轮次不存在");
+    }
+    if (body.messageId) {
+      const message = await this.prisma.directMessage.findUnique({
+        where: { id: body.messageId },
+        select: { id: true },
+      });
+      if (!message) throw new NotFoundException("消息不存在");
+    }
+    const now = new Date();
+    const saved = await this.prisma.$transaction(async (tx) => {
+      const decision = await tx.itemDecision.upsert({
+        where: { itemId: body.itemId },
+        create: {
+          itemId: body.itemId,
+          status: body.status,
+          decidedById: account.id,
+          decidedAt: now,
+          sourceRoundId: body.roundId ?? null,
+          sourceMessageId: body.messageId ?? null,
+        },
+        update: {
+          status: body.status,
+          decidedById: account.id,
+          decidedAt: now,
+          sourceRoundId: body.roundId ?? null,
+          sourceMessageId: body.messageId ?? null,
+        },
+        include: { decidedBy: true },
+      });
+      if (body.status === "negotiate") {
+        // Same upsert startNegotiations uses for cart items: an existing
+        // case in any terminal state reopens as in_progress.
+        await tx.negotiationCase.upsert({
+          where: { itemId: body.itemId },
+          create: {
+            itemId: body.itemId,
+            initiatedById: account.id,
+            status: "in_progress",
+            statusChangedAt: now,
+          },
+          update: { status: "in_progress", statusChangedAt: now },
+        });
+      }
+      if (body.status === "pass") {
+        // The same effect as marking the item not-interested from the
+        // item endpoints: ignored with the manual reason, favorite off.
+        await tx.item.update({
+          where: { id: body.itemId },
+          data: {
+            favorite: false,
+            ignored: true,
+            ignoredAt: now,
+            ignoredReason: "manual",
+          },
+        });
+        if (!item.ignored) {
+          await tx.managerActivity.create({
+            data: {
+              accountId: account.id,
+              action: "dislike",
+              itemId: body.itemId,
+            },
+          });
+        }
+        // A case that is still open closes with the same terminal
+        // status the failed-negotiation cleanup uses once its items
+        // land in the disliked warehouse. It is not marked "failed":
+        // that status is reserved for seller-side negotiation failure.
+        const existing = await tx.negotiationCase.findUnique({
+          where: { itemId: body.itemId },
+          select: { status: true },
+        });
+        if (existing?.status === "in_progress") {
+          await tx.negotiationCase.update({
+            where: { itemId: body.itemId },
+            data: { status: "moved_to_disliked", statusChangedAt: now },
+          });
+        }
+      }
+      return decision;
+    });
+    return presentDecision(saved);
+  }
+
+  private async decisionMap(itemIds: Iterable<string>) {
+    const unique = [...new Set([...itemIds].filter(Boolean))];
+    const map = new Map<string, DecisionInfo>();
+    if (!unique.length) return map;
+    const rows = await this.prisma.itemDecision.findMany({
+      where: { itemId: { in: unique } },
+      include: { decidedBy: true },
+    });
+    for (const row of rows) map.set(row.itemId, presentDecision(row));
+    return map;
   }
 
   async markRead(body: MarkDirectMessagesReadDto) {
@@ -790,7 +970,11 @@ export class CollaborationService {
       item: unknown;
       roundId?: string | null;
       round?: ShareRoundWithItems | null;
-      replyTo?: { text: string | null } | null;
+      replyTo?: {
+        text: string | null;
+        itemId?: string | null;
+        item?: unknown;
+      } | null;
     },
   >(messages: T[]) {
     if (!messages.length) return [];
@@ -831,6 +1015,25 @@ export class CollaborationService {
         itemsById.set(item.id, item);
       }
     }
+    const decisionItemIds = new Set<string>(extraItemIds);
+    for (const msg of messages) {
+      if (msg.itemId) decisionItemIds.add(msg.itemId);
+      if (msg.replyTo?.itemId) decisionItemIds.add(msg.replyTo.itemId);
+      const round = msg.roundId ? roundsById.get(msg.roundId) : undefined;
+      for (const row of round?.items ?? []) decisionItemIds.add(row.itemId);
+    }
+    const decisions = await this.decisionMap(decisionItemIds);
+    const withDecision = (value: unknown): unknown => {
+      if (!value || typeof value !== "object") return value;
+      const record = value as Record<string, unknown> & { id?: string };
+      return {
+        ...record,
+        decision:
+          (typeof record.id === "string"
+            ? decisions.get(record.id)
+            : undefined) ?? null,
+      };
+    };
     return messages.map((msg, index) => {
       const parsed = parsedByIndex[index] ?? {
         cleanText: msg.text,
@@ -841,6 +1044,7 @@ export class CollaborationService {
         ? {
             ...msg.replyTo,
             text: parseBundleMessageText(msg.replyTo.text).cleanText,
+            item: withDecision(msg.replyTo.item),
           }
         : msg.replyTo;
       const round = msg.roundId ? roundsById.get(msg.roundId) : undefined;
@@ -857,6 +1061,7 @@ export class CollaborationService {
                   ...(item as Record<string, unknown>),
                   targetPriceYen: row.targetPriceYen ?? null,
                   copiedAt: row.copiedAt ?? null,
+                  decision: decisions.get(row.itemId) ?? null,
                 }
               : null;
           })
@@ -872,6 +1077,7 @@ export class CollaborationService {
           ...msg,
           text: parsed.cleanText,
           replyTo,
+          item: withDecision(msg.item),
           roundId: round.id,
           bundleItems,
           bundleItemTargets: Object.fromEntries(
@@ -882,16 +1088,18 @@ export class CollaborationService {
       }
       const bundleItems = parsed.itemIds
         .map((id) => itemsById.get(id) ?? (msg.itemId === id ? msg.item : null))
-        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+        .map((entry) => withDecision(entry));
       return {
         ...msg,
         text: parsed.cleanText,
         replyTo,
+        item: withDecision(msg.item),
         bundleItems:
           bundleItems.length > 0
             ? bundleItems
             : msg.item
-              ? [msg.item]
+              ? [withDecision(msg.item)]
               : [],
         targetPriceYen: parsed.targetPriceYen,
       };

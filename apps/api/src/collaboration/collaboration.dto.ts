@@ -114,6 +114,26 @@ export class ClearFailedNegotiationsDto {
   accountId!: string;
 }
 
+export class SetItemDecisionDto {
+  @IsString()
+  accountId!: string;
+
+  @IsString()
+  itemId!: string;
+
+  @IsString()
+  @IsIn(["want", "negotiate", "pass", "bought"])
+  status!: "want" | "negotiate" | "pass" | "bought";
+
+  @IsOptional()
+  @IsString()
+  roundId?: string;
+
+  @IsOptional()
+  @IsString()
+  messageId?: string;
+}
+
 export class ShareRoundItemDto {
   @IsString()
   itemId!: string;

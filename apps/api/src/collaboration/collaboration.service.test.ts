@@ -22,6 +22,7 @@ function fixture() {
   const account = (id: string) => ({
     id,
     active: true,
+    displayName: id === "manager-1" ? "龙" : "王",
     position: id === "manager-1" ? 1 : 2,
     lastSeenAt: new Date(),
   });
@@ -69,6 +70,7 @@ function fixture() {
     },
     directMessage: {
       findMany: vi.fn().mockResolvedValue([]),
+      findUnique: vi.fn().mockResolvedValue({ id: "message-1" }),
       findFirst: vi.fn().mockResolvedValue({ id: "message-1" }),
       create: vi
         .fn()
@@ -91,6 +93,35 @@ function fixture() {
           ),
         ),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      update: vi
+        .fn()
+        .mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({ id: "item-1", ignored: false, ...data }),
+        ),
+    },
+    itemDecision: {
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi
+        .fn()
+        .mockImplementation(
+          ({
+            create,
+            update,
+          }: {
+            create: Record<string, unknown>;
+            update: Record<string, unknown>;
+          }) =>
+            Promise.resolve({
+              id: "decision-1",
+              ...create,
+              ...update,
+              decidedBy: {
+                id: update.decidedById,
+                displayName:
+                  update.decidedById === "manager-1" ? "龙" : "王",
+              },
+            }),
+        ),
     },
     shareRound: {
       create: vi
@@ -557,6 +588,266 @@ describe("CollaborationService", () => {
         copied: true,
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("records a want decision without touching cases or the item", async () => {
+    const { service, prisma } = fixture();
+    const saved = await service.setDecision({
+      accountId: "manager-2",
+      itemId: "item-1",
+      status: "want",
+      messageId: "message-1",
+    });
+    expect(saved).toMatchObject({
+      itemId: "item-1",
+      status: "want",
+      decidedById: "manager-2",
+      decidedByName: "王",
+    });
+    expect(prisma.itemDecision.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { itemId: "item-1" },
+        create: expect.objectContaining({
+          status: "want",
+          sourceMessageId: "message-1",
+          sourceRoundId: null,
+        }),
+      }),
+    );
+    expect(prisma.negotiationCase.upsert).not.toHaveBeenCalled();
+    expect(prisma.item.update).not.toHaveBeenCalled();
+  });
+
+  it("overwrites the previous decision when the decider changes their mind", async () => {
+    const { service, prisma } = fixture();
+    await service.setDecision({
+      accountId: "manager-2",
+      itemId: "item-1",
+      status: "want",
+    });
+    prisma.shareRound.findUnique.mockResolvedValueOnce({ id: "round-1" });
+    const saved = await service.setDecision({
+      accountId: "manager-1",
+      itemId: "item-1",
+      status: "bought",
+      roundId: "round-1",
+    });
+    expect(saved).toMatchObject({ status: "bought", decidedByName: "龙" });
+    expect(prisma.itemDecision.upsert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { itemId: "item-1" },
+        update: expect.objectContaining({
+          status: "bought",
+          decidedById: "manager-1",
+          decidedAt: expect.any(Date),
+          sourceRoundId: "round-1",
+          sourceMessageId: null,
+        }),
+      }),
+    );
+  });
+
+  it("opens or reopens an in-progress negotiation case for a negotiate decision", async () => {
+    const { service, prisma } = fixture();
+    await service.setDecision({
+      accountId: "manager-2",
+      itemId: "item-1",
+      status: "negotiate",
+    });
+    expect(prisma.negotiationCase.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { itemId: "item-1" },
+        create: expect.objectContaining({
+          itemId: "item-1",
+          initiatedById: "manager-2",
+          status: "in_progress",
+          statusChangedAt: expect.any(Date),
+        }),
+        update: expect.objectContaining({
+          status: "in_progress",
+          statusChangedAt: expect.any(Date),
+        }),
+      }),
+    );
+    expect(prisma.item.update).not.toHaveBeenCalled();
+  });
+
+  it("applies the not-interested effect for a pass decision and closes an open case as moved to disliked", async () => {
+    const { service, prisma } = fixture();
+    prisma.negotiationCase.findUnique.mockResolvedValue({
+      id: "case-1",
+      itemId: "item-1",
+      status: "in_progress",
+    });
+    await service.setDecision({
+      accountId: "manager-2",
+      itemId: "item-1",
+      status: "pass",
+    });
+    expect(prisma.item.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "item-1" },
+        data: expect.objectContaining({
+          favorite: false,
+          ignored: true,
+          ignoredAt: expect.any(Date),
+          ignoredReason: "manual",
+        }),
+      }),
+    );
+    expect(prisma.managerActivity.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        accountId: "manager-2",
+        action: "dislike",
+        itemId: "item-1",
+      }),
+    });
+    expect(prisma.negotiationCase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { itemId: "item-1" },
+        data: expect.objectContaining({
+          status: "moved_to_disliked",
+          statusChangedAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it("leaves a finished negotiation case alone for a pass decision", async () => {
+    const { service, prisma } = fixture();
+    prisma.negotiationCase.findUnique.mockResolvedValue({
+      id: "case-1",
+      itemId: "item-1",
+      status: "success",
+    });
+    await service.setDecision({
+      accountId: "manager-2",
+      itemId: "item-1",
+      status: "pass",
+    });
+    expect(prisma.negotiationCase.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects decisions for unknown items, rounds, messages and statuses", async () => {
+    const { service, prisma } = fixture();
+    prisma.item.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      service.setDecision({
+        accountId: "manager-2",
+        itemId: "missing",
+        status: "want",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    prisma.shareRound.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      service.setDecision({
+        accountId: "manager-2",
+        itemId: "item-1",
+        status: "want",
+        roundId: "missing",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    prisma.directMessage.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      service.setDecision({
+        accountId: "manager-2",
+        itemId: "item-1",
+        status: "want",
+        messageId: "missing",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.setDecision({
+        accountId: "manager-2",
+        itemId: "item-1",
+        status: "maybe" as never,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.setDecision({
+        accountId: "outsider",
+        itemId: "item-1",
+        status: "want",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("lists decisions with decider names", async () => {
+    const { service, prisma } = fixture();
+    prisma.itemDecision.findMany.mockResolvedValueOnce([
+      {
+        itemId: "item-1",
+        status: "negotiate",
+        decidedById: "manager-2",
+        decidedAt: new Date("2026-10-25T01:24:00.000Z"),
+        decidedBy: { displayName: "王" },
+      },
+    ]);
+    await expect(service.decisions("manager-1")).resolves.toMatchObject({
+      decisions: [
+        {
+          itemId: "item-1",
+          status: "negotiate",
+          decidedById: "manager-2",
+          decidedByName: "王",
+        },
+      ],
+    });
+  });
+
+  it("threads decisions into message items and share round rows", async () => {
+    const { service, prisma } = fixture();
+    const decidedAt = new Date("2026-10-25T01:24:00.000Z");
+    prisma.itemDecision.findMany.mockResolvedValue([
+      {
+        itemId: "item-1",
+        status: "negotiate",
+        decidedById: "manager-2",
+        decidedAt,
+        decidedBy: { displayName: "王" },
+      },
+    ]);
+    prisma.directMessage.findMany.mockResolvedValueOnce([
+      {
+        id: "message-1",
+        senderId: "manager-1",
+        recipientId: "manager-2",
+        text: "看看这个",
+        itemId: "item-1",
+        roundId: null,
+        replyTo: null,
+        reactions: [],
+        item: itemShape("item-1"),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    const result = await service.messages("manager-2");
+    expect(result.messages[0]).toMatchObject({
+      item: {
+        id: "item-1",
+        decision: { status: "negotiate", decidedByName: "王" },
+      },
+      bundleItems: [
+        { id: "item-1", decision: { status: "negotiate" } },
+      ],
+    });
+
+    await service.createShareRound({
+      accountId: "manager-1",
+      items: [{ itemId: "item-1" }, { itemId: "item-2" }],
+    });
+    const listed = await service.shareRounds("manager-2");
+    expect(listed.rounds[0]?.items[0]).toMatchObject({
+      itemId: "item-1",
+      decision: { status: "negotiate", decidedByName: "王" },
+      item: { id: "item-1", decision: { status: "negotiate" } },
+    });
+    expect(listed.rounds[0]?.items[1]).toMatchObject({
+      itemId: "item-2",
+      decision: null,
+      item: { id: "item-2", decision: null },
+    });
   });
 
   it("lists share rounds newest first with copied counts", async () => {

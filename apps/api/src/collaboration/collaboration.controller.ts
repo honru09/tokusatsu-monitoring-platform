@@ -15,6 +15,7 @@ import {
   ManagerPresenceDto,
   MessageReactionDto,
   SendDirectMessageDto,
+  SetItemDecisionDto,
   StartNegotiationsDto,
   UpdateNegotiationDto,
   UpdateShareRoundItemDto,
@@ -103,6 +104,16 @@ export class CollaborationController {
     @Body() body: UpdateShareRoundItemDto,
   ) {
     return this.collaboration.updateShareRoundItem(roundId, itemId, body);
+  }
+
+  @Get("decisions")
+  decisions(@Query("accountId") accountId: string) {
+    return this.collaboration.decisions(accountId);
+  }
+
+  @Post("decisions")
+  setDecision(@Body() body: SetItemDecisionDto) {
+    return this.collaboration.setDecision(body);
   }
 
   @Get("negotiations")
