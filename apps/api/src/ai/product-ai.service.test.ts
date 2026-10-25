@@ -1,6 +1,8 @@
+import { ServiceUnavailableException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import {
   PRODUCT_AI_OPERATION_DEFAULTS,
+  PRODUCT_AI_SCOPED_OPERATIONS,
   ProductAiService,
   type ProductAiOperation,
 } from "./product-ai.service.js";
@@ -19,7 +21,7 @@ function serviceFixture() {
   const gateway = {
     executeJson: vi.fn().mockResolvedValue({
       data: { ok: true },
-      provider: "bai",
+      provider: "zhipu",
       model: "test-model",
     }),
   };
@@ -31,12 +33,16 @@ function serviceFixture() {
 
 describe("ProductAiService", () => {
   it.each(
-    Object.entries(PRODUCT_AI_OPERATION_DEFAULTS) as Array<
-      [
-        ProductAiOperation,
-        (typeof PRODUCT_AI_OPERATION_DEFAULTS)[ProductAiOperation],
-      ]
-    >,
+    PRODUCT_AI_SCOPED_OPERATIONS.map(
+      (operation) =>
+        [
+          operation,
+          PRODUCT_AI_OPERATION_DEFAULTS[operation],
+        ] as [
+          ProductAiOperation,
+          (typeof PRODUCT_AI_OPERATION_DEFAULTS)[ProductAiOperation],
+        ],
+    ),
   )("applies the %s routing defaults", async (operation, defaults) => {
     const { gateway, service } = serviceFixture();
 
@@ -48,8 +54,37 @@ describe("ProductAiService", () => {
     expect(gateway.executeJson).toHaveBeenCalledWith({
       responseSchema: RESPONSE_SCHEMA,
       messages: [{ role: "user", content: "商品信息" }],
-      ...defaults,
+      task: defaults.task,
+      maxTokens: defaults.maxTokens,
+      cacheTtlMs: defaults.cacheTtlMs,
+      dataClass: defaults.dataClass,
+      // The scoped route never spends paid capacity, whatever the
+      // operation default or the caller asked for.
+      costPolicy: "free_only",
+      purpose: operation === "translation" ? "translation" : "product_reading",
     });
+  });
+
+  it.each(
+    (Object.keys(PRODUCT_AI_OPERATION_DEFAULTS) as ProductAiOperation[]).filter(
+      (operation) => !PRODUCT_AI_SCOPED_OPERATIONS.includes(operation),
+    ),
+  )("refuses the out-of-scope %s operation before the gateway", (operation) => {
+    const { gateway, service } = serviceFixture();
+
+    expect(() =>
+      service.execute(operation, {
+        responseSchema: RESPONSE_SCHEMA,
+        messages: [{ role: "user", content: "商品信息" }],
+      }),
+    ).toThrow(ServiceUnavailableException);
+    expect(() =>
+      service.execute(operation, {
+        responseSchema: RESPONSE_SCHEMA,
+        messages: [{ role: "user", content: "商品信息" }],
+      }),
+    ).toThrow("当前 AI 仅用于商品读取、翻译和聊天");
+    expect(gateway.executeJson).not.toHaveBeenCalled();
   });
 
   it("forces images without a verified item to sensitive data", async () => {
@@ -140,22 +175,4 @@ describe("ProductAiService", () => {
     );
   });
 
-  it("routes procurement filtering through bulk_filter with procurement defaults", async () => {
-    const { gateway, service } = serviceFixture();
-
-    await service.execute("procurement_filter", {
-      responseSchema: RESPONSE_SCHEMA,
-      messages: [{ role: "user", content: "筛选采购候选" }],
-    });
-
-    expect(gateway.executeJson).toHaveBeenCalledWith({
-      responseSchema: RESPONSE_SCHEMA,
-      messages: [{ role: "user", content: "筛选采购候选" }],
-      task: "bulk_filter",
-      maxTokens: 1_600,
-      cacheTtlMs: 7 * 24 * 60 * 60_000,
-      dataClass: "public_market",
-      costPolicy: "free_first",
-    });
-  });
 });

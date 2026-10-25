@@ -257,49 +257,20 @@ describe("Product AI routing", () => {
     ]);
   });
 
-  it("routes item classification and detail translation through product operations", async () => {
-    const execute = vi
-      .fn()
-      .mockImplementation(
-        async (
-          operation: string,
-          input: { messages: Array<{ content: string }> },
-        ) => {
-          if (operation === "translation" && execute.mock.calls.length === 1) {
-            return {
-              data: {
-                titleZh: "假面骑士 DX",
-                descriptionZh: "二手商品",
-                conditionZh: "二手",
-                shippingZh: "运费待确认",
-                purchaseSummaryZh: "DX 商品",
-              },
-              model: "smart",
-              cached: false,
-            };
-          }
-          const payload = JSON.parse(
-            input.messages.at(-1)?.content ?? "{}",
-          ) as {
-            fields?: Array<{
-              fragmentKey: string;
-              path: string;
-            }>;
-          };
-          return {
-            data: {
-              translations: (payload.fields ?? []).map((field) => ({
-                fragmentKey: field.fragmentKey,
-                path: field.path,
-                labelZh: "商品状态",
-                valueZh: "二手",
-              })),
-            },
-            model: "fast",
-            cached: false,
-          };
-        },
-      );
+  it("translates an item in one product operation and keeps its existing detail rows", async () => {
+    const existingDetails = [
+      { path: "conditionText", labelZh: "商品状态", valueZh: "二手" },
+    ];
+    const execute = vi.fn().mockResolvedValue({
+      data: {
+        titleZh: "假面骑士 DX",
+        descriptionZh: "二手商品",
+        conditionZh: "二手",
+        shippingZh: "运费待确认",
+      },
+      model: "glm-5.3-flash",
+      cached: false,
+    });
     const update = vi.fn().mockImplementation(({ data }) =>
       data.translationStatus === "completed"
         ? {
@@ -321,7 +292,7 @@ describe("Product AI routing", () => {
           descriptionZh: null,
           conditionZh: null,
           shippingZh: null,
-          detailsZh: null,
+          detailsZh: existingDetails,
           translationStatus: "pending",
           translatedAt: null,
         }),
@@ -337,73 +308,39 @@ describe("Product AI routing", () => {
 
     await service.itemTranslation("item-1");
 
+    // Item translation is a single product operation now: the title,
+    // description, condition and shipping fields travel together, and the
+    // stored public-detail rows are carried over untouched.
+    expect(execute).toHaveBeenCalledTimes(1);
     expect(execute.mock.calls[0]?.[0]).toBe("translation");
     expect(execute.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ itemId: "item-1" }),
-    );
-    expect(execute.mock.calls[1]?.[0]).toBe("translation");
-    expect(execute.mock.calls[1]?.[1]).toEqual(
-      expect.objectContaining({ itemId: "item-1", maxTokens: 4_000 }),
     );
     expect(gateway.executeJson).not.toHaveBeenCalled();
     const completedWrite = update.mock.calls.find(
       ([input]) => input.data.translationStatus === "completed",
     )?.[0];
-    expect(completedWrite?.data.detailsZh).toEqual([
-      expect.objectContaining({ path: "conditionText", valueZh: "二手" }),
-    ]);
-    expect(
-      completedWrite?.data.detailsZh.some((row: { path: string }) =>
-        row.path.startsWith("ai."),
-      ),
-    ).toBe(false);
+    expect(completedWrite?.data).toMatchObject({
+      titleZh: "假面骑士 DX",
+      descriptionZh: "二手商品",
+      conditionZh: "二手",
+      shippingZh: "运费待确认",
+    });
+    expect(completedWrite?.data.detailsZh).toEqual(existingDetails);
   });
 
-  it("reassembles every provider-sized fragment of a long public detail field", async () => {
+  it("does not send public detail fields through item translation", async () => {
     const longDetail = `付属品と商品の状態。${"欠品なし、外箱に擦れあり。".repeat(420)}`;
-    const execute = vi
-      .fn()
-      .mockImplementation(
-        async (
-          _operation: string,
-          input: { messages: Array<{ content: string }> },
-        ) => {
-          if (execute.mock.calls.length === 1) {
-            return {
-              data: {
-                titleZh: "假面骑士套装",
-                descriptionZh: "完整卖家说明",
-                conditionZh: "二手",
-                shippingZh: "运费待确认",
-                purchaseSummaryZh: "套装商品",
-              },
-              model: "smart",
-              cached: false,
-            };
-          }
-          const payload = JSON.parse(
-            input.messages.at(-1)?.content ?? "{}",
-          ) as {
-            fields?: Array<{
-              fragmentKey: string;
-              path: string;
-              value: string;
-            }>;
-          };
-          return {
-            data: {
-              translations: (payload.fields ?? []).map((field) => ({
-                fragmentKey: field.fragmentKey,
-                path: field.path,
-                labelZh: "完整详情",
-                valueZh: field.value,
-              })),
-            },
-            model: "fast",
-            cached: false,
-          };
-        },
-      );
+    const execute = vi.fn().mockResolvedValue({
+      data: {
+        titleZh: "假面骑士套装",
+        descriptionZh: "完整卖家说明",
+        conditionZh: "二手",
+        shippingZh: "运费待确认",
+      },
+      model: "glm-5.3-flash",
+      cached: false,
+    });
     const update = vi.fn().mockImplementation(async ({ data }) => ({
       id: "item-long-detail",
       ...data,
@@ -434,134 +371,25 @@ describe("Product AI routing", () => {
     );
 
     const result = await service.itemTranslation("item-long-detail");
-    const detail = (
-      result?.translation as unknown as {
-        detailsZh: Array<{ path: string; valueZh: string }>;
-      }
-    ).detailsZh.find((row) => row.path === "sellerLongDetail");
 
     expect(longDetail.length).toBeGreaterThan(5_000);
-    expect(detail?.valueZh).toBe(longDetail);
-  });
-
-  it("retries only omitted detail fragments and ignores duplicate rows", async () => {
-    let detailAttempt = 0;
-    const execute = vi
-      .fn()
-      .mockImplementation(
-        async (
-          _operation: string,
-          input: { messages: Array<{ content: string }> },
-        ) => {
-          if (execute.mock.calls.length === 1) {
-            return {
-              data: {
-                titleZh: "假面骑士套装",
-                descriptionZh: "卖家说明",
-                conditionZh: "二手",
-                shippingZh: "运费待确认",
-                purchaseSummaryZh: "套装商品",
-              },
-              model: "smart",
-              cached: false,
-            };
-          }
-          detailAttempt += 1;
-          const payload = JSON.parse(
-            input.messages.at(-1)?.content ?? "{}",
-          ) as {
-            fields?: Array<{
-              fragmentKey: string;
-              path: string;
-              value: string;
-            }>;
-          };
-          const fields = payload.fields ?? [];
-          const selected = detailAttempt === 1 ? fields.slice(0, 1) : fields;
-          return {
-            data: {
-              translations: [
-                ...selected.map((field) => ({
-                  fragmentKey: field.fragmentKey,
-                  path: field.path,
-                  labelZh: field.path,
-                  valueZh: `中文：${field.value}`,
-                })),
-                ...(detailAttempt === 1 && selected[0]
-                  ? [
-                      {
-                        fragmentKey: selected[0].fragmentKey,
-                        path: selected[0].path,
-                        labelZh: "重复行",
-                        valueZh: "不应覆盖首个有效翻译",
-                      },
-                    ]
-                  : []),
-              ],
-            },
-            model: "fast",
-            cached: false,
-          };
-        },
-      );
-    const update = vi.fn().mockImplementation(async ({ data }) => ({
-      id: "item-retry-detail",
-      ...data,
-    }));
-    const service = new AnalysisService(
-      {
-        item: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: "item-retry-detail",
-            titleRaw: "仮面ライダー セット",
-            descriptionRaw: "出品説明",
-            conditionRaw: "中古",
-            shippingFee: null,
-            sourceData: {
-              conditionText: "中古・擦れあり",
-              shippingText: "送料は購入者負担",
-            },
-            titleZh: null,
-            descriptionZh: null,
-            conditionZh: null,
-            shippingZh: null,
-            detailsZh: null,
-            translationStatus: "pending",
-            translatedAt: null,
-          }),
-          update,
-        },
-      } as never,
-      { executeJson: vi.fn() } as never,
-      { execute } as never,
-    );
-
-    const result = await service.itemTranslation("item-retry-detail");
-    const detailCalls = execute.mock.calls.slice(1);
-    const retriedPayload = JSON.parse(
-      (
-        detailCalls[1]?.[1] as { messages: Array<{ content: string }> }
-      ).messages.at(-1)?.content ?? "{}",
-    ) as { fields: Array<{ path: string }> };
-    const details = (
-      result?.translation as unknown as {
-        detailsZh: Array<{ path: string; valueZh: string }>;
-      }
-    ).detailsZh;
-
-    expect(detailCalls).toHaveLength(2);
-    expect(retriedPayload.fields).toEqual([
-      expect.objectContaining({ path: "shippingText" }),
+    expect(execute).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(
+      execute.mock.calls[0]?.[1].messages.at(-1)?.content ?? "{}",
+    ) as Record<string, unknown>;
+    expect(Object.keys(payload).sort()).toEqual([
+      "conditionRaw",
+      "descriptionRaw",
+      "shippingRaw",
+      "titleRaw",
     ]);
-    expect(detailCalls[1]?.[1]).toEqual(
-      expect.objectContaining({ bypassCache: true }),
-    );
-    expect(details.find((row) => row.path === "conditionText")?.valueZh).toBe(
-      "中文：中古・擦れあり",
-    );
-    expect(details.find((row) => row.path === "shippingText")?.valueZh).toBe(
-      "中文：送料は購入者負担",
-    );
+    expect(
+      (
+        result?.translation as unknown as {
+          detailsZh: Array<{ path: string; valueZh: string }>;
+        }
+      ).detailsZh,
+    ).toEqual([]);
   });
 });
 

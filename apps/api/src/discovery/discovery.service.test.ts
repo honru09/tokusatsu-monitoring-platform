@@ -320,53 +320,65 @@ describe("DiscoveryService", () => {
   });
 
   it("excludes active consumed listings while keeping the requested preload", async () => {
-    const { prisma, service } = serviceWith();
-    prisma.discoveryFeedback.findMany.mockResolvedValue([
-      { listingId: "consumed-listing" },
-    ]);
-    prisma.item.findMany.mockResolvedValue([{ id: "next-listing" }]);
+    // activeMarketItemWhere() embeds a wall-clock stale cutoff and auction
+    // deadline, so the expected where only matches the service's where when
+    // both are built at the same instant. Freeze the clock for this test.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-25T00:00:00.000Z"));
+    try {
+      const { prisma, service } = serviceWith();
+      prisma.discoveryFeedback.findMany.mockResolvedValue([
+        { listingId: "consumed-listing" },
+      ]);
+      prisma.item.findMany.mockResolvedValue([{ id: "next-listing" }]);
 
-    const result = await service.feed(12);
+      const result = await service.feed(12);
 
-    expect(result.total).toBe(1);
-    expect(result.items).toEqual([
-      expect.objectContaining({
-        id: "next-listing",
-        chinaComparison: null,
-        procurement: expect.objectContaining({
-          category: "needs_facts",
-          compactness: "unknown",
+      expect(result.total).toBe(1);
+      expect(result.items).toEqual([
+        expect.objectContaining({
+          id: "next-listing",
+          chinaComparison: null,
+          procurement: expect.objectContaining({
+            category: "needs_facts",
+            compactness: "unknown",
+          }),
         }),
-      }),
-    ]);
-    const expectedWhere = {
-      ...activeMarketItemWhere(),
-      id: { notIn: ["consumed-listing"] },
-      favorite: false,
-      listingType: undefined,
-    };
-    expect(prisma.item.count).not.toHaveBeenCalled();
-    expect(prisma.item.findMany).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        where: expectedWhere,
-        select: expect.objectContaining({
-          logistics: {
-            select: {
-              volumeCm3: true,
-              lengthMm: true,
-              widthMm: true,
-              heightMm: true,
-              notes: true,
+      ]);
+      const expectedWhere = {
+        ...activeMarketItemWhere(),
+        id: { notIn: ["consumed-listing"] },
+        favorite: false,
+        listingType: undefined,
+      };
+      expect(prisma.item.count).not.toHaveBeenCalled();
+      expect(prisma.item.findMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: expectedWhere,
+          select: expect.objectContaining({
+            crossMarketOpportunities: expect.anything(),
+            logistics: {
+              select: {
+                volumeCm3: true,
+                lengthMm: true,
+                widthMm: true,
+                heightMm: true,
+                notes: true,
+              },
             },
-          },
+          }),
         }),
-      }),
-    );
-    expect(prisma.item.findMany.mock.calls[0]?.[0]).not.toHaveProperty("take");
-    expect(prisma.item.findMany.mock.calls[0]?.[0]).not.toHaveProperty(
-      "cursor",
-    );
+      );
+      expect(prisma.item.findMany.mock.calls[0]?.[0]).not.toHaveProperty(
+        "take",
+      );
+      expect(prisma.item.findMany.mock.calls[0]?.[0]).not.toHaveProperty(
+        "cursor",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("ranks the complete eligible library in one database projection", async () => {
@@ -779,31 +791,39 @@ describe("DiscoveryService", () => {
   });
 
   it("returns full eligible counts for every discovery layer in one response", async () => {
+    // Same wall-clock caveat as above: the expected where rebuilds
+    // activeMarketItemWhere(), so freeze the clock first.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-25T00:00:00.000Z"));
     const { prisma, service } = serviceWith();
-    prisma.discoveryFeedback.findMany.mockResolvedValue([
-      { listingId: "consumed-listing" },
-    ]);
-    prisma.item.findMany.mockResolvedValue([
-      { id: "direct-1", listingType: "direct" },
-    ]);
-    prisma.item.groupBy.mockResolvedValue([
-      { listingType: "direct", _count: { _all: 41 } },
-      { listingType: "auction", _count: { _all: 23 } },
-    ]);
+    try {
+      prisma.discoveryFeedback.findMany.mockResolvedValue([
+        { listingId: "consumed-listing" },
+      ]);
+      prisma.item.findMany.mockResolvedValue([
+        { id: "direct-1", listingType: "direct" },
+      ]);
+      prisma.item.groupBy.mockResolvedValue([
+        { listingType: "direct", _count: { _all: 41 } },
+        { listingType: "auction", _count: { _all: 23 } },
+      ]);
 
-    const result = await service.feed(12, "direct");
+      const result = await service.feed(12, "direct");
 
-    expect(result.facets).toEqual({ direct: 41, auction: 23, unknown: 0 });
-    expect(prisma.item.groupBy).toHaveBeenCalledWith({
-      by: ["listingType"],
-      where: {
-        ...activeMarketItemWhere(),
-        id: { notIn: ["consumed-listing"] },
-        favorite: false,
-        listingType: undefined,
-      },
-      _count: { _all: true },
-    });
+      expect(result.facets).toEqual({ direct: 41, auction: 23, unknown: 0 });
+      expect(prisma.item.groupBy).toHaveBeenCalledWith({
+        by: ["listingType"],
+        where: {
+          ...activeMarketItemWhere(),
+          id: { notIn: ["consumed-listing"] },
+          favorite: false,
+          listingType: undefined,
+        },
+        _count: { _all: true },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps unresolved transaction types reachable as their own discovery layer", async () => {

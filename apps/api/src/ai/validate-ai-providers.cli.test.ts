@@ -1,6 +1,7 @@
 import { isAbsolute } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AI_PROVIDER_IDS } from "./ai-model-catalog.js";
+import { AI_MODELS, AI_PROVIDER_IDS } from "./ai-model-catalog.js";
+import { ZHIPU_MODEL } from "./ai-config.js";
 import type { LiveValidationReport } from "./ai-provider-live-validator.js";
 import {
   loadAiProviderEnvironment,
@@ -23,27 +24,27 @@ describe("AI provider validator CLI arguments", () => {
       parseAiProviderValidatorArguments([
         "--completion",
         "--provider",
-        "groq",
+        "zhipu",
         "--model",
-        "openai/gpt-oss-20b",
+        ZHIPU_MODEL,
         "--max-tokens",
         "8",
       ]),
     ).toMatchObject({
       completion: true,
-      providers: ["groq"],
-      model: "openai/gpt-oss-20b",
+      providers: ["zhipu"],
+      model: ZHIPU_MODEL,
       maxTokens: 8,
     });
   });
 
   it.each([
     ["--completion"],
-    ["--completion", "--provider", "groq"],
+    ["--completion", "--provider", "zhipu"],
     ["--completion", "--model", "model"],
-    ["--completion", "--provider", "groq,bai", "--model", "model"],
-    ["--completion", "--provider", "groq,groq", "--model", "model"],
+    ["--completion", "--provider", "zhipu,zhipu", "--model", "model"],
     ["--completion", "--provider", "not-a-provider", "--model", "model"],
+    ["--completion", "--provider", "groq", "--model", "model"],
     ["--model", "model"],
     ["--max-tokens", "8"],
     ["--timeout-ms", "0"],
@@ -59,18 +60,30 @@ describe("AI provider validator CLI arguments", () => {
     expect(
       parseAiProviderValidatorArguments([
         "--provider",
-        " GROQ , bai ",
+        " ZHIPU ",
         "--include-inactive",
       ]),
     ).toMatchObject({
       completion: false,
       includeInactive: true,
-      providers: ["groq", "bai"],
+      providers: ["zhipu"],
     });
   });
 
+  it("rejects a legacy provider name as an explicit selection", () => {
+    expect(() =>
+      parseAiProviderValidatorArguments(["--provider", "groq"]),
+    ).toThrow("INVALID_REQUEST");
+    expect(() =>
+      parseAiProviderValidatorArguments(["--provider", "zhipu,groq"]),
+    ).toThrow("INVALID_REQUEST");
+  });
+
   it("keeps the default provider list in sync with the catalog", () => {
-    expect(AI_PROVIDER_IDS.length).toBeGreaterThan(1);
+    expect([...AI_PROVIDER_IDS]).toEqual(["zhipu"]);
+    expect(
+      [...new Set(AI_MODELS.map((entry) => entry.provider))],
+    ).toEqual([...AI_PROVIDER_IDS]);
   });
 });
 
@@ -186,7 +199,7 @@ describe("AI provider validator import and execution boundary", () => {
     const write = vi.fn();
 
     await runAiProviderValidatorCli(
-      ["--completion", "--provider", "groq", "--model", "exact-model"],
+      ["--completion", "--provider", "zhipu", "--model", "exact-model"],
       {
         readText: () => "",
         environment: {},
@@ -197,9 +210,9 @@ describe("AI provider validator import and execution boundary", () => {
 
     expect(validate).toHaveBeenCalledWith(
       expect.objectContaining({
-        providers: ["groq"],
+        providers: ["zhipu"],
         completion: true,
-        modelOverrides: { groq: "exact-model" },
+        modelOverrides: { zhipu: "exact-model" },
       }),
     );
     expect(write).toHaveBeenCalledOnce();

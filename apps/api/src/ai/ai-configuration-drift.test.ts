@@ -2,30 +2,20 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   AI_PROVIDER_IDS,
+  AI_SCOPED_TASKS,
+  AI_TASKS,
   PROVIDER_MODEL_ALLOWLIST,
-  type AiProvider,
+  ZHIPU_MODEL,
 } from "./ai-model-catalog.js";
-import {
-  AI_ROUTE_REVISION,
-  providerRoutesForDisplay,
-  type AiTask,
-} from "./ai-router.js";
+import { AI_ROUTE_REVISION, providerRoutesForDisplay } from "./ai-router.js";
 
-const TASKS = [
-  "bulk_filter",
-  "translation",
-  "classification",
-  "image_analysis",
-  "seller_analysis",
-  "complex_analysis",
-  "cross_validation",
-  "market_analysis",
-  "crawler_diagnosis",
-  "logistics_analysis",
-  "assistant_chat",
-] as const satisfies readonly AiTask[];
-
-const TASK_NAMES = new Set<string>(TASKS);
+// This suite guards the one living configuration surface: ai-config.ts is
+// the single source of truth for providers, models and routes, and
+// .env.example is the operator-facing copy of that world. The retired
+// Render/Windows deployment artifacts (render.yaml, scripts/*.ps1, the
+// LiteLLM profile) described the old multi-provider deployment and are no
+// longer compared here; they are scheduled for removal with the legacy
+// provider code.
 
 function repositoryFile(path: string) {
   return readFileSync(new URL(`../../../../${path}`, import.meta.url), "utf8");
@@ -49,90 +39,15 @@ function dotenvAssignments(source: string) {
   return assignments;
 }
 
-function renderAssignments(source: string) {
-  const assignments = new Map<string, string>();
-  const lines = source.split(/\r?\n/);
-  for (let index = 0; index < lines.length - 1; index += 1) {
-    const key = lines[index]?.match(
-      /^\s*-\s+key:\s*([A-Z][A-Z0-9_]*)\s*$/,
-    )?.[1];
-    if (!key) continue;
-    const value = lines[index + 1]?.match(/^\s+value:\s*(.*?)\s*$/)?.[1];
-    if (value != null) assignments.set(key, unquote(value));
-  }
-  return assignments;
-}
-
-function powershellAssignments(source: string) {
-  const assignments = new Map<string, string>();
-  for (const match of source.matchAll(
-    /Set-Env(?:ValueIfEmpty|Default|Value)\s+\$content\s+'([A-Z][A-Z0-9_]*)'\s+'([^']*)'/g,
-  )) {
-    if (match[1] != null && match[2] != null)
-      assignments.set(match[1], match[2]);
-  }
-  return assignments;
-}
-
-const assignmentSources = [
-  {
-    name: ".env.example",
-    assignments: dotenvAssignments(repositoryFile(".env.example")),
-  },
-  {
-    name: "render.yaml",
-    assignments: renderAssignments(repositoryFile("render.yaml")),
-  },
-  {
-    name: "sync-ai-secrets.ps1",
-    assignments: powershellAssignments(
-      repositoryFile("scripts/sync-ai-secrets.ps1"),
-    ),
-  },
-] as const;
-
-function routeEnvironmentName(task: AiTask, provider: AiProvider) {
-  return provider === "bai"
-    ? `AI_ROUTE_${task.toUpperCase()}`
-    : `AI_ROUTE_${provider.toUpperCase()}_${task.toUpperCase()}`;
-}
-
-function routeDescriptor(
-  name: string,
-): { provider: AiProvider; task: AiTask } | undefined {
-  if (!name.startsWith("AI_ROUTE_")) return undefined;
-  const suffix = name.slice("AI_ROUTE_".length);
-  const directProvider = AI_PROVIDER_IDS.filter(
-    (provider) => provider !== "bai",
-  )
-    .sort((left, right) => right.length - left.length)
-    .find((provider) => suffix.startsWith(`${provider.toUpperCase()}_`));
-  const provider: AiProvider = directProvider ?? "bai";
-  const task = directProvider
-    ? suffix.slice(directProvider.length + 1).toLowerCase()
-    : suffix.toLowerCase();
-  return TASK_NAMES.has(task) ? { provider, task: task as AiTask } : undefined;
-}
-
-function models(value: string) {
-  return value
-    .split("|")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-const providerOrderNames = [
-  "AI_PROVIDER_ORDER",
-  ...TASKS.map((task) => `AI_PROVIDER_ORDER_${task.toUpperCase()}`),
-];
+const envExample = dotenvAssignments(repositoryFile(".env.example"));
 
 const routingEnvironmentNames = [
-  ...providerOrderNames,
-  ...AI_PROVIDER_IDS.flatMap((provider) =>
-    TASKS.map((task) => routeEnvironmentName(task, provider)),
-  ),
+  "AI_PROVIDER_ORDER",
+  ...AI_TASKS.map((task) => `AI_PROVIDER_ORDER_${task.toUpperCase()}`),
+  ...AI_TASKS.map((task) => `AI_ROUTE_ZHIPU_${task.toUpperCase()}`),
   "AI_ALLOW_PAID_MODELS",
   "AI_PAID_PROVIDER_ALLOWLIST",
+  "AI_EXTENDED_SCOPES_ENABLED",
 ];
 
 function withoutConfiguredRouting<T>(run: () => T) {
@@ -151,157 +66,45 @@ function withoutConfiguredRouting<T>(run: () => T) {
 }
 
 describe("AI configuration drift", () => {
-  it("uses the Gemini live-probe route revision and keeps every router route in the model catalog", () => {
-    expect(AI_ROUTE_REVISION).toBe("gemini-live-probe-20260907-v10");
+  it("uses the Zhipu-scoped route revision and keeps every router route in the model catalog", () => {
+    expect(AI_ROUTE_REVISION).toBe("zhipu-scoped-20261009-v1");
+    expect(AI_PROVIDER_IDS).toEqual(["zhipu"]);
     const routes = withoutConfiguredRouting(() => providerRoutesForDisplay());
-    const intentionallyEmpty = new Set([
-      "nvidia:image_analysis",
-      "sensenova:image_analysis",
-    ]);
+    const allowlist = PROVIDER_MODEL_ALLOWLIST.zhipu;
+    expect(allowlist.size).toBeGreaterThan(0);
 
-    for (const provider of AI_PROVIDER_IDS) {
-      expect(PROVIDER_MODEL_ALLOWLIST[provider].size).toBeGreaterThan(0);
-      for (const task of TASKS) {
-        const configured = routes[provider][task];
-        if (configured.length === 0) {
-          expect(intentionallyEmpty).toContain(`${provider}:${task}`);
-          continue;
-        }
-        expect(
-          configured.some((model) =>
-            PROVIDER_MODEL_ALLOWLIST[provider].has(model),
-          ),
-        ).toBe(true);
-        expect(
-          configured.filter(
-            (model) => !PROVIDER_MODEL_ALLOWLIST[provider].has(model),
-          ),
-        ).toEqual([]);
+    for (const task of AI_TASKS) {
+      const configured = routes.zhipu[task];
+      expect(
+        configured.filter((model) => !allowlist.has(model)),
+      ).toEqual([]);
+      if (AI_SCOPED_TASKS.includes(task)) {
+        // Scoped tasks are the ones the free Zhipu package serves today.
+        expect(configured).toEqual([ZHIPU_MODEL]);
+      } else {
+        // Everything else stays unrouted while the extended scopes are
+        // switched off (AI_EXTENDED_SCOPES_ENABLED defaults to off).
+        expect(configured).toEqual([]);
       }
     }
   });
 
-  it.each(assignmentSources)(
-    "$name keeps every non-empty configured route in the model catalog",
-    ({ assignments }) => {
-      let configuredRouteCount = 0;
-      for (const [name, value] of assignments) {
-        const descriptor = routeDescriptor(name);
-        if (!descriptor) continue;
-        configuredRouteCount += 1;
-        const configured = models(value);
-        if (configured.length === 0) continue;
-        const allowlist = PROVIDER_MODEL_ALLOWLIST[descriptor.provider];
-        const unrestricted = configured.includes("*");
-        if (unrestricted) expect(descriptor.provider).toBe("ovo");
-        const pinned = configured.filter((model) => model !== "*");
-        if (pinned.length > 0)
-          expect(pinned.some((model) => allowlist.has(model))).toBe(true);
-        expect(pinned.filter((model) => !allowlist.has(model))).toEqual([]);
-      }
-      expect(configuredRouteCount).toBeGreaterThan(0);
-    },
-  );
-
-  it("keeps every deployment source Gemini-first for text and OVO-only for images", () => {
-    for (const { assignments } of assignmentSources) {
-      for (const name of providerOrderNames) {
-        expect(assignments.has(name)).toBe(true);
-        const order = models(assignments.get(name) ?? "");
-        expect(order).toEqual(
-          name === "AI_PROVIDER_ORDER_IMAGE_ANALYSIS"
-            ? ["ovo"]
-            : ["gemini", "ovo"],
-        );
-      }
-      expect(assignments.get("GEMINI_MODEL")).toBe("gemini-3.1-flash-lite");
-      expect(assignments.get("AI_COST_POLICY")).toBe("free_first");
-      expect(assignments.get("AI_PUBLIC_COST_POLICY")).toBe("free_first");
-      expect(assignments.get("AI_ALLOW_PAID_MODELS")).toBe("true");
-      expect(assignments.get("AI_PAID_PROVIDER_ALLOWLIST")).toBe("ovo");
-      for (const task of TASKS) {
-        expect(
-          models(assignments.get(routeEnvironmentName(task, "ovo")) ?? ""),
-        ).toEqual(["*"]);
-        expect(
-          models(assignments.get(routeEnvironmentName(task, "gemini")) ?? ""),
-        ).toEqual([
-          task === "image_analysis"
-            ? "gemini-3.7-flash"
-            : "gemini-3.1-flash-lite",
-        ]);
-      }
+  it(".env.example describes the same single-provider, free-only world", () => {
+    expect(envExample.get("AI_PROVIDER_ORDER")).toBe("zhipu");
+    expect(envExample.get("AI_COST_POLICY")).toBe("free_only");
+    expect(envExample.get("AI_PUBLIC_COST_POLICY")).toBe("free_only");
+    expect(envExample.get("AI_ALLOW_PAID_MODELS")).toBe("false");
+    expect(envExample.get("AI_PUBLIC_ALLOW_PAID_MODELS")).toBe("false");
+    expect(envExample.get("ZHIPU_API_URL")).toBe(
+      "https://open.bigmodel.cn/api/paas/v4",
+    );
+    // The example file must not resurrect routes or provider orders for
+    // providers the catalog no longer carries as live.
+    for (const name of envExample.keys()) {
+      if (name.startsWith("AI_ROUTE_"))
+        expect(name.startsWith("AI_ROUTE_ZHIPU_")).toBe(true);
+      if (name.startsWith("AI_PROVIDER_ORDER"))
+        expect(envExample.get(name)).toBe("zhipu");
     }
-  });
-
-  it("keeps SenseNova and OpenRouter current preferences aligned", () => {
-    const routerRoutes = withoutConfiguredRouting(() =>
-      providerRoutesForDisplay(),
-    );
-    for (const { name, assignments } of assignmentSources) {
-      for (const provider of ["sensenova", "openrouter"] as const) {
-        for (const task of TASKS) {
-          const environmentName = routeEnvironmentName(task, provider);
-          const configuredValue = assignments.get(environmentName);
-          if (configuredValue == null) {
-            // Render intentionally inherits Router defaults instead of freezing
-            // another copy of all direct-provider model identifiers.
-            expect(name).toBe("render.yaml");
-            continue;
-          }
-          expect(models(configuredValue)[0]).toBe(
-            routerRoutes[provider][task][0],
-          );
-        }
-      }
-      expect(assignments.get("SENSENOVA_API_URL")).toBe(
-        "https://token.sensenova.cn/v1",
-      );
-      expect(assignments.get("OPENROUTER_API_URL")).toBe(
-        "https://openrouter.ai/api/v1",
-      );
-    }
-  });
-
-  it.each(assignmentSources)(
-    "$name keeps the cooldown probe cadence explicit",
-    ({ assignments }) => {
-      expect(assignments.get("AI_COOLDOWN_PROBE_INTERVAL_MS")).toBe("60000");
-    },
-  );
-
-  it("keeps the Cerebras account switch aligned with the time-limited Free Trial", () => {
-    const syncScript = repositoryFile("scripts/sync-ai-secrets.ps1");
-    expect(syncScript).toContain("[Alias('EnableVerifiedCerebrasFreeTier')]");
-    expect(syncScript).toContain("$EnableVerifiedCerebrasFreeTrial");
-    expect(syncScript).toContain(
-      "Set-EnvValue $content 'CEREBRAS_API_TIER' 'promotion'",
-    );
-    expect(syncScript).not.toContain("if ($EnableVerifiedCerebrasFreeTier)");
-    expect(syncScript).not.toContain(
-      "Set-EnvValue $content 'CEREBRAS_API_TIER' 'free'",
-    );
-  });
-
-  it("keeps the local AI Gateway deployment profile explicit and opt-in", () => {
-    const deploy = repositoryFile("scripts/deploy.ps1");
-    expect(deploy).toMatch(/\[switch\]\$EnableAiGateway/);
-    expect(deploy).toContain("@('--profile', 'ai-gateway')");
-    expect(deploy).toContain("& docker @composeArguments");
-  });
-
-  it("keeps LiteLLM text aliases on independent upstream quota pools", () => {
-    const syncScript = repositoryFile("scripts/sync-ai-secrets.ps1");
-    const liteLlmConfig = repositoryFile(
-      "infrastructure/litellm/config.example.yaml",
-    );
-
-    expect(syncScript).toMatch(
-      /if \(\$geminiConfigured\) \{[\s\S]{0,500}LITELLM_FAST_MODEL' 'gemini\/gemini-3\.5-flash-lite'/,
-    );
-    expect(syncScript).toMatch(
-      /if \(\$groqConfigured\) \{[\s\S]{0,500}LITELLM_SMART_MODEL' 'groq\/openai\/gpt-oss-120b'/,
-    );
-    expect(liteLlmConfig).toContain("- smart: [fast]");
   });
 });
