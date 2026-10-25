@@ -2071,8 +2071,18 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   font-size: 13px;
   font-weight: 650;
   line-height: 1.35;
+  /* Fixed two-line slot: a one-line title leaves the second line
+     empty instead of shrinking the card. */
+  height: calc(2 * 1.35em);
+  min-height: calc(2 * 1.35em);
+  max-height: calc(2 * 1.35em);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+.collaboration-product-copy .collaboration-product-meta {
+  /* Reserved single meta line, present even when empty. */
+  height: 16px;
+  line-height: 16px;
 }
 .collaboration-product-copy span {
   overflow: hidden;

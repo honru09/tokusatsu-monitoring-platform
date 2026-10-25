@@ -67,6 +67,29 @@ describe("collaboration share card contracts", () => {
     expect(label).toMatch(/flex-wrap:\s*nowrap/);
   });
 
+  it("gives the share card a fixed two-line title and one reserved meta row", () => {
+    // Title slot: exactly two line boxes in both layers that set the
+    // title type, so a short title cannot shrink the card.
+    expect(globals).toMatch(
+      /\.collaboration-product-copy strong \{[^}]*height:\s*calc\(2 \* 1\.35em\)[^}]*min-height:\s*calc\(2 \* 1\.35em\)/,
+    );
+    expect(editorial).toMatch(
+      /\.collaboration-product-copy strong\) \{[^}]*height:\s*calc\(2 \* 1\.5em\)/,
+    );
+    // Meta row: always rendered by the markup (empty when there is
+    // neither an explicit target nor a Yahoo target), one fixed line
+    // in both layers. The two conditional rows it replaces - the
+    // target span and the standalone YahooDiscount block - are gone
+    // from the share card copy.
+    expect(tsx).toContain('className="collaboration-product-meta"');
+    expect(globals).toMatch(
+      /\.collaboration-product-copy \.collaboration-product-meta \{[^}]*height:\s*16px/,
+    );
+    expect(editorial).toMatch(
+      /\.collaboration-product-copy \.collaboration-product-meta\) \{[^}]*height:\s*17px/,
+    );
+  });
+
   it("keeps bundle and share-round totals nowrap in the markup", () => {
     // Bundle header total: shrink-proof container, nowrap amount.
     expect(tsx).toMatch(

@@ -173,8 +173,9 @@
 .chat :global(.collaboration-product) { width: min(380px, 100%); grid-template-columns: 64px minmax(0, 1fr) 44px; gap: 12px; padding: 8px; border: 1px solid var(--glass-stroke); border-radius: 16px; background: var(--glass-fill-sheet); box-shadow: var(--glass-rim), 0 4px 14px #173c5c06; }
 .chat :global(.collaboration-product.is-selectable) { grid-template-columns: 36px 64px minmax(0, 1fr) 44px; }
 .chat :global(.collaboration-product-image) { width: 64px; height: 64px; border-radius: 10px; }
-.chat :global(.collaboration-product-copy strong) { font-size: 14px; line-height: 1.5; }
+.chat :global(.collaboration-product-copy strong) { font-size: 14px; line-height: 1.5; height: calc(2 * 1.5em); min-height: calc(2 * 1.5em); max-height: calc(2 * 1.5em); }
 .chat :global(.collaboration-product-copy span) { font-size: 12px; line-height: 1.4; }
+.chat :global(.collaboration-product-copy .collaboration-product-meta) { height: 17px; line-height: 17px; }
 .chat :global(.collaboration-product-open) { border-radius: 12px; }
 .chat :global(.collaboration-product-actions) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 2px; }
 .chat :global(.collaboration-product-action) { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; min-height: 44px; padding: 0 14px; border: 1px solid transparent; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; transition: background-color 180ms var(--ease-out, ease-out), transform 120ms var(--ease-out, ease-out); }

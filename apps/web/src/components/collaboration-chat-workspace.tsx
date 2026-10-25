@@ -1,5 +1,6 @@
 "use client";
 import { YahooDiscount } from "./yahoo-discount";
+import { yahooFleamarketDiscount } from "../lib/yahoo-discount";
 import { LoadError } from "./load-error";
 import { EmptyState } from "./empty-state";
 import { SafeItemImage } from "./item-image";
@@ -946,6 +947,7 @@ function ProductReference({
   onToggleSelect?: (item: CollaborationItem) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const discount = yahooFleamarketDiscount(item.source.key, item.priceCurrent);
   const copyScript = () => {
     const script = buildBundleNegotiationScript([item], targetPriceYen);
     void navigator.clipboard?.writeText(script);
@@ -978,16 +980,21 @@ function ProductReference({
             {yen(item.priceCurrent)} · {item.source.displayName}
             {item.seller?.name ? ` · ${item.seller.name}` : ""}
           </span>
-          {targetPriceYen && targetPriceYen > 0 ? (
-            <span className="inline-block text-xs font-semibold text-emerald-700">
-              目标价 {yen(targetPriceYen)}（省{" "}
-              {yen(Math.max(0, item.priceCurrent - targetPriceYen))}）
-            </span>
-          ) : null}
-          <YahooDiscount
-            sourceKey={item.source.key}
-            priceYen={item.priceCurrent}
-          />
+          {/* One reserved meta row: an explicit target wins, then the
+              Yahoo discount target; empty when neither applies, so the
+              copy block is the same height on every share card. */}
+          <span className="collaboration-product-meta">
+            {targetPriceYen && targetPriceYen > 0 ? (
+              <span className="font-semibold text-emerald-700">
+                目标价 {yen(targetPriceYen)}（省{" "}
+                {yen(Math.max(0, item.priceCurrent - targetPriceYen))}）
+              </span>
+            ) : discount ? (
+              <span className="font-semibold text-emerald-700">
+                最低降价20%测算 {yen(discount.targetYen)}
+              </span>
+            ) : null}
+          </span>
         </span>
         <button
           type="button"
