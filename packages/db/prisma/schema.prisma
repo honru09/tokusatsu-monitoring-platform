@@ -158,13 +158,6 @@ enum ReviewQueueStatus {
   rejected
 }
 
-enum DiscoveryAction {
-  dislike
-  favorite
-  detail_view
-  undo
-}
-
 enum MarketIntelKind {
   news
   forum
@@ -194,7 +187,6 @@ model Source {
   items             Item[]
   sellers           Seller[]
   crawlJobs         CrawlJob[]
-  physicalStores    PhysicalStore[]
   marketComparisons ProductMarketComparison[]
 }
 
@@ -291,12 +283,10 @@ model Item {
   priceHistory             ItemPriceHistory[]
   classifications          ItemClassification[]
   manualReviews            ManualReview[]
-  alerts                   Alert[]
   purchaseRecord           PurchaseRecord?
   urlImports               UrlImport[]
   product                  Product?                 @relation(fields: [productId], references: [id], onDelete: SetNull)
   reviewQueue              ReviewQueue[]
-  discoveryFeedback        DiscoveryFeedback[]      @relation("ListingDiscoveryFeedback")
   aiRuns                   AiRun[]
   aiFeedback               AiFeedback[]
   cartItems                ShoppingCartItem[]
@@ -487,10 +477,8 @@ model Product {
   manufacturerEntity       ProductManufacturer?      @relation(fields: [manufacturerEntityId], references: [id], onDelete: SetNull)
   toyTypeEntity            ProductToyType?           @relation(fields: [toyTypeEntityId], references: [id], onDelete: SetNull)
   listings                 Item[]
-  characters               ProductCharacter[]
   inventory                Inventory?
   reviewQueue              ReviewQueue[]
-  discoveryFeedback        DiscoveryFeedback[]
   marketSnapshots          MarketSnapshot[]
   marketComparisons        ProductMarketComparison[]
   crossMarketOpportunities CrossMarketOpportunity[]
@@ -686,39 +674,9 @@ model Series {
   updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz
   franchise   Franchise   @relation(fields: [franchiseId], references: [id], onDelete: Restrict)
   products    Product[]
-  characters  Character[]
 
   @@index([franchiseId])
   @@map("series")
-}
-
-model Character {
-  id        String             @id @default(uuid())
-  key       String             @unique
-  seriesId  String?            @map("series_id")
-  nameJa    String             @map("name_ja")
-  nameZh    String             @map("name_zh")
-  nameEn    String?            @map("name_en")
-  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz
-  series    Series?            @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  products  ProductCharacter[]
-
-  @@index([seriesId])
-  @@map("characters")
-}
-
-model ProductCharacter {
-  productId   String    @map("product_id")
-  characterId String    @map("character_id")
-  confidence  Float
-  evidence    String?
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-
-  @@id([productId, characterId])
-  @@index([characterId])
-  @@map("product_characters")
 }
 
 model ProductManufacturer {
@@ -797,27 +755,6 @@ model Inventory {
   @@map("inventory")
 }
 
-/// Append-only interaction history for the discovery workspace. Undo is a
-/// separate event so preference-model training can reconstruct user intent.
-model DiscoveryFeedback {
-  id         String              @id @default(uuid())
-  listingId  String              @map("listing_id")
-  productId  String?             @map("product_id")
-  action     DiscoveryAction
-  timestamp  DateTime            @default(now()) @db.Timestamptz
-  position   Int
-  undoOfId   String?             @unique @map("undo_of_id")
-  listing    Item                @relation("ListingDiscoveryFeedback", fields: [listingId], references: [id], onDelete: Cascade)
-  product    Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
-  undoOf     DiscoveryFeedback?  @relation("DiscoveryUndo", fields: [undoOfId], references: [id], onDelete: SetNull)
-  undoEvents DiscoveryFeedback[] @relation("DiscoveryUndo")
-
-  @@index([listingId, timestamp])
-  @@index([productId, timestamp])
-  @@index([action, timestamp])
-  @@map("discovery_feedback")
-}
-
 model ItemImage {
   id                String   @id @default(uuid())
   itemId            String
@@ -856,25 +793,6 @@ model ItemClassification {
   item           Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([itemId, createdAt])
-}
-
-model PhysicalStore {
-  id           String   @id @default(uuid())
-  sourceId     String?
-  name         String
-  area         String?
-  address      String?
-  openingHours String?
-  websiteUrl   String?
-  socialUrl    String?
-  latitude     Float?
-  longitude    Float?
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  source       Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-
-  @@index([area])
 }
 
 model CrawlJob {
@@ -1001,18 +919,6 @@ model PurchaseReceipt {
   purchase   PurchaseRecord @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
 
   @@index([purchaseId, createdAt])
-}
-
-model Alert {
-  id        String    @id @default(uuid())
-  itemId    String
-  ruleKey   String
-  payload   Json?
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
-  item      Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
-
-  @@index([readAt, createdAt])
 }
 
 model ManualReview {
