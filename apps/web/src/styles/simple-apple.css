@@ -331,7 +331,7 @@ html.manager-gate-open,body.manager-gate-open {background:#e9f2f8 !important;}
 .procurement-shell .manager-gate-panel {background:white !important;box-shadow:var(--ui-shadow-raised) !important;border:1px solid var(--ui-line);}
 @media(hover:hover) and (pointer:fine) {
   .procurement-shell .header-tool-cluster>button:hover {background:#ffffffe6 !important;box-shadow:0 4px 12px #1828380f !important;}
-  .procurement-shell .product-card:hover {border-color:#cadcf0 !important;box-shadow:inset 0 1px 0 white,0 12px 32px #1828381a !important;}
+  .procurement-shell .product-card:hover {transform:none;border-color:#cadcf0 !important;box-shadow:inset 0 1px 0 white,0 12px 32px #1828381a !important;}
   .procurement-shell .home-menu-entry:hover {background:#eaf0f3 !important;}
   .procurement-shell .seller-directory-card:hover {transform:none !important;border-color:#9eafb9;background:#fafcfd !important;}
 }
