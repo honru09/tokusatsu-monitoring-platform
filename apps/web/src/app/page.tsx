@@ -17,7 +17,6 @@ import dynamic from "next/dynamic";
 import {
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -51,6 +50,8 @@ import { OperationsWorkspace } from "../components/operations-workspace";
 import { ProcurementCalculatorWorkspace } from "../components/procurement-calculator-workspace";
 import { YahooDiscount } from "../components/yahoo-discount";
 import { InventoryOrdersWorkspace } from "../components/inventory-orders-workspace";
+import { PurchaseRecordsWorkspace } from "../components/purchase-records-workspace";
+import { ContextInfo } from "../components/context-info";
 import { ResaleWorkspace } from "../components/resale-workspace";
 import { ProductReadingPanel } from "../components/product-reading-panel";
 import { AssistantChatWorkspace } from "../components/assistant-chat-workspace";
@@ -122,7 +123,9 @@ import {
   goBackWorkspaceState,
   initialWorkspaceNavigationState,
   legacyCatalogView,
+  legacyPurchasesTab,
   navigateWorkspaceState,
+  parsePurchasesTabParam,
   parseRecentWorkspaceEntries,
   parseWorkspaceHistoryState,
   parseWorkspaceParam,
@@ -130,6 +133,7 @@ import {
   recordRecentWorkspace,
   withWorkspaceHistoryState,
   type CatalogView,
+  type PurchasesTab,
   type RecentWorkspaceEntry,
   type Workspace,
   type WorkspaceNavigationState,
@@ -155,6 +159,10 @@ import {
   standalonePurchaseRecords,
 } from "../lib/purchase-history";
 import { parsePurchaseLinkInput } from "../lib/purchase-link-input";
+import {
+  friendlyImportError,
+  publicUrlsFromInput,
+} from "../lib/import-helpers";
 import { readFetchError } from "../lib/fetch-error";
 import type { MonitoringCategory } from "../components/monitoring-config-workspace";
 
@@ -747,24 +755,6 @@ function TranslateIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
-function InfoIcon({ className = "h-4 w-4" }: IconProps) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 10.5v5M12 7.5h.01" />
-    </svg>
-  );
-}
-
 function ChevronDownIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg
@@ -779,82 +769,6 @@ function ChevronDownIcon({ className = "h-4 w-4" }: IconProps) {
     >
       <path d="m6 9 6 6 6-6" />
     </svg>
-  );
-}
-
-function ContextInfo({
-  label,
-  title,
-  children,
-}: {
-  label: string;
-  title: string;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const titleId = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const closeInfo = useCallback(() => {
-    setOpen(false);
-    window.requestAnimationFrame(() => triggerRef.current?.focus());
-  }, []);
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeInfo();
-    };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [closeInfo, open]);
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label={label}
-        aria-haspopup="dialog"
-        className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink/50 transition-colors hover:text-moss"
-      >
-        <span className="grid h-6 w-6 place-items-center rounded-full border border-ink/12 bg-white/75 shadow-sm">
-          <InfoIcon className="h-4 w-4" />
-        </span>
-      </button>
-      {open &&
-        createPortal(
-          <div
-            className="modal-backdrop absolute inset-0 z-[85] grid place-items-center bg-ink/45 p-4"
-            onMouseDown={closeInfo}
-          >
-            <section
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={titleId}
-              className="modal-panel w-full max-w-sm rounded-3xl bg-paper p-4 shadow-modal"
-              onMouseDown={(event) => event.stopPropagation()}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h2 id={titleId} className="pt-2 text-base font-bold text-ink">
-                  {title}
-                </h2>
-                <button
-                  type="button"
-                  autoFocus
-                  onClick={closeInfo}
-                  aria-label={`关闭${title}`}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-ink shadow-sm"
-                >
-                  <CloseIcon />
-                </button>
-              </div>
-              <div className="mt-2 text-sm leading-6 text-ink/65">
-                {children}
-              </div>
-            </section>
-          </div>,
-          getShellOverlayRoot(),
-        )}
-    </>
   );
 }
 
@@ -932,33 +846,6 @@ const PAGE_SIZE = 40;
 const NOTE_MAX_LENGTH = 25;
 const URL_IMPORT_LIMIT = 20;
 
-function publicUrlsFromInput(value: string) {
-  const matches = value.match(/https?:\/\/[^\s<>"'，。；;]+/gi) ?? [];
-  const urls: string[] = [];
-  for (const raw of matches) {
-    const candidate = raw.replace(/[)\]}>、，。；;]+$/g, "");
-    try {
-      const parsed = new URL(candidate);
-      if (!/^https?:$/.test(parsed.protocol) || urls.includes(parsed.href))
-        continue;
-      urls.push(parsed.href);
-    } catch {}
-  }
-  return urls;
-}
-
-function friendlyImportError(value?: string | null) {
-  if (!value) return "分析未完成，可稍后重试";
-  if (
-    /42P10|no unique or exclusion constraint|PrismaClient|ConnectorError/i.test(
-      value,
-    )
-  )
-    return "卖家资料写入失败；系统已更新，请重新提交该链接";
-  if (/failed to fetch|network|timeout|timed out/i.test(value))
-    return "网络暂时不可用，请稍后重试";
-  return value.replace(/\s+/g, " ").trim().slice(0, 120);
-}
 const fmtDate = (value?: string | null) =>
   value
     ? new Intl.DateTimeFormat("zh-CN", {
@@ -3935,6 +3822,7 @@ export default function Dashboard() {
   inventoryQueryKeyRef.current = inventoryQueryKey;
   const [workspace, setWorkspace] = useState<Workspace>(DEFAULT_WORKSPACE);
   const [catalogView, setCatalogView] = useState<CatalogView>("browse");
+  const [purchasesTab, setPurchasesTab] = useState<PurchasesTab>("records");
   const chatVisitedRef = useRef(false);
   if (workspace === "collaboration") chatVisitedRef.current = true;
   const [workspaceTrail, setWorkspaceTrail] = useState<Workspace[]>([]);
@@ -4252,13 +4140,27 @@ export default function Dashboard() {
       const legacyView = legacyCatalogView(
         new URLSearchParams(window.location.search).get("workspace"),
       );
+      // Pre-merge deep links (?workspace=orders, or
+      // ?workspace=purchases&tab=orders) land on the inventory tab of
+      // the merged purchases workspace.
+      const legacyTab = legacyPurchasesTab(
+        new URLSearchParams(window.location.search).get("workspace"),
+      );
       const fromUrl =
         parseWorkspaceParam(
           new URLSearchParams(window.location.search).get("workspace"),
         ) ??
         (legacyView ? ("catalog" as const) : null) ??
+        (legacyTab ? ("purchases" as const) : null) ??
         DEFAULT_WORKSPACE;
       if (legacyView) setCatalogView(legacyView);
+      if (legacyTab) setPurchasesTab(legacyTab);
+      else if (fromUrl === "purchases") {
+        const tabParam = parsePurchasesTabParam(
+          new URLSearchParams(window.location.search).get("tab"),
+        );
+        if (tabParam) setPurchasesTab(tabParam);
+      }
       const initial = initialWorkspaceNavigationState(fromUrl);
       workspaceStateRef.current = initial;
       workspaceHistoryDepthRef.current = 0;
@@ -4324,13 +4226,27 @@ export default function Dashboard() {
       const legacyView = legacyCatalogView(
         new URLSearchParams(window.location.search).get("workspace"),
       );
+      // Pre-merge deep links (?workspace=orders, or
+      // ?workspace=purchases&tab=orders) land on the inventory tab of
+      // the merged purchases workspace.
+      const legacyTab = legacyPurchasesTab(
+        new URLSearchParams(window.location.search).get("workspace"),
+      );
       const fromUrl =
         parseWorkspaceParam(
           new URLSearchParams(window.location.search).get("workspace"),
         ) ??
         (legacyView ? ("catalog" as const) : null) ??
+        (legacyTab ? ("purchases" as const) : null) ??
         DEFAULT_WORKSPACE;
       if (legacyView) setCatalogView(legacyView);
+      if (legacyTab) setPurchasesTab(legacyTab);
+      else if (fromUrl === "purchases") {
+        const tabParam = parsePurchasesTabParam(
+          new URLSearchParams(window.location.search).get("tab"),
+        );
+        if (tabParam) setPurchasesTab(tabParam);
+      }
       const next = fromHistory ?? {
         ...initialWorkspaceNavigationState(fromUrl),
         depth: 0,
@@ -5816,6 +5732,12 @@ export default function Dashboard() {
     if (workspace !== "catalog") navigateWorkspace("catalog");
   }
 
+  /** Open the merged 采购 workspace with a tab preselected. */
+  function openPurchasesTab(tab: PurchasesTab) {
+    setPurchasesTab(tab);
+    if (workspace !== "purchases") navigateWorkspace("purchases");
+  }
+
   function navigateWorkspace(next: Workspace) {
     if (next === workspace) return;
     workspaceHasNavigatedRef.current = true;
@@ -6645,7 +6567,6 @@ export default function Dashboard() {
         ? "catalog"
         : [
               "purchases",
-              "orders",
               "intel",
               "logistics",
               "calculator",
@@ -6838,7 +6759,13 @@ export default function Dashboard() {
             purchaseAnalyses={purchaseLinkJobs}
             failedJobs24h={overview?.totals24h.failed ?? 0}
             onRegisterItem={openPurchaseRegistrationForTodo}
-            onNavigate={navigateWorkspace}
+            onNavigate={(next) => {
+              // The register queue lives on the records tab; every
+              // other todo target is a plain workspace jump.
+              if (next === "purchases") openPurchasesTab("records");
+              else navigateWorkspace(next);
+            }}
+            onOpenInventory={() => openPurchasesTab("orders")}
             onPendingCountChange={setTodoCount}
           >
             <details className="todo-overview">
@@ -6864,8 +6791,14 @@ export default function Dashboard() {
                 onOpenValueKings={openValueKingCatalog}
                 onOpenUrgentAuctions={openUrgentAuctionCatalog}
                 onOpenXianyuComparison={openXianyuComparisonCatalog}
-                onOpenWorkspace={navigateWorkspace}
+                onOpenWorkspace={(next) => {
+                  // The overview's purchase entries name the records
+                  // tab; the orders tab has its own entry below.
+                  if (next === "purchases") openPurchasesTab("records");
+                  else navigateWorkspace(next);
+                }}
                 onOpenCatalogView={openCatalogView}
+                onOpenPurchasesTab={openPurchasesTab}
                 onOpenAnalysis={() => setAnalysisOpen(true)}
                 hasAnalysis={Boolean(analysis)}
                 urgentAuctionCount={urgentCount}
@@ -6874,214 +6807,110 @@ export default function Dashboard() {
           </TodoHome>
         )}
         {workspace === "purchases" && (
-          <div className="purchases-workspace">
-            <section className="ios-surface workspace-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel">
-              <>
-                <div className="mb-4 rounded-2xl border border-white/60 bg-white/45 p-3 shadow-sm ring-1 ring-ink/5 backdrop-blur-none">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-1">
-                      <h2 className="text-sm font-bold text-ink">
-                        链接登记购买
-                      </h2>
-                      <ContextInfo
-                        label="查看购买链接说明"
-                        title="通过链接登记购买"
-                      >
-                        <p>
-                          粘贴公开商品链接后，后台只分析商品，不进入链接专区；分析结果会保存，刷新页面不会丢失。
-                        </p>
-                        <p className="mt-2">
-                          已谈好价格时，可在链接后空格加实付金额（如
-                          12800），登记时会自动预填，不用再改价。
-                        </p>
-                        <p className="mt-2">
-                          多个链接完成后可登记为同一购买包，并填写打包价格。
-                        </p>
-                      </ContextInfo>
-                    </div>
-                    {completedPurchaseJobs.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openPurchaseRegistrationForJobs(
-                            completedPurchaseJobs.filter((job) =>
-                              selectedPurchaseJobIds.length
-                                ? selectedPurchaseJobIds.includes(job.jobId)
-                                : true,
-                            ),
-                          )
-                        }
-                        className="min-h-11 rounded-xl bg-moss px-3 text-xs font-bold text-white"
-                      >
-                        {selectedPurchaseJobIds.length > 1
-                          ? `打包登记 · ${selectedPurchaseJobIds.length}`
-                          : "登记已完成"}
-                      </button>
-                    )}
-                  </div>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                    <textarea
-                      value={purchaseLinkInput}
-                      onChange={(event) =>
-                        setPurchaseLinkInput(event.target.value)
-                      }
-                      onKeyDown={(event) => {
-                        if (
-                          event.key === "Enter" &&
-                          (event.ctrlKey || event.metaKey)
-                        ) {
-                          event.preventDefault();
-                          void submitPurchaseLinks();
-                        }
-                      }}
-                      rows={2}
-                      placeholder={
-                        "每行一个商品链接，可在链接后空格加实付金额，如 12800\n一次最多 20 个"
-                      }
-                      aria-label="购买商品链接"
-                      className="min-h-[72px] resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
-                    />
-                    <button
-                      type="button"
-                      disabled={
-                        purchaseLinkSubmitting ||
-                        publicUrlsFromInput(purchaseLinkInput).length === 0
-                      }
-                      onClick={() => void submitPurchaseLinks()}
-                      className="min-h-11 rounded-xl bg-ink px-4 text-xs font-bold text-white disabled:opacity-40"
-                    >
-                      {purchaseLinkSubmitting ? "分析中…" : "分析链接"}
-                    </button>
-                  </div>
-                  {purchaseLinkMessage && (
-                    <p
-                      role="status"
-                      className="mt-2 text-xs font-semibold text-moss"
-                    >
-                      {purchaseLinkMessage}
-                    </p>
-                  )}
-                  {purchaseLinkJobs.length > 0 && (
-                    <div className="mt-3 grid gap-1.5">
-                      {purchaseLinkJobs.slice(0, 12).map((job) => {
-                        const done = job.state === "completed" && job.item;
-                        const failed = job.state === "failed";
-                        const checked = selectedPurchaseJobIds.includes(
-                          job.jobId,
-                        );
-                        return (
-                          <div
-                            key={job.jobId}
-                            className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 rounded-xl bg-fog/45 px-2 py-1.5"
-                          >
-                            {done ? (
-                              <label className="grid h-11 w-11 place-items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() =>
-                                    setSelectedPurchaseJobIds((current) =>
-                                      checked
-                                        ? current.filter(
-                                            (id) => id !== job.jobId,
-                                          )
-                                        : [...current, job.jobId],
-                                    )
-                                  }
-                                  aria-label="选择加入购买包"
-                                  className="h-5 w-5 accent-moss"
-                                />
-                              </label>
-                            ) : (
-                              <span
-                                aria-hidden="true"
-                                className={`mx-auto h-2.5 w-2.5 rounded-full ${failed ? "bg-rust" : "bg-amber-500"}`}
-                              />
-                            )}
-                            <div className="min-w-0">
-                              <p className="truncate text-xs font-semibold text-ink">
-                                {job.item
-                                  ? (job.item.titleZh ??
-                                    job.item.product?.titleZh ??
-                                    job.item.titleRaw)
-                                  : job.url}
-                              </p>
-                              <p className="truncate text-[10px] text-ink/45">
-                                {failed
-                                  ? friendlyImportError(job.failedReason)
-                                  : done
-                                    ? job.suggestedAmountYen != null
-                                      ? `分析完成，可登记 · ${job.suggestedAmountSource === "actual" ? "实付" : "挂牌"} ¥${job.suggestedAmountYen.toLocaleString("ja-JP")}`
-                                      : "分析完成，可登记"
-                                    : `${job.state === "active" ? "读取商品" : "等待分析"} · ${job.progress}%`}
-                              </p>
-                            </div>
-                            {done ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openPurchaseRegistrationForJobs([job])
-                                }
-                                className="min-h-11 rounded-xl bg-white px-3 text-xs font-semibold text-moss shadow-sm"
-                              >
-                                登记
-                              </button>
-                            ) : (
-                              <span className="font-mono text-[10px] tabular-nums text-ink/40">
-                                {job.progress}%
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </>
-            </section>
-            <>
-              <div className="purchases-next-step"><span>登记完成后，继续跟踪到货与库存。</span><button type="button" onClick={()=>navigateWorkspace("orders")}>查看库存订单 <span aria-hidden="true">↗</span></button></div>
-              {purchasesError && (
-                <LoadError
-                  message={purchasesError}
-                  onRetry={() => void loadPurchases()}
-                  retryTestId="retry-purchases"
-                />
-              )}
-              <PurchaseRecordsPanel
-                purchases={purchases}
-                bundles={purchaseBundles}
-                bundleCount={purchaseBundlesTotal}
-                bundleGrandTotal={purchaseGrandTotal}
-                bundlePage={purchaseBundlesPage}
-                bundlePageCount={purchaseBundlesPageCount}
-                bundlesLoading={purchaseBundlesLoading}
-                bundlesError={purchaseBundlesError}
-                exchangeRate={exchangeRate?.rate}
-                onOpenItem={(item) => void openAnalysisItem(item.id)}
-                onOpenImages={(item) => setPurchaseGallery(item)}
-                onViewReceipt={(purchase, receiptId) =>
-                  void viewReceipt(purchase, receiptId)
+          <div className="procurement-workspace">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="font-heading text-xl font-black">
+                {TERMS.procurement}
+              </h2>
+            </div>
+            <div
+              className="purchases-view-switcher mb-3 flex gap-1 overflow-x-auto rounded-2xl border border-blue-100 bg-white p-1"
+              role="tablist"
+              aria-label="采购视图"
+            >
+              {(
+                [
+                  ["records", TERMS.purchases],
+                  ["orders", TERMS.orders],
+                ] as const
+              ).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={purchasesTab === tab}
+                  onClick={() => setPurchasesTab(tab)}
+                  className={`min-h-11 flex-1 whitespace-nowrap rounded-xl px-3 text-xs font-bold transition ${purchasesTab === tab ? "bg-ink text-white" : "text-ink/55 hover:bg-fog"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {purchasesTab === "records" && (
+              <PurchaseRecordsWorkspace
+                purchaseLinkInput={purchaseLinkInput}
+                onPurchaseLinkInputChange={setPurchaseLinkInput}
+                purchaseLinkUrlCount={
+                  publicUrlsFromInput(purchaseLinkInput).length
                 }
-                onEditBundle={openPurchaseRegistrationForBundle}
-                onOpenHistory={(bundle) => void openPurchaseHistory(bundle)}
-                onLoadMoreBundles={() =>
-                  void loadPurchaseBundles(purchaseBundlesPage + 1)
+                purchaseLinkSubmitting={purchaseLinkSubmitting}
+                purchaseLinkMessage={purchaseLinkMessage}
+                purchaseLinkJobs={purchaseLinkJobs}
+                completedPurchaseJobCount={completedPurchaseJobs.length}
+                selectedPurchaseJobIds={selectedPurchaseJobIds}
+                onTogglePurchaseJob={(jobId) =>
+                  setSelectedPurchaseJobIds((current) =>
+                    current.includes(jobId)
+                      ? current.filter((id) => id !== jobId)
+                      : [...current, jobId],
+                  )
                 }
-                onRetryBundles={() =>
-                  void loadPurchaseBundles(purchaseBundlesPage)
+                onSubmitPurchaseLinks={submitPurchaseLinks}
+                onRegisterJob={(jobId) => {
+                  const job = purchaseLinkJobs.find(
+                    (entry) => entry.jobId === jobId,
+                  );
+                  if (job) openPurchaseRegistrationForJobs([job]);
+                }}
+                onRegisterSelected={() =>
+                  openPurchaseRegistrationForJobs(
+                    completedPurchaseJobs.filter((job) =>
+                      selectedPurchaseJobIds.length
+                        ? selectedPurchaseJobIds.includes(job.jobId)
+                        : true,
+                    ),
+                  )
+                }
+                purchasesError={purchasesError}
+                onRetryPurchases={() => void loadPurchases()}
+                onOpenOrdersTab={() => setPurchasesTab("orders")}
+                recordsPanel={
+                  <PurchaseRecordsPanel
+                    purchases={purchases}
+                    bundles={purchaseBundles}
+                    bundleCount={purchaseBundlesTotal}
+                    bundleGrandTotal={purchaseGrandTotal}
+                    bundlePage={purchaseBundlesPage}
+                    bundlePageCount={purchaseBundlesPageCount}
+                    bundlesLoading={purchaseBundlesLoading}
+                    bundlesError={purchaseBundlesError}
+                    exchangeRate={exchangeRate?.rate}
+                    onOpenItem={(item) => void openAnalysisItem(item.id)}
+                    onOpenImages={(item) => setPurchaseGallery(item)}
+                    onViewReceipt={(purchase, receiptId) =>
+                      void viewReceipt(purchase, receiptId)
+                    }
+                    onEditBundle={openPurchaseRegistrationForBundle}
+                    onOpenHistory={(bundle) => void openPurchaseHistory(bundle)}
+                    onLoadMoreBundles={() =>
+                      void loadPurchaseBundles(purchaseBundlesPage + 1)
+                    }
+                    onRetryBundles={() =>
+                      void loadPurchaseBundles(purchaseBundlesPage)
+                    }
+                  />
                 }
               />
-            </>
+            )}
+            {purchasesTab === "orders" && (
+              <section className="inventory-orders-page" aria-label="库存订单">
+                <InventoryOrdersWorkspace
+                  apiBaseUrl={API}
+                  exchangeRate={exchangeRate?.rate}
+                />
+              </section>
+            )}
           </div>
-        )}
-        {workspace === "orders" && (
-          <section className="inventory-orders-page" aria-label="库存订单">
-            <InventoryOrdersWorkspace
-              apiBaseUrl={API}
-              exchangeRate={exchangeRate?.rate}
-            />
-          </section>
         )}
         <ResaleWorkspace
           active={workspace === "resale"}

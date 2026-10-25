@@ -4,6 +4,8 @@ import {
   goBackWorkspaceState,
   initialWorkspaceNavigationState,
   legacyCatalogView,
+  legacyPurchasesTab,
+  parsePurchasesTabParam,
   navigateWorkspaceState,
   parseWorkspaceHistoryState,
   parseRecentWorkspaceEntries,
@@ -162,7 +164,7 @@ describe("workspace URL deep-link", () => {
   it("accepts known workspace query values and rejects junk", () => {
     expect(parseWorkspaceParam("inventory")).toBe("inventory");
     expect(parseWorkspaceParam("catalog")).toBe("catalog");
-    expect(parseWorkspaceParam("orders")).toBe("orders");
+    expect(parseWorkspaceParam("purchases")).toBe("purchases");
     expect(parseWorkspaceParam("not-a-workspace")).toBeNull();
     expect(parseWorkspaceParam(null)).toBeNull();
   });
@@ -181,9 +183,19 @@ describe("workspace URL deep-link", () => {
     expect(legacyCatalogView(null)).toBeNull();
   });
 
-  it("treats inventory orders as a workbench child", () => {
-    expect(initialWorkspaceNavigationState("orders")).toEqual({
-      workspace: "orders",
+  it("maps pre-merge inventory-order links to the purchases inventory tab", () => {
+    // Orders is a tab of the purchases workspace now, not a page.
+    expect(parseWorkspaceParam("orders")).toBeNull();
+    expect(legacyPurchasesTab("orders")).toBe("orders");
+    expect(legacyPurchasesTab("purchases")).toBeNull();
+    expect(legacyPurchasesTab(null)).toBeNull();
+    expect(parsePurchasesTabParam("orders")).toBe("orders");
+    expect(parsePurchasesTabParam("records")).toBe("records");
+    expect(parsePurchasesTabParam("catalog")).toBeNull();
+    expect(parsePurchasesTabParam(null)).toBeNull();
+    // The merged page itself stays a workbench child.
+    expect(initialWorkspaceNavigationState("purchases")).toEqual({
+      workspace: "purchases",
       trail: ["workbench"],
     });
   });

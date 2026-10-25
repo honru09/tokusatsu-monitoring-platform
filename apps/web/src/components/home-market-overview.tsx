@@ -29,7 +29,6 @@ export type MarketOverviewData = {
 
 export type HomeWorkspaceEntry =
   | "purchases"
-  | "orders"
   | "intel"
   | "logistics"
   | "resale"
@@ -56,6 +55,8 @@ type Props = {
     sortOrder?: "asc" | "desc",
   ) => void;
   onOpenWorkspace: (workspace: HomeWorkspaceEntry) => void;
+  /** 库存订单 is the orders tab of the merged 采购 workspace now. */
+  onOpenPurchasesTab?: (tab: "records" | "orders") => void;
   /** Favorites and link imports are catalog views now, not pages. */
   onOpenCatalogView: (view: "favorites" | "links") => void;
   onOpenAnalysis: () => void;
@@ -305,6 +306,7 @@ export function HomeMarketOverview({
   onOpenUrgentAuctions,
   onOpenXianyuComparison,
   onOpenWorkspace,
+  onOpenPurchasesTab,
   onOpenCatalogView,
   onOpenAnalysis,
   hasAnalysis,
@@ -635,7 +637,7 @@ export function HomeMarketOverview({
 
           <div className="home-task-bridge" aria-label="商品流转">
             <button type="button" onClick={onOpenInventory}><span>01</span><strong>选货</strong><b aria-hidden="true">→</b></button>
-            <button type="button" onClick={()=>onOpenWorkspace("orders")}><span>02</span><strong>采购</strong><b aria-hidden="true">→</b></button>
+            <button type="button" onClick={()=>onOpenWorkspace("purchases")}><span>02</span><strong>采购</strong><b aria-hidden="true">→</b></button>
             <button type="button" onClick={()=>onOpenWorkspace("resale")}><span>03</span><strong>闲鱼售卖</strong><b aria-hidden="true">↗</b></button>
           </div>
 
@@ -784,7 +786,7 @@ export function HomeMarketOverview({
               <HomeMenuEntry
                 icon="box"
                 label="库存订单"
-                onClick={() => onOpenWorkspace("orders")}
+                onClick={() => onOpenPurchasesTab?.("orders")}
               />
             </div>
           </section>

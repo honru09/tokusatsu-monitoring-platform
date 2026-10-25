@@ -513,7 +513,6 @@ textarea:focus-visible {
   padding-block: 4px 24px;
 }
 
-.workspace-orders .cart-fab,
 .workspace-purchases .cart-fab {
   display: none;
 }

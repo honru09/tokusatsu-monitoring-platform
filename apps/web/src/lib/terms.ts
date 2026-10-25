@@ -22,6 +22,7 @@ export const TERMS = {
   links: "链接导入",
   purchases: "购买记录",
   orders: "库存订单",
+  procurement: "采购",
   calculator: "采购测算",
   logistics: "物流",
   intel: "市场情报",

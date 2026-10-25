@@ -2,7 +2,6 @@ export type Workspace =
   | "inventory"
   | "catalog"
   | "purchases"
-  | "orders"
   | "intel"
   | "monitoring"
   | "resale"
@@ -49,6 +48,36 @@ export function legacyCatalogView(
   return LEGACY_WORKSPACE_CATALOG_VIEWS[value] ?? null;
 }
 
+/**
+ * Tabs inside the purchases workspace. Purchase records and inventory
+ * orders used to be standalone workspaces; they are tabs of the one
+ * 采购 page now, not separate pages.
+ */
+export type PurchasesTab = "records" | "orders";
+
+export const PURCHASES_TABS: readonly PurchasesTab[] = ["records", "orders"];
+
+/**
+ * Pre-merge workspace id for the inventory tab: `?workspace=orders`
+ * bookmarks and shared links land on the purchases workspace with the
+ * inventory tab preselected, same treatment as the catalog fold.
+ */
+export function legacyPurchasesTab(
+  value: string | null | undefined,
+): PurchasesTab | null {
+  return value === "orders" ? "orders" : null;
+}
+
+/** Parse the optional `?tab=` companion of `?workspace=purchases`. */
+export function parsePurchasesTabParam(
+  value: string | null | undefined,
+): PurchasesTab | null {
+  if (typeof value !== "string") return null;
+  return (PURCHASES_TABS as readonly string[]).includes(value)
+    ? (value as PurchasesTab)
+    : null;
+}
+
 export type WorkspaceNavigationState = {
   workspace: Workspace;
   trail: Workspace[];
@@ -76,7 +105,6 @@ export const ALL_WORKSPACES = [
   "inventory",
   "catalog",
   "purchases",
-  "orders",
   "intel",
   "monitoring",
   "resale",

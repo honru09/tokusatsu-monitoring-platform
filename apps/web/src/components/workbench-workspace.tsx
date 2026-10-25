@@ -14,8 +14,7 @@ import { AppleActionRail } from "./apple-action-rail";
  * the service split.
  */
 const toolEntries = [
-  ["purchases", TERMS.purchases, "记录、改价与变更历史"],
-  ["orders", TERMS.orders, "追踪到货、库存与销售"],
+  ["purchases", TERMS.procurement, "购买记录、到货与库存"],
   ["calculator", TERMS.calculator, "核算报价与采购成本"],
   ["logistics", TERMS.logistics, "比较运费与运输方案"],
   ["resale", TERMS.resale, "选品、编辑、发布与维护"],

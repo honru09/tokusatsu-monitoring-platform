@@ -41,6 +41,8 @@ type TodoHomeProps = {
   onNavigate: (workspace: Workspace) => void;
   /** Opens the unified purchase registration form for a register-queue row. */
   onRegisterItem?: (item: TodoItemRef) => void;
+  /** 库存 is the orders tab of the merged 采购 workspace now. */
+  onOpenInventory?: () => void;
   onPendingCountChange: (count: number) => void;
   /** The collapsed market overview rendered below the queues. */
   children?: ReactNode;
@@ -55,6 +57,7 @@ export function TodoHome({
   failedJobs24h,
   onNavigate,
   onRegisterItem,
+  onOpenInventory,
   onPendingCountChange,
   children,
 }: TodoHomeProps) {
@@ -313,14 +316,14 @@ export function TodoHome({
           title={TERMS.queueInventory}
           count={queues.inventory.length}
           moreLabel={`去${TERMS.orders}查看`}
-          onMore={() => onNavigate("orders")}
+          onMore={() => (onOpenInventory ?? (() => onNavigate("purchases")))()}
         >
           {queues.inventory.slice(0, ROW_LIMIT).map((entry) => (
             <button
               key={entry.key}
               type="button"
               className={styles.row}
-              onClick={() => onNavigate("orders")}
+              onClick={() => (onOpenInventory ?? (() => onNavigate("purchases")))()}
             >
               <RowThumb imageUrl={entry.imageUrl} title={entry.title} />
               <span className={styles.rowBody}>

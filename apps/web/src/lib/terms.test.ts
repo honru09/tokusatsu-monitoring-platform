@@ -19,6 +19,17 @@ describe("canonical terms", () => {
     expect(new Set([TERMS.cart, TERMS.bundle, TERMS.purchases]).size).toBe(3);
   });
 
+  it("names the merged procurement workspace and its two tabs", () => {
+    // 采购 is the one workspace; 购买记录 and 库存订单 are its tabs,
+    // not separate pages, so all three names stay distinct.
+    expect(TERMS.procurement).toBe("采购");
+    expect(TERMS.purchases).toBe("购买记录");
+    expect(TERMS.orders).toBe("库存订单");
+    expect(
+      new Set([TERMS.procurement, TERMS.purchases, TERMS.orders]).size,
+    ).toBe(3);
+  });
+
   it("names the todo queues and the unverifiable state", () => {
     expect(TERMS.queueReview).toBe("待评估");
     expect(TERMS.queueNegotiating).toBe("砍价中");
