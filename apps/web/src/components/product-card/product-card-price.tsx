@@ -11,10 +11,9 @@ import { listingCostSummary } from "../../lib/listing-cost";
 import type { ProductCardItem } from "./product-card-item";
 
 /**
- * Price block. Every amount stays on the card in both densities (total,
- * its CNY estimate, quantity, unit price, the list-price/shipping split
- * and the Yahoo discount estimate); compact mode only tightens the chrome
- * around them.
+ * Price block. Every amount stays on the card (total, its CNY estimate,
+ * quantity, unit price, the list-price/shipping split and the Yahoo
+ * discount estimate).
  */
 export function ProductCardPrice({
   item,

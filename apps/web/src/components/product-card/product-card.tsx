@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { NoteDialog } from "../note-dialog";
 import { itemDisplayTitle } from "../../lib/listing-display";
 import type { ProductCardProps } from "./product-card-item";
-import { useProductCardDensity } from "./product-card-density";
 import { ProductCardMedia } from "./product-card-media";
 import { ProductCardTags } from "./product-card-tags";
 import { ProductCardPrice } from "./product-card-price";
@@ -13,15 +12,13 @@ import {
   type ProductCardActionFeedback,
 } from "./product-card-actions";
 import { CommentIcon } from "./product-card-icons";
-import styles from "./product-card.module.css";
 
-export type { ProductCardDensity, ProductCardItem, ProductCardPatch, ProductCardProps } from "./product-card-item";
+export type { ProductCardItem, ProductCardPatch, ProductCardProps } from "./product-card-item";
 
 /**
  * Card shell: owns the per-card state (note dialog, more menu, pending
  * action feedback, title language) and composes the media, tags, price
- * and actions blocks. Standard density renders exactly the classes the
- * inline card used; compact only adds the compact class hook.
+ * and actions blocks, rendering exactly the classes the inline card used.
  */
 export function ProductCard({
   item,
@@ -41,11 +38,7 @@ export function ProductCard({
   onSendToManager,
   inBundleShare = false,
   onToggleBundleShare,
-  density: densityProp,
 }: ProductCardProps) {
-  const contextDensity = useProductCardDensity();
-  const density = densityProp ?? contextDensity;
-  const compact = density === "compact";
   const [showOriginal, setShowOriginal] = useState(language === "original");
   useEffect(() => setShowOriginal(language === "original"), [language]);
   const [noteOpen, setNoteOpen] = useState(false);
@@ -77,10 +70,9 @@ export function ProductCard({
   return (
     <article
       data-item-id={item.id}
-      data-density={compact ? "compact" : undefined}
       onPointerDownCapture={() => { pointerInputRef.current = true; }}
       onKeyDownCapture={(event) => { pointerInputRef.current = false; if(event.key === "Escape" && moreActionsOpen) { event.stopPropagation(); setMoreActionsOpen(false); moreTriggerRef.current?.focus(); } }}
-      className={`ios-card product-card js-product-card motion-layer group flex min-w-0 flex-col overflow-hidden rounded-[18px] shadow-panel ${item.note ? "product-card-has-note" : ""}${compact ? ` product-card-compact ${styles.compact}` : ""}`}
+      className={`ios-card product-card js-product-card motion-layer group flex min-w-0 flex-col overflow-hidden rounded-[18px] shadow-panel ${item.note ? "product-card-has-note" : ""}`}
     >
       <ProductCardMedia
         item={item}

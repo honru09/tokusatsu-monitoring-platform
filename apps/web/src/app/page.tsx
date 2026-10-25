@@ -75,12 +75,6 @@ import {
 } from "../lib/listing-display";
 import { ProductCard } from "../components/product-card/product-card";
 import {
-  ProductCardDensityToggle,
-  readStoredCardDensity,
-  storeCardDensity,
-} from "../components/product-card/product-card-density";
-import type { ProductCardDensity } from "../components/product-card/product-card-item";
-import {
   ArchiveIcon,
   CartIcon,
   CommentIcon,
@@ -4807,14 +4801,6 @@ export default function Dashboard() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const [language, setLanguage] = useState<"zh" | "original">("zh");
-  const [cardDensity, setCardDensity] = useState<ProductCardDensity>("standard");
-  useEffect(() => {
-    setCardDensity(readStoredCardDensity());
-  }, []);
-  const changeCardDensity = (next: ProductCardDensity) => {
-    setCardDensity(next);
-    storeCardDensity(next);
-  };
   const [listingMode, setListingMode] = useState<ListingType>("direct");
   const inventoryQueryKey = JSON.stringify([
     listingMode,
@@ -7745,10 +7731,6 @@ export default function Dashboard() {
                     <h3 className="font-heading text-base font-black">
                       已导入商品 · {linkTotal}
                     </h3>
-                    <ProductCardDensityToggle
-                      density={cardDensity}
-                      onChange={changeCardDensity}
-                    />
                   </div>
                   <div className="mt-2 grid auto-rows-max grid-cols-2 items-start gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {linkItems.length === 0 ? (
@@ -7762,7 +7744,6 @@ export default function Dashboard() {
                           item={item}
                           serverOffset={serverOffset}
                           nowTick={nowTick}
-                          density={cardDensity}
                           language={language}
                           translatedTitle={translations[`${item.id}:title`]}
                           onOpen={() => openItemDetail(item)}
@@ -8655,7 +8636,6 @@ export default function Dashboard() {
                         item={item}
                         serverOffset={serverOffset}
                         nowTick={nowTick}
-                        density={cardDensity}
                         language={language}
                         translatedTitle={translations[`${item.id}:title`]}
                         onOpen={() => openItemDetail(item)}
@@ -8731,10 +8711,6 @@ export default function Dashboard() {
                 <div
                   className="catalog-actions flex flex-wrap gap-2"
                 >
-                  <ProductCardDensityToggle
-                    density={cardDensity}
-                    onChange={changeCardDensity}
-                  />
                   {filters.valueKing !== "true" && (
                     <div className="catalog-mode-switch" role="group" aria-label="在售商品类型">
                       <span className="catalog-mode-indicator" aria-hidden="true" style={{transform: `translateX(${listingMode === "direct" ? "100%" : "0%"})`}} />
@@ -8881,7 +8857,6 @@ export default function Dashboard() {
                         item={item}
                         serverOffset={serverOffset}
                         nowTick={nowTick}
-                        density={cardDensity}
                         language={language}
                         translatedTitle={translations[`${item.id}:title`]}
                         onOpen={() => openItemDetail(item)}

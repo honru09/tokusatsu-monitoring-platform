@@ -1,8 +1,6 @@
 import type { ChinaComparisonEvidence } from "../../lib/china-comparison";
 import type { ListingType } from "../../lib/listing-type";
 
-export type ProductCardDensity = "standard" | "compact";
-
 /** The only patches a card can send back to its parent list. */
 export type ProductCardPatch = {
   favorite?: boolean;
@@ -69,6 +67,4 @@ export type ProductCardProps = {
   onSendToManager: () => void;
   inBundleShare?: boolean;
   onToggleBundleShare?: () => void;
-  /** Falls back to ProductCardDensityContext when not passed directly. */
-  density?: ProductCardDensity;
 };
