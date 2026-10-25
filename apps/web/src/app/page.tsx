@@ -7296,7 +7296,7 @@ export default function Dashboard() {
         {workspace === "catalog" && (
           <>
             <div
-              className="catalog-view-switcher mb-3 flex gap-1 overflow-x-auto rounded-2xl border border-blue-100 bg-white p-1"
+              className="catalog-view-switcher mb-3 flex gap-1 overflow-x-auto rounded-full border border-black/[0.06] bg-white p-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
               role="tablist"
               aria-label="选货视图"
             >
@@ -7314,7 +7314,7 @@ export default function Dashboard() {
                   role="tab"
                   aria-selected={catalogView === view}
                   onClick={() => setCatalogView(view)}
-                  className={`min-h-11 flex-1 whitespace-nowrap rounded-xl px-3 text-xs font-bold transition ${catalogView === view ? "bg-ink text-white" : "text-ink/55 hover:bg-fog"}`}
+                  className={`min-h-11 flex-1 whitespace-nowrap rounded-full px-4 text-xs font-semibold transition ${catalogView === view ? "bg-ink text-white shadow-sm" : "text-ink/60 hover:bg-black/5"}`}
                 >
                   {label}
                   {view === "disliked" && dislikedTotal > 0
@@ -7339,7 +7339,7 @@ export default function Dashboard() {
                     aria-modal="true"
                     aria-labelledby="filter-dialog-title"
                     ref={filterDialogRef}
-                    className="ios-surface modal-panel js-filter-modal scrollbar-thin max-h-[92dvh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-paper p-4 shadow-modal sm:p-5"
+                    className="ios-surface modal-panel js-filter-modal scrollbar-thin max-h-[92dvh] w-full max-w-5xl overflow-y-auto rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_24px_70px_rgba(0,0,0,0.18)] sm:p-6"
                     onMouseDown={(event) => event.stopPropagation()}
                     initial={
                       workspaceMotionPreference
@@ -7352,7 +7352,7 @@ export default function Dashboard() {
                       ease: motionTokens.easing.smooth,
                     }}
                   >
-                    <div className="mb-4 flex items-center justify-between gap-3 border-b border-blue-100 pb-3">
+                    <div className="mb-4 flex items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
                       <div>
                         <h2
                           id="filter-dialog-title"
@@ -7370,7 +7370,7 @@ export default function Dashboard() {
                         onClick={() => setFiltersOpen(false)}
                         ref={filterCloseRef}
                         aria-label="关闭筛选器"
-                        className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-ink shadow-sm transition-colors hover:bg-blue-50"
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-black/[0.08] bg-white text-ink shadow-sm transition-colors hover:bg-black/5"
                       >
                         <CloseIcon />
                       </button>
@@ -7637,16 +7637,16 @@ export default function Dashboard() {
                         <option value="desc">从高到低</option>
                       </FilterSelect>
                     </div>
-                    <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-blue-100 pt-4">
+                    <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-black/[0.06] pt-4">
                       <button
                         onClick={resetFilters}
-                        className="min-h-11 rounded-lg border border-ink/15 bg-white px-4 text-xs font-bold transition-colors hover:bg-blue-50"
+                        className="min-h-11 rounded-full border border-black/[0.12] bg-white px-5 text-xs font-semibold text-ink transition-colors hover:bg-black/5"
                       >
                         重置筛选
                       </button>
                       <button
                         onClick={() => setFiltersOpen(false)}
-                        className="min-h-11 rounded-lg bg-moss px-5 text-xs font-bold text-white transition-colors hover:bg-blue-800"
+                        className="min-h-11 rounded-full bg-moss px-6 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
                       >
                         应用并关闭
                       </button>
@@ -7767,7 +7767,7 @@ export default function Dashboard() {
               aria-hidden="true"
               style={{ display: "block", height: 0 }}
             />
-            <section ref={catalogToolbarRef} className="catalog-toolbar workspace-surface js-shell-reveal mt-3 rounded-2xl border border-blue-100 bg-white p-3 shadow-panel">
+            <section ref={catalogToolbarRef} className="catalog-toolbar workspace-surface js-shell-reveal mt-3 rounded-[28px] border border-black/[0.06] bg-white p-3.5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <WorkspaceHeaderArt art="catalog" />
                 <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -7815,7 +7815,7 @@ export default function Dashboard() {
                         type="button"
                         onClick={openValueKingCatalog}
                         aria-label="性价比之王"
-                        className="flex min-h-11 items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 text-xs font-semibold text-moss transition-colors hover:bg-blue-50"
+                        className="flex min-h-11 items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3.5 text-xs font-semibold text-ink transition-colors hover:bg-black/5"
                       >
                         性价比之王
                         <strong className="font-mono tabular-nums">
@@ -7826,7 +7826,7 @@ export default function Dashboard() {
                         type="button"
                         onClick={openUrgentAuctionCatalog}
                         aria-label="紧急拍卖"
-                        className="flex min-h-11 items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 text-xs font-semibold text-moss transition-colors hover:bg-blue-50"
+                        className="flex min-h-11 items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3.5 text-xs font-semibold text-ink transition-colors hover:bg-black/5"
                       >
                         紧急拍卖
                         <span className="text-ink/45">30 分钟内</span>
@@ -7840,7 +7840,7 @@ export default function Dashboard() {
                         type="button"
                         aria-pressed={listingMode === "auction"}
                         onClick={() => changeListingMode("auction")}
-                        className={`min-h-11 rounded-lg border px-3 text-xs font-bold transition-colors ${listingMode === "auction" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
+                        className={`min-h-11 rounded-full border px-3.5 text-xs font-bold transition-colors ${listingMode === "auction" ? "border-ink bg-ink text-white shadow-sm" : "border-black/[0.08] bg-white text-ink hover:bg-black/5"}`}
                       >
                         拍卖 · {listingCounts.auction}
                       </button>
@@ -7848,7 +7848,7 @@ export default function Dashboard() {
                         type="button"
                         aria-pressed={listingMode === "direct"}
                         onClick={() => changeListingMode("direct")}
-                        className={`min-h-11 rounded-lg border px-3 text-xs font-bold transition-colors ${listingMode === "direct" ? "border-ink bg-ink text-lime" : "border-blue-200 bg-white text-ink"}`}
+                        className={`min-h-11 rounded-full border px-3.5 text-xs font-bold transition-colors ${listingMode === "direct" ? "border-ink bg-ink text-white shadow-sm" : "border-black/[0.08] bg-white text-ink hover:bg-black/5"}`}
                       >
                         直购 · {listingCounts.direct}
                       </button>
@@ -7857,7 +7857,7 @@ export default function Dashboard() {
                   {activeFilterCount > 0 && (
                     <button
                       onClick={resetFilters}
-                      className="catalog-clear-button min-h-11 rounded-lg px-3 text-xs font-semibold"
+                      className="catalog-clear-button min-h-11 rounded-full px-3.5 text-xs font-semibold"
                     >
                       清除 {activeFilterCount} 项
                     </button>
@@ -7866,7 +7866,7 @@ export default function Dashboard() {
                     onClick={() => setFiltersOpen(true)}
                     ref={filterTriggerRef}
                     aria-haspopup="dialog"
-                    className="catalog-filter-button flex min-h-11 items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 text-xs font-semibold text-moss transition-colors hover:bg-blue-50"
+                    className="catalog-filter-button flex min-h-11 items-center gap-2 rounded-full border border-black/[0.08] bg-white px-3.5 text-xs font-semibold text-ink transition-colors hover:bg-black/5"
                   >
                     <FilterIcon /> 筛选
                     {activeFilterCount ? ` · ${activeFilterCount}` : ""}
