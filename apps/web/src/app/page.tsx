@@ -54,8 +54,10 @@ import {
   CollaborationChatWorkspace,
   buildBundleNegotiationScript,
   buildBundleShareText,
+  markShareRoundItemsCopied,
   type CollaborationItem,
   type PendingCollaborationBundle,
+  type ShareRound,
 } from "../components/collaboration-chat-workspace";
 import {
   ManagerAccountGate,
@@ -2012,12 +2014,14 @@ function SellerProfileDialog({
   onClose,
   onOpenItem,
   onSendBundle,
+  onBundleCopied,
   exchangeRate,
 }: {
   sellerId: string;
   onClose: () => void;
   onOpenItem: (item: Item) => void;
   onSendBundle?: (items: Item[], targetPriceYen?: number | null) => void;
+  onBundleCopied?: (itemIds: string[]) => void;
   exchangeRate?: number;
 }) {
   const [data, setData] = useState<SellerAnalysis | null>(null);
@@ -2058,7 +2062,8 @@ function SellerProfileDialog({
     void navigator.clipboard?.writeText(script);
     setCopiedBundleJa(true);
     window.setTimeout(() => setCopiedBundleJa(false), 1800);
-  }, [parsedTargetPriceYen, selectedItems]);
+    onBundleCopied?.(selectedItems.map((item) => item.id));
+  }, [onBundleCopied, parsedTargetPriceYen, selectedItems]);
   const copySelectedBundleShareText = useCallback(() => {
     if (!selectedItems.length) return;
     void navigator.clipboard?.writeText(
@@ -2066,7 +2071,8 @@ function SellerProfileDialog({
     );
     setCopiedBundleShare(true);
     window.setTimeout(() => setCopiedBundleShare(false), 1800);
-  }, [parsedTargetPriceYen, selectedItems]);
+    onBundleCopied?.(selectedItems.map((item) => item.id));
+  }, [onBundleCopied, parsedTargetPriceYen, selectedItems]);
   const load = useCallback(
     async (price?: string) => {
       setAnalyzing(true);
@@ -6643,6 +6649,50 @@ export default function Dashboard() {
       setCartSharing(false);
     }
   }
+  // The seller dialog's items come from seller analysis, not from a round,
+  // so a copy there is accounted by looking up which rounds currently
+  // contain the copied items and marking those round rows. Best-effort and
+  // fire-and-forget: a failed lookup never affects the copy itself.
+  function markCopiedForItems(itemIds: string[]) {
+    if (!itemIds.length) return;
+    void (async () => {
+      try {
+        const query = activeManagerId
+          ? `?accountId=${encodeURIComponent(activeManagerId)}`
+          : "";
+        const response = await fetch(`${API}/collaboration/share-rounds${query}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const data = (await response.json()) as { rounds?: ShareRound[] };
+        const roundByItem = new Map<string, string>();
+        for (const round of data.rounds ?? []) {
+          for (const row of round.items ?? []) {
+            if (!roundByItem.has(row.itemId))
+              roundByItem.set(row.itemId, round.id);
+          }
+        }
+        const byRound = new Map<string, string[]>();
+        for (const itemId of itemIds) {
+          const roundId = roundByItem.get(itemId);
+          if (!roundId) continue;
+          byRound.set(roundId, [...(byRound.get(roundId) ?? []), itemId]);
+        }
+        await Promise.all(
+          [...byRound].map(([roundId, ids]) =>
+            markShareRoundItemsCopied(
+              API,
+              activeManagerId || undefined,
+              roundId,
+              ids,
+            ),
+          ),
+        );
+      } catch {
+        // Copy accounting is best-effort only.
+      }
+    })();
+  }
   async function patchItem(
     id: string,
     patch: Partial<Item>,
@@ -9049,6 +9099,7 @@ export default function Dashboard() {
           onSendBundle={(selectedSellerItems, targetPriceYen) => {
             openManagerBundleConversation(selectedSellerItems, targetPriceYen);
           }}
+          onBundleCopied={(itemIds) => markCopiedForItems(itemIds)}
         />
       )}
       {purchaseItem && (
