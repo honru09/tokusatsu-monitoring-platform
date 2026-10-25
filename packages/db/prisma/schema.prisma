@@ -1185,6 +1185,11 @@ model ManagerAccount {
   avatarInitial    String            @map("avatar_initial")
   position         Int               @unique
   active           Boolean           @default(true)
+  /// Login credential for the manager login gate. The code is the login
+  /// identifier; passwordHash is `scrypt$<salt b64>$<hash b64>`. Null on
+  /// accounts that have no credential yet (cannot password-login).
+  loginCode        String?           @unique @map("login_code")
+  passwordHash     String?           @map("password_hash")
   lastSeenAt       DateTime?         @map("last_seen_at") @db.Timestamptz
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz
@@ -1196,6 +1201,7 @@ model ManagerAccount {
   shareRounds      ShareRound[]
   itemDecisions     ItemDecision[]
   pushSubscriptions PushSubscription[]
+  shipments         Shipment[]
 
   @@index([active, position])
   @@map("manager_accounts")
@@ -1387,6 +1393,7 @@ model InventoryOrder {
   updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz
   salesRecords      SalesRecord[]
   adjustments       InventoryAdjustment[]
+  shipmentLines     ShipmentLine[]
 
   @@index([status, purchasedAt])
   @@index([purchasedAt])
@@ -1423,6 +1430,38 @@ model InventoryAdjustment {
 
   @@index([inventoryOrderId, createdAt])
   @@map("inventory_adjustments")
+}
+
+/// One confirmed outbound parcel (Japan Post international small packet).
+/// Lines snapshot the declared values used at packing time; confirming a
+/// shipment decrements InventoryOrder.remainingQuantity for each line.
+model Shipment {
+  id            String         @id @default(uuid())
+  totalDeclared Int            @map("total_declared")
+  createdById   String         @map("created_by_id")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  createdBy     ManagerAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  lines         ShipmentLine[]
+
+  @@index([createdAt])
+  @@index([createdById, createdAt])
+  @@map("shipments")
+}
+
+model ShipmentLine {
+  id               String         @id @default(uuid())
+  shipmentId       String         @map("shipment_id")
+  inventoryOrderId String         @map("inventory_order_id")
+  itemName         String?        @map("item_name")
+  quantity         Int
+  unitDeclaredYen  Int            @map("unit_declared_yen")
+  lineTotalYen     Int            @map("line_total_yen")
+  shipment         Shipment       @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  inventoryOrder   InventoryOrder @relation(fields: [inventoryOrderId], references: [id], onDelete: Restrict)
+
+  @@index([shipmentId])
+  @@index([inventoryOrderId])
+  @@map("shipment_lines")
 }
 
 model ResaleSettings {
