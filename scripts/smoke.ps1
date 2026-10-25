@@ -17,7 +17,6 @@ function Wait-Endpoint([string]$Name, [string]$Url, [int]$Attempts = 30) {
 
 Wait-Endpoint 'API health' 'http://localhost:3001/health'
 Wait-Endpoint 'API items' 'http://localhost:3001/items?limit=1'
-Wait-Endpoint 'API metrics' 'http://localhost:3001/metrics'
 Wait-Endpoint 'Web' 'http://localhost:3000'
 
 $items = Invoke-RestMethod -Uri 'http://localhost:3001/items?limit=5' -TimeoutSec 5

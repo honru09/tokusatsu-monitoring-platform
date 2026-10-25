@@ -69,7 +69,6 @@ scripts/
 - Web：<http://localhost:3000>
 - API：<http://localhost:3001>
 - 健康检查：<http://localhost:3001/health>
-- 指标：<http://localhost:3001/metrics>
 - PostgreSQL 主机端口：`55432`（避免与本机常见的 `5432` 冲突）
 - Redis：`6379`
 
