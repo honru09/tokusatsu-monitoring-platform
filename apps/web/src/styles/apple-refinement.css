@@ -44,15 +44,10 @@
 .portal-heading {
   margin-bottom: 20px;
 }
-.workbench-favorite-entry {
-  min-height: 84px;
-  padding-block: 16px;
-}
 .workbench-quick-card {
   min-height: 90px;
 }
-.workbench-quick-card strong,
-.workbench-favorite-entry strong {
+.workbench-quick-card strong {
   font-size: 1rem;
   font-weight: 650;
 }

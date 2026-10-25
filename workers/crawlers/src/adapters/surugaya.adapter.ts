@@ -221,7 +221,18 @@ export class SurugayaAdapter implements SourceAdapter {
       url.searchParams.set("search_word", query.keyword);
       const page = pageStart + index + 1;
       if (page > 1) url.searchParams.set("page", String(page));
-      const html = await this.fetchAllowed(url.toString());
+      let html: string;
+      try {
+        html = await this.fetchAllowed(url.toString());
+      } catch (error) {
+        // Surugaya answers 404 both for a keyword with no hits and for
+        // pages past the end of a result set: that is "no more
+        // results", not a crawl failure, so the search just ends with
+        // what it has. fetchDetail keeps the throwing behavior - its
+        // 404 is how refreshStatus learns an item is gone.
+        if (/Surugaya returned 404/.test(String(error))) break;
+        throw error;
+      }
       for (const result of parseSurugayaSearchHtml(
         html,
         url.toString(),

@@ -1,6 +1,6 @@
 # 运营台使用与部署
 
-入口：工作台 → 运营台，或 `/?workspace=operations`。独立窗口为 `/operations-browser/`。
+入口：独立窗口 `/operations-browser/`（需以 operations profile 启动 ops 栈）。产品内的工作台入口已随服务拆分下线，旧的 `/?workspace=operations` 深链会落到工作台。
 
 ## 登录
 

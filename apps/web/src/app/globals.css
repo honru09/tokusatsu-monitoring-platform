@@ -5043,59 +5043,6 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   background: #050505;
   border-radius: 9px;
 }
-.workbench-favorite-entry {
-  display: flex;
-  width: 100%;
-  min-height: 116px;
-  align-items: center;
-  gap: 16px;
-  margin-top: 28px;
-  padding: 20px;
-  color: var(--glass-ink);
-  text-align: left;
-  border: 0.5px solid var(--glass-stroke);
-  background: linear-gradient(
-    155deg,
-    rgba(255, 255, 255, 0.64) 0%,
-    var(--glass-fill-card) 48%,
-    rgba(236, 245, 252, 0.46) 100%
-  );
-  border-radius: 24px;
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  transition:
-    transform 180ms var(--ease-apple-spring),
-    box-shadow 180ms var(--ease-apple-out);
-}
-.workbench-favorite-entry:active {
-  transform: scale(0.985);
-}
-.workbench-favorite-mark {
-  display: grid;
-  width: 52px;
-  height: 52px;
-  flex: 0 0 auto;
-  place-items: center;
-  color: #fff;
-  background: #050505;
-  border-radius: 16px;
-}
-.workbench-favorite-entry strong,
-.workbench-favorite-entry small {
-  display: block;
-}
-.workbench-favorite-entry strong {
-  font-size: 22px;
-  font-weight: 680;
-  letter-spacing: -0.03em;
-}
-.workbench-favorite-entry small {
-  margin-top: 4px;
-  color: rgba(7, 8, 10, 0.66);
-  font-size: 12px;
-  font-weight: 550;
-}
 .workbench-entry-action {
   flex: 0 0 auto;
   color: #0071e3;
@@ -6180,22 +6127,6 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
     min-height: 145px;
     padding: 20px;
   }
-  .workbench-favorite-entry {
-    min-height: 104px;
-    gap: 12px;
-    padding: 16px;
-  }
-  .workbench-favorite-mark {
-    width: 46px;
-    height: 46px;
-    border-radius: 14px;
-  }
-  .workbench-favorite-entry strong {
-    font-size: 19px;
-  }
-  .workbench-favorite-entry small {
-    max-width: 25ch;
-  }
   .workbench-quick-card {
     min-height: 92px;
     flex-direction: column;
@@ -6448,7 +6379,6 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   }
   .ios-segment button:active,
   .primary-navigation-item:active,
-  .workbench-favorite-entry:active,
   .workbench-quick-card:active {
     transform: none !important;
   }

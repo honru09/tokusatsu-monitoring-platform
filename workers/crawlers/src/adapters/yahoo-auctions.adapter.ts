@@ -448,6 +448,15 @@ export class YahooAuctionsAdapter implements SourceAdapter {
     });
     const results: SearchResult[] = [];
     const seen = new Set<string>();
+    // Crawlee swallows per-request failures by default, which used to
+    // make a fully blocked search indistinguishable from a keyword
+    // with no listings: both came back as an empty array and the job
+    // log said "zero candidates" with no cause. Track the outcomes so
+    // the all-failed case can throw with the reason attached and the
+    // loaded-but-unparsed case leaves a diagnostic line.
+    let handledPages = 0;
+    let parsedListings = 0;
+    const failures: string[] = [];
     const crawler = new CheerioCrawler(
       {
         minConcurrency: 1,
@@ -466,7 +475,9 @@ export class YahooAuctionsAdapter implements SourceAdapter {
               `Yahoo Auctions search redirected outside its public search (${finalUrl.toString()})`,
             );
           }
+          handledPages += 1;
           const pageResults = parseYahooAuctionSearch($.html(), limit);
+          parsedListings += pageResults.length;
           for (const result of pageResults) {
             if (seen.has(result.sourceItemId) || results.length >= limit)
               continue;
@@ -474,10 +485,30 @@ export class YahooAuctionsAdapter implements SourceAdapter {
             results.push(result);
           }
         },
+        failedRequestHandler({ request, error }) {
+          failures.push(
+            `${request.url}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        },
       },
       new Configuration({ persistStorage: false }),
     );
     await crawler.run(requests);
+    if (handledPages === 0 && failures.length > 0)
+      throw new Error(
+        `Yahoo Auctions search failed on all ${failures.length} page request(s); first failure: ${failures[0]}`,
+      );
+    if (results.length === 0)
+      console.warn(
+        JSON.stringify({
+          event: "yahoo_auctions_search_empty",
+          keyword: query.keyword,
+          pagesRequested: pages,
+          pagesLoaded: handledPages,
+          listingsParsed: parsedListings,
+          failures,
+        }),
+      );
     return results;
   }
 

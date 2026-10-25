@@ -86,3 +86,35 @@ describe("parseSurugayaSearchHtml", () => {
     ).resolves.toEqual({ status: "sold", listingType: "direct" });
   });
 });
+
+describe("SurugayaAdapter.search", () => {
+  it("treats a 404 search response as an empty result set, not a failure", async () => {
+    vi.stubEnv("SURUGAYA_CRAWL_DELAY_MS", "0");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        if (String(input).includes("robots.txt"))
+          return {
+            ok: true,
+            status: 200,
+            url: String(input),
+            text: async () => "User-agent: *\nAllow: /\n",
+          };
+        return {
+          ok: false,
+          status: 404,
+          url: String(input),
+          text: async () => "",
+        };
+      }),
+    );
+    try {
+      await expect(
+        new SurugayaAdapter().search({ keyword: "存在しない商品キーワード" }),
+      ).resolves.toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
+});
