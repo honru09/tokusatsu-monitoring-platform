@@ -80,12 +80,12 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 }
 .procurement-shell .procurement-header {
   z-index:25;
-  background:var(--ui-glass) !important;
+  background:#ffffff !important;
   border:0 !important;
-  border-bottom:1px solid var(--ui-line) !important;
-  box-shadow:inset 0 1px 0 #ffffffeb,0 8px 24px #192e3e0c !important;
-  backdrop-filter:blur(30px) saturate(175%);
-  -webkit-backdrop-filter:blur(30px) saturate(175%);
+  border-bottom:1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow:0 4px 20px rgba(0, 0, 0, 0.04) !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
 }
 .procurement-shell .procurement-header>div {
   min-height:calc(var(--app-header-height) - 1px) !important;
@@ -164,7 +164,7 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 .procurement-shell .product-card-actions>button:active {transform:scale(.94);}
 .procurement-shell .product-card-actions>button[aria-label="取消收藏"] {color:#bf354f;background:#fceef1 !important;}
 .procurement-shell .product-card-actions>button:is([aria-expanded="true"],[aria-label="移出购物车"]) {color:#0061bb;background:#eaf2fc !important;}
-.procurement-shell .product-card-more-actions {background:var(--glass-fill-sheet);box-shadow:var(--ui-shadow-raised);border:1px solid #ffffffeb;border-radius:18px;}
+.procurement-shell .product-card-more-actions {background:#ffffff;box-shadow:0 10px 30px rgba(0, 0, 0, 0.12);border:1px solid rgba(0, 0, 0, 0.06);border-radius:20px;}
 .procurement-shell .product-card-media .image-gallery-counter {left:auto;right:8px;bottom:8px;transform:none;}
 .procurement-shell .product-card-media:has(.product-card-auction-countdown) .image-gallery-counter {bottom:44px;}
 .procurement-shell .product-card-media-meta>span {font-size:12px;border-radius:4px;}
@@ -173,7 +173,7 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 .procurement-shell .product-card-cost-evidence>span:not(.product-card-value-king),
 .procurement-shell .product-card-decision .product-card-total>small {color:var(--ui-secondary) !important;}
 .procurement-shell .home-dashboard {display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:32px;align-items:start;padding-block:8px 32px;}
-.procurement-shell .home-market-overview {border-radius:24px !important;background:var(--ui-surface) !important;border:1px solid #ffffffe6 !important;padding:24px !important;box-shadow:var(--ui-shadow) !important;}
+.procurement-shell .home-market-overview {border-radius:28px !important;background:#ffffff !important;border:1px solid rgba(0, 0, 0, 0.06) !important;padding:24px !important;box-shadow:0 10px 30px rgba(0, 0, 0, 0.06) !important;}
 .procurement-shell .home-entry-directory {border-radius:0 !important;background:transparent !important;border:0 !important;padding:0 !important;box-shadow:none !important;}
 .procurement-shell .home-entry-directory {border-left:1px solid var(--ui-line) !important;padding-left:32px !important;}
 .procurement-shell .home-market-head {padding-bottom:24px;border-bottom:1px solid var(--ui-line);align-items:center;margin-bottom:24px;}
@@ -244,7 +244,7 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 .procurement-shell :is(.home-category-drawer-chevron,.home-xianyu-chevron) svg {transition:transform var(--ui-selection-motion);}
 .procurement-shell :is(.home-category-drawer,.home-xianyu-drawer)[open] :is(.home-category-drawer-chevron,.home-xianyu-chevron) svg {transform:rotate(180deg);}
 .procurement-shell :is(.home-category-drawer,.home-xianyu-drawer):focus-within {border-color:#0071e34d !important;}
-.procurement-shell .home-xianyu-drawer {border:1px solid #ffffffe6 !important;border-radius:20px;background:var(--ui-surface) !important;box-shadow:var(--ui-shadow) !important;}
+.procurement-shell .home-xianyu-drawer {border:1px solid rgba(0, 0, 0, 0.06) !important;border-radius:28px;background:#ffffff !important;box-shadow:0 10px 30px rgba(0, 0, 0, 0.06) !important;}
 .procurement-shell .home-xianyu-drawer summary {min-height:64px;}
 .procurement-shell .home-xianyu-copy small {display:none;}
 .procurement-shell .home-entry-group {margin-top:24px;}
@@ -308,15 +308,15 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 .procurement-shell .purchases-next-step button {min-height:44px;color:var(--ui-accent);font-size:14px;font-weight:550;white-space:nowrap;}
 .procurement-shell.share-workspace .share-editorial-header {border-bottom:1px solid var(--ui-line);}
 .procurement-shell.share-workspace .share-editorial-header h1 {font-size:28px;font-weight:650;line-height:1.35;}
-.procurement-shell.share-workspace .share-editorial-item {background:white;border:1px solid #ffffffe6;border-radius:22px;box-shadow:var(--ui-shadow);}
+.procurement-shell.share-workspace .share-editorial-item {background:white;border:1px solid rgba(0,0,0,0.06);border-radius:28px;box-shadow:0 10px 30px rgba(0,0,0,0.06);}
 .procurement-shell.share-workspace .share-editorial-item>div:last-child {padding:16px;}
 .procurement-shell.share-workspace .share-editorial-item h2 {font-size:15px;line-height:1.55;min-height:48px;}
 .procurement-shell.share-workspace :is(.share-editorial-item span,.share-editorial-item p) {font-size:12px;}
-.procurement-shell.share-workspace .share-editorial-item a {border-radius:8px;transition:background-color var(--ui-feedback),transform var(--ui-feedback);}
+.procurement-shell.share-workspace .share-editorial-item a {border-radius:9999px;transition:background-color var(--ui-feedback),transform var(--ui-feedback);}
 .procurement-shell.share-workspace .share-editorial-item a:active {transform:scale(.98);}
-html.manager-gate-open,body.manager-gate-open {background:#e9f2f8 !important;}
-.procurement-shell .manager-gate {background:linear-gradient(145deg,#e9f2f8,#f5f5f7 55%,#eef6f1) !important;}
-.procurement-shell .manager-gate-panel {background:white !important;box-shadow:var(--ui-shadow-raised) !important;border:1px solid var(--ui-line);}
+html.manager-gate-open,body.manager-gate-open {background:#f4f4f5 !important;}
+.procurement-shell .manager-gate {background:#f4f4f5 !important;}
+.procurement-shell .manager-gate-panel {background:white !important;box-shadow:0 24px 70px rgba(0, 0, 0, 0.18) !important;border:1px solid rgba(0, 0, 0, 0.06);border-radius:28px;}
 @media(hover:hover) and (pointer:fine) {
   .procurement-shell .header-tool-cluster>button:hover {background:#ffffffe6 !important;box-shadow:0 4px 12px #1828380f !important;}
   .procurement-shell .product-card:hover {transform:none;border-color:#cadcf0 !important;box-shadow:inset 0 1px 0 white,0 12px 32px #1828381a !important;}
@@ -326,7 +326,7 @@ html.manager-gate-open,body.manager-gate-open {background:#e9f2f8 !important;}
   :root {--app-nav-height:0px;--app-nav-clearance:0px;}
   .procurement-shell .primary-navigation {
     top:14px !important;bottom:auto !important;width:420px !important;height:48px !important;
-    min-height:48px !important;border:1px solid #ffffffd9 !important;border-radius:18px !important;box-shadow:0 2px 12px #1828380a !important;background:#ffffff80 !important;
+    min-height:48px !important;border:1px solid rgba(0,0,0,0.06) !important;border-radius:9999px !important;box-shadow:0 10px 30px rgba(0,0,0,0.08) !important;background:#ffffff !important;
   }
   .procurement-shell .primary-navigation-item {flex-direction:row;gap:8px;}
   .procurement-shell .primary-navigation-icon {width:20px;height:20px;}

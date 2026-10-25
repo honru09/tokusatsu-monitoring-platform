@@ -404,7 +404,7 @@ export function MarketIntelWorkspace({ apiBaseUrl }: { apiBaseUrl: string }) {
                         setSelected(row.original);
                         setShowOriginal(false);
                       }}
-                      className="cursor-pointer border-b border-ink/[.05] transition-colors hover:bg-blue-50/70"
+                      className="cursor-pointer border-b border-ink/[.05] transition-colors hover:bg-black/[0.03]"
                     >
                       {row.getVisibleCells().map((cell) => (
                         <td

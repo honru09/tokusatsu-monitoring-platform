@@ -1053,7 +1053,7 @@ function CartDialog({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-ink/8 p-4">
-          <span className="grid h-11 w-11 place-items-center rounded-full bg-blue-50 text-moss">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-black/5 text-ink">
             <CartIcon />
           </span>
           <div className="min-w-0 flex-1">
@@ -2812,7 +2812,7 @@ function DetailDrawer({
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`打开${chinaComparison.platformName}原商品，参考价 ${chinaPrice}`}
-                    className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-fog px-3 py-2 text-sm font-bold text-ink transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss"
+                    className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 py-2 text-xs font-semibold text-ink transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss"
                   >
                     查看原商品
                     <ExternalLinkIcon />
@@ -3453,7 +3453,7 @@ function PurchaseRecordsPanel({
   return (
     <section
       aria-labelledby="purchase-records-title"
-      className="ios-surface workspace-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel"
+      className="ios-surface workspace-surface mb-4 rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
     >
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-ink/8 pb-4">
         <div>
@@ -7072,7 +7072,7 @@ export default function Dashboard() {
               </h2>
             </div>
             <div
-              className="purchases-view-switcher mb-3 flex gap-1 overflow-x-auto rounded-2xl border border-blue-100 bg-white p-1"
+              className="purchases-view-switcher mb-3 flex gap-1 overflow-x-auto rounded-full border border-black/[0.06] bg-white p-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.04)]"
               role="tablist"
               aria-label="采购视图"
             >
@@ -7089,7 +7089,7 @@ export default function Dashboard() {
                   role="tab"
                   aria-selected={purchasesTab === tab}
                   onClick={() => setPurchasesTab(tab)}
-                  className={`min-h-11 flex-1 whitespace-nowrap rounded-xl px-3 text-xs font-bold transition ${purchasesTab === tab ? "bg-ink text-white" : "text-ink/55 hover:bg-fog"}`}
+                  className={`min-h-11 flex-1 whitespace-nowrap rounded-full px-4 text-xs font-semibold transition ${purchasesTab === tab ? "bg-ink text-white shadow-sm" : "text-ink/60 hover:bg-black/5"}`}
                 >
                   {label}
                 </button>
@@ -7190,7 +7190,7 @@ export default function Dashboard() {
               <MonitoringConfigWorkspace apiBaseUrl={API} accountId={activeManagerId || null} onConfigChanged={monitoringConfigChanged} />
             </div>
             <section aria-labelledby="ops-heading" className="js-shell-reveal">
-              <div className="ios-surface rounded-2xl border border-blue-100 p-4 shadow-panel">
+              <div className="ios-surface rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="text-[10px] font-bold uppercase tracking-[.2em] text-moss">
@@ -7206,7 +7206,7 @@ export default function Dashboard() {
                       新上架增量扫描 + 现有商品分页回扫并行运行
                     </p>
                   </div>
-                  <div className="rounded-lg bg-blue-50 px-3 py-2 text-right text-[11px] text-blue-950/70">
+                  <div className="rounded-[16px] bg-black/5 px-3.5 py-2 text-right text-[11px] text-ink/70">
                     <span className="block">
                       最近扫描{" "}
                       <b className="text-ink">
@@ -7221,7 +7221,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-2 divide-x divide-blue-100 border-y border-blue-100 py-3 xl:grid-cols-5">
+                <div className="mt-3 grid grid-cols-2 divide-x divide-black/[0.06] border-y border-black/[0.06] py-3 xl:grid-cols-5">
                   {[
                     ["标准商品", overview?.productTotal ?? 0, "按来源持续归并"],
                     [
@@ -7259,7 +7259,7 @@ export default function Dashboard() {
                   ))}
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <div className="rounded-xl border border-blue-100 px-3 py-2.5">
+                  <div className="rounded-[20px] border border-black/[0.06] bg-white px-4 py-3">
                     <div className="flex items-center justify-between text-[11px]">
                       <b>存量回扫</b>
                       <span className="font-mono text-moss">
@@ -7274,11 +7274,11 @@ export default function Dashboard() {
                         : "回扫队列会循环遍历市场现有结果，不只盯新商品"}
                     </p>
                   </div>
-                  <div className="flex min-w-0 gap-1.5 overflow-x-auto rounded-xl border border-blue-100 px-2.5 py-2.5">
+                  <div className="flex min-w-0 gap-1.5 overflow-x-auto rounded-[20px] border border-black/[0.06] bg-white px-3 py-2.5">
                     {(overview?.sources ?? []).map((source) => (
                       <span
                         key={source.key}
-                        className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-950/80"
+                        className="flex shrink-0 items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-[11px] font-medium text-ink/80"
                       >
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${source.failureCount > 0 ? "bg-amber-500" : "bg-emerald-500"}`}

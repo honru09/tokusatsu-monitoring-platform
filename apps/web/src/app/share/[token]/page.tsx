@@ -171,14 +171,14 @@ export default function SharePage({
                         ) : null}
                       </div>
                       {item.listingType === "auction" && item.auctionEndAt && (
-                        <div className="mt-2 rounded-lg bg-blue-50 px-2 py-1 text-[10px] text-moss">
+                        <div className="mt-2 rounded-full bg-black/5 px-2.5 py-1 text-[11px] font-medium text-ink/70">
                           {remaining > 0
                             ? `剩余 ${Math.floor(remaining / 3_600_000)} 小时`
                             : "已结束"}
                         </div>
                       )}
                       {item.note && (
-                        <p className="mt-2 truncate rounded-lg bg-fog px-2 py-1 text-[10px] text-ink/60">
+                        <p className="mt-2 truncate rounded-lg bg-black/5 px-2.5 py-1 text-[11px] text-ink/60">
                           {item.note}
                         </p>
                       )}
@@ -186,7 +186,7 @@ export default function SharePage({
                         href={item.sourceUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-[#0071e3] text-xs font-bold text-white"
+                        className="mt-3 flex min-h-11 items-center justify-center rounded-full bg-[#0071e3] text-xs font-semibold text-white shadow-sm"
                       >
                         打开 {item.source.displayName}
                       </a>
