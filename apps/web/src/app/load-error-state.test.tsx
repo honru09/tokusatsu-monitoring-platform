@@ -407,4 +407,29 @@ describe("Dashboard load error states", () => {
       ).toBeNull(),
     );
   });
+
+  it("lands the legacy orders deep link on the inventory tab of the merged page", async () => {
+    window.history.replaceState(null, "", "/?workspace=orders");
+    await renderAsManager();
+    await waitFor(() => {
+      const ordersTab = [...host.querySelectorAll('[role="tab"]')].find(
+        (tab) => tab.textContent?.trim() === "库存订单",
+      );
+      expect(ordersTab?.getAttribute("aria-selected")).toBe("true");
+    });
+    // The inventory workspace itself renders under the merged heading.
+    await waitFor(() => expect(host.textContent).toContain("还没有库存订单"));
+  });
+
+  it("honours ?tab=orders alongside ?workspace=purchases", async () => {
+    window.history.replaceState(null, "", "/?workspace=purchases&tab=orders");
+    await renderAsManager();
+    await waitFor(() => {
+      const ordersTab = [...host.querySelectorAll('[role="tab"]')].find(
+        (tab) => tab.textContent?.trim() === "库存订单",
+      );
+      expect(ordersTab?.getAttribute("aria-selected")).toBe("true");
+    });
+    await waitFor(() => expect(host.textContent).toContain("还没有库存订单"));
+  });
 });

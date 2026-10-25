@@ -48,21 +48,27 @@ describe("dashboard navigation and listing transition contracts", () => {
     expect(source).toMatch(/parseWorkspaceHistoryState\(/);
   });
 
-  it("keeps purchase history discoverable from the workbench", () => {
-    expect(workbenchSource).toMatch(/\["purchases",\s*TERMS\.purchases,/);
+  it("keeps procurement discoverable from the workbench", () => {
+    expect(workbenchSource).toMatch(/\["purchases",\s*TERMS\.procurement,/);
+    expect(workbenchSource).not.toContain("TERMS.orders");
     expect(source).toMatch(/<WorkbenchWorkspace[\s\S]*?onNavigate=\{navigateWorkspace\}/);
   });
 
-  it("keeps purchase history and inventory orders in separate workspaces", () => {
-    expect(workbenchSource).toMatch(/\["orders",\s*TERMS\.orders,/);
+  it("keeps purchase records and inventory orders as tabs of one workspace", () => {
     const purchasesStart = source.indexOf('{workspace === "purchases" && (');
-    const ordersStart = source.indexOf('{workspace === "orders" && (');
-    const purchasesWorkspace = source.slice(purchasesStart, ordersStart);
     expect(purchasesStart).toBeGreaterThan(-1);
-    expect(ordersStart).toBeGreaterThan(purchasesStart);
-    expect(purchasesWorkspace).toContain("<PurchaseRecordsPanel");
-    expect(purchasesWorkspace).not.toContain("<InventoryOrdersWorkspace");
-    expect(source.slice(ordersStart)).toContain("<InventoryOrdersWorkspace");
+    expect(source).not.toContain('{workspace === "orders"');
+    const purchasesWorkspace = source.slice(purchasesStart);
+    expect(purchasesWorkspace).toContain("<PurchaseRecordsWorkspace");
+    expect(purchasesWorkspace).toContain('purchasesTab === "records"');
+    expect(purchasesWorkspace).toContain('purchasesTab === "orders"');
+    expect(purchasesWorkspace).toContain("<InventoryOrdersWorkspace");
+    const recordsSource = readFileSync(
+      new URL("../components/purchase-records-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(recordsSource).toContain("{recordsPanel}");
+    expect(recordsSource).toContain("onOpenOrdersTab");
   });
 
   it("portals the manager gate into the viewport overlay host", () => {
