@@ -66,40 +66,6 @@ services:
       retries: 20
     restart: unless-stopped
 
-  litellm:
-    logging: *default-logging
-    image: ghcr.io/berriai/litellm:v1.98.0
-    profiles: ["ai-gateway"]
-    command: ["--config", "/app/config.yaml", "--port", "4000"]
-    environment:
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
-      LITELLM_FAST_MODEL: ${LITELLM_FAST_MODEL:-}
-      LITELLM_SMART_MODEL: ${LITELLM_SMART_MODEL:-}
-      LITELLM_VISION_MODEL: ${LITELLM_VISION_MODEL:-}
-      LITELLM_OCR_MODEL: ${LITELLM_OCR_MODEL:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-    volumes:
-      - ./litellm/config.example.yaml:/app/config.yaml:ro
-    ports:
-      - "127.0.0.1:4000:4000"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/readiness', timeout=2)",
-        ]
-      interval: 10s
-      timeout: 3s
-      retries: 20
-      start_period: 30s
-    restart: unless-stopped
-
   api:
     logging: *default-logging
     build:
@@ -125,9 +91,6 @@ services:
       # AI Provider keys, account tiers, task routes, and safety gates come
       # directly from ../.env. Repeating them here with interpolation defaults
       # would override env_file values when the compose file lives elsewhere.
-      # Upstream-only credentials and the LiteLLM master key are removed from
-      # the API container; it authenticates with LITELLM_API_KEY instead.
-      LITELLM_MASTER_KEY: ""
       OPENAI_API_KEY: ""
       ANTHROPIC_API_KEY: ""
       DEEPSEEK_API_KEY: ""
@@ -214,10 +177,8 @@ services:
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
       FIRECRAWL_API_URL: ${FIRECRAWL_API_URL:-https://api.firecrawl.dev}
       FIRECRAWL_INCLUDE_DOMAINS: ${FIRECRAWL_INCLUDE_DOMAINS:-jp.mercari.com,item.fril.jp,www.suruga-ya.jp,order.mandarake.co.jp,paypayfleamarket.yahoo.co.jp,item.rakuten.co.jp,www.amazon.co.jp,www.ebay.com,netmall.hardoff.co.jp,store.shopping.yahoo.co.jp}
-      # The Worker calls the private API for AI tasks. Override env_file values so
-      # AI credentials stay inside the API or LiteLLM container that needs them.
-      LITELLM_API_KEY: ""
-      LITELLM_MASTER_KEY: ""
+      # The Worker calls the private API for AI tasks and holds no AI
+      # credentials of its own.
       OPENAI_API_KEY: ""
       ANTHROPIC_API_KEY: ""
       DEEPSEEK_API_KEY: ""
