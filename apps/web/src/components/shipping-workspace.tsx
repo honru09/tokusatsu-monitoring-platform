@@ -579,7 +579,7 @@ export function ShippingWorkspace({
                         }}
                         className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink/45 transition hover:bg-black/[0.05]"
                       >
-                        ✕
+                        ×
                       </button>
                     </li>
                   );

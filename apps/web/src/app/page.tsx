@@ -2367,7 +2367,7 @@ function SellerProfileDialog({
                     onClick={copySelectedBundleScript}
                     className="min-h-10 rounded-xl border border-black/12 bg-white px-3 text-xs font-semibold text-ink transition active:scale-95 hover:bg-black/[0.04]"
                   >
-                    {copiedBundleJa ? "✓ 已复制合并日语" : "📋 复制合并日语"}
+                    {copiedBundleJa ? "✓ 已复制合并日语" : "复制合并日语"}
                   </button>
                   <button
                     type="button"
