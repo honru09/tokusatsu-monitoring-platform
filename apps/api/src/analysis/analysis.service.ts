@@ -728,6 +728,24 @@ export class AnalysisService {
         ],
       });
       const result = execution.data;
+      // The crawler resets detailsZh on every refresh, so the public detail
+      // rows have to be rebuilt here or they are lost for good. Purchase
+      // analysis rows (path "ai.*") live in the same column but are not
+      // public fields, so carry those over and append the fresh rows.
+      const preservedAiDetails = (
+        Array.isArray(item.detailsZh) ? item.detailsZh : []
+      ).filter((row) => {
+        if (!row || typeof row !== "object" || Array.isArray(row))
+          return false;
+        const path = (row as Record<string, unknown>).path;
+        return typeof path === "string" && path.startsWith("ai.");
+      });
+      const detailFields = publicDetailFields(item.sourceData);
+      const detailRows = await this.translateDetailFields(
+        id,
+        detailFields,
+        costPolicy,
+      );
       const translated = await this.prisma.item.update({
         where: { id },
         data: {
@@ -748,7 +766,7 @@ export class AnalysisService {
             typeof result.shippingZh === "string" && result.shippingZh.trim()
               ? result.shippingZh.trim()
               : shippingRaw,
-          detailsZh: item.detailsZh ?? [],
+          detailsZh: [...preservedAiDetails, ...detailRows],
           translationStatus: "completed",
           translatedAt: new Date(),
         },

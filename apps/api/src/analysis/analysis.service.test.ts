@@ -257,20 +257,60 @@ describe("Product AI routing", () => {
     ]);
   });
 
-  it("translates an item in one product operation and keeps its existing detail rows", async () => {
+  it("translates an item, regenerates its public detail rows and keeps its purchase analysis rows", async () => {
+    const purchaseAnalysisRow = {
+      path: "ai.purchaseAnalysis",
+      labelZh: "采购分析",
+      valueZh: "配件齐全，可考虑购买",
+    };
     const existingDetails = [
-      { path: "conditionText", labelZh: "商品状态", valueZh: "二手" },
+      purchaseAnalysisRow,
+      // A stale public row for the same field the source data still carries:
+      // it must be replaced by the fresh translation, not carried over.
+      { path: "conditionText", labelZh: "旧标签", valueZh: "旧翻译" },
     ];
-    const execute = vi.fn().mockResolvedValue({
-      data: {
-        titleZh: "假面骑士 DX",
-        descriptionZh: "二手商品",
-        conditionZh: "二手",
-        shippingZh: "运费待确认",
-      },
-      model: "glm-5.3-flash",
-      cached: false,
-    });
+    const execute = vi
+      .fn()
+      .mockImplementation(
+        async (
+          _operation: string,
+          options: {
+            maxTokens?: number;
+            messages: Array<{ content: string }>;
+          },
+        ) => {
+          if (options.maxTokens === 4_000) {
+            // Detail fragment call: answer every fragment it was given.
+            const payload = JSON.parse(
+              options.messages.at(-1)?.content ?? "{}",
+            ) as {
+              fields: Array<{ fragmentKey: string; path: string }>;
+            };
+            return {
+              data: {
+                translations: payload.fields.map((field) => ({
+                  fragmentKey: field.fragmentKey,
+                  path: field.path,
+                  labelZh: "商品状态",
+                  valueZh: "二手",
+                })),
+              },
+              model: "glm-5.3-flash",
+              cached: false,
+            };
+          }
+          return {
+            data: {
+              titleZh: "假面骑士 DX",
+              descriptionZh: "二手商品",
+              conditionZh: "二手",
+              shippingZh: "运费待确认",
+            },
+            model: "glm-5.3-flash",
+            cached: false,
+          };
+        },
+      );
     const update = vi.fn().mockImplementation(({ data }) =>
       data.translationStatus === "completed"
         ? {
@@ -308,10 +348,11 @@ describe("Product AI routing", () => {
 
     await service.itemTranslation("item-1");
 
-    // Item translation is a single product operation now: the title,
-    // description, condition and shipping fields travel together, and the
-    // stored public-detail rows are carried over untouched.
-    expect(execute).toHaveBeenCalledTimes(1);
+    // The four raw fields travel together in the main call; the public
+    // detail fields follow in their own fragment calls, and the completed
+    // write holds the preserved purchase analysis row plus the regenerated
+    // public row.
+    expect(execute).toHaveBeenCalledTimes(2);
     expect(execute.mock.calls[0]?.[0]).toBe("translation");
     expect(execute.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ itemId: "item-1" }),
@@ -326,21 +367,61 @@ describe("Product AI routing", () => {
       conditionZh: "二手",
       shippingZh: "运费待确认",
     });
-    expect(completedWrite?.data.detailsZh).toEqual(existingDetails);
+    expect(completedWrite?.data.detailsZh).toEqual([
+      purchaseAnalysisRow,
+      { path: "conditionText", labelZh: "商品状态", valueZh: "二手" },
+    ]);
   });
 
-  it("does not send public detail fields through item translation", async () => {
+  it("repopulates detail rows a crawler refresh reset to null, in separate fragment calls", async () => {
     const longDetail = `付属品と商品の状態。${"欠品なし、外箱に擦れあり。".repeat(420)}`;
-    const execute = vi.fn().mockResolvedValue({
-      data: {
-        titleZh: "假面骑士套装",
-        descriptionZh: "完整卖家说明",
-        conditionZh: "二手",
-        shippingZh: "运费待确认",
-      },
-      model: "glm-5.3-flash",
-      cached: false,
-    });
+    const execute = vi
+      .fn()
+      .mockImplementation(
+        async (
+          _operation: string,
+          options: {
+            maxTokens?: number;
+            messages: Array<{ content: string }>;
+          },
+        ) => {
+          if (options.maxTokens === 4_000) {
+            // Detail fragment call: echo each fragment back as its own
+            // translation so the reassembled row must equal the source.
+            const payload = JSON.parse(
+              options.messages.at(-1)?.content ?? "{}",
+            ) as {
+              fields: Array<{
+                fragmentKey: string;
+                path: string;
+                value: string;
+              }>;
+            };
+            return {
+              data: {
+                translations: payload.fields.map((field) => ({
+                  fragmentKey: field.fragmentKey,
+                  path: field.path,
+                  labelZh: "卖家详情",
+                  valueZh: field.value,
+                })),
+              },
+              model: "glm-5.3-flash",
+              cached: false,
+            };
+          }
+          return {
+            data: {
+              titleZh: "假面骑士套装",
+              descriptionZh: "完整卖家说明",
+              conditionZh: "二手",
+              shippingZh: "运费待确认",
+            },
+            model: "glm-5.3-flash",
+            cached: false,
+          };
+        },
+      );
     const update = vi.fn().mockImplementation(async ({ data }) => ({
       id: "item-long-detail",
       ...data,
@@ -373,7 +454,9 @@ describe("Product AI routing", () => {
     const result = await service.itemTranslation("item-long-detail");
 
     expect(longDetail.length).toBeGreaterThan(5_000);
-    expect(execute).toHaveBeenCalledTimes(1);
+    // The main call still carries only the four raw fields; the public
+    // detail field travels in its own fragment calls after it.
+    expect(execute.mock.calls.length).toBeGreaterThan(1);
     const payload = JSON.parse(
       execute.mock.calls[0]?.[1].messages.at(-1)?.content ?? "{}",
     ) as Record<string, unknown>;
@@ -383,13 +466,21 @@ describe("Product AI routing", () => {
       "shippingRaw",
       "titleRaw",
     ]);
+    for (const call of execute.mock.calls.slice(1)) {
+      const fragmentPayload = JSON.parse(
+        call[1].messages.at(-1)?.content ?? "{}",
+      ) as Record<string, unknown>;
+      expect(Object.keys(fragmentPayload)).toEqual(["fields"]);
+    }
     expect(
       (
         result?.translation as unknown as {
           detailsZh: Array<{ path: string; valueZh: string }>;
         }
       ).detailsZh,
-    ).toEqual([]);
+    ).toEqual([
+      { path: "sellerLongDetail", labelZh: "卖家详情", valueZh: longDetail },
+    ]);
   });
 });
 
