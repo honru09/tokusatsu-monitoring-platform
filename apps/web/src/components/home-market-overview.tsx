@@ -786,7 +786,12 @@ export function HomeMarketOverview({
               <HomeMenuEntry
                 icon="box"
                 label="库存订单"
-                onClick={() => onOpenPurchasesTab?.("orders")}
+                onClick={() => {
+                  // Without a tab opener the entry still lands on the
+                  // merged page instead of doing nothing.
+                  if (onOpenPurchasesTab) onOpenPurchasesTab("orders");
+                  else onOpenWorkspace("purchases");
+                }}
               />
             </div>
           </section>

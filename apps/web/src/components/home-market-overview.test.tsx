@@ -273,4 +273,52 @@ describe("HomeMarketOverview", () => {
     expect(host.textContent).toContain("目前没有达到公开条件的闲鱼同款");
     expect(drawer?.querySelectorAll("button")).toHaveLength(0);
   });
+
+  function renderFlowEntries(overrides: Record<string, unknown> = {}) {
+    const props = {
+      data: {
+        activeTotal: 10,
+        categories: [],
+        listingTypes: [],
+        sources: [],
+        discoveryTrend: [],
+      },
+      activeCategory: "all",
+      activeCollection: "",
+      activeListingType: "direct" as const,
+      onSelectCategory: () => undefined,
+      onSelectCollection: () => undefined,
+      onSelectListingType: () => undefined,
+      onOpenInventory: () => undefined,
+      onOpenValueKings: () => undefined,
+      onOpenUrgentAuctions: () => undefined,
+      onOpenXianyuComparison: () => undefined,
+      onOpenWorkspace: vi.fn(),
+      onOpenCatalogView: () => undefined,
+      onOpenAnalysis: () => undefined,
+      hasAnalysis: false,
+      ...overrides,
+    };
+    act(() => {
+      root.render(<HomeMarketOverview {...props} />);
+    });
+    const entry = (label: string) =>
+      [...host.querySelectorAll<HTMLButtonElement>(".home-menu-entry")].find(
+        (button) => button.querySelector("strong")?.textContent === label,
+      );
+    return { props, entry };
+  }
+
+  it("opens the inventory tab of the merged page from the flow entries", () => {
+    const onOpenPurchasesTab = vi.fn();
+    const { entry } = renderFlowEntries({ onOpenPurchasesTab });
+    act(() => entry("库存订单")?.click());
+    expect(onOpenPurchasesTab).toHaveBeenCalledWith("orders");
+  });
+
+  it("falls back to the merged page when no tab opener is wired", () => {
+    const { props, entry } = renderFlowEntries();
+    act(() => entry("库存订单")?.click());
+    expect(props.onOpenWorkspace).toHaveBeenCalledWith("purchases");
+  });
 });
