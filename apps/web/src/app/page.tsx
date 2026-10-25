@@ -67,6 +67,7 @@ import {
   type ManagerAccount,
 } from "../components/manager-account-gate";
 import { WorkspaceHistoryOrb } from "../components/workspace-history-orb";
+import { useFloatingYield } from "../lib/floating-yield";
 /** Market slice of the monitoring overview payload. The type used to
  * live with the retired home overview module; the payload itself still
  * feeds the todo system queue and the monitoring workspace. */
@@ -3971,6 +3972,29 @@ export default function Dashboard() {
   const [purchaseGallery, setPurchaseGallery] = useState<Item | null>(null);
   const [purchaseReceiptPreview, setPurchaseReceiptPreview] =
     useState<PurchaseReceiptPreviewRequest | null>(null);
+  // Floating-control yield, shell side (see lib/floating-yield.ts): the
+  // recent-pages orb yields while any modal sheet owned by this shell
+  // is open, and while the bundle-share bottom bar is up. The states
+  // themselves stay exactly where they were; only the claim is new.
+  const shellSheetOpen = Boolean(
+    selected ||
+      sellerId ||
+      analysisOpen ||
+      settingsOpen ||
+      filtersOpen ||
+      cartOpen ||
+      purchaseRegistration ||
+      purchaseHistoryBundle ||
+      purchaseGallery ||
+      purchaseReceiptPreview ||
+      ignoreItem ||
+      deleteItem,
+  );
+  useFloatingYield("shell-sheet", shellSheetOpen);
+  useFloatingYield(
+    "bundle-share-bar",
+    workspace !== "collaboration" && bundleShareItems.length > 0,
+  );
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translationErrors, setTranslationErrors] = useState<
     Record<string, string>

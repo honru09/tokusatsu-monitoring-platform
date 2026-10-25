@@ -86,6 +86,19 @@
 #floating-controls-root {
   position: static;
 }
+/* Floating-control yield contract: the `.floating-control` dock is the
+   lowest-priority chrome in the shell. While any owner claims the yield
+   (lib/floating-yield.ts) - a selection bar, a modal sheet, the bundle
+   bottom bar, a message action toolbar - or the keyboard is open, every
+   floating control hides instead of painting over that surface. Owners
+   hold existing state (selection mode, an open dialog, a non-empty
+   bundle); this signal is the one place floats subscribe to it. The
+   composer does not claim it: its z-index 95 already stacks it above
+   the dock, per composer-panel.contract.test.ts. */
+html[data-floating-yield="true"] .floating-control {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
 .collaboration-composer textarea {
   resize: none;
   min-height: 44px;

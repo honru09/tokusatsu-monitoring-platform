@@ -2,6 +2,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("./mobile-chrome.css", import.meta.url), "utf8");
+const chatTsx = readFileSync(
+  new URL("../components/collaboration-chat-workspace.tsx", import.meta.url),
+  "utf8",
+);
+const pageTsx = readFileSync(
+  new URL("../app/page.tsx", import.meta.url),
+  "utf8",
+);
 
 describe("mobile chrome contracts", () => {
   it("docks the collaboration floating controls above the composer on phones", () => {
@@ -26,5 +34,32 @@ describe("mobile chrome contracts", () => {
     expect(css).toMatch(
       /\.workspace-collaboration \.collaboration-feed\s*\{\s*padding-bottom:\s*128px/,
     );
+  });
+
+  it("hides every floating control while the yield signal is claimed", () => {
+    // The dock must never paint over a selection bar, a modal sheet or
+    // another bottom bar: the yield rule is global (not phone-only),
+    // covers both floating controls through the shared class, and also
+    // drops pointer events so a hidden float cannot swallow taps.
+    const rule = css.match(
+      /html\[data-floating-yield="true"\] \.floating-control\s*\{([^}]*)\}/,
+    )?.[1];
+    expect(rule).toBeTruthy();
+    expect(rule).toMatch(/visibility:\s*hidden\s*!important/);
+    expect(rule).toMatch(/pointer-events:\s*none\s*!important/);
+  });
+
+  it("has the bar and sheet owners claim the yield from their own state", () => {
+    // Messages: selection mode is the state that renders the selection
+    // bar with the 分析 button, so it is the state that must claim.
+    expect(chatTsx).toContain(
+      'useFloatingYield("collaboration-selection", selectionMode)',
+    );
+    expect(chatTsx).toContain("collaboration-negotiation-dialog");
+    expect(chatTsx).toContain("collaboration-message-actions");
+    expect(chatTsx).toContain("collaboration-selection-bar");
+    // Shell: modal sheets and the bundle-share bottom bar claim it too.
+    expect(pageTsx).toContain('useFloatingYield("shell-sheet", shellSheetOpen)');
+    expect(pageTsx).toContain('useFloatingYield(\n    "bundle-share-bar",');
   });
 });

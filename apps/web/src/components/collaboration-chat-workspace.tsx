@@ -4,6 +4,7 @@ import { LoadError } from "./load-error";
 import { EmptyState } from "./empty-state";
 import { SafeItemImage } from "./item-image";
 import { useFloatingControl } from "../lib/use-floating-control";
+import { useFloatingYield } from "../lib/floating-yield";
 
 import {
   FormEvent,
@@ -1536,6 +1537,22 @@ export function CollaborationChatWorkspace({
   const [activeActionMessageId, setActiveActionMessageId] = useState<
     string | null
   >(null);
+  // The selection bar (and the analysis panel above it), the negotiation
+  // dialog and an open message-action toolbar all sit where the docked
+  // floats park on phones, and the tag float used to paint straight over
+  // the 分析 button. While any of them is up the floats yield - see the
+  // contract in lib/floating-yield.ts. The negotiation dialog is listed
+  // too even though its backdrop already covers the floats: it is a
+  // modal sheet, so the rule applies to it like any other.
+  useFloatingYield("collaboration-selection", selectionMode);
+  useFloatingYield(
+    "collaboration-negotiation-dialog",
+    negotiationFilter !== null,
+  );
+  useFloatingYield(
+    "collaboration-message-actions",
+    activeActionMessageId !== null,
+  );
   const [quotedMessageId, setQuotedMessageId] = useState<string | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   const pollerRef = useRef<VisibilityPoller | null>(null);
@@ -2775,7 +2792,7 @@ export function CollaborationChatWorkspace({
         />
       )}
       {selectionMode && (
-        <div className="flex items-center gap-2 border-t border-black/[0.06] bg-white/95 px-3 py-2 backdrop-blur">
+        <div className="collaboration-selection-bar flex items-center gap-2 border-t border-black/[0.06] bg-white/95 px-3 py-2 backdrop-blur">
           <span className="text-xs font-bold text-ink">
             已选 {selection.size} 件
           </span>
