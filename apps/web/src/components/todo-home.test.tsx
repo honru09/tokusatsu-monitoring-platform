@@ -115,6 +115,22 @@ describe("TodoHome", () => {
     expect(onPendingCountChange).toHaveBeenCalledWith(2);
   });
 
+  it("shows the header spot and the brand scene above the finance panel", async () => {
+    stubEndpoints();
+    await render();
+    const spot = host.querySelector('[data-workspace-header-art="todo"] img');
+    expect(spot?.getAttribute("src")).toBe("/illustrations/header-todo.webp");
+    const brand = host.querySelector<HTMLImageElement>(
+      'img[src="/illustrations/brand-home.webp"]',
+    );
+    expect(brand).not.toBeNull();
+    expect(brand?.getAttribute("width")).toBe("1280");
+    expect(brand?.getAttribute("height")).toBe("480");
+    expect(brand?.getAttribute("loading")).toBe("lazy");
+    // The scene lives in the header zone, outside the finance panel.
+    expect(brand?.closest('[aria-label="财务汇总"]')).toBeNull();
+  });
+
   it("collapses to a single all-clear line when every queue is empty", async () => {
     stubEndpoints({
       "share-rounds": { rounds: [] },

@@ -35,6 +35,33 @@ import styles from "./todo-home.module.css";
 
 const ROW_LIMIT = 8;
 
+export const BRAND_HOME_SRC = "/illustrations/brand-home.webp";
+
+/**
+ * Shelf scene across the header zone, above the finance panel. The
+ * panel itself stays illustration-free - its three figures are the
+ * heroes there - so the scene gets its own fixed-ratio band instead.
+ * Hidden entirely if the asset fails to load.
+ */
+function BrandHomeArt() {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <div className={styles.brandArt} aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={BRAND_HOME_SRC}
+        alt=""
+        width={1280}
+        height={480}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="h-full w-full object-cover"
+      />
+    </div>
+  );
+}
+
 type TodoHomeProps = {
   apiBaseUrl: string;
   accountId: string;
@@ -232,6 +259,8 @@ export function TodoHome({
           {loading ? "刷新中…" : "刷新"}
         </button>
       </header>
+
+      <BrandHomeArt />
 
       <FinancePanel apiBaseUrl={apiBaseUrl} refreshKey={purchasedItemIds} />
 
