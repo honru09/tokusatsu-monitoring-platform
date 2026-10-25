@@ -11,6 +11,8 @@
  * resources. The home UI consumes the entry shapes below.
  */
 
+import { SHIPPING_TARGET_MIN_CNY } from "./shipping-constants";
+
 export type TodoItemRef = {
   id: string;
   title: string;
@@ -39,13 +41,13 @@ export type TodoRegisterEntry = {
   at: string | null;
 };
 
-export type TodoInventoryEntry = {
+/** Aggregate over the unpacked stock once it can fill a parcel. */
+export type TodoPackableEntry = {
   key: string;
-  orderId: string;
-  title: string;
-  imageUrl: string | null;
-  detail: string;
-  purchasedAt: string | null;
+  orderCount: number;
+  totalQuantity: number;
+  totalDeclaredYen: number;
+  totalDeclaredCny: number;
 };
 
 export type TodoSystemEntry = {
@@ -59,7 +61,7 @@ export type TodoQueues = {
   review: TodoReviewEntry[];
   negotiating: TodoNegotiatingEntry[];
   register: TodoRegisterEntry[];
-  inventory: TodoInventoryEntry[];
+  packable: TodoPackableEntry[];
   system: TodoSystemEntry[];
 };
 
@@ -68,7 +70,7 @@ export function todoPendingCount(queues: TodoQueues): number {
     queues.review.length +
     queues.negotiating.length +
     queues.register.length +
-    queues.inventory.length +
+    queues.packable.length +
     queues.system.length
   );
 }
@@ -137,6 +139,10 @@ export type InventoryOrderLike = {
   remainingQuantity: number;
   purchasedAt: string | null;
   imageUrl: string | null;
+  /** Unit-cost inputs for the declared-value estimate (see shipping). */
+  averageCost?: number | null;
+  purchaseCost?: number;
+  initialQuantity?: number;
 };
 
 export type AiResourcesLike = {
@@ -330,40 +336,49 @@ export function buildRegisterQueue(
   return entries;
 }
 
-/** Inventory orders that need attention: partially sold, or in stock 30+ days. */
-export const INVENTORY_STALE_DAYS = 30;
-
-export function buildInventoryQueue(
+/**
+ * Packable-parcel reminder: sums the declared-value estimate of all stock
+ * that has not been shipped or sold yet — same per-unit default the
+ * shipping workspace pre-fills (average cost, else purchase cost spread
+ * over the initial quantity). The reminder exists only once the pile can
+ * fill a parcel, i.e. its estimate reaches the shipping target band;
+ * below that it stays silent, and without a usable rate it cannot judge.
+ */
+export function buildPackableReminder(
   orders: readonly InventoryOrderLike[],
-  now: Date = new Date(),
-): TodoInventoryEntry[] {
-  const staleBefore = now.getTime() - INVENTORY_STALE_DAYS * 86_400_000;
-  const entries: TodoInventoryEntry[] = [];
+  rateJpyToCny: number | null | undefined,
+): TodoPackableEntry[] {
+  if (!rateJpyToCny || !Number.isFinite(rateJpyToCny) || rateJpyToCny <= 0)
+    return [];
+  let orderCount = 0;
+  let totalQuantity = 0;
+  let totalDeclaredYen = 0;
   for (const order of orders) {
-    if (order.status === "sold_out") continue;
-    const purchasedAtMs = order.purchasedAt
-      ? new Date(order.purchasedAt).getTime()
-      : Number.NaN;
-    const stale =
-      order.status === "in_stock" &&
-      Number.isFinite(purchasedAtMs) &&
-      purchasedAtMs < staleBefore;
-    if (order.status !== "partially_sold" && !stale) continue;
-    entries.push({
-      key: `inventory-${order.id}`,
-      orderId: order.id,
-      title: order.name?.trim() || `订单 ${order.orderNumber}`,
-      imageUrl: order.imageUrl,
-      detail:
-        order.status === "partially_sold"
-          ? `部分售出 · 还剩 ${order.remainingQuantity} 件`
-          : `入库超过 ${INVENTORY_STALE_DAYS} 天 · 还剩 ${order.remainingQuantity} 件`,
-      purchasedAt: order.purchasedAt,
-    });
+    if (order.status === "sold_out" || order.remainingQuantity <= 0) continue;
+    const unit = Math.max(
+      0,
+      Math.round(
+        order.averageCost ??
+          (order.purchaseCost ?? 0) / Math.max(1, order.initialQuantity ?? 1),
+      ),
+    );
+    if (unit <= 0) continue;
+    orderCount += 1;
+    totalQuantity += order.remainingQuantity;
+    totalDeclaredYen += unit * order.remainingQuantity;
   }
-  return entries.sort((a, b) =>
-    (a.purchasedAt ?? "").localeCompare(b.purchasedAt ?? ""),
-  );
+  const totalDeclaredCny = Math.round(totalDeclaredYen * rateJpyToCny);
+  if (orderCount === 0 || totalDeclaredCny < SHIPPING_TARGET_MIN_CNY)
+    return [];
+  return [
+    {
+      key: "packable",
+      orderCount,
+      totalQuantity,
+      totalDeclaredYen,
+      totalDeclaredCny,
+    },
+  ];
 }
 
 /** System notices: AI gift expiry/budget and monitoring failures. */

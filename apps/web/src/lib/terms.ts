@@ -69,7 +69,7 @@ export const TERMS = {
   queueReview: "待评估",
   queueNegotiating: "砍价中",
   queueRegister: "待登记",
-  queueInventory: "库存提醒",
+  queuePackable: "可组包提醒",
   queueSystem: "系统提醒",
   overview: "概览",
   allClear: "全部处理完",

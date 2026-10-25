@@ -6556,7 +6556,8 @@ export default function Dashboard() {
               if (next === "purchases") openPurchasesTab("records");
               else navigateWorkspace(next);
             }}
-            onOpenInventory={() => openPurchasesTab("orders")}
+            onOpenShipping={() => openPurchasesTab("shipping")}
+            exchangeRate={exchangeRate?.rate}
             onPendingCountChange={setTodoCount}
           />
         )}

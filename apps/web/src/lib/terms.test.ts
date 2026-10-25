@@ -46,7 +46,7 @@ describe("canonical terms", () => {
     expect(TERMS.queueReview).toBe("待评估");
     expect(TERMS.queueNegotiating).toBe("砍价中");
     expect(TERMS.queueRegister).toBe("待登记");
-    expect(TERMS.queueInventory).toBe("库存提醒");
+    expect(TERMS.queuePackable).toBe("可组包提醒");
     expect(TERMS.queueSystem).toBe("系统提醒");
     expect(TERMS.unverifiable).toBe("暂无法核验");
   });

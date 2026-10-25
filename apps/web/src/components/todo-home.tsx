@@ -13,12 +13,16 @@ import { FinancePanel } from "./finance-panel";
 import { EmptyState } from "./empty-state";
 import { ImageGlyph, SafeItemImage } from "./item-image";
 import { TERMS } from "../lib/terms";
+import {
+  SHIPPING_TARGET_MAX_CNY,
+  SHIPPING_TARGET_MIN_CNY,
+} from "../lib/shipping-constants";
 import { fmtYen, relativeTime } from "../lib/listing-display";
 import { readFetchError } from "../lib/fetch-error";
 import type { Workspace } from "../lib/workspace-navigation";
 import {
-  buildInventoryQueue,
   buildNegotiatingQueue,
+  buildPackableReminder,
   buildRegisterQueue,
   buildReviewQueue,
   buildSystemQueue,
@@ -72,8 +76,10 @@ type TodoHomeProps = {
   onNavigate: (workspace: Workspace) => void;
   /** Opens the unified purchase registration form for a register-queue row. */
   onRegisterItem?: (item: TodoItemRef) => void;
-  /** 库存 is the orders tab of the merged 采购 workspace now. */
-  onOpenInventory?: () => void;
+  /** 组包 is the shipping tab of the merged 采购 workspace. */
+  onOpenShipping?: () => void;
+  /** Live JPY→CNY rate; without it the packable reminder cannot judge. */
+  exchangeRate?: number;
   onPendingCountChange: (count: number) => void;
 };
 
@@ -86,7 +92,8 @@ export function TodoHome({
   failedJobs24h,
   onNavigate,
   onRegisterItem,
-  onOpenInventory,
+  onOpenShipping,
+  exchangeRate,
   onPendingCountChange,
 }: TodoHomeProps) {
   const [rounds, setRounds] = useState<ShareRoundLike[]>([]);
@@ -211,7 +218,7 @@ export function TodoHome({
       ),
       negotiating: buildNegotiatingQueue(negotiations, rounds, messages),
       register: buildRegisterQueue(negotiations, purchaseAnalyses, purchasedItemIds),
-      inventory: buildInventoryQueue(orders),
+      packable: buildPackableReminder(orders, exchangeRate),
       system: buildSystemQueue({ resources, failedJobs24h }),
     }),
     [
@@ -219,6 +226,7 @@ export function TodoHome({
       messages,
       negotiations,
       orders,
+      exchangeRate,
       resources,
       accountId,
       purchasedItemIds,
@@ -403,24 +411,31 @@ export function TodoHome({
         />
       )}
 
-      {queues.inventory.length > 0 && (
+      {queues.packable.length > 0 && (
         <QueueSection
-          title={TERMS.queueInventory}
-          count={queues.inventory.length}
-          moreLabel={`去${TERMS.orders}查看`}
-          onMore={() => (onOpenInventory ?? (() => onNavigate("purchases")))()}
+          title={TERMS.queuePackable}
+          count={queues.packable[0].orderCount}
+          moreLabel="去组包"
+          onMore={() => (onOpenShipping ?? (() => onNavigate("purchases")))()}
         >
-          {queues.inventory.slice(0, ROW_LIMIT).map((entry) => (
+          {queues.packable.map((entry) => (
             <button
               key={entry.key}
               type="button"
               className={styles.row}
-              onClick={() => (onOpenInventory ?? (() => onNavigate("purchases")))()}
+              onClick={() =>
+                (onOpenShipping ?? (() => onNavigate("purchases")))()
+              }
             >
-              <RowThumb imageUrl={entry.imageUrl} title={entry.title} />
               <span className={styles.rowBody}>
-                <span className={styles.rowTitle}>{entry.title}</span>
-                <span className={styles.rowMeta}>{entry.detail}</span>
+                <span className={styles.rowTitle}>库存够组一包了</span>
+                <span className={styles.rowMeta}>
+                  共 {entry.totalQuantity} 件 · 申报估算{" "}
+                  {fmtYen(entry.totalDeclaredYen)} ≈{" "}
+                  {entry.totalDeclaredCny.toLocaleString("zh-CN")} 元 · 目标{" "}
+                  {SHIPPING_TARGET_MIN_CNY.toLocaleString("zh-CN")}–
+                  {SHIPPING_TARGET_MAX_CNY.toLocaleString("zh-CN")} 元/包
+                </span>
               </span>
             </button>
           ))}

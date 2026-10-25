@@ -141,7 +141,7 @@ describe("TodoHome", () => {
     expect(host.textContent).not.toContain("待评估");
   });
 
-  it("opens the inventory tab from the inventory queue instead of a workspace jump", async () => {
+  it("shows the packable reminder only once stock can fill a parcel, and opens shipping from it", async () => {
     stubEndpoints({
       "inventory-orders": {
         orders: [
@@ -149,17 +149,18 @@ describe("TodoHome", () => {
             id: "order-1",
             orderNumber: "PO-1",
             name: "腰带库存",
-            status: "partially_sold",
+            status: "in_stock",
             remainingQuantity: 2,
             purchasedAt: "2026-10-01T00:00:00.000Z",
             imageUrl: null,
+            averageCost: 23_000,
           },
         ],
         total: 1,
       },
     });
     const onNavigate = vi.fn();
-    const onOpenInventory = vi.fn();
+    const onOpenShipping = vi.fn();
     await act(async () => {
       root.render(
         <TodoHome
@@ -170,19 +171,22 @@ describe("TodoHome", () => {
           purchaseAnalyses={[]}
           failedJobs24h={0}
           onNavigate={onNavigate}
-          onOpenInventory={onOpenInventory}
+          onOpenShipping={onOpenShipping}
+          exchangeRate={0.0425}
           onPendingCountChange={() => undefined}
         />,
       );
     });
+    // ¥23,000 × 2 ≈ 1,955 CNY — inside the 1,800–2,000 target band.
+    expect(host.textContent).toContain("可组包提醒");
     const row = [...host.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("腰带库存"),
+      button.textContent?.includes("库存够组一包了"),
     );
     expect(row).toBeDefined();
     await act(async () => {
       row?.click();
     });
-    expect(onOpenInventory).toHaveBeenCalledTimes(1);
+    expect(onOpenShipping).toHaveBeenCalledTimes(1);
     expect(onNavigate).not.toHaveBeenCalled();
   });
 

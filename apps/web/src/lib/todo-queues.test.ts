@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildInventoryQueue,
   buildNegotiatingQueue,
+  buildPackableReminder,
   buildRegisterQueue,
   buildReviewQueue,
   buildSystemQueue,
@@ -216,21 +216,75 @@ describe("buildRegisterQueue", () => {
   });
 });
 
-describe("buildInventoryQueue", () => {
-  const now = new Date("2026-10-25T00:00:00.000Z");
-  it("flags partially sold and 30+ day stock, skips sold out and fresh stock", () => {
-    const queue = buildInventoryQueue(
+describe("buildPackableReminder", () => {
+  const rate = 0.0425;
+  const order = (
+    overrides: Partial<Parameters<typeof buildPackableReminder>[0][number]>,
+  ) => ({
+    id: "o1",
+    orderNumber: "1",
+    name: "A",
+    status: "in_stock" as const,
+    remainingQuantity: 1,
+    purchasedAt: "2026-10-01T00:00:00.000Z",
+    imageUrl: null,
+    averageCost: 10_000,
+    ...overrides,
+  });
+
+  it("stays silent while the pile cannot fill a parcel yet", () => {
+    // 3 × ¥10,000 ≈ 1,275 CNY — below the 1,800 CNY target band.
+    expect(
+      buildPackableReminder([order({ remainingQuantity: 3 })], rate),
+    ).toEqual([]);
+  });
+
+  it("fires once the declared estimate reaches the target band", () => {
+    const queue = buildPackableReminder(
       [
-        { id: "o1", orderNumber: "1", name: "A", status: "partially_sold", remainingQuantity: 2, purchasedAt: "2026-10-20T00:00:00.000Z", imageUrl: null },
-        { id: "o2", orderNumber: "2", name: "B", status: "in_stock", remainingQuantity: 1, purchasedAt: "2026-09-01T00:00:00.000Z", imageUrl: null },
-        { id: "o3", orderNumber: "3", name: "C", status: "in_stock", remainingQuantity: 1, purchasedAt: "2026-10-24T00:00:00.000Z", imageUrl: null },
-        { id: "o4", orderNumber: "4", name: "D", status: "sold_out", remainingQuantity: 0, purchasedAt: "2026-08-01T00:00:00.000Z", imageUrl: null },
+        order({ id: "o1", remainingQuantity: 3 }),
+        order({ id: "o2", remainingQuantity: 2, averageCost: 8_000 }),
       ],
-      now,
+      rate,
     );
-    expect(queue.map((entry) => entry.orderId)).toEqual(["o2", "o1"]);
-    expect(queue[0].detail).toContain("入库超过 30 天");
-    expect(queue[1].detail).toContain("部分售出");
+    // ¥30,000 + ¥16,000 = ¥46,000 → 1,955 CNY.
+    expect(queue).toEqual([
+      {
+        key: "packable",
+        orderCount: 2,
+        totalQuantity: 5,
+        totalDeclaredYen: 46_000,
+        totalDeclaredCny: 1_955,
+      },
+    ]);
+  });
+
+  it("skips sold-out and empty orders and falls back to spread purchase cost", () => {
+    const queue = buildPackableReminder(
+      [
+        order({ id: "gone", status: "sold_out", remainingQuantity: 0 }),
+        order({ id: "empty", remainingQuantity: 0 }),
+        order({
+          id: "spread",
+          averageCost: null,
+          purchaseCost: 92_000,
+          initialQuantity: 2,
+          remainingQuantity: 1,
+        }),
+      ],
+      rate,
+    );
+    // Unit = 92,000 / 2 = ¥46,000 → 1,955 CNY from the spread order alone.
+    expect(queue).toHaveLength(1);
+    expect(queue[0].orderCount).toBe(1);
+    expect(queue[0].totalDeclaredYen).toBe(46_000);
+  });
+
+  it("cannot judge without a usable rate", () => {
+    const orders = [order({ remainingQuantity: 9 })];
+    expect(buildPackableReminder(orders, undefined)).toEqual([]);
+    expect(buildPackableReminder(orders, null)).toEqual([]);
+    expect(buildPackableReminder(orders, 0)).toEqual([]);
   });
 });
 
@@ -286,7 +340,7 @@ describe("todoPendingCount", () => {
         review: [{}, {}] as never[],
         negotiating: [{}] as never[],
         register: [],
-        inventory: [{}] as never[],
+        packable: [{}] as never[],
         system: [{}] as never[],
       }),
     ).toBe(5);
