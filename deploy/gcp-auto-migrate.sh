@@ -4,6 +4,14 @@ set -e
 # ==============================================================================
 # 日本特摄监控平台 - Google Cloud (GCP) 一键全自动建机与部署迁移脚本
 # 适用环境: Google Cloud Console 自带的 Cloud Shell 终端
+#
+# 密钥不再写死在本脚本里。运行前先在 Cloud Shell 里 export 以下变量
+# (值见生产机 ~/tokusatsu-monitoring-platform/.env 与 ~/.cloudflared/,
+# 或向运维索取; 本脚本会把它们打包成 deploy-secrets.env 一起传到新机,
+# 远程脚本用完即删):
+#   AI_INTERNAL_TOKEN, ZHIPU_API_KEY, XIANYU_SESSION_TOKEN,
+#   CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_TUNNEL_ID, CLOUDFLARE_TUNNEL_SECRET
+# 可选: RESALE_MARKET_SEARCH_TOKEN (缺省与 XIANYU_SESSION_TOKEN 相同)
 # ==============================================================================
 
 echo "========================================================"
@@ -59,6 +67,18 @@ sleep 15
 cat << 'REMOTESCRIPT' > /tmp/remote-install.sh
 #!/usr/bin/env bash
 set -e
+
+# 密钥由外层脚本随本脚本一同 scp 到 ~/deploy-secrets.env, 不进仓库。
+if [ -f "$HOME/deploy-secrets.env" ]; then
+  set -a; . "$HOME/deploy-secrets.env"; set +a
+fi
+: "${AI_INTERNAL_TOKEN:?deploy-secrets.env 缺少 AI_INTERNAL_TOKEN}"
+: "${ZHIPU_API_KEY:?deploy-secrets.env 缺少 ZHIPU_API_KEY}"
+: "${XIANYU_SESSION_TOKEN:?deploy-secrets.env 缺少 XIANYU_SESSION_TOKEN}"
+: "${CLOUDFLARE_ACCOUNT_ID:?deploy-secrets.env 缺少 CLOUDFLARE_ACCOUNT_ID}"
+: "${CLOUDFLARE_TUNNEL_ID:?deploy-secrets.env 缺少 CLOUDFLARE_TUNNEL_ID}"
+: "${CLOUDFLARE_TUNNEL_SECRET:?deploy-secrets.env 缺少 CLOUDFLARE_TUNNEL_SECRET}"
+RESALE_MARKET_SEARCH_TOKEN="${RESALE_MARKET_SEARCH_TOKEN:-$XIANYU_SESSION_TOKEN}"
 
 echo "=== [1/5] 安装 Docker 与必备工具 ==="
 sudo apt-get update -y
@@ -151,7 +171,7 @@ INVENTORY_CLEANUP_INTERVAL_MS=7200000
 LOG_LEVEL=info
 SENTRY_DSN=
 AI_TIMEOUT_MS=30000
-AI_INTERNAL_TOKEN=HxfE7iJz_jxbI7aq-kw1GqMBi1kEgegNnUjnaPTJO04
+AI_INTERNAL_TOKEN=@@AI_INTERNAL_TOKEN@@
 AI_CATALOG_REFRESH_INTERVAL_MS=21600000
 AI_CATALOG_NEGATIVE_CACHE_MS=60000
 AI_CATALOG_TIMEOUT_MS=5000
@@ -174,7 +194,7 @@ AI_PUBLIC_COST_POLICY=free_first
 AI_PUBLIC_RATE_LIMIT_CLEANUP_MS=60000
 AI_PUBLIC_DIAGNOSE_RATE_LIMIT=2
 AI_PUBLIC_CHAT_RATE_LIMIT=12
-CLOUDFLARE_ACCOUNT_ID=b18ac2d6e8077c94a26263d0c9e1fb54
+CLOUDFLARE_ACCOUNT_ID=@@CLOUDFLARE_ACCOUNT_ID@@
 AI_PROVIDER_5XX_COOLDOWN_MS=900000
 AI_ALLOW_CUSTOM_PROVIDER_ENDPOINTS=false
 AI_COOLDOWN_PROBE_INTERVAL_MS=60000
@@ -183,7 +203,7 @@ AI_PROVIDER_MAX_CONCURRENCY_GEMINI=3
 AI_PROVIDER_RPM_GEMINI=12
 BACKGROUND_AI_MAX_CONCURRENCY=1
 BACKGROUND_AI_COOLDOWN_MS=600000
-ZHIPU_API_KEY=dae15408182348ef819c2e6e0b336abf.yzj85qPM0S02Jt4H
+ZHIPU_API_KEY=@@ZHIPU_API_KEY@@
 ZHIPU_API_URL=https://open.bigmodel.cn/api/paas/v4
 ZHIPU_API_TIER=promotion
 ZHIPU_PRIVATE_DATA_AUTHORIZED=true
@@ -199,21 +219,37 @@ AI_ZHIPU_MIN_REQUEST_INTERVAL_MS=5000
 BACKGROUND_AI_PAID_AUTOMATION_ENABLED=false
 BACKGROUND_AI_FREE_AUTOMATION_ENABLED=true
 XIANYU_SESSION_URL=http://host.docker.internal:3880
-XIANYU_SESSION_TOKEN=fb0efb03f585e715599265a878d376f0b64324f6ea90d53aa875554ca8c325ee
+XIANYU_SESSION_TOKEN=@@XIANYU_SESSION_TOKEN@@
 RESALE_MARKET_SEARCH_URL=http://host.docker.internal:3880/search
-RESALE_MARKET_SEARCH_TOKEN=fb0efb03f585e715599265a878d376f0b64324f6ea90d53aa875554ca8c325ee
+RESALE_MARKET_SEARCH_TOKEN=@@RESALE_MARKET_SEARCH_TOKEN@@
 AI_CHAT_PLANNER_ENABLED=false
 EOF
 
+# 把密钥占位符替换为 deploy-secrets.env 里的真实值 (值本身不回显)。
+sed -i \
+  -e "s|@@AI_INTERNAL_TOKEN@@|${AI_INTERNAL_TOKEN}|g" \
+  -e "s|@@ZHIPU_API_KEY@@|${ZHIPU_API_KEY}|g" \
+  -e "s|@@XIANYU_SESSION_TOKEN@@|${XIANYU_SESSION_TOKEN}|g" \
+  -e "s|@@RESALE_MARKET_SEARCH_TOKEN@@|${RESALE_MARKET_SEARCH_TOKEN}|g" \
+  -e "s|@@CLOUDFLARE_ACCOUNT_ID@@|${CLOUDFLARE_ACCOUNT_ID}|g" \
+  .env
+
 # 配置 Cloudflare Named Tunnel
 mkdir -p ~/.cloudflared
-cat << 'EOF' > ~/.cloudflared/17a1109b-4265-4f09-860c-c7a21a0770d5.json
-{"AccountTag":"b18ac2d6e8077c94a26263d0c9e1fb54","TunnelSecret":"uEq7QroW6fwv3rXz7OCNf12hpS+n58hjX/TaZS6Wclk=","TunnelID":"17a1109b-4265-4f09-860c-c7a21a0770d5","Endpoint":""}
+cat << 'EOF' > ~/.cloudflared/tunnel-credentials.json
+{"AccountTag":"@@CLOUDFLARE_ACCOUNT_ID@@","TunnelSecret":"@@CLOUDFLARE_TUNNEL_SECRET@@","TunnelID":"@@CLOUDFLARE_TUNNEL_ID@@","Endpoint":""}
 EOF
+sed -i \
+  -e "s|@@CLOUDFLARE_ACCOUNT_ID@@|${CLOUDFLARE_ACCOUNT_ID}|g" \
+  -e "s|@@CLOUDFLARE_TUNNEL_SECRET@@|${CLOUDFLARE_TUNNEL_SECRET}|g" \
+  -e "s|@@CLOUDFLARE_TUNNEL_ID@@|${CLOUDFLARE_TUNNEL_ID}|g" \
+  ~/.cloudflared/tunnel-credentials.json
+mv ~/.cloudflared/tunnel-credentials.json ~/.cloudflared/${CLOUDFLARE_TUNNEL_ID}.json
+chmod 600 ~/.cloudflared/${CLOUDFLARE_TUNNEL_ID}.json
 
 cat << 'EOF' > ~/.cloudflared/config.yml
-tunnel: 17a1109b-4265-4f09-860c-c7a21a0770d5
-credentials-file: /home/$USER/.cloudflared/17a1109b-4265-4f09-860c-c7a21a0770d5.json
+tunnel: @@CLOUDFLARE_TUNNEL_ID@@
+credentials-file: /home/$USER/.cloudflared/@@CLOUDFLARE_TUNNEL_ID@@.json
 protocol: http2
 
 ingress:
@@ -229,7 +265,7 @@ ingress:
     service: http://localhost:5000
   - service: http_status:404
 EOF
-sed -i "s/\$USER/$USER/g" ~/.cloudflared/config.yml
+sed -i -e "s/\$USER/$USER/g" -e "s|@@CLOUDFLARE_TUNNEL_ID@@|${CLOUDFLARE_TUNNEL_ID}|g" ~/.cloudflared/config.yml
 
 echo "=== [4/5] 启动 Docker 11 容器集群 ==="
 cp .env infrastructure/.env
@@ -260,21 +296,46 @@ sudo cp -r ~/.cloudflared/* /etc/cloudflared/
 sudo sed -i 's|/home/[^/]*/\.cloudflared|/etc/cloudflared|g' /etc/cloudflared/config.yml
 sudo cloudflared service install || true
 sudo systemctl daemon-reload || true
-sudo systemctl restart cloudflared || sudo systemctl enable --now cloudflared || sudo cloudflared --config /etc/cloudflared/config.yml run 17a1109b-4265-4f09-860c-c7a21a0770d5 &
+sudo systemctl restart cloudflared || sudo systemctl enable --now cloudflared || sudo cloudflared --config /etc/cloudflared/config.yml run ${CLOUDFLARE_TUNNEL_ID} &
 
 echo "========================================================"
 echo "🎉 恭喜！特摄监控平台已成功在 Google Cloud 部署上线！"
 echo "🌐 公网主站: https://kamenradar.space"
 echo "📱 救援控制台: https://rescue.kamenradar.space"
 echo "========================================================"
+
+# 密钥文件用完即删, 不留在新机上。
+rm -f "$HOME/deploy-secrets.env"
 REMOTESCRIPT
 
 # 5. 上传并执行到云服务器 (增加 SSH 重试保护)
+
+# 把密钥从当前环境打包成 deploy-secrets.env (不进仓库, 权限 600)。
+: "${AI_INTERNAL_TOKEN:?请先 export AI_INTERNAL_TOKEN (见脚本头部说明)}"
+: "${ZHIPU_API_KEY:?请先 export ZHIPU_API_KEY}"
+: "${XIANYU_SESSION_TOKEN:?请先 export XIANYU_SESSION_TOKEN}"
+: "${CLOUDFLARE_ACCOUNT_ID:?请先 export CLOUDFLARE_ACCOUNT_ID}"
+: "${CLOUDFLARE_TUNNEL_ID:?请先 export CLOUDFLARE_TUNNEL_ID}"
+: "${CLOUDFLARE_TUNNEL_SECRET:?请先 export CLOUDFLARE_TUNNEL_SECRET}"
+{
+  printf 'AI_INTERNAL_TOKEN=%q\n' "$AI_INTERNAL_TOKEN"
+  printf 'ZHIPU_API_KEY=%q\n' "$ZHIPU_API_KEY"
+  printf 'XIANYU_SESSION_TOKEN=%q\n' "$XIANYU_SESSION_TOKEN"
+  printf 'CLOUDFLARE_ACCOUNT_ID=%q\n' "$CLOUDFLARE_ACCOUNT_ID"
+  printf 'CLOUDFLARE_TUNNEL_ID=%q\n' "$CLOUDFLARE_TUNNEL_ID"
+  printf 'CLOUDFLARE_TUNNEL_SECRET=%q\n' "$CLOUDFLARE_TUNNEL_SECRET"
+  if [ -n "${RESALE_MARKET_SEARCH_TOKEN:-}" ]; then
+    printf 'RESALE_MARKET_SEARCH_TOKEN=%q\n' "$RESALE_MARKET_SEARCH_TOKEN"
+  fi
+} > /tmp/deploy-secrets.env
+chmod 600 /tmp/deploy-secrets.env
+
 echo "🚚 正在将部署流水线传输到云服务器..."
 CONNECTED=0
 for i in $(seq 1 10); do
   echo "正在连接云服务器 (第 $i/10 次尝试)..."
-  if gcloud compute scp --quiet /tmp/remote-install.sh "$INSTANCE_NAME":~/remote-install.sh --zone="$ZONE"; then
+  if gcloud compute scp --quiet /tmp/remote-install.sh "$INSTANCE_NAME":~/remote-install.sh --zone="$ZONE" && \
+     gcloud compute scp --quiet /tmp/deploy-secrets.env "$INSTANCE_NAME":~/deploy-secrets.env --zone="$ZONE"; then
     CONNECTED=1
     echo "✓ 部署流水线传输成功！"
     break
@@ -291,4 +352,5 @@ fi
 echo "🚀 开始在云服务器内执行部署与数据还原..."
 gcloud compute ssh --quiet "$INSTANCE_NAME" --zone="$ZONE" --command="bash ~/remote-install.sh"
 
+rm -f /tmp/deploy-secrets.env
 echo "✅ 全部迁移流程已完成！"
