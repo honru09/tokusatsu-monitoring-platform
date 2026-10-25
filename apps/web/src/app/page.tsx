@@ -8429,6 +8429,8 @@ export default function Dashboard() {
       {purchaseRegistration && (
         <PurchaseRegistrationForm
           apiBaseUrl={API}
+          accountId={activeManagerId || undefined}
+          exchangeRate={exchangeRate?.rate}
           items={purchaseRegistration.items}
           candidateItems={purchaseRegistration.candidateItems}
           bundle={purchaseRegistration.bundle ?? null}

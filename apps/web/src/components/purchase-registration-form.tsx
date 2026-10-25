@@ -7,6 +7,7 @@ import { springs } from "../lib/motion-tokens";
 import { getShellOverlayRoot } from "../lib/shell-overlay";
 import { useTransactionPresentation } from "../lib/use-transaction-presentation";
 import { TERMS } from "../lib/terms";
+import { CostEstimatePanel } from "./cost-estimate-panel";
 import transactionStyles from "./transaction-feedback.module.css";
 
 /**
@@ -74,6 +75,11 @@ type Row = PurchaseRegistrationItem & { key: string };
 
 export type PurchaseRegistrationFormProps = {
   apiBaseUrl: string;
+  /** Active manager account id; sent as the registration actor so the
+   * purchase (and the bought decision it records) is attributed. */
+  accountId?: string;
+  /** JPY→CNY rate for the embedded cost estimate, when the caller has it. */
+  exchangeRate?: number;
   /** Prefilled, pre-selected rows. Empty array = blank mode. */
   items: PurchaseRegistrationItem[];
   /** Selectable pool; prefilled rows plus extra candidates. */
@@ -109,6 +115,8 @@ let blankRowSequence = 0;
 
 export function PurchaseRegistrationForm({
   apiBaseUrl,
+  accountId,
+  exchangeRate,
   items,
   candidateItems,
   bundle,
@@ -329,7 +337,7 @@ export function PurchaseRegistrationForm({
             ).toISOString(),
             note: note.trim() || null,
             ...(sourceLabel.trim() ? { platform: sourceLabel.trim() } : {}),
-            actor: "shared-user",
+            actor: accountId || "shared-user",
             reason:
               reason.trim() ||
               (selectedRows.length > 1
@@ -656,6 +664,26 @@ export function PurchaseRegistrationForm({
             className="min-h-11 rounded-xl border border-ink/10 bg-white px-3 text-sm text-ink"
           />
         </label>
+        {/* Live cost sanity check on the amounts being registered: the
+            same estimate panel the detail drawer shows, fed with the
+            form's current total and quantity. */}
+        <CostEstimatePanel
+          priceYen={
+            pricingMode === "bundle_total"
+              ? Number(total) || 0
+              : selectedRows.reduce(
+                  (sum, row) =>
+                    sum + (Number(amounts[row.key] ?? row.amountYen ?? 0) || 0),
+                  0,
+                )
+          }
+          quantity={selectedRows.reduce(
+            (sum, row) =>
+              sum + (Number(quantities[row.key] ?? row.quantity ?? 1) || 0),
+            0,
+          )}
+          exchangeRate={exchangeRate}
+        />
         {editing && (
           <label className="mt-3 grid gap-1 text-xs font-semibold text-ink/55">
             变更原因
