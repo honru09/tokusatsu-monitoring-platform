@@ -84,6 +84,13 @@ type TestItem = {
   favorite: boolean;
   ignored: boolean;
   note: string | null;
+  quantityEst?: number | null;
+  valueKing?: {
+    label: string;
+    facts: string[];
+    [key: string]: unknown;
+  } | null;
+  chinaComparison?: Record<string, unknown> | null;
   source: { key: string; displayName: string };
   seller?: {
     id: string;
@@ -1217,6 +1224,101 @@ describe("Dashboard favorite synchronization", () => {
     expect(patchItem).toHaveBeenCalledTimes(1);
     expect(panel.textContent).toContain("保存失败，请重试");
     expect(save.disabled).toBe(false);
+  });
+
+  it("carries the full price split, seller state, value evidence and china reference in the detail", async () => {
+    const observedAt = new Date();
+    const item = makeItem({
+      id: "detail-breakdown",
+      titleZh: "明细验收商品",
+      titleRaw: "明细验收商品",
+      priceCurrent: 10_000,
+      shippingFee: 500,
+      quantityEst: 4,
+      seller: null,
+      source: { key: "yahoo_fleamarket", displayName: "Yahoo!フリマ" },
+      valueKing: {
+        kind: "ultra_low_bundle",
+        label: "单件成本低于库内同款",
+        acquisitionCostJpy: 10_500,
+        unitCostJpy: 2_625,
+        quantity: 4,
+        xianyuReferencePriceCny: 268,
+        netProfitJpy: null,
+        netMarginRatio: null,
+        evidenceExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+        facts: ["共 4 件，单件成本 ¥2,625"],
+      },
+      chinaComparison: {
+        status: "ready",
+        source: { key: "xianyu", displayName: "闲鱼" },
+        referencePriceCny: 268,
+        referenceUrl: "https://www.goofish.com/item?id=offer-123",
+        observedAt: observedAt.toISOString(),
+        expiresAt: new Date(
+          observedAt.getTime() + 86_400_000,
+        ).toISOString(),
+        offers: [],
+      },
+    });
+    createApi({
+      inventory: [item],
+      favorites: [],
+      itemById: new Map([[item.id, item]]),
+    });
+    await renderAsManager({ catalog: true });
+    await waitFor(() =>
+      expect(
+        host.querySelector('[aria-label="打开商品：明细验收商品"]'),
+      ).not.toBeNull(),
+    );
+    act(() =>
+      (
+        host.querySelector(
+          '[aria-label="打开商品：明细验收商品"]',
+        ) as HTMLButtonElement
+      ).click(),
+    );
+    await waitFor(() =>
+      expect(document.querySelector(".product-detail-panel")).not.toBeNull(),
+    );
+    const panel = document.querySelector(".product-detail-panel")!;
+    const breakdown = panel.querySelector(
+      '[data-testid="detail-price-breakdown"]',
+    )!;
+    expect(breakdown).not.toBeNull();
+    const row = (name: string) =>
+      breakdown.querySelector(`[data-row="${name}"]`)?.textContent ?? "";
+    expect(row("list-price")).toContain("¥10,000");
+    expect(row("shipping")).toContain("¥500");
+    expect(row("quantity")).toContain("4 件");
+    expect(row("unit-price")).toContain("¥2,625");
+    expect(row("total")).toContain("¥10,500");
+    // The harness serves no exchange rate, so the CNY row states that
+    // instead of inventing a figure.
+    expect(row("total-cny")).toContain("暂无汇率");
+    expect(row("discount-target")).toContain("¥8,000");
+    // Missing seller is an explicit state; the note survives in full.
+    const sellerMeta = panel.querySelector(
+      '[data-testid="detail-seller-meta"]',
+    )!;
+    expect(sellerMeta.textContent).toContain("卖家未知");
+    expect(sellerMeta.textContent).toContain("旧备注");
+    // Value-king label and facts render in their own section.
+    expect(panel.textContent).toContain("单件成本低于库内同款");
+    expect(panel.textContent).toContain("共 4 件，单件成本 ¥2,625");
+    // China reference: platform, price and a source link.
+    expect(panel.textContent).toContain("闲鱼参考价");
+    expect(panel.textContent).toContain("¥268");
+    const chinaLink = [...panel.querySelectorAll("a")].find((anchor) =>
+      anchor.href.includes("goofish.com/item"),
+    );
+    expect(chinaLink).toBeDefined();
+    // No description was provided: the designed empty state shows.
+    expect(panel.textContent).toContain("暂无商品说明");
+    expect(
+      panel.querySelector("[data-description-art-slot]"),
+    ).not.toBeNull();
   });
 
   it("boots into the session account and logs out from the account block", async () => {
