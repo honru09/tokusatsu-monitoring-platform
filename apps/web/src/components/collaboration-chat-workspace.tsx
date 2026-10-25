@@ -153,12 +153,38 @@ export type NegotiationScriptGroupResult = {
   fallback: boolean;
 };
 
+// Copy accounting is best-effort: it records that a round's texts went out
+// so the copied progress moves on its own. It must never break or block a
+// copy, so failures are swallowed here and callers fire-and-forget it.
+export function markShareRoundItemsCopied(
+  apiBaseUrl: string,
+  accountId: string | undefined,
+  roundId: string,
+  itemIds?: string[],
+): Promise<void> {
+  return fetch(
+    `${apiBaseUrl}/collaboration/share-rounds/${encodeURIComponent(roundId)}/mark-copied`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ...(accountId ? { accountId } : {}),
+        ...(itemIds?.length ? { itemIds } : {}),
+      }),
+    },
+  )
+    .then(() => undefined)
+    .catch(() => undefined);
+}
+
 export function NegotiationScriptPanel({
   roundId,
   apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001",
+  onCopied,
 }: {
   roundId: string;
   apiBaseUrl?: string;
+  onCopied?: (roundId: string, itemIds: string[]) => void;
 }) {
   const [groups, setGroups] = useState<NegotiationScriptGroupResult[] | null>(
     null,
@@ -193,6 +219,7 @@ export function NegotiationScriptPanel({
     const key = group.sellerId ?? group.itemIds[0] ?? "group";
     setCopiedKey(key);
     window.setTimeout(() => setCopiedKey(null), 2000);
+    onCopied?.(roundId, group.itemIds);
   }
 
   return (
@@ -679,11 +706,13 @@ function ProductReference({
   targetPriceYen,
   onOpen,
   onDecide,
+  onCopyItem,
 }: {
   item: CollaborationItem;
   targetPriceYen?: number | null;
   onOpen: () => void;
   onDecide: (item: CollaborationItem, status: ItemDecisionStatus) => void;
+  onCopyItem?: (item: CollaborationItem) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const copyScript = () => {
@@ -691,6 +720,7 @@ function ProductReference({
     void navigator.clipboard?.writeText(script);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
+    onCopyItem?.(item);
   };
   return (
     <div className="collaboration-product-wrapper space-y-1.5">
@@ -759,11 +789,13 @@ function BundleProductReference({
   targetPriceYen,
   onOpenItem,
   onDecide,
+  onCopyItems,
 }: {
   items: CollaborationItem[];
   targetPriceYen?: number | null;
   onOpenItem: (id: string) => void;
   onDecide: (item: CollaborationItem, status: ItemDecisionStatus) => void;
+  onCopyItems?: (itemIds: string[]) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -806,6 +838,7 @@ function BundleProductReference({
     void navigator.clipboard?.writeText(script);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
+    onCopyItems?.(items.map((entry) => entry.id));
   };
   const copyShareText = () => {
     void navigator.clipboard?.writeText(
@@ -813,6 +846,7 @@ function BundleProductReference({
     );
     setShareCopied(true);
     window.setTimeout(() => setShareCopied(false), 2000);
+    onCopyItems?.(items.map((entry) => entry.id));
   };
   const openAllLinks = () => {
     for (const entry of items) {
@@ -1425,6 +1459,40 @@ export function CollaborationChatWorkspace({
       void loadShareRounds().catch(() => undefined);
     }
   }
+  // Copying a round's script or share text counts the copy on its own: the
+  // local rows flip optimistically so the 已复制 n/m progress moves at once,
+  // and the request itself is fire-and-forget (see markShareRoundItemsCopied).
+  const markCopiedInRound = useCallback(
+    (roundId: string, itemIds?: string[]) => {
+      const ids = itemIds?.length ? [...new Set(itemIds)] : undefined;
+      setShareRounds((current) =>
+        current.map((round) => {
+          if (round.id !== roundId) return round;
+          const now = new Date().toISOString();
+          const items = round.items.map((row) =>
+            row.copiedAt || (ids && !ids.includes(row.itemId))
+              ? row
+              : { ...row, copiedAt: now },
+          );
+          return {
+            ...round,
+            items,
+            copiedCount: items.filter((row) => row.copiedAt).length,
+          };
+        }),
+      );
+      void markShareRoundItemsCopied(apiBaseUrl, account.id, roundId, ids);
+    },
+    [account.id, apiBaseUrl],
+  );
+
+  const roundIdForItem = useCallback(
+    (itemId: string) =>
+      shareRounds.find((round) =>
+        (round.items ?? []).some((row) => row.itemId === itemId),
+      )?.id ?? null,
+    [shareRounds],
+  );
 
   const loadMessages = useCallback(
     async (signal?: AbortSignal) => {
@@ -1932,6 +2000,14 @@ export function CollaborationChatWorkspace({
     );
     setBundleShareCopied(true);
     window.setTimeout(() => setBundleShareCopied(false), 2000);
+    // The composer bundle normally has no round yet (a round is created on
+    // send), so there is nothing to account. When the bundle was forwarded
+    // in from a round message, that round is the copy's home.
+    if (forwardedFrom?.roundId)
+      markCopiedInRound(
+        forwardedFrom.roundId,
+        attachedBundleItems.map((entry) => entry.id),
+      );
   };
 
   return (
@@ -2167,6 +2243,10 @@ export function CollaborationChatWorkspace({
                             roundId: message.roundId ?? undefined,
                           })
                         }
+                        onCopyItems={(itemIds) => {
+                          if (message.roundId)
+                            markCopiedInRound(message.roundId, itemIds);
+                        }}
                       />
                     ) : message.item ? (
                       <ProductReference
@@ -2179,6 +2259,11 @@ export function CollaborationChatWorkspace({
                             roundId: message.roundId ?? undefined,
                           })
                         }
+                        onCopyItem={(item) => {
+                          const roundId =
+                            message.roundId ?? roundIdForItem(item.id);
+                          if (roundId) markCopiedInRound(roundId, [item.id]);
+                        }}
                       />
                     ) : null}
                   </div>
@@ -2638,6 +2723,9 @@ export function CollaborationChatWorkspace({
                   <NegotiationScriptPanel
                     roundId={negotiationScriptRoundId}
                     apiBaseUrl={apiBaseUrl}
+                    onCopied={(roundId, itemIds) =>
+                      markCopiedInRound(roundId, itemIds)
+                    }
                   />
                 ) : null}
                 <div className="negotiation-dialog-list">

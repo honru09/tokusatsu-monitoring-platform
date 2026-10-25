@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CollaborationChatWorkspace,
+  NegotiationScriptPanel,
   buildBundleShareText,
   groupNegotiationsByRound,
   type CollaborationItem,
@@ -770,5 +771,302 @@ describe("groupNegotiationsByRound", () => {
       listedTotalYen: 3000,
       targetTotalYen: null,
     });
+  });
+});
+
+describe("copy auto-accounting", () => {
+  const itemOne: CollaborationItem = {
+    id: "item-1",
+    titleRaw: "仮面ライダー 一号",
+    titleZh: "假面骑士一号",
+    sourceUrl: "https://example.com/item-1",
+    priceCurrent: 3100,
+    source: { key: "mercari", displayName: "Mercari" },
+    seller: { id: "seller-1", name: "卖家一" },
+    images: [],
+    product: null,
+  };
+  const itemTwo: CollaborationItem = {
+    id: "item-2",
+    titleRaw: "仮面ライダー 二号",
+    titleZh: "假面骑士二号",
+    sourceUrl: "https://example.com/item-2",
+    priceCurrent: 4200,
+    source: { key: "mercari", displayName: "Mercari" },
+    seller: { id: "seller-1", name: "卖家一" },
+    images: [],
+    product: null,
+  };
+  const itemLone: CollaborationItem = {
+    id: "item-9",
+    titleRaw: "単品アイテム",
+    titleZh: "单品",
+    sourceUrl: "https://example.com/item-9",
+    priceCurrent: 1500,
+    source: { key: "mercari", displayName: "Mercari" },
+    seller: { id: "seller-9", name: "卖家九" },
+    images: [],
+    product: null,
+  };
+  const round: ShareRound = {
+    id: "round-1",
+    createdAt: "2026-09-07T01:00:00.000Z",
+    createdById: "manager-2",
+    copiedCount: 0,
+    total: 2,
+    targetTotalYen: 5000,
+    items: [
+      {
+        id: "round-item-1",
+        roundId: "round-1",
+        itemId: "item-1",
+        targetPriceYen: 2000,
+        copiedAt: null,
+        item: itemOne,
+      },
+      {
+        id: "round-item-2",
+        roundId: "round-1",
+        itemId: "item-2",
+        targetPriceYen: 3000,
+        copiedAt: null,
+        item: itemTwo,
+      },
+    ],
+  };
+  const bundleMessage = {
+    ...message,
+    id: "message-bundle",
+    text: "打包这两件",
+    itemId: "item-1",
+    roundId: "round-1",
+    item: itemOne,
+    bundleItems: [
+      { ...itemOne, targetPriceYen: 2000 },
+      { ...itemTwo, targetPriceYen: 3000 },
+    ],
+    targetPriceYen: 5000,
+  };
+  const singleRoundMessage = {
+    ...message,
+    id: "message-single-round",
+    text: "这件在轮次里",
+    createdAt: "2026-09-07T01:02:00.000Z",
+    updatedAt: "2026-09-07T01:02:00.000Z",
+    itemId: "item-1",
+    roundId: "round-1",
+    item: { ...itemOne, targetPriceYen: 2000 },
+    bundleItems: [{ ...itemOne, targetPriceYen: 2000 }],
+    targetPriceYen: 2000,
+  };
+  const loneMessage = {
+    ...message,
+    id: "message-lone",
+    text: "单发一件",
+    createdAt: "2026-09-07T01:03:00.000Z",
+    updatedAt: "2026-09-07T01:03:00.000Z",
+    itemId: "item-9",
+    item: itemLone,
+  };
+
+  let host: HTMLDivElement;
+  let root: ReturnType<typeof createRoot>;
+  let fetchMock: ReturnType<typeof vi.fn>;
+  let writeTextMock: ReturnType<typeof vi.fn>;
+  let markCopiedStatus = 200;
+
+  function markCopiedCalls() {
+    return fetchMock.mock.calls.filter(([input]) =>
+      String(input).includes("/mark-copied"),
+    );
+  }
+
+  function buttonByText(text: string) {
+    const button = Array.from(host.querySelectorAll("button")).find((entry) =>
+      entry.textContent?.includes(text),
+    );
+    if (!button) throw new Error(`按钮不存在：${text}`);
+    return button as HTMLButtonElement;
+  }
+
+  beforeEach(async () => {
+    (
+      globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
+    window.sessionStorage.clear();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    vi.stubGlobal("React", React);
+    markCopiedStatus = 200;
+    writeTextMock = vi.fn(() => Promise.resolve());
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: writeTextMock },
+    });
+    fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input), "http://localhost");
+      if (url.pathname.endsWith("/mark-copied"))
+        return Promise.resolve(
+          response({ ...round, copiedCount: 2 }, markCopiedStatus),
+        );
+      if (url.pathname.endsWith("/collaboration/messages/read"))
+        return Promise.resolve(response({ updated: 1 }));
+      if (url.pathname.endsWith("/collaboration/negotiations"))
+        return Promise.resolve(response({ cases: [] }));
+      if (url.pathname.endsWith("/collaboration/share-rounds"))
+        return Promise.resolve(response({ rounds: [round] }));
+      if (url.pathname.endsWith("/negotiation-script"))
+        return Promise.resolve(
+          response({
+            roundId: "round-1",
+            groups: [
+              {
+                sellerId: "seller-1",
+                sellerName: "卖家一",
+                itemIds: ["item-1", "item-2"],
+                script: "まとめて購入希望です。",
+                fallback: false,
+              },
+            ],
+          }),
+        );
+      void init;
+      return Promise.resolve(
+        response({
+          messages: [bundleMessage, singleRoundMessage, loneMessage],
+          nextAfter: loneMessage.updatedAt,
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    host = document.createElement("div");
+    document.body.append(host);
+    root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <CollaborationChatWorkspace
+          apiBaseUrl=""
+          account={accounts[0]}
+          accounts={accounts}
+          pendingItem={null}
+          onPendingItemConsumed={() => undefined}
+          onOpenItem={async () => true}
+          onSwitchAccount={() => undefined}
+          cartCount={0}
+          onCartMigrated={() => undefined}
+          onUnreadCleared={() => undefined}
+          onActivityChanged={() => undefined}
+        />,
+      );
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    host.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("复制打包砍价话术时把整轮商品记为已复制，进度立即更新", async () => {
+    await act(async () => {
+      buttonByText("一键复制合并砍价日语").click();
+      await Promise.resolve();
+    });
+    expect(writeTextMock).toHaveBeenCalledTimes(1);
+    const calls = markCopiedCalls();
+    expect(calls).toHaveLength(1);
+    const [input, init] = calls[0] as [RequestInfo | URL, RequestInit];
+    expect(String(input)).toContain(
+      "/collaboration/share-rounds/round-1/mark-copied",
+    );
+    expect(JSON.parse(String(init?.body))).toEqual({
+      accountId: "manager-1",
+      itemIds: ["item-1", "item-2"],
+    });
+    expect(host.textContent).toContain("已复制 2/2");
+  });
+
+  it("记账接口失败时复制本身的已复制状态不受影响", async () => {
+    markCopiedStatus = 500;
+    await act(async () => {
+      buttonByText("复制链接+目标价").click();
+      await Promise.resolve();
+    });
+    expect(writeTextMock).toHaveBeenCalledTimes(1);
+    expect(markCopiedCalls()).toHaveLength(1);
+    expect(buttonByText("已复制链接+目标价")).toBeTruthy();
+  });
+
+  it("单件卡复制时只记该件所属轮次的那一行", async () => {
+    const buttons = Array.from(host.querySelectorAll("button")).filter(
+      (entry) => entry.textContent?.includes("复制砍价日语"),
+    );
+    // One button belongs to the round's single-item card, the other to the
+    // lone share; the round one renders first in the feed.
+    await act(async () => {
+      buttons[0]?.click();
+      await Promise.resolve();
+    });
+    const calls = markCopiedCalls();
+    expect(calls).toHaveLength(1);
+    const [, init] = calls[0] as [RequestInfo | URL, RequestInit];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      accountId: "manager-1",
+      itemIds: ["item-1"],
+    });
+    expect(host.textContent).toContain("已复制 1/2");
+  });
+
+  it("不属于任何轮次的单发商品复制不发记账请求", async () => {
+    const buttons = Array.from(host.querySelectorAll("button")).filter(
+      (entry) => entry.textContent?.includes("复制砍价日语"),
+    );
+    await act(async () => {
+      buttons[buttons.length - 1]?.click();
+      await Promise.resolve();
+    });
+    expect(writeTextMock).toHaveBeenCalledTimes(1);
+    expect(markCopiedCalls()).toHaveLength(0);
+  });
+
+  it("话术面板按卖家组复制时回调该组的商品", async () => {
+    const onCopied = vi.fn();
+    const panelHost = document.createElement("div");
+    document.body.append(panelHost);
+    const panelRoot = createRoot(panelHost);
+    await act(async () => {
+      panelRoot.render(
+        <NegotiationScriptPanel
+          roundId="round-1"
+          apiBaseUrl=""
+          onCopied={onCopied}
+        />,
+      );
+    });
+    const panelButton = (text: string) => {
+      const button = Array.from(panelHost.querySelectorAll("button")).find(
+        (entry) => entry.textContent?.includes(text),
+      );
+      if (!button) throw new Error(`按钮不存在：${text}`);
+      return button as HTMLButtonElement;
+    };
+    await act(async () => {
+      panelButton("生成讲价话术").click();
+      await Promise.resolve();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      panelButton("复制").click();
+      await Promise.resolve();
+    });
+    expect(writeTextMock).toHaveBeenCalledWith("まとめて購入希望です。");
+    expect(onCopied).toHaveBeenCalledWith("round-1", ["item-1", "item-2"]);
+    act(() => panelRoot.unmount());
+    panelHost.remove();
   });
 });
