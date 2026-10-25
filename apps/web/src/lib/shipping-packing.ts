@@ -1,15 +1,62 @@
 /**
- * Parcel packing for the Japan Post small-packet flow: one parcel's
- * declared total must stay at or under the cap (¥2,000 by default -
- * above it the parcel is treated as commercial goods). Each stock
- * unit's declared value defaults to its order's unit purchase price,
- * so the packed total is both the weight and the value: the goal is
- * the largest achievable total not exceeding the cap.
+ * Parcel packing for the Japan Post small-packet flow to China: one
+ * parcel's declared total must stay at or under the China customs
+ * personal-postal cap of 2,000 CNY, with 1,800-1,900 CNY as the target
+ * band. Stock values stay in JPY (unit purchase prices); the live
+ * JPY/CNY rate converts the CNY cap and band into JPY bounds for the
+ * packer, which keeps working in integer yen.
+ *
+ * Rounding: CNY figures are never overstated. The JPY cap is the CNY
+ * cap divided by the rate and floored, so a parcel packed to the JPY
+ * cap still converts to at most the CNY cap. Displayed/stored CNY
+ * totals are floored the same way (line-level equivalents floor to
+ * one decimal). The band's JPY lower bound is ceiled instead: it is
+ * only a display edge, and ceiling keeps it at the first yen total
+ * whose CNY value actually reaches the band.
  *
  * Tie-breaks: stock is consumed oldest first (FIFO clearing), and a
  * composition found through earlier orders wins over one found later,
  * which also keeps quantities consolidated into fewer orders.
  */
+
+/** CNY per 1 JPY, as returned by GET /exchange-rate. */
+export type FxRate = number;
+
+const validRate = (rate: FxRate) => Number.isFinite(rate) && rate > 0;
+
+/**
+ * JPY cap for a CNY cap at the given rate, floored so the converted
+ * CNY total can never exceed the cap. Returns 0 for an invalid rate.
+ */
+export function capJpyFromCny(capCny: number, rate: FxRate): number {
+  if (!validRate(rate) || !Number.isFinite(capCny) || capCny <= 0) return 0;
+  return Math.floor(capCny / rate);
+}
+
+/** JPY bounds of the CNY target band (lower edge ceiled, see header). */
+export function bandJpyFromCny(
+  bandMinCny: number,
+  bandMaxCny: number,
+  rate: FxRate,
+): { minJpy: number; maxJpy: number } {
+  if (!validRate(rate)) return { minJpy: 0, maxJpy: 0 };
+  return {
+    minJpy: Math.ceil(bandMinCny / rate),
+    maxJpy: Math.floor(bandMaxCny / rate),
+  };
+}
+
+/** CNY equivalent of a JPY amount, floored to an integer. */
+export function toCny(jpy: number, rate: FxRate): number {
+  if (!validRate(rate)) return 0;
+  return Math.floor(jpy * rate);
+}
+
+/** CNY equivalent of a JPY amount, floored to one decimal place. */
+export function toCny1dp(jpy: number, rate: FxRate): number {
+  if (!validRate(rate)) return 0;
+  return Math.floor(jpy * rate * 10) / 10;
+}
 
 export type PackingStock = {
   orderId: string;
@@ -41,8 +88,11 @@ function fifoOrder(stock: PackingStock[]): PackingStock[] {
 
 /**
  * Bounded knapsack via binary splitting. Returns the lines of the
- * best parcel (possibly empty). Units priced at 0 or priced above the
- * cap can never join a parcel and are excluded here; the caller
+ * best parcel (possibly empty). capYen is the JPY cap derived from
+ * the CNY cap (see capJpyFromCny), so the over-cap comparison here -
+ * unitDeclaredYen > capYen - is exactly the CNY rule "one unit's CNY
+ * value alone exceeds the cap". Units priced at 0 or priced above
+ * the cap can never join a parcel and are excluded here; the caller
  * surfaces the over-cap ones separately.
  */
 export function packParcel(stock: PackingStock[], capYen: number): PackedLine[] {
