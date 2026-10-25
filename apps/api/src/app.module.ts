@@ -24,13 +24,22 @@ import { LogisticsModule } from "./logistics/logistics.module.js";
 import { InventoryOrdersModule } from "./inventory-orders/inventory-orders.module.js";
 import { CollaborationController } from "./collaboration/collaboration.controller.js";
 import { CollaborationService } from "./collaboration/collaboration.service.js";
+import { FinanceModule } from "./finance/finance.module.js";
+import { ShipmentsModule } from "./shipments/shipments.module.js";
 import { PushController } from "./push/push.controller.js";
 import { PushService } from "./push/push.service.js";
 import { NegotiationScriptService } from "./collaboration/negotiation-script.service.js";
 import { ResaleModule } from "./resale/resale.module.js";
 
 @Module({
-  imports: [AiModule, LogisticsModule, InventoryOrdersModule, ResaleModule],
+  imports: [
+    AiModule,
+    LogisticsModule,
+    InventoryOrdersModule,
+    ResaleModule,
+    FinanceModule,
+    ShipmentsModule,
+  ],
   controllers: [
     HealthController,
     TimeController,
