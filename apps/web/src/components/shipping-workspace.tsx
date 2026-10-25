@@ -19,14 +19,20 @@ import {
 import type { InventoryOrderCard } from "./inventory-orders-workspace";
 
 /**
- * The cap and target band are CNY: 2,000 CNY is the China customs
- * personal-postal limit for a small packet to China, and 1,800-1,900
- * CNY is the band worth aiming for. Stock values stay in yen and are
+ * The cap and target band live in lib/shipping-constants (shared with the
+ * todo page's packable reminder). Stock values stay in yen and are
  * converted with the live rate (see shipping-packing.ts).
  */
-export const SHIPPING_DECLARED_CAP_CNY = 2000;
-export const SHIPPING_TARGET_MIN_CNY = 1800;
-export const SHIPPING_TARGET_MAX_CNY = 1900;
+export {
+  SHIPPING_DECLARED_CAP_CNY,
+  SHIPPING_TARGET_MAX_CNY,
+  SHIPPING_TARGET_MIN_CNY,
+} from "../lib/shipping-constants";
+import {
+  SHIPPING_DECLARED_CAP_CNY,
+  SHIPPING_TARGET_MAX_CNY,
+  SHIPPING_TARGET_MIN_CNY,
+} from "../lib/shipping-constants";
 
 type ExchangeRateInfo = {
   rate: number;
@@ -468,7 +474,7 @@ export function ShippingWorkspace({
               aria-hidden="true"
             />
           </div>
-          <div className="mt-2 flex items-baseline justify-between font-mono text-[11px] tabular-nums text-ink/60">
+          <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 font-mono text-[11px] tabular-nums text-ink/60">
             <span>
               申报合计{" "}
               <strong className={`text-[13px] ${overCap ? "text-[#ff3b30]" : "text-ink"}`}>
@@ -504,83 +510,96 @@ export function ShippingWorkspace({
                   return (
                     <li
                       key={line.orderId}
-                      className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-white px-3 py-2"
+                      data-testid="packed-line"
+                      className="grid gap-2 rounded-xl border border-black/[0.06] bg-white px-3 py-2"
                     >
-                      <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-black/5">
-                        <SafeItemImage
-                          src={order.imageUrl ?? undefined}
-                          alt={orderTitle(order)}
-                          className="h-full w-full object-cover"
-                        />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <strong className="block truncate text-xs font-semibold text-ink">
-                          {orderTitle(order)}
-                        </strong>
-                        <span className="font-mono text-[11px] text-meta tabular-nums">
-                          余 {order.remainingQuantity} 件
+                      {/* Title row gets the full card width so the title
+                          truncates inside the card; the fixed-width inputs
+                          live on their own controls row below (the old
+                          single-row layout needed ~370px and pushed the
+                          whole page sideways on phones). */}
+                      <div className="flex items-center gap-2">
+                        <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-black/5">
+                          <SafeItemImage
+                            src={order.imageUrl ?? undefined}
+                            alt={orderTitle(order)}
+                            className="h-full w-full object-cover"
+                          />
                         </span>
-                      </span>
-                      <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-meta">
-                        件
-                        <input
-                          inputMode="numeric"
-                          aria-label={`数量：${orderTitle(order)}`}
-                          value={quantityDrafts[line.orderId] ?? line.quantity}
-                          onChange={(event) =>
-                            onQuantityChange(line.orderId, event.target.value)
-                          }
-                          onBlur={() => onQuantityBlur(line.orderId)}
-                          className="h-9 w-[52px] rounded-lg border border-black/[0.12] bg-white px-1.5 text-center font-mono text-xs text-ink tabular-nums"
-                        />
-                      </label>
-                      <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-meta">
-                        申报 ¥
-                        <input
-                          inputMode="numeric"
-                          aria-label={`单件申报价：${orderTitle(order)}`}
-                          value={line.unitDeclaredYen}
-                          onChange={(event) =>
-                            setLineUnitDeclared(
-                              line.orderId,
-                              Number(event.target.value.replace(/[^\d]/g, "")) || 0,
-                            )
-                          }
-                          className="h-9 w-[64px] rounded-lg border border-black/[0.12] bg-white px-1.5 text-right font-mono text-xs text-ink tabular-nums"
-                        />
-                      </label>
-                      <span className="flex w-[76px] shrink-0 flex-col items-end">
-                        <span className="font-mono text-xs font-bold text-ink tabular-nums">
-                          {fmtYen(line.quantity * line.unitDeclaredYen)}
-                        </span>
-                        {rate != null && (
-                          <span className="font-mono text-[10px] text-meta tabular-nums">
-                            ≈{" "}
-                            {fmtCny1dp(
-                              toCny1dp(
-                                line.quantity * line.unitDeclaredYen,
-                                rate,
-                              ),
-                            )}
+                        <span className="min-w-0 flex-1">
+                          <strong className="block truncate text-xs font-semibold text-ink">
+                            {orderTitle(order)}
+                          </strong>
+                          <span className="font-mono text-[11px] text-meta tabular-nums">
+                            余 {order.remainingQuantity} 件
                           </span>
-                        )}
-                      </span>
-                      <button
-                        type="button"
-                        aria-label={`移出：${orderTitle(order)}`}
-                        onClick={() => {
-                          setQuantityDrafts((current) => {
-                            if (!(line.orderId in current)) return current;
-                            const next = { ...current };
-                            delete next[line.orderId];
-                            return next;
-                          });
-                          setLineQuantity(line.orderId, 0);
-                        }}
-                        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink/45 transition hover:bg-black/[0.05]"
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`移出：${orderTitle(order)}`}
+                          onClick={() => {
+                            setQuantityDrafts((current) => {
+                              if (!(line.orderId in current)) return current;
+                              const next = { ...current };
+                              delete next[line.orderId];
+                              return next;
+                            });
+                            setLineQuantity(line.orderId, 0);
+                          }}
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink/45 transition hover:bg-black/[0.05]"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div
+                        data-testid="packed-line-controls"
+                        className="flex flex-wrap items-center gap-2"
                       >
-                        ×
-                      </button>
+                        <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-meta">
+                          件
+                          <input
+                            inputMode="numeric"
+                            aria-label={`数量：${orderTitle(order)}`}
+                            value={quantityDrafts[line.orderId] ?? line.quantity}
+                            onChange={(event) =>
+                              onQuantityChange(line.orderId, event.target.value)
+                            }
+                            onBlur={() => onQuantityBlur(line.orderId)}
+                            className="h-9 w-[52px] rounded-lg border border-black/[0.12] bg-white px-1.5 text-center font-mono text-xs text-ink tabular-nums"
+                          />
+                        </label>
+                        <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-meta">
+                          申报 ¥
+                          <input
+                            inputMode="numeric"
+                            aria-label={`单件申报价：${orderTitle(order)}`}
+                            value={line.unitDeclaredYen}
+                            onChange={(event) =>
+                              setLineUnitDeclared(
+                                line.orderId,
+                                Number(event.target.value.replace(/[^\d]/g, "")) || 0,
+                              )
+                            }
+                            className="h-9 w-[64px] rounded-lg border border-black/[0.12] bg-white px-1.5 text-right font-mono text-xs text-ink tabular-nums"
+                          />
+                        </label>
+                        <span className="ml-auto flex w-[76px] shrink-0 flex-col items-end">
+                          <span className="font-mono text-xs font-bold text-ink tabular-nums">
+                            {fmtYen(line.quantity * line.unitDeclaredYen)}
+                          </span>
+                          {rate != null && (
+                            <span className="font-mono text-[10px] text-meta tabular-nums">
+                              ≈{" "}
+                              {fmtCny1dp(
+                                toCny1dp(
+                                  line.quantity * line.unitDeclaredYen,
+                                  rate,
+                                ),
+                              )}
+                            </span>
+                          )}
+                        </span>
+                      </div>
                     </li>
                   );
                 })}
