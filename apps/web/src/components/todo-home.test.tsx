@@ -33,6 +33,7 @@ describe("TodoHome", () => {
     (
       globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true;
+    vi.stubGlobal("React", React);
     host = document.createElement("div");
     document.body.append(host);
     root = createRoot(host);

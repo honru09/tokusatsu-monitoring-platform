@@ -131,6 +131,17 @@ describe("Dashboard load error states", () => {
     _init?: RequestInit,
   ): Promise<Response> {
     const url = new URL(String(input), "http://localhost");
+    if (url.pathname === "/auth/me")
+      return json({
+        account: {
+          id: "manager-1",
+          key: "manager_one",
+          displayName: "龙",
+          avatarInitial: "龙",
+          position: 1,
+          active: true,
+        },
+      });
     if (url.pathname === "/collaboration/accounts")
       return json({
         accounts: [
@@ -251,26 +262,11 @@ describe("Dashboard load error states", () => {
   }
 
   async function selectManager() {
+    // Login replaced free account picking: the mocked /auth/me session
+    // resolves the account at boot, so "selecting" now just waits for
+    // the login gate to lift.
     await waitFor(() =>
-      expect(
-        [...host.querySelectorAll<HTMLButtonElement>(".manager-account-choice")].find(
-          (button) =>
-            button.querySelector("strong")?.textContent?.trim() === "龙",
-        ),
-      ).toBeDefined(),
-    );
-    const managerButton = [
-      ...host.querySelectorAll<HTMLButtonElement>(".manager-account-choice"),
-    ].find(
-      (button) =>
-        button.querySelector("strong")?.textContent?.trim() === "龙",
-    );
-    await act(async () => {
-      managerButton?.click();
-      await Promise.resolve();
-    });
-    await waitFor(() =>
-      expect(host.querySelector(".manager-account-choice")).toBeNull(),
+      expect(host.querySelector(".manager-gate")).toBeNull(),
     );
   }
 
@@ -280,22 +276,15 @@ describe("Dashboard load error states", () => {
   }
 
   async function openCatalog() {
+    // The home overview that used to carry the catalog entry is gone;
+    // the catalog is reached from the bottom navigation now.
     await waitFor(() =>
-      expect(
-        [...host.querySelectorAll<HTMLButtonElement>("button")].find(
-          (button) =>
-            button.querySelector("strong")?.textContent?.trim() === "在售商品",
-        ),
-      ).toBeDefined(),
-    );
-    const inventoryButton = [
-      ...host.querySelectorAll<HTMLButtonElement>("button"),
-    ].find(
-      (button) =>
-        button.querySelector("strong")?.textContent?.trim() === "在售商品",
+      expect(host.querySelector('button[aria-label="选货"]')).not.toBeNull(),
     );
     await act(async () => {
-      inventoryButton?.click();
+      (
+        host.querySelector('button[aria-label="选货"]') as HTMLButtonElement
+      ).click();
       await Promise.resolve();
     });
     await waitFor(() =>
@@ -304,22 +293,16 @@ describe("Dashboard load error states", () => {
   }
 
   async function openFavorites() {
-    // Favorites is reached from the home overview's 收藏与流转 group;
-    // the workbench no longer carries a favorites entry.
-    await waitFor(() =>
-      expect(
-        [...host.querySelectorAll("button")].some(
-          (button) =>
-            button.querySelector("strong")?.textContent?.trim() === "收藏",
-        ),
-      ).toBe(true),
-    );
-    const favoriteButton = [...host.querySelectorAll("button")].find(
-      (button) =>
-        button.querySelector("strong")?.textContent?.trim() === "收藏",
-    );
+    // Favorites is a view inside the catalog now: bottom nav to 选货,
+    // then the 收藏 tab of the view switcher.
+    await openCatalog();
+    const switcher = host.querySelector('[aria-label="选货视图"]');
+    const favoriteTab = [
+      ...(switcher?.querySelectorAll<HTMLButtonElement>("button") ?? []),
+    ].find((button) => button.textContent?.trim() === "收藏");
+    expect(favoriteTab).toBeDefined();
     await act(async () => {
-      favoriteButton?.click();
+      favoriteTab?.click();
       await Promise.resolve();
       await Promise.resolve();
     });

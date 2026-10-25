@@ -200,51 +200,25 @@ describe("Dashboard favorite synchronization", () => {
     });
   }
 
-  async function selectManager(displayName = "龙") {
+  async function selectManager() {
+    // Login replaced free account picking: the mocked /auth/me session
+    // resolves the account at boot, so entering the app now just waits
+    // for the login gate to lift.
     await waitFor(() =>
-      expect(
-        [
-          ...host.querySelectorAll<HTMLButtonElement>(
-            ".manager-account-choice",
-          ),
-        ].find(
-          (button) =>
-            button.querySelector("strong")?.textContent?.trim() === displayName,
-        ),
-      ).toBeDefined(),
-    );
-    const managerButton = [
-      ...host.querySelectorAll<HTMLButtonElement>(".manager-account-choice"),
-    ].find(
-      (button) =>
-        button.querySelector("strong")?.textContent?.trim() === displayName,
-    );
-    await act(async () => {
-      managerButton?.click();
-      await Promise.resolve();
-    });
-    await waitFor(() =>
-      expect(host.querySelector(".manager-account-choice")).toBeNull(),
+      expect(host.querySelector(".manager-gate")).toBeNull(),
     );
   }
 
   async function openCatalog() {
+    // The home overview that used to carry the catalog entry is gone;
+    // the catalog is reached from the bottom navigation now.
     await waitFor(() =>
-      expect(
-        [...host.querySelectorAll<HTMLButtonElement>("button")].find(
-          (button) =>
-            button.querySelector("strong")?.textContent?.trim() === "在售商品",
-        ),
-      ).toBeDefined(),
-    );
-    const inventoryButton = [
-      ...host.querySelectorAll<HTMLButtonElement>("button"),
-    ].find(
-      (button) =>
-        button.querySelector("strong")?.textContent?.trim() === "在售商品",
+      expect(host.querySelector('button[aria-label="选货"]')).not.toBeNull(),
     );
     await act(async () => {
-      inventoryButton?.click();
+      (
+        host.querySelector('button[aria-label="选货"]') as HTMLButtonElement
+      ).click();
       await Promise.resolve();
     });
     await waitFor(() =>
@@ -269,37 +243,16 @@ describe("Dashboard favorite synchronization", () => {
   }
 
   async function openFavorites() {
-    // Favorites is reached from the home overview's 收藏与流转 group;
-    // go home first (the workbench no longer carries a favorites entry).
-    await waitFor(() =>
-      expect(host.querySelector('button[aria-label="待办"]')).not.toBeNull(),
-    );
+    // Favorites is a view inside the catalog now: bottom nav to 选货,
+    // then the 收藏 tab of the view switcher.
+    await openCatalog();
+    const switcher = host.querySelector('[aria-label="选货视图"]');
+    const favoriteTab = [
+      ...(switcher?.querySelectorAll<HTMLButtonElement>("button") ?? []),
+    ].find((button) => button.textContent?.trim() === "收藏");
+    expect(favoriteTab).toBeDefined();
     await act(async () => {
-      (
-        host.querySelector('button[aria-label="待办"]') as HTMLButtonElement
-      ).click();
-      await Promise.resolve();
-    });
-
-    // Favorites is reached from the home overview's 收藏与流转 group,
-    // which renders once the overview data lands; the workbench no
-    // longer carries a favorites entry.
-    await waitFor(
-      () =>
-        expect(
-          [...host.querySelectorAll("button")].some(
-            (button) =>
-              button.querySelector("strong")?.textContent?.trim() === "收藏",
-          ),
-        ).toBe(true),
-      5000,
-    );
-    const favoriteButton = [...host.querySelectorAll("button")].find(
-      (button) =>
-        button.querySelector("strong")?.textContent?.trim() === "收藏",
-    );
-    await act(async () => {
-      favoriteButton?.click();
+      favoriteTab?.click();
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -349,6 +302,17 @@ describe("Dashboard favorite synchronization", () => {
     const fetchMock = vi.fn(
       (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         const url = new URL(String(input), "http://localhost");
+        if (url.pathname === "/auth/me")
+          return json({
+            account: {
+              id: "manager-1",
+              key: "manager_one",
+              displayName: "龙",
+              avatarInitial: "龙",
+              position: 1,
+              active: true,
+            },
+          });
         if (url.pathname === "/collaboration/accounts")
           return json({
             accounts: [
@@ -1252,11 +1216,16 @@ describe("Dashboard favorite synchronization", () => {
     expect(save.disabled).toBe(false);
   });
 
-  it("selects and switches between the two fixed manager accounts", async () => {
+  it("boots into the session account and logs out from the account block", async () => {
     createApi({ inventory: [], favorites: [] });
 
     await renderDashboard();
-    await selectManager("龙");
+    await selectManager();
+    // The session account is already active - no picker ever appears.
+    expect(host.querySelector(".manager-account-choice")).toBeNull();
+    expect(
+      window.localStorage.getItem("kamen-procurement-manager-v1"),
+    ).toBeNull();
     await waitFor(() =>
       expect(
         host.querySelector('button[aria-label="打开工作台账号区，当前账号：龙"]'),
@@ -1270,25 +1239,23 @@ describe("Dashboard favorite synchronization", () => {
       ).click();
     });
     await waitFor(() => expect(host.textContent).toContain("当前账号"));
+    // No way to switch identity from here anymore.
+    expect(host.textContent).not.toContain("切换账号");
 
-    const switchButton = [...host.querySelectorAll("button")].find(
-      (button) => button.textContent?.trim() === "切换账号",
+    const logoutButton = [...host.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "退出登录",
     );
-    act(() => switchButton?.click());
+    expect(logoutButton).toBeDefined();
+    await act(async () => {
+      logoutButton?.click();
+      await Promise.resolve();
+    });
+    // Logging out drops back to the credential login card.
     await waitFor(() =>
-      expect(
-        [...host.querySelectorAll("button")].find((button) =>
-          button.textContent?.includes("润"),
-        ),
-      ).not.toBeNull(),
+      expect(host.querySelector(".manager-gate")).not.toBeNull(),
     );
-    await selectManager("润");
-    await waitFor(() =>
-      expect(window.localStorage.getItem("kamen-procurement-manager-v1")).toBe(
-        "manager-2",
-      ),
-    );
-    expect(host.textContent).toContain("润");
+    expect(host.querySelector('input[aria-label="账号"]')).not.toBeNull();
+    expect(host.querySelector('input[aria-label="密码"]')).not.toBeNull();
   });
 
   it("returns from messages to the recent catalog page and restores its scroll position", async () => {
@@ -1362,9 +1329,12 @@ describe("Dashboard favorite synchronization", () => {
     });
 
     await renderAsManager();
+    await openCatalog();
     await ordinaryStarted;
+    // The value-king entry moved from the retired home overview into
+    // the catalog header.
     const valueKingButton = host.querySelector(
-      ".home-value-king-entry",
+      'button[aria-label="性价比之王"]',
     ) as HTMLButtonElement;
     expect(valueKingButton).not.toBeNull();
 

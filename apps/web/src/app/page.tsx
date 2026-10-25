@@ -6,6 +6,7 @@ import { LoadError } from "../components/load-error";
 import { EmptyState } from "../components/empty-state";
 import { TodoHome } from "../components/todo-home";
 import { TERMS } from "../lib/terms";
+import { clearSessionToken } from "../lib/session";
 import {
   buildReviewQueue,
   type ShareMessageLike,
@@ -285,7 +286,10 @@ type FavoriteChangeBatch = {
 };
 
 const FAVORITE_CHANGE_JOURNAL_LIMIT = 500;
-const MANAGER_ACCOUNT_STORAGE_KEY = "kamen-procurement-manager-v1";
+/** Pre-login-era localStorage key that stored the freely picked account
+ * id. Kept only so boot can delete it; identity now comes from the
+ * session token. */
+const LEGACY_MANAGER_ACCOUNT_STORAGE_KEY = "kamen-procurement-manager-v1";
 
 function validTimestamp(value?: string | null) {
   if (!value) return null;
@@ -3878,7 +3882,6 @@ export default function Dashboard() {
   const purchasedItemIdsRef = useRef<ReadonlySet<string>>(new Set());
   const dislikedItemIdsRef = useRef<ReadonlySet<string>>(new Set());
   const [todoCount, setTodoCount] = useState(0);
-  const [accountGateOpen, setAccountGateOpen] = useState(true);
   const [shellOverlayRoot, setShellOverlayRoot] = useState<HTMLElement | null>(
     null,
   );
@@ -3983,53 +3986,74 @@ export default function Dashboard() {
       managerAccounts.find((account) => account.id === activeManagerId) ?? null,
     [activeManagerId, managerAccounts],
   );
+  // No session account -> the login gate covers the app. Identity comes
+  // from the session token (resolved by /auth/me), never from a local
+  // pick or a stored account id.
+  const accountGateOpen = !activeManagerId;
 
-  const loadManagerAccounts = useCallback(async () => {
+  const loadSession = useCallback(async () => {
     setManagerAccountsLoading(true);
     setManagerAccountsError("");
     try {
-      const stored = window.localStorage.getItem(MANAGER_ACCOUNT_STORAGE_KEY);
-      const accountQuery = stored
-        ? `?accountId=${encodeURIComponent(stored)}`
-        : "";
-      const response = await fetch(
-        `${API}/collaboration/accounts${accountQuery}`,
-        {
-          cache: "no-store",
-        },
-      );
-      if (!response.ok)
-        throw new Error(`账号服务暂不可用（${response.status}）`);
-      const payload = (await response.json()) as {
-        accounts?: ManagerAccount[];
-        unreadCount?: number;
+      // The free-switch era stored the picked account id locally; drop
+      // it so nothing downstream can resurrect the old identity path.
+      window.localStorage.removeItem(LEGACY_MANAGER_ACCOUNT_STORAGE_KEY);
+      const meResponse = await fetch(`${API}/auth/me`, {
+        cache: "no-store",
+      });
+      if (meResponse.status === 401) {
+        // No (or expired) session: show the login card, not an error.
+        setActiveManagerId("");
+        setManagerAccounts([]);
+        return;
+      }
+      if (!meResponse.ok)
+        throw new Error(`账号服务暂不可用（${meResponse.status}）`);
+      const me = (await meResponse.json()) as {
+        account?: ManagerAccount;
       };
-      const accounts = (payload.accounts ?? []).filter(
-        (account) => account.active,
+      if (!me.account) throw new Error("登录状态无效，请重新登录");
+      const sessionAccount: ManagerAccount = {
+        ...me.account,
+        active: true,
+      };
+      setActiveManagerId(sessionAccount.id);
+      // The partner's public row (presence/stats) still comes from the
+      // accounts list; under the session the API pins the query to the
+      // caller's own account, which is all this list needs.
+      const accountsResponse = await fetch(
+        `${API}/collaboration/accounts?accountId=${encodeURIComponent(sessionAccount.id)}`,
+        { cache: "no-store" },
       );
-      if (accounts.length !== 2) throw new Error("两位管理者账号尚未准备完成");
-      setManagerAccounts(accounts);
-      setUnreadMessageCount(payload.unreadCount ?? 0);
-      const selected = accounts.find((account) => account.id === stored);
-      if (selected) {
-        setActiveManagerId(selected.id);
-        setAccountGateOpen(false);
+      if (accountsResponse.ok) {
+        const payload = (await accountsResponse.json()) as {
+          accounts?: ManagerAccount[];
+          unreadCount?: number;
+        };
+        const accounts = (payload.accounts ?? []).filter(
+          (account) => account.active,
+        );
+        setManagerAccounts(
+          accounts.some((account) => account.id === sessionAccount.id)
+            ? accounts
+            : [sessionAccount, ...accounts],
+        );
+        setUnreadMessageCount(payload.unreadCount ?? 0);
       } else {
-        setAccountGateOpen(true);
+        setManagerAccounts([sessionAccount]);
       }
     } catch (reason) {
       setManagerAccountsError(
         reason instanceof Error ? reason.message : "账号服务暂不可用",
       );
-      setAccountGateOpen(true);
     } finally {
       setManagerAccountsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadManagerAccounts();
-  }, [loadManagerAccounts]);
+    void loadSession();
+  }, [loadSession]);
 
   const refreshCollaborationMeta = useCallback(
     async (signal?: AbortSignal) => {
@@ -5863,10 +5887,22 @@ export default function Dashboard() {
     syncWorkspaceUrl(previousState, "replace", 0, previousScroll);
   }
 
-  function selectManagerAccount(account: ManagerAccount) {
-    window.localStorage.setItem(MANAGER_ACCOUNT_STORAGE_KEY, account.id);
+  function handleAuthenticated(account: ManagerAccount) {
     setActiveManagerId(account.id);
-    setAccountGateOpen(false);
+    setManagerAccounts((current) =>
+      current.some((entry) => entry.id === account.id)
+        ? current
+        : [{ ...account, active: true }, ...current],
+    );
+    setUnreadMessageCount(0);
+    // Pull the partner row + unread count under the fresh session.
+    void loadSession();
+  }
+
+  function logout() {
+    clearSessionToken();
+    setActiveManagerId("");
+    setManagerAccounts([]);
     setUnreadMessageCount(0);
   }
 
@@ -6743,7 +6779,6 @@ export default function Dashboard() {
             pendingBundle={pendingChatBundle}
             onPendingBundleConsumed={() => setPendingChatBundle(null)}
             onOpenItem={openAnalysisItem}
-            onSwitchAccount={() => setAccountGateOpen(true)}
             cartCount={cart.count}
             onCartMigrated={() => void loadCart()}
             onUnreadCleared={() => setUnreadMessageCount(0)}
@@ -6759,7 +6794,7 @@ export default function Dashboard() {
             onOpenAnalysis={() => setAnalysisOpen(true)}
             accounts={managerAccounts}
             activeManagerId={activeManagerId}
-            onSwitchIdentity={() => setAccountGateOpen(true)}
+            onLogout={logout}
             onOpenChat={() => navigateWorkspace("collaboration")}
             activeCount={overview?.market?.activeTotal}
             cartCount={cart.count}
@@ -7516,6 +7551,30 @@ export default function Dashboard() {
                 <div
                   className="catalog-actions flex flex-wrap gap-2"
                 >
+                  {filters.valueKing !== "true" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={openValueKingCatalog}
+                        aria-label="性价比之王"
+                        className="flex min-h-11 items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 text-xs font-semibold text-moss transition-colors hover:bg-blue-50"
+                      >
+                        性价比之王
+                        <strong className="font-mono tabular-nums">
+                          {overview?.market?.valueKingTotal ?? 0}
+                        </strong>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openUrgentAuctionCatalog}
+                        aria-label="紧急拍卖"
+                        className="flex min-h-11 items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 text-xs font-semibold text-moss transition-colors hover:bg-blue-50"
+                      >
+                        紧急拍卖
+                        <span className="text-ink/45">30 分钟内</span>
+                      </button>
+                    </>
+                  )}
                   {filters.valueKing !== "true" && (
                     <div className="catalog-mode-switch" role="group" aria-label="在售商品类型">
                       <span className="catalog-mode-indicator" aria-hidden="true" style={{transform: `translateX(${listingMode === "direct" ? "100%" : "0%"})`}} />
@@ -8602,11 +8661,11 @@ export default function Dashboard() {
         shellOverlayRoot &&
         createPortal(
           <ManagerAccountGate
-            accounts={managerAccounts}
+            apiBaseUrl={API}
             loading={managerAccountsLoading}
             error={managerAccountsError}
-            onRetry={() => void loadManagerAccounts()}
-            onSelect={selectManagerAccount}
+            onRetry={() => void loadSession()}
+            onAuthenticated={handleAuthenticated}
             logo={<RiderLogo className="h-9 w-9" />}
           />,
           shellOverlayRoot,
