@@ -478,25 +478,24 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
 
 /* Round-2 mobile grid: content-sized cards. Rows hug the tallest
    card's content instead of stretching every card to a shared height,
-   the card body goes back to a plain stack, and the price block reads
-   as three compact lines with every amount still present. */
+   and the card body goes back to a plain stack. The fixed slot
+   heights themselves are governed by the token block at the end of
+   this sheet. */
 @media(max-width:639px) {
   /* Rows hug the tallest card's content; nothing stretches a card. */
   .procurement-shell .procurement-grid {grid-auto-rows:auto !important;align-items:start !important;}
   .procurement-shell .procurement-grid .js-product-card {height:auto !important;}
 
-  /* Body becomes a plain stack again: the named-area grid's expanding
-     1fr note row is what opened the void under the prices. The bundle
-     toggle lives in the tags row, so the bottom row is actions only. */
-  .procurement-shell .procurement-grid .product-card-body {display:grid !important;flex:none !important;grid-template:"tags" auto "title" auto "decision" auto "note" auto "actions" auto / minmax(0,1fr);row-gap:3px;}
-  .procurement-shell .procurement-grid .product-card-note {min-height:0 !important;}
+  /* Body is a plain stack of the fixed slots: tags, title, decision,
+     actions. There is no note row; the bundle toggle lives in the
+     tags row, so the bottom row is actions only. */
+  .procurement-shell .procurement-grid .product-card-body {display:grid !important;flex:none !important;grid-template:"tags" auto "title" auto "decision" auto "actions" auto / minmax(0,1fr);row-gap:3px;}
 
   /* Title: two lines, small, no reserved third line. */
   .procurement-shell .procurement-grid .product-card-title {display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:2 !important;overflow:hidden !important;min-height:0 !important;max-height:34px;font-size:12.5px !important;line-height:1.35 !important;margin-bottom:0;}
 
-  /* Price block: three compact lines, every amount still present.
-     Line 1 total + CNY, line 2 list price/shipping + qty/unit facts,
-     line 3 the Yahoo discount estimate + its CNY. */
+  /* Price block: the total row only, at phone size. The meta row
+     under it is sized by the token block at the end of this sheet. */
   .procurement-shell .procurement-grid .product-card-decision {display:flex !important;flex-direction:column;gap:2px !important;margin-top:2px !important;padding:6px 7px !important;}
   .procurement-shell .procurement-grid .product-card-decision dl {display:flex !important;flex-wrap:wrap;align-items:baseline;gap:1px 6px;}
   .procurement-shell .procurement-grid .product-card-decision .product-card-total {display:flex !important;flex-wrap:wrap;align-items:baseline;gap:5px;flex:1 1 100%;}
@@ -528,4 +527,54 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
   .procurement-shell .catalog-toolbar h2 {scroll-margin-top:calc(var(--app-header-height) + 118px);}
   .procurement-shell .catalog-actions :is(.catalog-mode-switch button, .catalog-filter-button, .catalog-clear-button) {min-height:40px;}
   .procurement-shell .catalog-actions .catalog-refresh-button {width:40px;height:40px;min-height:40px;}
+}
+
+/* Fixed-form product card: one stack of slots at every breakpoint.
+   Slot heights come from these tokens and nothing else - title
+   length, quantity, shipping, a Yahoo target or a note never change
+   a slot height, so cards in a grid stay identical in shape. The
+   media keeps its 3/2 aspect, the action row keeps its 44px targets
+   (40px in the phone grid, set above). */
+.procurement-shell {
+  --product-card-tags-height: 24px;
+  --product-card-title-height: 48px;
+  --product-card-price-height: 32px;
+  --product-card-meta-height: 20px;
+}
+.procurement-shell .product-card-tags {
+  height: var(--product-card-tags-height) !important;
+  min-height: var(--product-card-tags-height) !important;
+  max-height: var(--product-card-tags-height) !important;
+  flex-wrap: nowrap !important;
+  overflow: hidden;
+}
+.procurement-shell .product-card-title {
+  height: var(--product-card-title-height) !important;
+  min-height: var(--product-card-title-height) !important;
+  max-height: var(--product-card-title-height) !important;
+}
+.procurement-shell .product-card-price-slot {
+  height: var(--product-card-price-height);
+  flex-wrap: nowrap !important;
+}
+.procurement-shell .product-card-meta {
+  height: var(--product-card-meta-height);
+  line-height: var(--product-card-meta-height);
+  white-space: nowrap;
+  overflow: hidden;
+}
+@media (max-width: 639px) {
+  .procurement-shell {
+    --product-card-title-height: 44px;
+    --product-card-price-height: 28px;
+    --product-card-meta-height: 18px;
+  }
+  .procurement-shell .procurement-grid {
+    --product-card-title-height: 34px;
+    --product-card-price-height: 24px;
+    --product-card-meta-height: 16px;
+  }
+  .procurement-shell .procurement-grid .product-card-meta {
+    font-size: 10px;
+  }
 }

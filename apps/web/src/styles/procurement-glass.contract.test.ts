@@ -38,10 +38,14 @@ describe("procurement glass layout contracts", () => {
     }
   });
 
-  it("keeps all grid rows equal while preserving the action and optional note rows", () => {
+  it("keeps all grid rows equal with a fixed slot stack and no note row", () => {
     const gridRule = globals.match(/\.procurement-grid\s*\{([^{}]*)\}/)?.[1];
     expect(gridRule).toMatch(/grid-auto-rows:\s*1fr/);
-    expect(css).toMatch(/"note"\s+minmax\(var\(--product-card-note-height\),\s*1fr\)/);
+    // The card body is tags / title / decision / actions only. The
+    // note row is gone: a note lives behind the media trigger, so its
+    // presence can no longer change the card's shape.
+    expect(css).not.toMatch(/"note"/);
+    expect(css).toMatch(/"decision" auto\s+"actions" auto/);
     expect(css).toMatch(/\.procurement-shell \.product-card-actions\s*\{[^{}]*grid-area:\s*actions;[^{}]*min-height:\s*44px;/);
     expect(polish).not.toMatch(/\.procurement-shell \.product-card-body\s*\{[^{}]*overflow:\s*hidden/);
     expect(globals).not.toMatch(/\.product-card-has-note \.product-card-title/);

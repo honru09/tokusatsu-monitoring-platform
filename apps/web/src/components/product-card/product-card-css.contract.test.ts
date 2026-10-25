@@ -62,3 +62,42 @@ describe("product card price and action row contracts", () => {
     }
   });
 });
+
+describe("fixed-form card geometry contracts", () => {
+  it("defines one height token per body slot in the final layer", () => {
+    expect(finalLayer).toMatch(/--product-card-tags-height:\s*24px/);
+    expect(finalLayer).toMatch(/--product-card-title-height:\s*48px/);
+    expect(finalLayer).toMatch(/--product-card-price-height:\s*32px/);
+    expect(finalLayer).toMatch(/--product-card-meta-height:\s*20px/);
+  });
+
+  it("pins the tags and title slots to their tokens", () => {
+    expect(finalLayer).toMatch(
+      /\.product-card-tags \{[^}]*height:\s*var\(--product-card-tags-height\)\s*!important[^}]*flex-wrap:\s*nowrap\s*!important[^}]*overflow:\s*hidden/,
+    );
+    expect(finalLayer).toMatch(
+      /\.product-card-title \{[^}]*height:\s*var\(--product-card-title-height\)\s*!important[^}]*min-height:\s*var\(--product-card-title-height\)\s*!important[^}]*max-height:\s*var\(--product-card-title-height\)\s*!important/,
+    );
+  });
+
+  it("keeps the price slot on one nowrap row and the meta slot reserved", () => {
+    expect(finalLayer).toMatch(
+      /\.product-card-price-slot \{[^}]*height:\s*var\(--product-card-price-height\)[^}]*flex-wrap:\s*nowrap\s*!important/,
+    );
+    expect(finalLayer).toMatch(
+      /\.product-card-meta \{[^}]*height:\s*var\(--product-card-meta-height\)[^}]*white-space:\s*nowrap[^}]*overflow:\s*hidden/,
+    );
+  });
+
+  it("shrinks the slot tokens in the phone grid only", () => {
+    expect(finalLayer).toMatch(
+      /\.procurement-shell \.procurement-grid \{\s*--product-card-title-height:\s*34px;\s*--product-card-price-height:\s*24px;\s*--product-card-meta-height:\s*16px;/,
+    );
+  });
+
+  it("has no note row left in the glass body grid", () => {
+    expect(glass).not.toMatch(/"note"/);
+    expect(glass).not.toContain(".product-card-note {");
+    expect(glass).toMatch(/"decision" auto\s+"actions" auto/);
+  });
+});
