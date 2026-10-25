@@ -1,38 +1,26 @@
 ---
 name: 假面采购
-description: Apple 色彩与材质、日式编辑排版的日本特摄采购与闲鱼售卖工作台
+description: 站主定版：大圆角、深蓝渐变主视觉、近黑数字砖与浅灰底的高对比现代秩序
 colors:
   primary: "#0071e3"
   secondary: "#2997ff"
   accent: "#64d2ff"
   ink: "#1d1d1f"
-  paper: "#f5f5f7"
-  fog: "#e8e8ed"
+  paper: "#f4f4f5"
+  fog: "#e4e4e7"
   white: "#ffffff"
+  page-bg: "#f4f4f5"
+  surface: "#ffffff"
+  hero-gradient-start: "#0a1526"
+  hero-gradient-end: "#0066ff"
+  brick-dark: "#101014"
+  label-muted: "#8e8e93"
+  positive-green: "#34c759"
   success: "#34c759"
   warning: "#ff9f0a"
   destructive: "#ff3b30"
   focus-ring: "rgba(10, 132, 255, 0.25)"
-  chrome-shadow: "rgba(20, 31, 44, 0.18)"
-  app-sky: "#b8daf0"
-  app-sky-soft: "#d9eaf4"
-  app-lilac: "#e9e0f4"
-  app-mint: "#dcefe3"
-  app-header: "rgba(187, 219, 240, 0.72)"
-  app-ink-50: "rgba(7, 8, 10, 0.50)"
-  app-ink-42: "rgba(7, 8, 10, 0.42)"
-  app-ink-32: "rgba(7, 8, 10, 0.32)"
-  app-ink-10: "rgba(7, 8, 10, 0.10)"
-  app-ink-09: "rgba(7, 8, 10, 0.09)"
-  app-ink-07: "rgba(7, 8, 10, 0.07)"
-  error-text: "#8b1d18"
-  card-shadow: "rgba(25, 45, 63, 0.07)"
-  surface-shadow: "rgba(32, 53, 72, 0.055)"
-  calculator-ink: "#505765"
-  calculator-action-ink: "#145fa8"
-  calculator-success-ink: "#20533f"
-  calculator-loss-ink: "#9d2b26"
-  calculator-input: "#f0f3f6"
+  card-shadow: "0 10px 30px rgba(0, 0, 0, 0.08)"
 typography:
   ui: "-apple-system, BlinkMacSystemFont, SF Pro Text, Noto Sans SC, sans-serif"
   display: "-apple-system, BlinkMacSystemFont, SF Pro Display, Noto Sans SC, sans-serif"
@@ -41,19 +29,19 @@ rounded:
   compact: "8px"
   control: "8px"
   mobile-card: "14px"
-  card: "12px"
-  dialog: "12px"
-  icon: "16px"
-  panel: "20px"
-  dock: "32px"
-  bubble-tail: "2px"
-  pill: "999px"
+  brick: "20px"
+  card: "28px"
+  dialog: "28px"
+  panel: "28px"
+  dock: "9999px"
+  capsule: "9999px"
+  pill: "9999px"
 interaction:
   minimumTarget: "44px"
   feedbackDuration: "100-260ms"
   intensity: "ENERGY 2 / RHYTHM 3 / MOTION 3"
 card:
-  radius: "18px"
+  radius: "28px"
   bodyPadding: "12px"
   bodyPaddingPhoneGrid: "8px"
   spacingScale: ["4px", "8px", "12px", "16px", "24px"]
@@ -90,7 +78,33 @@ card:
 
 # 假面采购设计系统
 
-## 2026-10-09 视觉与操作升级（当前规则）
+## 站主定版视觉体系（2026-10 当前全站基准）
+
+本方向由站主定版，正式取代批次8的浅蓝玻璃口径。
+> 取代理由：批次8的浅蓝玻璃与光场对比度不足且易对高频看盘造成视觉干扰，改为大圆角深蓝渐变主视觉、近黑数字砖与浅灰底的高对比现代秩序。
+
+### 核心视觉令牌（Design Tokens）
+- **页底（Page Background）**：`#f4f4f5`（浅灰页底，留白克制，烘托内容主体，全站生效）。
+- **表面（Surface）**：`#ffffff`（纯白卡片、浮层与内容岛实体底色）。
+- **主视觉渐变起止色（Hero Gradient）**：深蓝渐变主视觉区（深靛蓝 `#0a1526` → 鲜蓝 `#0066ff`），用于页头区主视觉横幅，搭配白色大字陈述，行距宽松、不堆控件。
+- **黑砖色（Brick Dark）**：近黑底 `#101014`（用于高权重核心数字砖，横跨渐变与下方浅灰边界）。
+- **标签灰（Label Muted）**：小号灰色标签与副标 `#8e8e93` / `#71717a`（在深色底与浅色底上均保持可读与层次）。
+- **正向绿（Positive Green）**：`#34c759` / `#4ade80`（用于正向利润、正向收益数值点缀）。
+- **圆角阶梯（Border Radius Hierarchy）**：
+  - 主卡 / 内容面板：`28px` 级（`rounded-[28px]`，舒展饱满）。
+  - 数字砖：`20px` 级（`rounded-[20px]`，克制精炼）。
+  - 悬浮胶囊底导航 / 药丸胶囊：`9999px`（完全胶囊圆角，漂浮于内容上方）。
+- **字阶与排版（Typographic Scale）**：
+  - 渐变主视觉大字陈述：`clamp(20px, 3.2vw, 28px)`，行距 `1.45` 宽松，字体 `600`，字阶拉开。
+  - 核心数字：`clamp(19px, 5.2vw, 30px)`，粗体、tabular numerals 等宽对齐；严格保留批次10 R2 的 10/12 字符按位数降档逻辑，确保八位数（¥99,999,999）不碰撞溢出。
+  - 正文 / 区块标题：`14–17px`。
+  - 标签 / 副标：`11–12px` 小号灰字。
+
+### 保持不变的核心规范
+- **卡片固定制式**：媒体（3/2 或移动端 4/3）、标签槽、两行标题槽、价格槽、元信息槽、操作行固定槽高，网格同高同构规矩保持不变。
+- **动效数字表**：按压反馈 100–160ms、下拉菜单 150–250ms、弹窗 200–500ms、仅允许 transform 与 opacity、遵循 `prefers-reduced-motion` 规则保持不变。
+
+## 2026-10-09 视觉与操作升级（历史记录）
 
 以下规则优先于后面的历史设计记录。“简约”减少操作负担，不将现有界面降级为无层次白框，也不删减业务入口。Logo、四个主工作区、数据和交易语义保持不变；历史章节里的发现页与五入口导航不再属于当前界面。
 
