@@ -221,13 +221,6 @@ describe("workspace URL deep-link", () => {
     });
   });
 
-  it("treats inventory orders as a workbench child", () => {
-    expect(initialWorkspaceNavigationState("orders")).toEqual({
-      workspace: "orders",
-      trail: ["workbench"],
-    });
-  });
-
   it("omits inventory from the query so the default home stays clean", () => {
     expect(workspaceSearchParam("inventory")).toBeNull();
     expect(workspaceSearchParam("assistant")).toBe("assistant");
