@@ -358,6 +358,53 @@
   font-weight: 400;
   margin-top: 2px;
 }
+.detail-breakdown {
+  padding-block: 24px 8px;
+}
+.detail-breakdown h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.detail-breakdown dl {
+  margin: 0;
+}
+.detail-breakdown dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  padding-block: 8px;
+  border-top: 0.5px solid var(--reading-line);
+}
+.detail-breakdown dt {
+  color: var(--reading-secondary);
+  font-size: 0.8125rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.detail-breakdown dt small {
+  font-size: 0.75rem;
+}
+.detail-breakdown dd {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+.detail-breakdown dd small {
+  display: block;
+  color: var(--reading-secondary);
+  font-size: 0.75rem;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.detail-breakdown dl > div[data-row="total"] dd {
+  font-size: 1.0625rem;
+  font-weight: 650;
+}
 .detail-auction {
   display: grid;
   grid-template-columns: 1fr auto;

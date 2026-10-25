@@ -19,6 +19,7 @@ export function listingCostSummary(item: {
   const auction = item.listingType === "auction";
   return {
     total,
+    knownShipping,
     unit:
       validQuantity && total != null
         ? Math.round(total / item.quantityEst!)
