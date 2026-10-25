@@ -1,6 +1,8 @@
 "use client";
 import { YahooDiscount } from "./yahoo-discount";
 import { LoadError } from "./load-error";
+import { EmptyState } from "./empty-state";
+import { SafeItemImage } from "./item-image";
 import { useFloatingControl } from "../lib/use-floating-control";
 
 import {
@@ -234,7 +236,7 @@ export function NegotiationScriptPanel({
       </button>
       {error ? <p className="negotiation-script-error">{error}</p> : null}
       {groups?.length === 0 ? (
-        <p className="negotiation-script-empty">本轮暂无可生成话术的商品</p>
+        <EmptyState art="chat" title="本轮暂无可生成话术的商品" compact />
       ) : null}
       {groups?.map((group) => {
         const key = group.sellerId ?? group.itemIds[0] ?? "group";
@@ -631,6 +633,41 @@ function messageTime(value: string) {
   }).format(new Date(value));
 }
 
+/** Decision captions carry the day once a decision is no longer today's,
+ * so an older 砍价/不要 does not read as if it was just made. */
+function decisionTime(value: string) {
+  const date = new Date(value);
+  const now = new Date();
+  const time = messageTime(value);
+  if (date.toDateString() === now.toDateString()) return time;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return `昨天 ${time}`;
+  const monthDay = new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+  }).format(date);
+  return `${monthDay} ${time}`;
+}
+
+function TagIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-6 w-6"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 4h7l9 9-7 7-9-9V4Z" />
+      <circle cx="8.5" cy="8.5" r="1.4" />
+    </svg>
+  );
+}
+
 function mergeMessages(current: DirectMessage[], incoming: DirectMessage[]) {
   const map = new Map(current.map((message) => [message.id, message]));
   for (const message of incoming) map.set(message.id, message);
@@ -694,7 +731,7 @@ export function DecisionControls({
         <span className="collaboration-decision-caption">
           {decision.decidedByName ? `${decision.decidedByName} · ` : ""}
           {TERMS.decided}：{decisionLabel(decision.status)}
-          {decision.decidedAt ? ` · ${messageTime(decision.decidedAt)}` : ""}
+          {decision.decidedAt ? ` · ${decisionTime(decision.decidedAt)}` : ""}
         </span>
       ) : null}
     </div>
@@ -726,12 +763,11 @@ function ProductReference({
     <div className="collaboration-product-wrapper space-y-1.5">
       <div className="collaboration-product">
         <span className="collaboration-product-image">
-          {item.images[0]?.url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.images[0].url} alt="" loading="lazy" />
-          ) : (
-            <ProductGlyph />
-          )}
+          <SafeItemImage
+            src={item.images[0]?.url}
+            alt={itemTitle(item)}
+            className="h-full w-full object-cover"
+          />
         </span>
         <span className="collaboration-product-copy">
           <strong>{itemTitle(item)}</strong>
@@ -740,7 +776,7 @@ function ProductReference({
             {item.seller?.name ? ` · ${item.seller.name}` : ""}
           </span>
           {targetPriceYen && targetPriceYen > 0 ? (
-            <span className="inline-block text-[11px] font-semibold text-emerald-700">
+            <span className="inline-block text-xs font-semibold text-emerald-700">
               目标价 {yen(targetPriceYen)}（省{" "}
               {yen(Math.max(0, item.priceCurrent - targetPriceYen))}）
             </span>
@@ -883,7 +919,7 @@ function BundleProductReference({
 
       <div className="mt-2 divide-y divide-black/[0.05]">
         {items.map((entry, idx) => (
-          <div key={entry.id} className="py-2 first:pt-0.5 last:pb-0.5">
+          <div key={entry.id} className="py-2.5 first:pt-0.5 last:pb-0.5">
             <div className="flex items-center gap-2.5">
             <button
               type="button"
@@ -891,19 +927,11 @@ function BundleProductReference({
               className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-black/5"
               aria-label={`查看 ${itemTitle(entry)}`}
             >
-              {entry.images[0]?.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={entry.images[0].url}
-                  alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="grid h-full w-full place-items-center text-[10px] font-bold text-ink/40">
-                  #{idx + 1}
-                </span>
-              )}
+              <SafeItemImage
+                src={entry.images[0]?.url}
+                alt={itemTitle(entry)}
+                className="h-full w-full object-cover"
+              />
               <span className="absolute left-0.5 top-0.5 rounded bg-black/65 px-1 text-[9px] font-bold text-white tabular-nums">
                 {idx + 1}
               </span>
@@ -913,15 +941,17 @@ function BundleProductReference({
               onClick={() => onOpenItem(entry.id)}
               className="min-w-0 flex-1 text-left"
             >
-              <strong className="block truncate text-xs font-semibold text-ink">
+              <strong className="block text-[13px] font-semibold leading-snug text-ink line-clamp-2">
                 {itemTitle(entry)}
               </strong>
               <span className="mt-0.5 block font-mono text-[11px] tabular-nums text-ink/60">
                 {yen(entry.priceCurrent)} · {entry.source.displayName}
               </span>
             </button>
-            <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-ink/55">
-              目标
+            </div>
+            <div className="mt-1.5 flex items-center gap-2 pl-[54px]">
+            <label className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-ink/55">
+              目标价
               <input
                 inputMode="numeric"
                 aria-label={`目标价：${itemTitle(entry)}`}
@@ -932,14 +962,14 @@ function BundleProductReference({
                     [entry.id]: event.target.value.replace(/[^\d]/g, ""),
                   }))
                 }
-                className="h-7 w-[68px] rounded-lg border border-black/[0.12] bg-white px-1.5 font-mono text-[11px] text-ink tabular-nums"
+                className="h-9 w-[84px] rounded-lg border border-black/[0.12] bg-white px-2 font-mono text-xs text-ink tabular-nums"
               />
             </label>
             <a
               href={entry.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0 rounded-lg border border-black/[0.08] bg-black/[0.03] px-2 py-1 text-[11px] font-semibold text-ink/80 transition active:scale-[0.97] hover:bg-black/[0.07]"
+              className="inline-flex min-h-9 shrink-0 items-center rounded-lg border border-black/[0.08] bg-black/[0.03] px-2.5 text-[11px] font-semibold text-ink/80 transition active:scale-[0.97] hover:bg-black/[0.07]"
             >
               直达 ↗
             </a>
@@ -967,7 +997,7 @@ function BundleProductReference({
           onClick={copyScript}
           className="collaboration-product-action is-primary flex-1"
         >
-          {copied ? "✓ 已复制合并砍价日语" : "📋 一键复制合并砍价日语"}
+          {copied ? "✓ 已复制合并砍价日语" : "一键复制合并砍价日语"}
         </button>
         <button
           type="button"
@@ -1104,10 +1134,12 @@ function ShareRoundPanel({
                 {copied ? "✓ 已复制" : "标记复制"}
               </button>
               </div>
-              <DecisionControls
-                decision={row.decision ?? row.item.decision}
-                onDecide={(status) => onDecide(round, row, status)}
-              />
+              <div className="share-round-decision-row">
+                <DecisionControls
+                  decision={row.decision ?? row.item.decision}
+                  onDecide={(status) => onDecide(round, row, status)}
+                />
+              </div>
             </div>
           );
         })}
@@ -2059,7 +2091,7 @@ export function CollaborationChatWorkspace({
               />
             ))
           ) : (
-            <p className="px-1 py-2 text-xs text-ink/55">暂无分享轮次</p>
+            <EmptyState art="chat" title="暂无分享轮次" compact />
           )}
         </section>
       </details>
@@ -2087,7 +2119,7 @@ export function CollaborationChatWorkspace({
                   setNegotiationRailOpen((open) => !open);
               }}
             >
-              <span aria-hidden="true">🔪</span>
+              <TagIcon />
               {negotiationCounts.in_progress > 0 && (
                 <small>{negotiationCounts.in_progress}</small>
               )}
@@ -2200,30 +2232,32 @@ export function CollaborationChatWorkspace({
               >
                 <div className="collaboration-message-stack">
                   {message.replyTo && (
-                    <button
-                      type="button"
-                      className="collaboration-reply-quote"
-                      disabled={!message.replyTo.item && !messages.some(entry => entry.id === message.replyTo!.id)}
-                      aria-label={message.replyTo.item ? `打开引用商品：${itemTitle(message.replyTo.item)}` : `定位 ${message.replyTo.sender.displayName} 的原消息`}
-                      onClick={() => { if (message.replyTo?.item) void onOpenItem(message.replyTo.item.id); else if (message.replyTo) locateReply(message.replyTo.id); }}
-                    >
-                      <strong>{message.replyTo.sender.displayName}</strong>
-                      <span>
-                        {message.replyTo.item
-                          ? itemTitle(message.replyTo.item)
-                          : message.replyTo.text}
-                      </span>
-                    </button>
-                  )}
-                  {message.replyTo?.item && (
-                    <DecisionControls
-                      decision={message.replyTo.item.decision}
-                      onDecide={(status) =>
-                        void decide(message.replyTo!.item!, status, {
-                          messageId: message.replyTo!.id,
-                        })
-                      }
-                    />
+                    <div className="collaboration-reply-decision">
+                      <button
+                        type="button"
+                        className="collaboration-reply-quote"
+                        disabled={!message.replyTo.item && !messages.some(entry => entry.id === message.replyTo!.id)}
+                        aria-label={message.replyTo.item ? `打开引用商品：${itemTitle(message.replyTo.item)}` : `定位 ${message.replyTo.sender.displayName} 的原消息`}
+                        onClick={() => { if (message.replyTo?.item) void onOpenItem(message.replyTo.item.id); else if (message.replyTo) locateReply(message.replyTo.id); }}
+                      >
+                        <strong>{message.replyTo.sender.displayName}</strong>
+                        <span>
+                          {message.replyTo.item
+                            ? itemTitle(message.replyTo.item)
+                            : message.replyTo.text}
+                        </span>
+                      </button>
+                      {message.replyTo.item && (
+                        <DecisionControls
+                          decision={message.replyTo.item.decision}
+                          onDecide={(status) =>
+                            void decide(message.replyTo!.item!, status, {
+                              messageId: message.replyTo!.id,
+                            })
+                          }
+                        />
+                      )}
+                    </div>
                   )}
                   {message.forwardedFromId && (
                     <span className="collaboration-forward-label">
@@ -2823,7 +2857,7 @@ export function CollaborationChatWorkspace({
                       </div>
                     ))
                   ) : (
-                    <p className="negotiation-dialog-empty">暂无商品</p>
+                    <EmptyState art="tag" title="暂无商品" compact />
                   )}
                 </div>
               </section>

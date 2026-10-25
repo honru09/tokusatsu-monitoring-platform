@@ -2082,8 +2082,8 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 
 .collaboration-product {
   display: grid;
-  width: min(330px, 66vw);
-  grid-template-columns: 58px minmax(0, 1fr) 44px;
+  width: min(336px, 68vw);
+  grid-template-columns: 64px minmax(0, 1fr) 44px;
   align-items: center;
   gap: 10px;
   margin-top: 2px;
@@ -2099,8 +2099,8 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 }
 .collaboration-product-image {
   display: grid;
-  width: 58px;
-  height: 58px;
+  width: 64px;
+  height: 64px;
   place-items: center;
   overflow: hidden;
   border-radius: 10px;
@@ -2121,7 +2121,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   display: -webkit-box;
   overflow: hidden;
   color: var(--apple-label);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 650;
   line-height: 1.35;
   -webkit-box-orient: vertical;
@@ -2130,7 +2130,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 .collaboration-product-copy span {
   overflow: hidden;
   color: var(--apple-secondary);
-  font-size: 9px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2499,11 +2499,11 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   }
   .collaboration-product {
     width: min(288px, 78vw);
-    grid-template-columns: 52px minmax(0, 1fr) 44px;
+    grid-template-columns: 56px minmax(0, 1fr) 44px;
   }
   .collaboration-product-image {
-    width: 52px;
-    height: 52px;
+    width: 56px;
+    height: 56px;
   }
   .collaboration-composer {
     padding: 8px 10px 10px;

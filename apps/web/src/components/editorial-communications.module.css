@@ -170,20 +170,20 @@
 .chat :global(.collaboration-reply-quote) { min-height: 44px; padding: 4px 12px; border-radius: 0; border-left: 2px solid var(--color-primary, #0071e3); }
 .chat :global(.collaboration-reply-quote strong) { font-size: 12px; }
 .chat :global(.collaboration-reply-quote span) { font-size: 13px; line-height: 1.5; }
-.chat :global(.collaboration-product) { width: min(380px, 100%); grid-template-columns: 56px minmax(0, 1fr) 44px; gap: 12px; padding: 8px; border: 1px solid var(--glass-stroke); border-radius: 16px; background: var(--glass-fill-sheet); box-shadow: var(--glass-rim), 0 4px 14px #173c5c06; }
-.chat :global(.collaboration-product-image) { width: 56px; height: 64px; border-radius: 10px; }
+.chat :global(.collaboration-product) { width: min(380px, 100%); grid-template-columns: 64px minmax(0, 1fr) 44px; gap: 12px; padding: 8px; border: 1px solid var(--glass-stroke); border-radius: 16px; background: var(--glass-fill-sheet); box-shadow: var(--glass-rim), 0 4px 14px #173c5c06; }
+.chat :global(.collaboration-product-image) { width: 64px; height: 64px; border-radius: 10px; }
 .chat :global(.collaboration-product-copy strong) { font-size: 14px; line-height: 1.5; }
 .chat :global(.collaboration-product-copy span) { font-size: 12px; line-height: 1.4; }
 .chat :global(.collaboration-product-open) { border-radius: 12px; }
 .chat :global(.collaboration-product-actions) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 2px; }
-.chat :global(.collaboration-product-action) { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 40px; min-height: 40px; padding: 0 14px; border: 1px solid transparent; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; transition: background-color 180ms var(--ease-out, ease-out), transform 120ms var(--ease-out, ease-out); }
+.chat :global(.collaboration-product-action) { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 44px; min-height: 44px; padding: 0 14px; border: 1px solid transparent; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; transition: background-color 180ms var(--ease-out, ease-out), transform 120ms var(--ease-out, ease-out); }
 .chat :global(.collaboration-product-action:active) { transform: scale(.97); }
 .chat :global(.collaboration-product-action.is-primary) { background: var(--glass-ink, #1d1d1f); color: #fff; }
 .chat :global(.collaboration-product-action.is-secondary) { background: #fff; border-color: rgba(29, 29, 31, .12); color: var(--glass-ink, #1d1d1f); }
 .chat :global(.collaboration-product-action.is-tertiary) { background: rgba(29, 29, 31, .05); color: rgba(29, 29, 31, .72); }
 .chat :global(.collaboration-decision) { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding-top: 2px; }
 .chat :global(.collaboration-decision-buttons) { display: inline-flex; gap: 4px; }
-.chat :global(.collaboration-decision-button) { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 14px; border: 1px solid rgba(29, 29, 31, .12); border-radius: 999px; background: #fff; color: rgba(29, 29, 31, .75); font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; transition: background-color 180ms var(--ease-out, ease-out), transform 120ms var(--ease-out, ease-out); }
+.chat :global(.collaboration-decision-button) { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 16px; border: 1px solid rgba(29, 29, 31, .12); border-radius: 999px; background: #fff; color: rgba(29, 29, 31, .75); font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap; transition: background-color 180ms var(--ease-out, ease-out), transform 120ms var(--ease-out, ease-out); }
 .chat :global(.collaboration-decision-button:active) { transform: scale(.97); }
 .chat :global(.collaboration-decision-button[data-selected="true"]) { background: var(--glass-ink, #1d1d1f); border-color: transparent; color: #fff; }
 .chat :global(.collaboration-decision-caption) { font-size: 11px; color: var(--communications-secondary); }
