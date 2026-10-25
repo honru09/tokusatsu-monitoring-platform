@@ -72,4 +72,64 @@ describe("FinancePanel", () => {
     expect(host.textContent).toContain("重试");
     expect(host.textContent).toContain("—");
   });
+
+  it("retry refetches and renders the recovered figures", async () => {
+    fetchMock
+      .mockResolvedValueOnce(response({ message: "down" }, 503))
+      .mockResolvedValueOnce(
+        response({
+          totalCostYen: 8_000,
+          totalIncomeYen: 0,
+          netProfitYen: -8_000,
+        }),
+      );
+    await act(async () => {
+      root.render(<FinancePanel apiBaseUrl="/backend" />);
+    });
+    const retry = [...host.querySelectorAll("button")].find(
+      (button) => button.textContent === "重试",
+    );
+    expect(retry).toBeTruthy();
+    await act(async () => {
+      retry!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(host.textContent).toContain("¥8,000");
+    expect(host.textContent).toContain("−¥8,000");
+    expect(host.textContent).not.toContain("重试");
+  });
+
+  it("refetches when the refresh key changes identity", async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        totalCostYen: 1_000,
+        totalIncomeYen: 0,
+        netProfitYen: -1_000,
+      }),
+    );
+    const firstKey = new Set(["a"]);
+    await act(async () => {
+      root.render(
+        <FinancePanel apiBaseUrl="/backend" refreshKey={firstKey} />,
+      );
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    fetchMock.mockResolvedValue(
+      response({
+        totalCostYen: 2_500,
+        totalIncomeYen: 0,
+        netProfitYen: -2_500,
+      }),
+    );
+    await act(async () => {
+      root.render(
+        <FinancePanel
+          apiBaseUrl="/backend"
+          refreshKey={new Set(["a", "b"])}
+        />,
+      );
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(host.textContent).toContain("¥2,500");
+  });
 });

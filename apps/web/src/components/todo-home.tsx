@@ -231,7 +231,7 @@ export function TodoHome({
         </button>
       </header>
 
-      <FinancePanel apiBaseUrl={apiBaseUrl} />
+      <FinancePanel apiBaseUrl={apiBaseUrl} refreshKey={purchasedItemIds} />
 
       {loading && total === 0 && (
         <div className="skeleton-rows" aria-hidden="true">

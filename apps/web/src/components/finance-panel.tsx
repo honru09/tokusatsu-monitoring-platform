@@ -68,8 +68,18 @@ function Figure({
  * The home money strip: one pool, three numbers - everything ever
  * spent on purchases, everything ever taken in from sales, and the
  * difference. Pinned above the todo queues; no copy beyond the labels.
+ * Refetches whenever `refreshKey` changes identity: the dashboard
+ * hands it the purchased-id set, which is rebuilt on every purchase
+ * sync, so a purchase registered while the home stays mounted does
+ * not leave stale totals on screen.
  */
-export function FinancePanel({ apiBaseUrl }: { apiBaseUrl: string }) {
+export function FinancePanel({
+  apiBaseUrl,
+  refreshKey,
+}: {
+  apiBaseUrl: string;
+  refreshKey?: unknown;
+}) {
   const reduceMotion = useReducedMotion() ?? false;
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [failed, setFailed] = useState(false);
@@ -97,7 +107,7 @@ export function FinancePanel({ apiBaseUrl }: { apiBaseUrl: string }) {
       }
     })();
     return () => controller.abort();
-  }, [apiBaseUrl, attempt]);
+  }, [apiBaseUrl, attempt, refreshKey]);
 
   const net = summary?.netProfitYen ?? null;
   return (
