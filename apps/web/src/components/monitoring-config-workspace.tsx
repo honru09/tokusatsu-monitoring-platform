@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
 import { springs } from "../lib/motion-tokens";
 import { readFetchError } from "../lib/fetch-error";
+import { TERMS } from "../lib/terms";
 import { getShellOverlayRoot } from "../lib/shell-overlay";
 import { useDialogFocus } from "../lib/use-dialog-focus";
 import "../styles/monitoring-config.css";
@@ -556,14 +557,14 @@ export function MonitoringConfigWorkspace({
   return (
     <section
       className={`mcfg-workspace ${styles.workspace} ${styles.monitoring}`}
-      aria-label="监控配置"
+      aria-label={TERMS.monitoring}
       data-keyboard-motion={keyboardMotion ? "true" : "false"}
       onPointerDownCapture={() => setKeyboardMotion(false)}
       onKeyDownCapture={() => setKeyboardMotion(true)}
     >
       <header className={`mcfg-header ${styles.heading}`}>
         <div>
-          <h2>监控配置</h2>
+          <h2>{TERMS.monitoring}</h2>
           {config && (
             <p>
               {config.keywords.filter((keyword) => keyword.enabled).length}{" "}
@@ -615,7 +616,7 @@ export function MonitoringConfigWorkspace({
       )}
       {loading && !config ? (
         <p className="mcfg-empty" role="status">
-          正在读取监控配置…
+          正在读取{TERMS.monitoring}…
         </p>
       ) : (
         config && (

@@ -415,7 +415,7 @@ describe("MonitoringConfigWorkspace", () => {
         }),
     );
     await render();
-    expect(host.textContent).toContain("正在读取监控配置");
+    expect(host.textContent).toContain("正在读取监控设置");
     await act(async () => {
       complete(Response.json(config));
     });

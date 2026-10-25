@@ -3,6 +3,7 @@
 import { useGSAP } from "@gsap/react";
 import { PrimaryNavigation } from "../components/primary-navigation";
 import { LoadError } from "../components/load-error";
+import { TERMS } from "../lib/terms";
 import { WorkbenchWorkspace } from "../components/workbench-workspace";
 import { EditorialReadingProgress } from "../components/editorial-reading-progress";
 import gsap from "gsap";
@@ -144,7 +145,7 @@ import type { MonitoringCategory } from "../components/monitoring-config-workspa
 
 const MonitoringConfigWorkspace = dynamic(
   () => import("../components/monitoring-config-workspace").then((module) => module.MonitoringConfigWorkspace),
-  { ssr: false, loading: () => <p role="status" className="mcfg-empty">正在读取监控配置…</p> },
+  { ssr: false, loading: () => <p role="status" className="mcfg-empty">正在读取{TERMS.monitoring}…</p> },
 );
 
 gsap.registerPlugin(useGSAP);
@@ -5686,7 +5687,7 @@ export default function Dashboard() {
       }
       setPurchasesError("");
     } catch {
-      setPurchasesError("采购记录加载失败，请稍后重试");
+      setPurchasesError(`${TERMS.purchases}加载失败，请稍后重试`);
     }
   }, []);
   const loadPurchaseBundles = useCallback(async (pageToLoad = 1) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import type { Workspace } from "../lib/workspace-navigation";
+import { TERMS } from "../lib/terms";
 import { useEffect, useRef } from "react";
 import styles from "./workbench-workspace.module.css";
 import { AppleActionRail } from "./apple-action-rail";
@@ -56,7 +57,7 @@ export function WorkbenchWorkspace({onNavigate, accountName, position, activeCou
     </header>
     <div className={styles.summary}>
       <button type="button" onClick={()=>onNavigate("catalog")}><span>在售商品</span><strong>{activeCount == null ? "—" : activeCount.toLocaleString("zh-CN")}</strong></button>
-      <div><span>采购清单</span><strong>{cartCount.toLocaleString("zh-CN")}<small>件</small></strong></div>
+      <div><span>{TERMS.cart}</span><strong>{cartCount.toLocaleString("zh-CN")}<small>件</small></strong></div>
       <p>从选货到售卖，沿着商品继续处理。</p>
     </div>
     <div className={styles.stages}>
