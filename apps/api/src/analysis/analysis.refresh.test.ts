@@ -5,12 +5,14 @@ const queueMocks = vi.hoisted(() => ({
   add: vi.fn(),
   close: vi.fn(),
   quit: vi.fn(),
+  getJob: vi.fn(),
 }));
 
 vi.mock("bullmq", () => ({
   Queue: class {
     add = queueMocks.add;
     close = queueMocks.close;
+    getJob = queueMocks.getJob;
   },
 }));
 
@@ -29,6 +31,7 @@ describe("POST /analysis/seller/:id/refresh", () => {
     queueMocks.add.mockResolvedValue({ id: "mock-job-id" });
     queueMocks.close.mockResolvedValue(undefined);
     queueMocks.quit.mockResolvedValue(undefined);
+    queueMocks.getJob.mockResolvedValue(null);
   });
 
   function createService(sellerData: Record<string, unknown> | null) {
@@ -86,11 +89,45 @@ describe("POST /analysis/seller/:id/refresh", () => {
       { sellerId: "s-mercari" },
       {
         jobId: "seller-catalogue-s-mercari",
-        removeOnComplete: 100,
-        removeOnFail: 100,
+        removeOnComplete: true,
+        removeOnFail: true,
       },
     );
     expect(queueMocks.close).toHaveBeenCalled();
     expect(queueMocks.quit).toHaveBeenCalled();
+  });
+
+  it("5. removes a retained completed job so the re-add is not deduped away", async () => {
+    const staleJob = {
+      getState: vi.fn().mockResolvedValue("completed"),
+      remove: vi.fn().mockResolvedValue(undefined),
+    };
+    queueMocks.getJob.mockResolvedValue(staleJob);
+    const { controller } = createService({
+      id: "s-stuck",
+      source: { key: "mercari" },
+      sourceData: null,
+    });
+    const result = await controller.refreshSeller("s-stuck");
+    expect(result).toEqual({ enqueued: true });
+    expect(queueMocks.getJob).toHaveBeenCalledWith("seller-catalogue-s-stuck");
+    expect(staleJob.remove).toHaveBeenCalled();
+    expect(queueMocks.add).toHaveBeenCalled();
+  });
+
+  it("6. leaves a waiting/active job untouched so it still dedupes", async () => {
+    const liveJob = {
+      getState: vi.fn().mockResolvedValue("active"),
+      remove: vi.fn().mockResolvedValue(undefined),
+    };
+    queueMocks.getJob.mockResolvedValue(liveJob);
+    const { controller } = createService({
+      id: "s-live",
+      source: { key: "mercari" },
+      sourceData: null,
+    });
+    const result = await controller.refreshSeller("s-live");
+    expect(result).toEqual({ enqueued: true });
+    expect(liveJob.remove).not.toHaveBeenCalled();
   });
 });

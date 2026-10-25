@@ -1230,13 +1230,25 @@ export class AnalysisService {
     });
     const queue = new Queue("seller-catalogue-refresh", { connection: redis });
     try {
+      const jobId = `seller-catalogue-${seller.id}`;
+      // A retained terminal job with the same id makes Queue.add a silent
+      // no-op in BullMQ, which would block this seller from ever refreshing
+      // again. Clear completed/failed leftovers so the add below schedules
+      // real work; a waiting/active job is left untouched and dedupes.
+      const existing = await queue.getJob(jobId);
+      if (existing) {
+        const state = await existing.getState();
+        if (state === "completed" || state === "failed") {
+          await existing.remove();
+        }
+      }
       await queue.add(
         "refresh",
         { sellerId: seller.id },
         {
-          jobId: `seller-catalogue-${seller.id}`,
-          removeOnComplete: 100,
-          removeOnFail: 100,
+          jobId,
+          removeOnComplete: true,
+          removeOnFail: true,
         },
       );
     } finally {
