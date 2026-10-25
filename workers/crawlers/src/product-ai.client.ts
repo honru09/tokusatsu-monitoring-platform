@@ -92,8 +92,8 @@ export async function executeProductAi<T extends Record<string, unknown>>(
   // This client is worker-only: every caller is scheduled/background work.
   // Check authorization before credentials or request construction so a
   // disabled deployment cannot reach the internal AI endpoint. Callers
-  // default to the paid class; only free-tier work (translation, image
-  // classification) may opt into the free class explicitly.
+  // default to the paid class; only free-tier work such as image
+  // classification may opt into the free class explicitly.
   const authorized =
     options.authorization === "free"
       ? automaticBackgroundAiEnabled()
