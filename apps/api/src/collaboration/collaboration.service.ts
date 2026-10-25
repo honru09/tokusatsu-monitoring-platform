@@ -555,10 +555,10 @@ export class CollaborationService {
 
   async decisions(accountId: string) {
     await this.requireAccount(accountId);
-    const rows = await this.prisma.itemDecision.findMany({
+    const rows = (await this.prisma.itemDecision.findMany({
       include: { decidedBy: true },
       orderBy: [{ decidedAt: "asc" }, { id: "asc" }],
-    });
+    })) as DecisionRow[];
     return {
       decisions: rows.map((row) => presentDecision(row)),
       serverTime: new Date().toISOString(),
@@ -673,10 +673,10 @@ export class CollaborationService {
     const unique = [...new Set([...itemIds].filter(Boolean))];
     const map = new Map<string, DecisionInfo>();
     if (!unique.length) return map;
-    const rows = await this.prisma.itemDecision.findMany({
+    const rows = (await this.prisma.itemDecision.findMany({
       where: { itemId: { in: unique } },
       include: { decidedBy: true },
-    });
+    })) as DecisionRow[];
     for (const row of rows) map.set(row.itemId, presentDecision(row));
     return map;
   }

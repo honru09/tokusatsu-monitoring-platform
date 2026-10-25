@@ -5,6 +5,11 @@ import { PrimaryNavigation } from "../components/primary-navigation";
 import { LoadError } from "../components/load-error";
 import { TodoHome } from "../components/todo-home";
 import { TERMS } from "../lib/terms";
+import {
+  buildReviewQueue,
+  type ShareMessageLike,
+  type ShareRoundLike,
+} from "../lib/todo-queues";
 import { WorkbenchWorkspace } from "../components/workbench-workspace";
 import { EditorialReadingProgress } from "../components/editorial-reading-progress";
 import gsap from "gsap";
@@ -4531,6 +4536,11 @@ export default function Dashboard() {
   const [managerAccountsLoading, setManagerAccountsLoading] = useState(true);
   const [managerAccountsError, setManagerAccountsError] = useState("");
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [pendingDecisionCount, setPendingDecisionCount] = useState<
+    number | null
+  >(null);
+  const purchasedItemIdsRef = useRef<ReadonlySet<string>>(new Set());
+  const dislikedItemIdsRef = useRef<ReadonlySet<string>>(new Set());
   const [todoCount, setTodoCount] = useState(0);
   const [accountGateOpen, setAccountGateOpen] = useState(true);
   const [shellOverlayRoot, setShellOverlayRoot] = useState<HTMLElement | null>(
@@ -4701,6 +4711,42 @@ export default function Dashboard() {
       };
       if (payload.accounts) setManagerAccounts(payload.accounts);
       setUnreadMessageCount(payload.unreadCount ?? 0);
+      // The messages badge counts items still awaiting a decision, not
+      // unread texts. The review-queue builder is the single source for
+      // what "pending" means; a failure here keeps the previous count
+      // and the unread fallback in the navigation.
+      try {
+        const accountQuery = `?accountId=${encodeURIComponent(activeManagerId)}`;
+        const [roundsResponse, messagesResponse] = await Promise.all([
+          fetch(`${API}/collaboration/share-rounds${accountQuery}`, {
+            cache: "no-store",
+            signal,
+          }),
+          fetch(`${API}/collaboration/messages${accountQuery}`, {
+            cache: "no-store",
+            signal,
+          }),
+        ]);
+        if (roundsResponse.ok && messagesResponse.ok) {
+          const roundsPayload = (await roundsResponse.json()) as {
+            rounds?: ShareRoundLike[];
+          };
+          const messagesPayload = (await messagesResponse.json()) as {
+            messages?: ShareMessageLike[];
+          };
+          setPendingDecisionCount(
+            buildReviewQueue(
+              roundsPayload.rounds ?? [],
+              messagesPayload.messages ?? [],
+              activeManagerId,
+              purchasedItemIdsRef.current,
+              dislikedItemIdsRef.current,
+            ).length,
+          );
+        }
+      } catch {
+        /* keep the previous pending count */
+      }
     },
     [activeManagerId],
   );
@@ -7044,6 +7090,12 @@ export default function Dashboard() {
     () => new Set(dislikedItems.map((item) => item.id)),
     [dislikedItems],
   );
+  useEffect(() => {
+    purchasedItemIdsRef.current = purchasedItemIds;
+  }, [purchasedItemIds]);
+  useEffect(() => {
+    dislikedItemIdsRef.current = dislikedItemIds;
+  }, [dislikedItemIds]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageStart = total ? (page - 1) * PAGE_SIZE + 1 : 0;
   const pageEnd = Math.min(page * PAGE_SIZE, total);
@@ -8825,6 +8877,7 @@ export default function Dashboard() {
       <PrimaryNavigation
         activeWorkspace={navigationWorkspace}
         unreadCount={unreadMessageCount}
+        pendingDecisionCount={pendingDecisionCount}
         todoCount={todoCount}
         onNavigate={navigateWorkspace}
       />

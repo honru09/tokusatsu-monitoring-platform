@@ -82,6 +82,31 @@ describe("PrimaryNavigation", () => {
     expect(host.querySelector(".message-unread-badge")).toBeNull();
   });
 
+  it("counts pending decisions on the messages slot when the count is known", () => {
+    const render = (pendingDecisionCount: number | null) =>
+      root.render(
+        <PrimaryNavigation
+          activeWorkspace="inventory"
+          unreadCount={5}
+          pendingDecisionCount={pendingDecisionCount}
+          onNavigate={() => undefined}
+        />,
+      );
+    act(() => render(3));
+    expect(
+      host.querySelector('[aria-label="3 件待评估"]')?.textContent,
+    ).toBe("3");
+    expect(host.querySelector('[aria-label="5 条未读消息"]')).toBeNull();
+    // Zero pending decisions hides the badge even with unread texts.
+    act(() => render(0));
+    expect(host.querySelector(".message-unread-badge")).toBeNull();
+    // Unknown count falls back to the unread badge.
+    act(() => render(null));
+    expect(
+      host.querySelector('[aria-label="5 条未读消息"]')?.textContent,
+    ).toBe("5");
+  });
+
   it("shows the pending count on the todo slot and hides it at zero", () => {
     const render = (todoCount: number) =>
       root.render(

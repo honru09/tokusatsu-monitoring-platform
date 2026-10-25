@@ -62,11 +62,18 @@ function NavigationIcon({ workspace }: { workspace: PrimaryWorkspace }) {
 export const PrimaryNavigation = memo(function PrimaryNavigation({
   activeWorkspace,
   unreadCount,
+  pendingDecisionCount = null,
   todoCount = 0,
   onNavigate,
 }: {
   activeWorkspace: PrimaryWorkspace;
   unreadCount: number;
+  /**
+   * Items shared by the partner that still have no decision. When
+   * known, the messages badge counts these instead of unread texts -
+   * opening the chat no longer clears the signal, deciding does.
+   */
+  pendingDecisionCount?: number | null;
   /** Pending decision-queue total shown on the todo slot. */
   todoCount?: number;
   onNavigate: (workspace: PrimaryWorkspace) => void;
@@ -155,14 +162,26 @@ export const PrimaryNavigation = memo(function PrimaryNavigation({
                 {todoCount > 99 ? "99+" : todoCount}
               </span>
             )}
-            {key === "collaboration" && unreadCount > 0 && (
-              <span
-                className="message-unread-badge"
-                aria-label={`${unreadCount} 条未读消息`}
-              >
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
+            {key === "collaboration" &&
+              (pendingDecisionCount !== null
+                ? pendingDecisionCount > 0 && (
+                    <span
+                      className="message-unread-badge"
+                      aria-label={`${pendingDecisionCount} 件待评估`}
+                    >
+                      {pendingDecisionCount > 99
+                        ? "99+"
+                        : pendingDecisionCount}
+                    </span>
+                  )
+                : unreadCount > 0 && (
+                    <span
+                      className="message-unread-badge"
+                      aria-label={`${unreadCount} 条未读消息`}
+                    >
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  ))}
           </motion.span>
           <span className={`primary-navigation-label ${styles.label}`}>
             {label}
