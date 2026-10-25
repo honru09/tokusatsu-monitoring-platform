@@ -442,4 +442,52 @@ describe("Mercari adapter", () => {
       }),
     ).rejects.toBeInstanceOf(NoPublicPriceError);
   });
+
+  it("queries entities:search with sellerId filter, empty keyword, and parses response via parseMercariSearchResponse in fetchSellerListings", async () => {
+    let capturedBody: any = null;
+    let capturedHeaders: any = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes("entities:search")) {
+          capturedBody = JSON.parse(String(init?.body ?? "{}"));
+          capturedHeaders = init?.headers as Record<string, string>;
+          return new Response(
+            JSON.stringify({
+              items: [
+                {
+                  id: "m17892882001",
+                  status: "ITEM_STATUS_ON_SALE",
+                  name: "S.H.Figuarts 仮面ライダーギーツ",
+                  price: "8500",
+                  sellerId: "178928820",
+                  thumbnails: ["https://static.mercdn.net/item/detail/orig/photos/m17892882001_1.jpg"],
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    const adapter = new MercariAdapter();
+    const results = await adapter.fetchSellerListings("178928820", 60);
+
+    expect(capturedBody).not.toBeNull();
+    expect(capturedBody.searchCondition.sellerId).toEqual(["178928820"]);
+    expect(capturedBody.searchCondition.keyword).toBe("");
+    expect(capturedBody.pageSize).toBe(60);
+    expect(capturedHeaders?.dpop).toBeTruthy();
+    expect(capturedHeaders?.["content-type"]).toBe("application/json");
+
+    expect(results).toHaveLength(1);
+    expect(results[0].sourceItemId).toBe("m17892882001");
+    expect(results[0].sourceUrl).toBe("https://jp.mercari.com/item/m17892882001");
+    expect(results[0].titleHint).toBe("S.H.Figuarts 仮面ライダーギーツ");
+    expect(results[0].detailHint?.priceCurrent).toBe(8500);
+    expect(results[0].detailHint?.sellerName).toBe("Mercari 卖家 178928820");
+  });
 });

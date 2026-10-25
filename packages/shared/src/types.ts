@@ -60,6 +60,7 @@ export interface SearchQuery {
   pages?: number;
   scanMode?: "incremental" | "backfill";
   rotatePages?: boolean;
+  sellerId?: string | string[];
 }
 
 export interface SearchResult {

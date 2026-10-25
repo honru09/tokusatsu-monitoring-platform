@@ -1516,11 +1516,25 @@ export async function processSellerCatalogue(
   }
 
   if (seller.source.key !== "mercari") {
+    console.log(
+      JSON.stringify({
+        event: "seller_catalogue_skipped",
+        sellerId,
+        reason: "unsupported_source",
+      }),
+    );
     return { supported: false };
   }
 
   const externalId = extractMercariExternalSellerId(seller);
   if (!externalId) {
+    console.log(
+      JSON.stringify({
+        event: "seller_catalogue_skipped",
+        sellerId,
+        reason: "missing_external_id",
+      }),
+    );
     return { supported: false, error: "missing_external_id" };
   }
 
@@ -1636,6 +1650,18 @@ export async function processSellerCatalogue(
     },
   });
 
+  console.log(
+    JSON.stringify({
+      event: "seller_catalogue_completed",
+      sellerId,
+      fetched,
+      kept,
+      droppedOffType,
+      created,
+      updated,
+    }),
+  );
+
   return { fetched, kept, droppedOffType, created, updated };
 }
 
@@ -1702,7 +1728,33 @@ export function sellerMetadata(item: NormalizedItem) {
   };
 }
 
-async function upsertPublicSeller(sourceId: string, item: NormalizedItem) {
+function preserveLastCatalogueRefreshAt(
+  newSourceData: Prisma.InputJsonValue | undefined,
+  existingSourceData: Prisma.JsonValue | null | undefined,
+): Prisma.InputJsonValue {
+  const existingObj =
+    existingSourceData &&
+    typeof existingSourceData === "object" &&
+    !Array.isArray(existingSourceData)
+      ? (existingSourceData as Record<string, unknown>)
+      : null;
+  const lastCatalogueRefreshAt = existingObj?.lastCatalogueRefreshAt;
+  if (lastCatalogueRefreshAt === undefined) {
+    return (newSourceData ?? {}) as Prisma.InputJsonValue;
+  }
+  const base =
+    newSourceData &&
+    typeof newSourceData === "object" &&
+    !Array.isArray(newSourceData)
+      ? (newSourceData as Record<string, unknown>)
+      : {};
+  return {
+    ...base,
+    lastCatalogueRefreshAt,
+  } as Prisma.InputJsonValue;
+}
+
+export async function upsertPublicSeller(sourceId: string, item: NormalizedItem) {
   const name = item.sellerName?.trim();
   if (
     !name ||
@@ -1719,6 +1771,19 @@ async function upsertPublicSeller(sourceId: string, item: NormalizedItem) {
     profileUrl: metadata.profileUrl,
   } as const;
   if (metadata.sourceSellerId) {
+    const existing = await prisma.seller.findUnique({
+      where: {
+        sourceId_sourceSellerId: {
+          sourceId,
+          sourceSellerId: metadata.sourceSellerId,
+        },
+      },
+      select: { id: true, sourceData: true },
+    });
+    const updateSourceData = preserveLastCatalogueRefreshAt(
+      metadata.sourceData,
+      existing?.sourceData,
+    );
     return prisma.seller.upsert({
       where: {
         sourceId_sourceSellerId: {
@@ -1726,7 +1791,10 @@ async function upsertPublicSeller(sourceId: string, item: NormalizedItem) {
           sourceSellerId: metadata.sourceSellerId,
         },
       },
-      update: data,
+      update: {
+        ...data,
+        sourceData: updateSourceData,
+      },
       create: {
         sourceId,
         sourceSellerId: metadata.sourceSellerId,
@@ -1737,9 +1805,18 @@ async function upsertPublicSeller(sourceId: string, item: NormalizedItem) {
 
   const existing = await prisma.seller.findFirst({
     where: { sourceId, name, sourceSellerId: null },
+    select: { id: true, sourceData: true },
   });
-  if (existing)
-    return prisma.seller.update({ where: { id: existing.id }, data });
+  if (existing) {
+    const updateSourceData = preserveLastCatalogueRefreshAt(
+      metadata.sourceData,
+      existing.sourceData,
+    );
+    return prisma.seller.update({
+      where: { id: existing.id },
+      data: { ...data, sourceData: updateSourceData },
+    });
+  }
   try {
     return await prisma.seller.create({
       data: { sourceId, sourceSellerId: null, ...data },
@@ -1748,9 +1825,17 @@ async function upsertPublicSeller(sourceId: string, item: NormalizedItem) {
     if ((error as { code?: unknown }).code !== "P2002") throw error;
     const raced = await prisma.seller.findFirst({
       where: { sourceId, name, sourceSellerId: null },
+      select: { id: true, sourceData: true },
     });
     if (!raced) throw error;
-    return prisma.seller.update({ where: { id: raced.id }, data });
+    const updateSourceData = preserveLastCatalogueRefreshAt(
+      metadata.sourceData,
+      raced.sourceData,
+    );
+    return prisma.seller.update({
+      where: { id: raced.id },
+      data: { ...data, sourceData: updateSourceData },
+    });
   }
 }
 

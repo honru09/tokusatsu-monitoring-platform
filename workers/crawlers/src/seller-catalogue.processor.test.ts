@@ -85,8 +85,16 @@ describe("processSellerCatalogue", () => {
       data: { sellerId: "seller-yahoo" },
     } as Job<SellerCatalogueJobData>;
 
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const result = await processSellerCatalogue(job);
     expect(result).toEqual({ supported: false });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      JSON.stringify({
+        event: "seller_catalogue_skipped",
+        sellerId: "seller-yahoo",
+        reason: "unsupported_source",
+      }),
+    );
   });
 
   it("returns { supported: false, error: 'missing_external_id' } when external seller ID cannot be resolved", async () => {
@@ -105,11 +113,19 @@ describe("processSellerCatalogue", () => {
       data: { sellerId: "seller-no-id" },
     } as Job<SellerCatalogueJobData>;
 
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const result = await processSellerCatalogue(job);
     expect(result).toEqual({
       supported: false,
       error: "missing_external_id",
     });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      JSON.stringify({
+        event: "seller_catalogue_skipped",
+        sellerId: "seller-no-id",
+        reason: "missing_external_id",
+      }),
+    );
   });
 
   it("filters non-toy items, updates existing items, creates new items, and updates lastCatalogueRefreshAt", async () => {
@@ -309,6 +325,7 @@ describe("processSellerCatalogue", () => {
       data: { sellerId: "seller-mercari-1" },
     } as Job<SellerCatalogueJobData>;
 
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const result = await processSellerCatalogue(job);
 
     expect(result).toEqual({
@@ -318,6 +335,18 @@ describe("processSellerCatalogue", () => {
       created: 1,
       updated: 1,
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      JSON.stringify({
+        event: "seller_catalogue_completed",
+        sellerId: "seller-mercari-1",
+        fetched: 5,
+        kept: 2,
+        droppedOffType: 2,
+        created: 1,
+        updated: 1,
+      }),
+    );
 
     // Verify seller.sourceData.lastCatalogueRefreshAt was updated, retaining ratingCount: 150
     expect(sellerUpdateSpy).toHaveBeenCalledWith({

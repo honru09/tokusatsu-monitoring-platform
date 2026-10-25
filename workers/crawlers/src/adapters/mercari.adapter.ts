@@ -457,7 +457,11 @@ export class MercariAdapter implements SourceAdapter {
           sizeId: [],
           categoryId: [],
           brandId: [],
-          sellerId: [],
+          sellerId: query.sellerId
+            ? Array.isArray(query.sellerId)
+              ? query.sellerId
+              : [query.sellerId]
+            : [],
           priceMin: 0,
           priceMax: 0,
           itemConditionId: [],
@@ -560,10 +564,12 @@ export class MercariAdapter implements SourceAdapter {
     sellerExternalId: string,
     limit = 60,
   ): Promise<SearchResult[]> {
-    const safeLimit = Math.max(1, Math.min(limit, 60));
-    const profileUrl = `https://jp.mercari.com/user/profile/${sellerExternalId}`;
-    const html = await this.fetchAllowed(profileUrl);
-    return parseMercariSearchHtml(html, profileUrl, safeLimit);
+    const safeLimit = Math.max(1, Math.min(limit, 120));
+    return this.search({
+      keyword: "",
+      sellerId: [sellerExternalId],
+      limit: safeLimit,
+    });
   }
 
   private async fetchAllowed(url: string): Promise<string> {

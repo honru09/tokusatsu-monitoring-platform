@@ -23,6 +23,7 @@ import {
   resetItemTranslation,
   sellerMetadata,
   sellerIdForWrite,
+  upsertPublicSeller,
   shouldAnalyzeProcurementImages,
   shouldQueueAutomaticClassification,
   sourceBaseUrl,
@@ -1377,5 +1378,45 @@ describe("seller association writes", () => {
         sellerData: { sellerId: "123" },
       } as unknown as NormalizedItem).sourceSellerId,
     ).toBe("123");
+  });
+
+  it("preserves lastCatalogueRefreshAt when updating an existing seller", async () => {
+    const existingSeller = {
+      id: "seller-mercari-1",
+      sourceId: "source-mercari",
+      sourceSellerId: "m123456",
+      name: "Old Seller Name",
+      sourceData: {
+        lastCatalogueRefreshAt: "2026-10-25T10:00:00.000Z",
+        oldScore: 99,
+      },
+    };
+
+    vi.spyOn(prisma.seller, "findUnique").mockResolvedValue(
+      existingSeller as never,
+    );
+    const upsertSpy = vi
+      .spyOn(prisma.seller, "upsert")
+      .mockResolvedValue(existingSeller as never);
+
+    const item = {
+      sourcePlatform: "mercari",
+      sellerName: "New Seller Name",
+      sellerData: {
+        sellerId: "m123456",
+        newScore: 100,
+      },
+    } as unknown as NormalizedItem;
+
+    await upsertPublicSeller("source-mercari", item);
+
+    expect(upsertSpy).toHaveBeenCalledTimes(1);
+    const updateCall = upsertSpy.mock.calls[0][0];
+    expect(updateCall.update.sourceData).toEqual({
+      sellerId: "m123456",
+      newScore: 100,
+      lastCatalogueRefreshAt: "2026-10-25T10:00:00.000Z",
+    });
+    expect((updateCall.update.sourceData as any).oldScore).toBeUndefined();
   });
 });
