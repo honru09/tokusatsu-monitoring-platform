@@ -13,6 +13,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { springs } from "../lib/motion-tokens";
 import styles from "./operations-editorial.module.css";
 import { useDialogFocus } from "../lib/use-dialog-focus";
+import { PurchaseRegistrationForm } from "./purchase-registration-form";
 
 export type InventoryOrderStatus = "in_stock" | "partially_sold" | "sold_out";
 
@@ -117,36 +118,6 @@ export function previewSaleProfit(
   if (cost == null || !Number.isSafeInteger(salePrice) || salePrice < 0)
     return null;
   return salePrice - cost;
-}
-
-/** Live create-form average cost — same formula as shared.averageCost. */
-export function previewCreateAverageCost(
-  purchaseCostRaw: string,
-  quantityRaw: string,
-): number | null {
-  if (!purchaseCostRaw.trim() || !quantityRaw.trim()) return null;
-  const purchaseCost = Number(purchaseCostRaw);
-  const initialQuantity = Number(quantityRaw);
-  if (!Number.isSafeInteger(purchaseCost) || purchaseCost < 0) return null;
-  if (!Number.isSafeInteger(initialQuantity) || initialQuantity < 1)
-    return null;
-  return purchaseCost / initialQuantity;
-}
-
-function todayInputValue() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function purchasedAtToIso(dateInput: string): string | undefined {
-  const trimmed = dateInput.trim();
-  if (!trimmed) return undefined;
-  const parsed = new Date(`${trimmed}T12:00:00`);
-  if (Number.isNaN(parsed.getTime())) return undefined;
-  return parsed.toISOString();
 }
 
 /** Margin % for sold-out orders; prefers API field, else derives from cost. */
@@ -318,7 +289,7 @@ export function InventoryOrdersWorkspace({ apiBaseUrl, exchangeRate }: Props) {
   const [adjustOrder, setAdjustOrder] = useState<InventoryOrderCard | null>(
     null,
   );
-  const [createOpen, setCreateOpen] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formMessage, setFormMessage] = useState("");
   const [receipt, setReceipt] = useState("");
@@ -328,16 +299,9 @@ export function InventoryOrdersWorkspace({ apiBaseUrl, exchangeRate }: Props) {
   const [sellNote, setSellNote] = useState("");
   const [adjustDelta, setAdjustDelta] = useState("-1");
   const [adjustReason, setAdjustReason] = useState("");
-  const [createName, setCreateName] = useState("");
-  const [createCost, setCreateCost] = useState("");
-  const [createQty, setCreateQty] = useState("1");
-  const [createPlatform, setCreatePlatform] = useState("");
-  const [createPurchasedAt, setCreatePurchasedAt] = useState(todayInputValue);
-  const [createImageUrl, setCreateImageUrl] = useState("");
-  const [createNote, setCreateNote] = useState("");
   const detailDialogRef = useRef<HTMLElement>(null);
   const formDialogRef = useRef<HTMLElement>(null);
-  const formOpen = Boolean(sellOrder || adjustOrder || createOpen);
+  const formOpen = Boolean(sellOrder || adjustOrder);
   useDialogFocus({
     active: Boolean(detail) && !formOpen,
     dialogRef: detailDialogRef,
@@ -350,11 +314,6 @@ export function InventoryOrdersWorkspace({ apiBaseUrl, exchangeRate }: Props) {
       if (!busy) closeForms();
     },
   });
-
-  const createAveragePreview = useMemo(
-    () => previewCreateAverageCost(createCost, createQty),
-    [createCost, createQty],
-  );
 
   const sellPreview = useMemo(() => {
     if (!sellOrder || !sellPrice.trim()) return null;
@@ -548,68 +507,18 @@ export function InventoryOrdersWorkspace({ apiBaseUrl, exchangeRate }: Props) {
     }
   }
 
-  async function submitCreate() {
-    const purchaseCost = Number(createCost);
-    const initialQuantity = Number(createQty);
-    if (!Number.isSafeInteger(purchaseCost) || purchaseCost < 0) {
-      setFormMessage("请输入有效采购成本");
-      return;
-    }
-    if (!Number.isSafeInteger(initialQuantity) || initialQuantity < 1) {
-      setFormMessage("请输入有效初始数量");
-      return;
-    }
-    const purchasedAt = purchasedAtToIso(createPurchasedAt);
-    if (createPurchasedAt.trim() && !purchasedAt) {
-      setFormMessage("购买日期无效");
-      return;
-    }
-    setBusy(true);
-    setFormMessage("");
-    setReceipt("");
-    try {
-      const response = await fetch(`${apiBaseUrl}/inventory-orders`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          purchaseCost,
-          initialQuantity,
-          name: createName.trim() || undefined,
-          platform: createPlatform.trim() || undefined,
-          purchasedAt,
-          imageUrl: createImageUrl.trim() || undefined,
-          note: createNote.trim() || undefined,
-        }),
-      });
-      if (!response.ok)
-        throw new Error(parseApiError(await response.text(), "创建失败"));
-      setCreateOpen(false);
-      setReceipt(`已新建订单 · ${createName.trim() || "未命名订单"}`);
-      setCreateName("");
-      setCreateCost("");
-      setCreateQty("1");
-      setCreatePlatform("");
-      setCreatePurchasedAt(todayInputValue());
-      setCreateImageUrl("");
-      setCreateNote("");
-      await load();
-    } catch (reason) {
-      setFormMessage(reason instanceof Error ? reason.message : "创建失败");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   function openCreate() {
-    setCreateOpen(true);
-    setFormMessage("");
-    if (!createPurchasedAt) setCreatePurchasedAt(todayInputValue());
+    // Creating stock now goes through the one registration form in
+    // blank mode: the buy is recorded as a purchase bundle first and
+    // the inventory order is its dual-write, instead of an order that
+    // bypasses the purchase records.
+    setRegistrationOpen(true);
+    setReceipt("");
   }
 
   function closeForms() {
     setSellOrder(null);
     setAdjustOrder(null);
-    setCreateOpen(false);
     setFormMessage("");
   }
 
@@ -1207,7 +1116,7 @@ export function InventoryOrdersWorkspace({ apiBaseUrl, exchangeRate }: Props) {
           getShellOverlayRoot(),
         )}
 
-      {(sellOrder || adjustOrder || createOpen) &&
+      {(sellOrder || adjustOrder) &&
         createPortal(
           <div
             className="modal-backdrop inventory-order-backdrop absolute inset-0 z-[60] p-0"
@@ -1229,9 +1138,7 @@ export function InventoryOrdersWorkspace({ apiBaseUrl, exchangeRate }: Props) {
               aria-labelledby={
                 sellOrder
                   ? "inventory-order-sell-title"
-                  : adjustOrder
-                    ? "inventory-order-adjust-title"
-                    : "inventory-order-create-title"
+                  : "inventory-order-adjust-title"
               }
               className={`modal-panel inventory-order-sheet overflow-y-auto p-5 ${styles.operationDialog}`}
               onMouseDown={(event) => event.stopPropagation()}
@@ -1428,132 +1335,22 @@ export function InventoryOrdersWorkspace({ apiBaseUrl, exchangeRate }: Props) {
                 </>
               )}
 
-              {createOpen && (
-                <>
-                  <h2 id="inventory-order-create-title">新建库存订单</h2>
-                  <p className="mt-1 text-xs leading-snug text-[color:var(--glass-ink-secondary)]">
-                    一批采购 = 一个订单。保存后自动生成 ORD-… 编号，均价成本 =
-                    总成本 ÷ 数量。
-                  </p>
-
-                  <Field label="商品名称">
-                    <input
-                      value={createName}
-                      onChange={(event) => setCreateName(event.target.value)}
-                      placeholder="例如 DX 腰带批次"
-                      className={`${inputClass} text-sm`}
-                      autoComplete="off"
-                      data-testid="inventory-order-create-name"
-                    />
-                  </Field>
-                  <div className="grid grid-cols-1 gap-0 sm:grid-cols-2 sm:gap-3">
-                    <Field label="平台">
-                      <input
-                        value={createPlatform}
-                        onChange={(event) =>
-                          setCreatePlatform(event.target.value)
-                        }
-                        placeholder="Mercari / Yahoo…"
-                        className={`${inputClass} text-sm`}
-                        autoComplete="off"
-                      />
-                    </Field>
-                    <Field label="购买日期">
-                      <input
-                        type="date"
-                        value={createPurchasedAt}
-                        onChange={(event) =>
-                          setCreatePurchasedAt(event.target.value)
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="总成本（日元）">
-                      <input
-                        type="number"
-                        min={0}
-                        inputMode="numeric"
-                        value={createCost}
-                        onChange={(event) => setCreateCost(event.target.value)}
-                        placeholder="0"
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field label="总数量">
-                      <input
-                        type="number"
-                        min={1}
-                        inputMode="numeric"
-                        value={createQty}
-                        onChange={(event) => setCreateQty(event.target.value)}
-                        className={inputClass}
-                      />
-                    </Field>
-                  </div>
-
-                  {createAveragePreview != null && (
-                    <div
-                      className="inventory-order-inset mt-2.5 text-xs"
-                      data-testid="create-avg-preview"
-                    >
-                      <span className="text-[10px] font-semibold text-[color:var(--glass-ink-tertiary)]">
-                        均价成本（固定）
-                      </span>
-                      <p className="mt-0.5 font-mono text-base font-black tabular-nums">
-                        {yen(createAveragePreview)}
-                        <span className="ml-2 text-[11px] font-semibold text-[color:var(--glass-ink-tertiary)]">
-                          / 件
-                        </span>
-                      </p>
-                    </div>
-                  )}
-
-                  <Field label="图片链接（可选）">
-                    <input
-                      type="url"
-                      value={createImageUrl}
-                      onChange={(event) =>
-                        setCreateImageUrl(event.target.value)
-                      }
-                      placeholder="https://…"
-                      className={`${inputClass} text-sm`}
-                      autoComplete="off"
-                    />
-                  </Field>
-                  <Field label="备注（可选）">
-                    <input
-                      value={createNote}
-                      onChange={(event) => setCreateNote(event.target.value)}
-                      placeholder="运费拆分、卖家备注等 — 不作为标题"
-                      className={`${inputClass} text-sm`}
-                      autoComplete="off"
-                      data-testid="inventory-order-create-note"
-                    />
-                  </Field>
-                  {formMessage && (
-                    <p
-                      role="alert"
-                      className="mt-3 text-xs font-bold text-rust"
-                    >
-                      {formMessage}
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void submitCreate()}
-                    className="inventory-order-primary-cta io-cta-moss disabled:opacity-50"
-                  >
-                    {busy ? "创建中…" : "创建订单"}
-                  </button>
-                </>
-              )}
             </motion.section>
           </div>,
           getShellOverlayRoot(),
         )}
+      {registrationOpen && (
+        <PurchaseRegistrationForm
+          apiBaseUrl={apiBaseUrl}
+          items={[]}
+          onClose={() => setRegistrationOpen(false)}
+          onSaved={() => {
+            setRegistrationOpen(false);
+            setReceipt("已登记购买 · 库存订单已生成");
+            void load();
+          }}
+        />
+      )}
     </div>
   );
 }

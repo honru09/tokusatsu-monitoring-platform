@@ -40,6 +40,10 @@ import {
   PurchaseReceiptPreviewDialog,
   type PurchaseReceiptPreviewRequest,
 } from "../components/purchase-receipt-preview-dialog";
+import {
+  PurchaseRegistrationForm,
+  type PurchaseRegistrationItem,
+} from "../components/purchase-registration-form";
 import { MarketIntelWorkspace } from "../components/market-intel-workspace";
 import { AiSystemWorkspace } from "../components/ai-system-workspace";
 import { LogisticsWorkspace } from "../components/logistics-workspace";
@@ -3298,606 +3302,6 @@ function DetailDrawer({
   );
 }
 
-function PurchaseDialog({
-  item,
-  translatedTitle,
-  onClose,
-  onSaved,
-}: {
-  item: Item;
-  translatedTitle?: string;
-  onClose: () => void;
-  onSaved: (purchase: PurchaseRecord) => void;
-}) {
-  const presentationRef = useRef<HTMLElement>(null);
-  const savingRef = useRef(false);
-  useTransactionPresentation(presentationRef);
-  const [amount, setAmount] = useState(
-    String(item.priceTotalEst ?? item.priceCurrent),
-  );
-  const [quantity, setQuantity] = useState(
-    String(item.purchaseRecord?.quantityOverride ?? item.quantityEst ?? 1),
-  );
-  const [note, setNote] = useState("");
-  const [receipt, setReceipt] = useState<{
-    name: string;
-    type: string;
-    data: string;
-  } | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  async function submit() {
-    if (savingRef.current) return;
-    const value = Number(amount);
-    if (!Number.isFinite(value) || value < 1) {
-      setMessage("请输入有效购买金额");
-      return;
-    }
-    const quantityValue = Number(quantity);
-    if (!Number.isInteger(quantityValue) || quantityValue < 1) {
-      setMessage("请输入有效数量（至少 1）");
-      return;
-    }
-    savingRef.current = true;
-    setSaving(true);
-    setMessage("");
-    try {
-      const response = await fetch(`${API}/items/${item.id}/purchase`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          purchaseAmount: value,
-          quantity: quantityValue,
-          note,
-          receiptFileName: receipt?.name,
-          receiptMimeType: receipt?.type,
-          receiptDataBase64: receipt?.data,
-        }),
-      });
-      if (!response.ok) throw new Error(await readFetchError(response, "保存购买记录失败"));
-      const result = await response.json();
-      onSaved(result.purchase);
-      onClose();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "保存失败");
-    } finally {
-      setSaving(false);
-      savingRef.current = false;
-    }
-  }
-  function onFile(file?: File) {
-    if (!file) return;
-    if (!file.type.startsWith("image/") || file.size > 3 * 1024 * 1024) {
-      setMessage("仅支持不超过 3MB 的图片凭证");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () =>
-      setReceipt({
-        name: file.name,
-        type: file.type,
-        data: String(reader.result).split(",")[1] ?? "",
-      });
-    reader.readAsDataURL(file);
-  }
-  return createPortal(
-    <div
-      className="modal-backdrop absolute inset-0 z-[60] grid place-items-center bg-ink/60 p-4"
-      onMouseDown={saving ? undefined : onClose}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="purchase-dialog-title"
-        ref={presentationRef}
-        aria-busy={saving}
-        data-submit-state={message ? "error" : saving ? "saving" : "idle"}
-        className={`modal-panel ${transactionStyles.dialog} w-full max-w-lg rounded-3xl bg-paper p-5 shadow-modal`}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 id="purchase-dialog-title" className="mt-1 text-xl font-black">
-              记录已购买商品
-            </h2>
-            <p className="mt-1 line-clamp-2 text-xs text-ink/60">
-              {itemDisplayTitle(item, "zh", translatedTitle)}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            disabled={saving}
-            aria-label="关闭购买记录"
-            className="grid h-11 w-11 place-items-center rounded-full bg-white shadow-sm"
-          >
-            <CloseIcon />
-          </button>
-        </div>
-        <label className="mt-5 grid gap-1 text-xs font-bold text-ink/60">
-          购买金额
-          <input
-            type="number"
-            min="1"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            className="min-h-11 rounded-xl border border-ink/15 bg-white px-3 text-base text-ink"
-          />
-        </label>
-        <label className="mt-3 grid gap-1 text-xs font-bold text-ink/60">
-          数量（识别有误时可改，按此数量入库存）
-          <input
-            type="number"
-            min="1"
-            step="1"
-            value={quantity}
-            onChange={(event) => setQuantity(event.target.value)}
-            className="min-h-11 rounded-xl border border-ink/15 bg-white px-3 text-base text-ink"
-          />
-        </label>
-        <label className="mt-3 grid gap-1 text-xs font-bold text-ink/60">
-          备注
-          <textarea
-            rows={3}
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            className="rounded-xl border border-ink/15 bg-white p-3 text-sm text-ink"
-            placeholder="例如：含国际转运费"
-          />
-        </label>
-        <label className="mt-3 grid gap-1 text-xs font-bold text-ink/60">
-          购买凭证
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(event) => onFile(event.target.files?.[0])}
-            className="min-h-11 rounded-xl border border-dashed border-ink/20 bg-white p-2 text-sm text-ink"
-          />
-        </label>
-        {receipt && (
-          <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
-            已选择：{receipt.name} · 保存后标记为已认证购买
-          </div>
-        )}
-        {message && (
-          <p role="alert" className={`${transactionStyles.error} mt-3 text-xs font-bold text-rust`}>
-            {message}
-          </p>
-        )}
-        <button
-          disabled={saving}
-          onClick={() => void submit()}
-          className={`${transactionStyles.submit} mt-5 min-h-12 w-full rounded-xl bg-moss px-4 py-3 font-black text-white disabled:opacity-50`}
-        >
-          {saving ? "保存中…" : "确认购买"}
-        </button>
-      </section>
-    </div>,
-    getShellOverlayRoot(),
-  );
-}
-
-function PurchaseBundleEditorDialog({
-  items,
-  candidateItems,
-  bundle,
-  initialTotal,
-  initialAmounts,
-  onClose,
-  onSaved,
-}: {
-  items: Item[];
-  candidateItems?: Item[];
-  bundle?: PurchaseBundle | null;
-  initialTotal?: number;
-  initialAmounts?: Record<string, number>;
-  onClose: () => void;
-  onSaved: (bundle: PurchaseBundle) => void;
-}) {
-  const presentationRef = useRef<HTMLElement>(null);
-  const savingRef = useRef(false);
-  const pointerInputRef = useRef(false);
-  const reduceMotion = useReducedMotion();
-  useTransactionPresentation(presentationRef);
-  const editing = Boolean(bundle);
-  const availableItems = useMemo(() => {
-    const seen = new Set<string>();
-    return (candidateItems?.length ? candidateItems : items).filter((item) => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-  }, [candidateItems, items]);
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() =>
-    items.map((item) => item.id),
-  );
-  const selectedItems = availableItems.filter((item) =>
-    selectedItemIds.includes(item.id),
-  );
-  const candidateCount = availableItems.length;
-  const selectedCount = selectedItems.length;
-  const [pricingMode, setPricingMode] = useState<"per_item" | "bundle_total">(
-    bundle?.pricingMode ?? (items.length > 1 ? "bundle_total" : "per_item"),
-  );
-  const [amounts, setAmounts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      availableItems.map((item) => {
-        const purchase = bundle?.purchases.find(
-          (entry) => entry.itemId === item.id,
-        );
-        const value =
-          purchase?.amountAllocated === false
-            ? (initialAmounts?.[item.id] ?? item.priceTotalEst)
-            : (purchase?.purchaseAmount ??
-              initialAmounts?.[item.id] ??
-              item.priceTotalEst);
-        return [item.id, String(value)];
-      }),
-    ),
-  );
-  // Quantities always submit: the field starts at the current effective
-  // count (recorded override, else the recognised estimate), so an
-  // untouched field simply re-confirms that count as the override.
-  const [quantities, setQuantities] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      availableItems.map((item) => {
-        const purchase = bundle?.purchases.find(
-          (entry) => entry.itemId === item.id,
-        );
-        return [
-          item.id,
-          String(purchase?.quantityOverride ?? item.quantityEst ?? 1),
-        ];
-      }),
-    ),
-  );
-  const [total, setTotal] = useState(
-    String(
-      bundle?.totalPurchaseAmount ??
-        initialTotal ??
-        items.reduce((sum, item) => sum + item.priceTotalEst, 0),
-    ),
-  );
-  const [purchasedAt, setPurchasedAt] = useState(
-    (bundle?.purchasedAt ?? new Date().toISOString()).slice(0, 10),
-  );
-  const [note, setNote] = useState(bundle?.note ?? "");
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !saving) onClose();
-    };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [onClose, saving]);
-
-  async function submit() {
-    if (savingRef.current) return;
-    if (!selectedItems.length) {
-      setMessage("至少选择一个商品");
-      return;
-    }
-    const members = selectedItems.map((item) => ({
-      itemId: item.id,
-      quantity: Number(quantities[item.id]),
-      ...(pricingMode === "per_item"
-        ? { amountYen: Number(amounts[item.id]) }
-        : {}),
-    }));
-    if (
-      members.some(
-        (member) =>
-          !Number.isInteger(member.quantity) || member.quantity < 1,
-      )
-    ) {
-      setMessage("请填写每件商品的有效数量（至少 1）");
-      return;
-    }
-    if (
-      pricingMode === "per_item" &&
-      members.some(
-        (member) =>
-          !Number.isFinite(member.amountYen) || (member.amountYen ?? 0) < 0,
-      )
-    ) {
-      setMessage("请填写每件商品的购买金额");
-      return;
-    }
-    const totalValue =
-      pricingMode === "bundle_total"
-        ? Number(total)
-        : members.reduce((sum, member) => sum + (member.amountYen ?? 0), 0);
-    if (!Number.isFinite(totalValue) || totalValue < 0) {
-      setMessage(
-        selectedItems.length > 1 ? "请填写打包价格" : "请填写购买金额",
-      );
-      return;
-    }
-    if (editing && !reason.trim()) {
-      setMessage("修改价格或成员时需要填写变更原因");
-      return;
-    }
-    savingRef.current = true;
-    setSaving(true);
-    setMessage("");
-    try {
-      const response = await fetch(
-        `${API}/items/purchases/bundles${bundle ? `/${bundle.id}` : ""}`,
-        {
-          method: bundle ? "PATCH" : "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            ...(bundle ? { expectedVersion: bundle.version } : {}),
-            pricingMode,
-            members,
-            totalPurchaseAmountYen: totalValue,
-            purchasedAt: new Date(
-              `${purchasedAt}T12:00:00+09:00`,
-            ).toISOString(),
-            note: note.trim() || null,
-            actor: "shared-user",
-            reason:
-              reason.trim() ||
-              (selectedItems.length > 1
-                ? "将多个商品登记为同一购买包"
-                : "通过购买链接登记商品"),
-          }),
-        },
-      );
-      const result = await response
-        .json()
-        .catch(() => ({ message: `API ${response.status}` }));
-      if (!response.ok)
-        throw new Error(
-          Array.isArray(result.message)
-            ? result.message.join("；")
-            : (result.message ?? "保存购买记录失败"),
-        );
-      onSaved(result.bundle as PurchaseBundle);
-      onClose();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "保存购买记录失败");
-    } finally {
-      setSaving(false);
-      savingRef.current = false;
-    }
-  }
-
-  return createPortal(
-    <div
-      className="modal-backdrop absolute inset-0 z-[88] grid place-items-center overflow-y-auto bg-ink/50 p-3 sm:p-6"
-      onMouseDown={saving ? undefined : onClose}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="purchase-bundle-editor-title"
-        ref={presentationRef}
-        aria-busy={saving}
-        data-submit-state={message ? "error" : saving ? "saving" : "idle"}
-        onPointerDownCapture={() => { pointerInputRef.current = true; }}
-        onKeyDownCapture={() => { pointerInputRef.current = false; }}
-        className={`modal-panel ${transactionStyles.dialog} max-h-[88dvh] w-full max-w-xl overflow-y-auto rounded-3xl bg-paper p-4 shadow-modal`}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2
-              id="purchase-bundle-editor-title"
-              className="font-heading text-xl font-bold text-ink"
-            >
-              {editing
-                ? "编辑购买包"
-                : items.length > 1
-                  ? `登记打包购买 · ${selectedItems.length} 件`
-                  : "登记购买"}
-            </h2>
-            <p className="mt-1 text-xs text-ink/50">
-              {editing ? `版本 ${bundle?.version}` : "保存后进入库存订单"}
-            </p>
-            <p className="mt-2 text-xs font-semibold text-ink/55">
-              {editing
-                ? `已选 ${selectedCount} / 候选 ${candidateCount}，可勾选增删成员`
-                : `已选 ${selectedCount} 件，可勾选要登记的商品`}
-            </p>
-          </div>
-          <button
-            type="button"
-            autoFocus
-            disabled={saving}
-            onClick={onClose}
-            aria-label="关闭购买包编辑"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-ink shadow-sm disabled:opacity-45"
-          >
-            <CloseIcon />
-          </button>
-        </div>
-
-        {availableItems.length > 1 && (
-          <div
-            className="ios-segment mt-4 grid grid-cols-2 rounded-xl p-1"
-            aria-label="购买计价方式"
-          >
-            <button
-              type="button"
-              aria-pressed={pricingMode === "bundle_total"}
-              onClick={() => setPricingMode("bundle_total")}
-              className="relative isolate min-h-11 rounded-lg px-3 text-xs font-semibold"
-            >
-              {pricingMode === "bundle_total" && <motion.span data-apple-motion-owned tabIndex={-1} aria-hidden="true" className={transactionStyles.pricingSelection} layoutId="purchase-pricing-selection" transition={reduceMotion || !pointerInputRef.current ? {duration:0} : springs.appleSelection} />}
-              打包总价
-            </button>
-            <button
-              type="button"
-              aria-pressed={pricingMode === "per_item"}
-              onClick={() => setPricingMode("per_item")}
-              className="relative isolate min-h-11 rounded-lg px-3 text-xs font-semibold"
-            >
-              {pricingMode === "per_item" && <motion.span data-apple-motion-owned tabIndex={-1} aria-hidden="true" className={transactionStyles.pricingSelection} layoutId="purchase-pricing-selection" transition={reduceMotion || !pointerInputRef.current ? {duration:0} : springs.appleSelection} />}
-              分别计价
-            </button>
-          </div>
-        )}
-
-        <div className="mt-3 grid gap-2">
-          {availableItems.map((item) => {
-            const selected = selectedItemIds.includes(item.id);
-            return (
-              <div
-                key={item.id}
-                className={`grid grid-cols-[44px_48px_minmax(0,1fr)] items-center gap-2 rounded-2xl p-2 shadow-sm ${selected ? "bg-white" : "bg-fog/40 opacity-60"}`}
-              >
-                <label className="grid h-11 w-11 place-items-center">
-                  <input
-                    type="checkbox"
-                    checked={selected}
-                    onChange={() =>
-                      setSelectedItemIds((current) =>
-                        selected
-                          ? current.filter((id) => id !== item.id)
-                          : [...current, item.id],
-                      )
-                    }
-                    aria-label={`选择商品 ${itemDisplayTitle(item, "zh")}`}
-                    className="h-5 w-5 accent-moss"
-                  />
-                </label>
-                <div className="h-12 w-12 overflow-hidden rounded-xl bg-fog">
-                  {item.images[0]?.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.images[0].url}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="line-clamp-2 text-xs font-semibold leading-5 text-ink">
-                      {itemDisplayTitle(item, "zh")}
-                    </p>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${selected ? "bg-moss/10 text-moss" : "bg-fog text-ink/45"}`}
-                    >
-                      {selected ? "已选" : editing ? "候选" : "待选"}
-                    </span>
-                  </div>
-                  {selected && pricingMode === "per_item" && (
-                    <label className="mt-1 flex items-center gap-2 text-[11px] text-ink/50">
-                      金额
-                      <input
-                        type="number"
-                        min="0"
-                        value={amounts[item.id] ?? ""}
-                        onChange={(event) =>
-                          setAmounts((current) => ({
-                            ...current,
-                            [item.id]: event.target.value,
-                          }))
-                        }
-                        className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/10 bg-fog/50 px-3 font-mono text-sm text-ink"
-                      />
-                    </label>
-                  )}
-                  {selected && (
-                    <label className="mt-1 flex items-center gap-2 text-[11px] text-ink/50">
-                      数量
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={quantities[item.id] ?? ""}
-                        onChange={(event) =>
-                          setQuantities((current) => ({
-                            ...current,
-                            [item.id]: event.target.value,
-                          }))
-                        }
-                        aria-label={`商品数量 ${itemDisplayTitle(item, "zh")}`}
-                        className="min-h-11 w-24 rounded-xl border border-ink/10 bg-fog/50 px-3 font-mono text-sm text-ink"
-                      />
-                      <span className="text-[10px] text-ink/40">
-                        识别 {item.quantityEst ?? 1} 件，可改
-                      </span>
-                    </label>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {editing && candidateCount > selectedCount && (
-          <p className="mt-2 text-xs text-ink/45">
-            未选中的候选成员会保留在列表里，方便后续补录。
-          </p>
-        )}
-
-        {pricingMode === "bundle_total" && (
-          <label className="mt-3 grid gap-1 text-xs font-semibold text-ink/55">
-            打包价格
-            <input
-              type="number"
-              min="0"
-              value={total}
-              onChange={(event) => setTotal(event.target.value)}
-              className="min-h-12 rounded-xl border border-ink/10 bg-white px-3 font-mono text-base font-bold text-ink"
-            />
-          </label>
-        )}
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1 text-xs font-semibold text-ink/55">
-            购买日期
-            <input
-              type="date"
-              value={purchasedAt}
-              onChange={(event) => setPurchasedAt(event.target.value)}
-              className="min-h-11 rounded-xl border border-ink/10 bg-white px-3 text-sm text-ink"
-            />
-          </label>
-          <label className="grid gap-1 text-xs font-semibold text-ink/55">
-            备注
-            <input
-              value={note}
-              maxLength={1000}
-              onChange={(event) => setNote(event.target.value)}
-              className="min-h-11 rounded-xl border border-ink/10 bg-white px-3 text-sm text-ink"
-            />
-          </label>
-        </div>
-        {editing && (
-          <label className="mt-3 grid gap-1 text-xs font-semibold text-ink/55">
-            变更原因
-            <input
-              value={reason}
-              maxLength={1000}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder="例如：补录实际付款金额"
-              className="min-h-11 rounded-xl border border-ink/10 bg-white px-3 text-sm text-ink"
-            />
-          </label>
-        )}
-        {message && (
-          <p role="alert" className={`${transactionStyles.error} mt-3 text-xs font-semibold text-rust`}>
-            {message}
-          </p>
-        )}
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void submit()}
-          className={`${transactionStyles.submit} mt-4 min-h-12 w-full rounded-xl bg-moss px-4 text-sm font-bold text-white disabled:opacity-45`}
-        >
-          {saving ? "保存中…" : editing ? "保存并记录历史" : "确认登记"}
-        </button>
-      </section>
-    </div>,
-    getShellOverlayRoot(),
-  );
-}
-
 function PurchaseBundleHistoryDialog({
   bundle,
   onClose,
@@ -4602,16 +4006,17 @@ export default function Dashboard() {
   const [selectedPurchaseJobIds, setSelectedPurchaseJobIds] = useState<
     string[]
   >([]);
-  const [purchaseBundleEditor, setPurchaseBundleEditor] = useState<{
-    items: Item[];
+  const [purchaseRegistration, setPurchaseRegistration] = useState<{
+    items: PurchaseRegistrationItem[];
+    candidateItems?: PurchaseRegistrationItem[];
     bundle?: PurchaseBundle | null;
     initialTotal?: number;
     initialAmounts?: Record<string, number>;
+    platform?: string;
   } | null>(null);
   const [purchaseHistoryBundle, setPurchaseHistoryBundle] =
     useState<PurchaseBundle | null>(null);
   const [analysis, setAnalysis] = useState<MarketAnalysis | null>(null);
-  const [purchaseItem, setPurchaseItem] = useState<Item | null>(null);
   const [ignoreItem, setIgnoreItem] = useState<Item | null>(null);
   const [deleteItem, setDeleteItem] = useState<Item | null>(null);
   const [dislikedItems, setDislikedItems] = useState<Item[]>([]);
@@ -5706,44 +5111,108 @@ export default function Dashboard() {
     }
   }, [pollPurchaseLinkJob, purchaseLinkInput]);
 
-  const openPurchaseBundleEditor = useCallback((jobs: PurchaseLinkJob[]) => {
-    const nextItems = jobs
-      .map((job) => job.item)
-      .filter((item): item is Item => Boolean(item));
-    if (!nextItems.length) return;
-    // Prefill from the price the analysis suggested for each item: the
-    // actual paid amount when one was entered with the link, otherwise
-    // the listing price the API falls back to.
-    const initialAmounts = Object.fromEntries(
-      jobs
-        .filter((job) => job.item && job.suggestedAmountYen != null)
-        .map((job) => [job.item!.id, job.suggestedAmountYen!]),
-    );
-    const everyItemPriced = nextItems.every(
-      (item) => initialAmounts[item.id] != null,
-    );
-    setPurchaseBundleEditor({
-      items: nextItems,
-      ...(Object.keys(initialAmounts).length ? { initialAmounts } : {}),
-      ...(everyItemPriced
-        ? {
-            initialTotal: nextItems.reduce(
-              (sum, item) => sum + initialAmounts[item.id],
-              0,
-            ),
-          }
-        : {}),
-    });
-  }, []);
+  const registrationItemFromItem = useCallback(
+    (item: Item): PurchaseRegistrationItem => ({
+      itemId: item.id,
+      title: itemDisplayTitle(item, "zh", translations[`${item.id}:title`]),
+      imageUrl: item.images[0]?.url ?? null,
+      platform: item.source.displayName,
+      sourceUrl: item.sourceUrl,
+      amountYen: item.purchaseRecord?.purchaseAmount ?? item.priceTotalEst,
+      quantity: item.purchaseRecord?.quantityOverride ?? null,
+      quantityEst: item.quantityEst ?? null,
+    }),
+    [translations],
+  );
 
-  const openExistingPurchaseBundleEditor = useCallback(
+  const openPurchaseRegistrationForItem = useCallback(
+    (item: Item) => {
+      setPurchaseRegistration({ items: [registrationItemFromItem(item)] });
+    },
+    [registrationItemFromItem],
+  );
+
+  const openPurchaseRegistrationForJobs = useCallback(
+    (jobs: PurchaseLinkJob[]) => {
+      const nextItems = jobs
+        .map((job) => job.item)
+        .filter((item): item is Item => Boolean(item));
+      if (!nextItems.length) return;
+      // Prefill from the price the analysis suggested for each item: the
+      // actual paid amount when one was entered with the link, otherwise
+      // the listing price the API falls back to.
+      const initialAmounts = Object.fromEntries(
+        jobs
+          .filter((job) => job.item && job.suggestedAmountYen != null)
+          .map((job) => [job.item!.id, job.suggestedAmountYen!]),
+      );
+      const everyItemPriced = nextItems.every(
+        (item) => initialAmounts[item.id] != null,
+      );
+      setPurchaseRegistration({
+        items: nextItems.map(registrationItemFromItem),
+        ...(Object.keys(initialAmounts).length ? { initialAmounts } : {}),
+        ...(everyItemPriced
+          ? {
+              initialTotal: nextItems.reduce(
+                (sum, item) => sum + initialAmounts[item.id],
+                0,
+              ),
+            }
+          : {}),
+      });
+    },
+    [registrationItemFromItem],
+  );
+
+  const openPurchaseRegistrationForBundle = useCallback(
     (bundle: PurchaseBundle) => {
-      setPurchaseBundleEditor({
-        items: bundle.purchases.map((purchase) => purchase.item),
+      setPurchaseRegistration({
+        items: bundle.purchases.map((purchase) =>
+          registrationItemFromItem(purchase.item),
+        ),
+        candidateItems: [
+          ...bundle.purchases.map((purchase) => purchase.item),
+          ...purchases.map((purchase) => purchase.item),
+          ...completedPurchaseJobs
+            .map((job) => job.item)
+            .filter((item): item is Item => Boolean(item)),
+        ].map(registrationItemFromItem),
         bundle,
       });
     },
-    [],
+    [completedPurchaseJobs, purchases, registrationItemFromItem],
+  );
+
+  const openPurchaseRegistrationForTodo = useCallback(
+    (entry: {
+      id: string;
+      title: string;
+      imageUrl: string | null;
+      priceYen: number | null;
+      sourceName: string | null;
+    }) => {
+      const full =
+        [...items, ...linkItems].find((item) => item.id === entry.id) ??
+        completedPurchaseJobs.find((job) => job.item?.id === entry.id)?.item ??
+        null;
+      if (full) {
+        openPurchaseRegistrationForItem(full);
+        return;
+      }
+      setPurchaseRegistration({
+        items: [
+          {
+            itemId: entry.id,
+            title: entry.title,
+            imageUrl: entry.imageUrl,
+            platform: entry.sourceName,
+            amountYen: entry.priceYen,
+          },
+        ],
+      });
+    },
+    [completedPurchaseJobs, items, linkItems, openPurchaseRegistrationForItem],
   );
 
   const openPurchaseHistory = useCallback(async (bundle: PurchaseBundle) => {
@@ -6036,7 +5505,7 @@ export default function Dashboard() {
     if (
       !filtersOpen &&
       !selected &&
-      !purchaseItem &&
+      !purchaseRegistration &&
       !deleteItem &&
       !ignoreItem &&
       !analysisOpen &&
@@ -6045,7 +5514,6 @@ export default function Dashboard() {
       !sellerId &&
       !cartOpen &&
       !purchaseGallery &&
-      !purchaseBundleEditor &&
       !purchaseHistoryBundle
     )
       return;
@@ -6054,14 +5522,13 @@ export default function Dashboard() {
       if (event.key !== "Escape") return;
       if (filtersOpen) setFiltersOpen(false);
       else if (selected) return;
-      else if (purchaseItem) setPurchaseItem(null);
+      else if (purchaseRegistration) setPurchaseRegistration(null);
       else if (deleteItem) setDeleteItem(null);
       else if (ignoreItem) setIgnoreItem(null);
       else if (analysisOpen) setAnalysisOpen(false);
       else if (settingsOpen) setSettingsOpen(false);
       else if (cartOpen) setCartOpen(false);
       else if (purchaseGallery) setPurchaseGallery(null);
-      else if (purchaseBundleEditor) setPurchaseBundleEditor(null);
       else if (purchaseHistoryBundle) setPurchaseHistoryBundle(null);
       else setSellerId(null);
     };
@@ -6078,12 +5545,11 @@ export default function Dashboard() {
     filtersOpen,
     deleteItem,
     ignoreItem,
-    purchaseItem,
+    purchaseRegistration,
     selected,
     sellerId,
     cartOpen,
     purchaseGallery,
-    purchaseBundleEditor,
     purchaseHistoryBundle,
   ]);
   useEffect(
@@ -7371,6 +6837,7 @@ export default function Dashboard() {
             dislikedItemIds={dislikedItemIds}
             purchaseAnalyses={purchaseLinkJobs}
             failedJobs24h={overview?.totals24h.failed ?? 0}
+            onRegisterItem={openPurchaseRegistrationForTodo}
             onNavigate={navigateWorkspace}
             onPendingCountChange={setTodoCount}
           >
@@ -7436,7 +6903,7 @@ export default function Dashboard() {
                       <button
                         type="button"
                         onClick={() =>
-                          openPurchaseBundleEditor(
+                          openPurchaseRegistrationForJobs(
                             completedPurchaseJobs.filter((job) =>
                               selectedPurchaseJobIds.length
                                 ? selectedPurchaseJobIds.includes(job.jobId)
@@ -7553,7 +7020,7 @@ export default function Dashboard() {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  openPurchaseBundleEditor([job])
+                                  openPurchaseRegistrationForJobs([job])
                                 }
                                 className="min-h-11 rounded-xl bg-white px-3 text-xs font-semibold text-moss shadow-sm"
                               >
@@ -7596,7 +7063,7 @@ export default function Dashboard() {
                 onViewReceipt={(purchase, receiptId) =>
                   void viewReceipt(purchase, receiptId)
                 }
-                onEditBundle={openExistingPurchaseBundleEditor}
+                onEditBundle={openPurchaseRegistrationForBundle}
                 onOpenHistory={(bundle) => void openPurchaseHistory(bundle)}
                 onLoadMoreBundles={() =>
                   void loadPurchaseBundles(purchaseBundlesPage + 1)
@@ -8160,7 +7627,7 @@ export default function Dashboard() {
                         onPatch={(patch) => patchItem(item.id, patch)}
                         onIgnore={() => setIgnoreItem(item)}
                         onDelete={() => setDeleteItem(item)}
-                        onPurchase={() => setPurchaseItem(item)}
+                        onPurchase={() => openPurchaseRegistrationForItem(item)}
                         exchangeRate={exchangeRate?.rate}
                         inCart={cart.items.some(
                           (entry) => entry.id === item.id,
@@ -8381,7 +7848,7 @@ export default function Dashboard() {
                         onPatch={(patch) => patchItem(item.id, patch)}
                         onIgnore={() => setIgnoreItem(item)}
                         onDelete={() => setDeleteItem(item)}
-                        onPurchase={() => setPurchaseItem(item)}
+                        onPurchase={() => openPurchaseRegistrationForItem(item)}
                         exchangeRate={exchangeRate?.rate}
                         inCart={cart.items.some(
                           (entry) => entry.id === item.id,
@@ -8493,7 +7960,7 @@ export default function Dashboard() {
                 cartItemIds={cartItemIdSet}
                 bundleShareItemIds={bundleShareItemIdSet}
                 onOpenItem={openItemDetail}
-                onPurchaseItem={(item) => setPurchaseItem(item)}
+                onPurchaseItem={openPurchaseRegistrationForItem}
                 onCartItem={(item) =>
                   void updateCart(item.id, !cartItemIdSet.has(item.id), item)
                 }
@@ -8748,7 +8215,7 @@ export default function Dashboard() {
                         onPatch={(patch) => patchItem(item.id, patch)}
                         onIgnore={() => setIgnoreItem(item)}
                         onDelete={() => setDeleteItem(item)}
-                        onPurchase={() => setPurchaseItem(item)}
+                        onPurchase={() => openPurchaseRegistrationForItem(item)}
                         exchangeRate={exchangeRate?.rate}
                         inCart={cart.items.some(
                           (entry) => entry.id === item.id,
@@ -8854,7 +8321,7 @@ export default function Dashboard() {
                           void patchItem(item.id, { ignored: false }, item)
                         }
                         onDelete={() => setDeleteItem(item)}
-                        onPurchase={() => setPurchaseItem(item)}
+                        onPurchase={() => openPurchaseRegistrationForItem(item)}
                         inCart={cartItemIdSet.has(item.id)}
                         onCart={() =>
                           void updateCart(
@@ -9065,7 +8532,7 @@ export default function Dashboard() {
             )
           }
           onShare={() => void shareItems([selected.id])}
-          onPurchase={() => setPurchaseItem(selected)}
+          onPurchase={() => openPurchaseRegistrationForItem(selected)}
           onIgnore={() => setIgnoreItem(selected)}
           onDelete={() => setDeleteItem(selected)}
           onOpenSeller={(targetSellerId) => {
@@ -9102,45 +8569,21 @@ export default function Dashboard() {
           onBundleCopied={(itemIds) => markCopiedForItems(itemIds)}
         />
       )}
-      {purchaseItem && (
-        <PurchaseDialog
-          item={purchaseItem}
-          translatedTitle={translations[`${purchaseItem.id}:title`]}
-          onClose={() => setPurchaseItem(null)}
-          onSaved={() => {
-            setPurchaseItem(null);
-            void Promise.all([
-              loadPurchases(),
-              loadPurchaseBundles(),
-              load(),
-              loadLinkItems(),
-            ]);
-          }}
-        />
-      )}
-      {purchaseBundleEditor && (
-        <PurchaseBundleEditorDialog
-          items={purchaseBundleEditor.items}
-          candidateItems={
-            purchaseBundleEditor.bundle
-              ? [
-                  ...purchaseBundleEditor.items,
-                  ...purchases.map((purchase) => purchase.item),
-                  ...completedPurchaseJobs
-                    .map((job) => job.item)
-                    .filter((item): item is Item => Boolean(item)),
-                ]
-              : purchaseBundleEditor.items
-          }
-          bundle={purchaseBundleEditor.bundle}
-          initialTotal={purchaseBundleEditor.initialTotal}
-          initialAmounts={purchaseBundleEditor.initialAmounts}
-          onClose={() => setPurchaseBundleEditor(null)}
+      {purchaseRegistration && (
+        <PurchaseRegistrationForm
+          apiBaseUrl={API}
+          items={purchaseRegistration.items}
+          candidateItems={purchaseRegistration.candidateItems}
+          bundle={purchaseRegistration.bundle ?? null}
+          initialTotal={purchaseRegistration.initialTotal}
+          initialAmounts={purchaseRegistration.initialAmounts}
+          platform={purchaseRegistration.platform}
+          onClose={() => setPurchaseRegistration(null)}
           onSaved={(savedBundle) => {
-            setPurchaseBundleEditor(null);
+            setPurchaseRegistration(null);
             setSelectedPurchaseJobIds([]);
             const savedItemIds = new Set(
-              savedBundle.purchases.map((purchase) => purchase.item.id),
+              savedBundle.purchases.map((purchase) => purchase.itemId),
             );
             setPurchaseLinkJobs((current) =>
               current.filter(

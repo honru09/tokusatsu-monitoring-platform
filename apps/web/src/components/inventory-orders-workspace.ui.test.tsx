@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   InventoryOrdersWorkspace,
   clearanceMarginPercent,
-  previewCreateAverageCost,
   previewSaleCost,
   previewSaleProfit,
 } from "./inventory-orders-workspace";
@@ -49,20 +48,13 @@ const soldOutOrder = {
   finalOrderMarginPercent: 20,
 };
 
-describe("previewSaleCost / previewSaleProfit / previewCreateAverageCost", () => {
+describe("previewSaleCost / previewSaleProfit", () => {
   it("mirrors average-cost rounding for sell preview", () => {
     expect(previewSaleCost(1_000, 1)).toBe(1_000);
     expect(previewSaleCost(1_285.71, 3)).toBe(3_857);
     expect(previewSaleProfit(7_000, 3_857)).toBe(3_143);
     expect(previewSaleCost(null, 1)).toBeNull();
     expect(previewSaleProfit(100, null)).toBeNull();
-  });
-
-  it("previews create-form average cost", () => {
-    expect(previewCreateAverageCost("10000", "10")).toBe(1_000);
-    expect(previewCreateAverageCost("5000", "3")).toBeCloseTo(5_000 / 3);
-    expect(previewCreateAverageCost("", "10")).toBeNull();
-    expect(previewCreateAverageCost("100", "0")).toBeNull();
   });
 
   it("derives clearance margin when API omits the field", () => {
@@ -285,7 +277,7 @@ describe("InventoryOrdersWorkspace", () => {
     expect(host.textContent).toContain("已实现利润");
   });
 
-  it("opens create sheet with average-cost preview", async () => {
+  it("opens the unified registration form instead of a standalone create sheet", async () => {
     await renderWorkspace();
 
     const createBtn = Array.from(host.querySelectorAll("button")).find(
@@ -297,56 +289,22 @@ describe("InventoryOrdersWorkspace", () => {
       createBtn?.click();
     });
 
-    expect(portalRoot().textContent).toContain("新建库存订单");
-    expect(portalRoot().textContent).toContain("商品名称");
-    expect(portalRoot().textContent).toContain("ORD-");
-    expect(portalRoot().textContent).toContain("购买日期");
-    expect(portalRoot().textContent).toContain("图片链接");
+    // The standalone inventory-order create dialog is gone: creating
+    // stock goes through the one purchase registration form in blank
+    // (off-catalog) mode, so the buy lands in the purchase records and
+    // the inventory order is created as its dual-write.
+    expect(portalRoot().textContent).not.toContain("新建库存订单");
+    expect(portalRoot().textContent).toContain("登记购买");
     expect(
-      portalRoot().querySelector('[data-testid="inventory-order-create-name"]'),
+      portalRoot().querySelector(
+        '[data-testid="purchase-registration-offcatalog-title"]',
+      ),
     ).toBeTruthy();
-    const noteInput = portalRoot().querySelector(
-      '[data-testid="inventory-order-create-note"]',
-    ) as HTMLInputElement | null;
-    expect(noteInput).toBeTruthy();
-    expect(noteInput?.placeholder).toContain("不作为标题");
-
-    const costInput = portalRoot().querySelector(
-      'input[placeholder="0"]',
-    ) as HTMLInputElement | null;
-    const qtyInput = Array.from(
-      portalRoot().querySelectorAll('input[type="number"]'),
-    ).find(
-      (input) =>
-        (input as HTMLInputElement).min === "1" &&
-        (input as HTMLInputElement).value === "1",
-    ) as HTMLInputElement | undefined;
-    expect(costInput).toBeTruthy();
-    expect(qtyInput).toBeTruthy();
-
-    const setInputValue = (el: HTMLInputElement, value: string) => {
-      const proto = Object.getPrototypeOf(el) as HTMLInputElement;
-      const protoSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-      const ownSetter = Object.getOwnPropertyDescriptor(el, "value")?.set;
-      if (ownSetter && ownSetter !== protoSetter) {
-        protoSetter?.call(el, value);
-      } else {
-        ownSetter?.call(el, value);
-      }
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-    };
-
-    await act(async () => {
-      if (costInput) setInputValue(costInput, "10000");
-      if (qtyInput) setInputValue(qtyInput, "10");
-    });
-
-    const preview = portalRoot().querySelector(
-      '[data-testid="create-avg-preview"]',
-    );
-    expect(preview).toBeTruthy();
-    expect(preview?.textContent).toContain("均价成本");
-    expect(preview?.textContent).toContain("¥1,000");
+    expect(
+      portalRoot().querySelector(
+        '[data-testid="purchase-registration-amount"]',
+      ),
+    ).toBeTruthy();
   });
 
   it("opens sell dialog with live cost/profit preview", async () => {
@@ -485,7 +443,7 @@ describe("InventoryOrdersWorkspace", () => {
     expect(portalRoot().textContent).toContain("赠送");
   });
 
-  it("portals create sheet into the shell overlay root, not document.body", async () => {
+  it("portals the registration form into the shell overlay root, not document.body", async () => {
     await renderWorkspace();
 
     const createBtn = Array.from(host.querySelectorAll("button")).find(
@@ -495,25 +453,16 @@ describe("InventoryOrdersWorkspace", () => {
       createBtn?.click();
     });
 
-    const backdrop = portalRoot().querySelector(".inventory-order-backdrop");
-    expect(backdrop).toBeTruthy();
-    expect(portalRoot().contains(backdrop)).toBe(true);
+    const dialog = portalRoot().querySelector(
+      '[aria-labelledby="purchase-registration-title"]',
+    );
+    expect(dialog).toBeTruthy();
+    expect(portalRoot().contains(dialog)).toBe(true);
     expect(
-      document.body.querySelector(":scope > .inventory-order-backdrop"),
+      document.body.querySelector(
+        ':scope > [aria-labelledby="purchase-registration-title"]',
+      ),
     ).toBeNull();
-    expect(backdrop?.className).toMatch(/\babsolute\b/);
-    expect(backdrop?.className).not.toMatch(/\bfixed\b/);
-    // Dock via CSS absolute bottom sheet — not grid items-end (that left-aligns
-    // under .modal-panel max-width on wide shells).
-    expect(backdrop?.className).not.toMatch(/\bgrid\b/);
-    expect(backdrop?.className).not.toMatch(/items-end/);
-    expect(backdrop?.className).not.toMatch(/place-items-end/);
-
-    const sheet = portalRoot().querySelector(".inventory-order-sheet");
-    expect(sheet).toBeTruthy();
-    expect(sheet?.className).toMatch(/\binventory-order-sheet\b/);
-    expect(sheet?.className).toMatch(/\bmodal-panel\b/);
-    expect(portalRoot().contains(sheet)).toBe(true);
   });
 
   it("keeps order list as a single-column phone layout class", async () => {

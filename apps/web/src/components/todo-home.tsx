@@ -39,6 +39,8 @@ type TodoHomeProps = {
   purchaseAnalyses: readonly PurchaseAnalysisLike[];
   failedJobs24h: number;
   onNavigate: (workspace: Workspace) => void;
+  /** Opens the unified purchase registration form for a register-queue row. */
+  onRegisterItem?: (item: TodoItemRef) => void;
   onPendingCountChange: (count: number) => void;
   /** The collapsed market overview rendered below the queues. */
   children?: ReactNode;
@@ -52,6 +54,7 @@ export function TodoHome({
   purchaseAnalyses,
   failedJobs24h,
   onNavigate,
+  onRegisterItem,
   onPendingCountChange,
   children,
 }: TodoHomeProps) {
@@ -287,7 +290,11 @@ export function TodoHome({
                   ? `砍价成功${entry.at ? ` · ${relativeTime(entry.at)}` : ""}`
                   : `链接分析完成${entry.at ? ` · ${relativeTime(entry.at)}` : ""}`
               }
-              onOpen={() => onNavigate("purchases")}
+              onOpen={() =>
+                onRegisterItem
+                  ? onRegisterItem(entry.item)
+                  : onNavigate("purchases")
+              }
             />
           ))}
         </QueueSection>

@@ -897,7 +897,7 @@ describe("Dashboard favorite synchronization", () => {
     });
 
     await waitFor(() =>
-      expect(document.body.textContent).toContain("记录已购买商品"),
+      expect(document.body.textContent).toContain("登记购买"),
     );
   });
 
