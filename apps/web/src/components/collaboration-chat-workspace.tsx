@@ -955,7 +955,9 @@ function ProductReference({
   };
   return (
     <div className="collaboration-product-wrapper space-y-1.5">
-      <div className="collaboration-product">
+      <div
+        className={`collaboration-product${selectionMode && onToggleSelect ? " is-selectable" : ""}`}
+      >
         {selectionMode && onToggleSelect ? (
           <SelectionToggle
             selected={selected}
@@ -1116,11 +1118,11 @@ function BundleProductReference({
                 : primaryItem?.source.displayName ?? "多商品集合"}
           </span>
         </div>
-        <div className="text-right font-mono text-xs tabular-nums">
-          <span className="text-ink/55">原价合计 </span>
-          <strong className="font-bold text-ink">{yen(totalOriginalYen)}</strong>
+        <div className="shrink-0 text-right font-mono text-xs tabular-nums">
+          <span className="whitespace-nowrap text-ink/55">原价合计 </span>
+          <strong className="whitespace-nowrap font-bold text-ink">{yen(totalOriginalYen)}</strong>
           {effectiveTargetYen ? (
-            <span className="ml-1.5 inline-flex items-center rounded-md bg-emerald-500/12 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800">
+            <span className="ml-1.5 inline-flex items-center whitespace-nowrap rounded-md bg-emerald-500/12 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800">
               目标 {yen(effectiveTargetYen)}
               {savingsYen > 0 ? ` · 省 ${yen(savingsYen)}` : ""}
             </span>
@@ -1326,9 +1328,9 @@ function ShareRoundPanel({
               ) : null}
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink">
                 {itemTitle(row.item)}
-                <span className="ml-1.5 font-mono text-[11px] text-ink/55 tabular-nums">
-                  {yen(row.item.priceCurrent)}
-                </span>
+              </span>
+              <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-ink/55 tabular-nums">
+                {yen(row.item.priceCurrent)}
               </span>
               <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-ink/55">
                 目标

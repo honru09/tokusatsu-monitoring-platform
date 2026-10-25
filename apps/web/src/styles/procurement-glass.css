@@ -244,7 +244,11 @@
 }
 .yahoo-discount strong {
   font-size: 0.9375rem;
-  overflow-wrap: anywhere;
+  /* An amount is one token, same rule as the card hero total: it drops
+     to its own line whole instead of breaking mid-number. */
+  white-space: nowrap;
+  overflow-wrap: normal;
+  font-variant-numeric: tabular-nums;
 }
 .collaboration-product-copy .yahoo-discount,
 .assistant-result-copy .yahoo-discount {
@@ -258,7 +262,17 @@
   display: block;
   overflow: visible;
   -webkit-line-clamp: unset;
-  white-space: normal;
+  /* Overrides the generic copy-span ellipsis/clamp context: the
+     discount amount stays whole on its own line. */
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.collaboration-product-copy .yahoo-discount > span,
+.assistant-result-copy .yahoo-discount > span {
+  /* The label is one phrase: it may sit on its own line above the
+     amount, but it never wraps mid-phrase and squeezes the amount. */
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 .workspace-calculator .cart-fab {
   display: none;

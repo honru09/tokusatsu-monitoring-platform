@@ -171,6 +171,7 @@
 .chat :global(.collaboration-reply-quote strong) { font-size: 12px; }
 .chat :global(.collaboration-reply-quote span) { font-size: 13px; line-height: 1.5; }
 .chat :global(.collaboration-product) { width: min(380px, 100%); grid-template-columns: 64px minmax(0, 1fr) 44px; gap: 12px; padding: 8px; border: 1px solid var(--glass-stroke); border-radius: 16px; background: var(--glass-fill-sheet); box-shadow: var(--glass-rim), 0 4px 14px #173c5c06; }
+.chat :global(.collaboration-product.is-selectable) { grid-template-columns: 36px 64px minmax(0, 1fr) 44px; }
 .chat :global(.collaboration-product-image) { width: 64px; height: 64px; border-radius: 10px; }
 .chat :global(.collaboration-product-copy strong) { font-size: 14px; line-height: 1.5; }
 .chat :global(.collaboration-product-copy span) { font-size: 12px; line-height: 1.4; }
@@ -302,6 +303,7 @@
   .chat :global(.collaboration-bubble) { padding: 10px 12px; }
   .chat :global(.collaboration-bubble > p) { font-size: 14px; }
   .chat :global(.collaboration-product) { grid-template-columns: 48px minmax(0, 1fr) 44px; padding: 6px; gap: 8px; }
+  .chat :global(.collaboration-product.is-selectable) { grid-template-columns: 36px 48px minmax(0, 1fr) 44px; }
   .chat :global(.collaboration-product-image) { width: 48px; height: 56px; }
   .chat :global(.collaboration-product-copy strong) { font-size: 13px; }
   .chat :global(.collaboration-composer) { padding: 12px; gap: 8px; }

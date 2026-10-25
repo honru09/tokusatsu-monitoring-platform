@@ -2032,6 +2032,15 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   color: var(--apple-label);
   text-align: left;
 }
+/* Selection mode adds the round toggle as a fourth grid child. Without
+   its own track it used to take the image's 64px track, push the copy
+   into the 44px open-button track (prices ellipsised, the discount
+   amount broke mid-number, the row grew a tall empty band under the
+   thumbnail) and drop the open button onto a second row. The toggle
+   gets a dedicated 36px track and the other tracks keep their sizes. */
+.collaboration-product.is-selectable {
+  grid-template-columns: 36px 64px minmax(0, 1fr) 44px;
+}
 .collaboration-bubble > p + .collaboration-product {
   margin-top: 8px;
 }
@@ -2069,6 +2078,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   overflow: hidden;
   color: var(--apple-secondary);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2436,6 +2446,9 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   .collaboration-product {
     width: min(288px, 78vw);
     grid-template-columns: 56px minmax(0, 1fr) 44px;
+  }
+  .collaboration-product.is-selectable {
+    grid-template-columns: 36px 56px minmax(0, 1fr) 44px;
   }
   .collaboration-product-image {
     width: 56px;
