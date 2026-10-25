@@ -3875,6 +3875,10 @@ export default function Dashboard() {
   const [activeManagerId, setActiveManagerId] = useState("");
   const [managerAccountsLoading, setManagerAccountsLoading] = useState(true);
   const [managerAccountsError, setManagerAccountsError] = useState("");
+  /** Generation of the latest session boot. A boot that resolves after
+   * a newer boot started (or after logout) must not apply its account:
+   * network order is not recency order. */
+  const sessionBootRef = useRef(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [pendingDecisionCount, setPendingDecisionCount] = useState<
     number | null
@@ -3992,6 +3996,8 @@ export default function Dashboard() {
   const accountGateOpen = !activeManagerId;
 
   const loadSession = useCallback(async () => {
+    const boot = ++sessionBootRef.current;
+    const isCurrent = () => boot === sessionBootRef.current;
     setManagerAccountsLoading(true);
     setManagerAccountsError("");
     try {
@@ -4001,6 +4007,7 @@ export default function Dashboard() {
       const meResponse = await fetch(`${API}/auth/me`, {
         cache: "no-store",
       });
+      if (!isCurrent()) return;
       if (meResponse.status === 401) {
         // No (or expired) session: show the login card, not an error.
         setActiveManagerId("");
@@ -4025,6 +4032,7 @@ export default function Dashboard() {
         `${API}/collaboration/accounts?accountId=${encodeURIComponent(sessionAccount.id)}`,
         { cache: "no-store" },
       );
+      if (!isCurrent()) return;
       if (accountsResponse.ok) {
         const payload = (await accountsResponse.json()) as {
           accounts?: ManagerAccount[];
@@ -4043,16 +4051,29 @@ export default function Dashboard() {
         setManagerAccounts([sessionAccount]);
       }
     } catch (reason) {
+      if (!isCurrent()) return;
       setManagerAccountsError(
         reason instanceof Error ? reason.message : "账号服务暂不可用",
       );
     } finally {
-      setManagerAccountsLoading(false);
+      if (isCurrent()) setManagerAccountsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void loadSession();
+  }, [loadSession]);
+
+  // A page restored from the back/forward cache keeps the React state
+  // from when it was frozen. Revalidate on restore so a token that
+  // expired (or was cleared by a logout in another tab) while the page
+  // was frozen drops back to the gate instead of reviving the shell.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) void loadSession();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, [loadSession]);
 
   const refreshCollaborationMeta = useCallback(
@@ -4065,6 +4086,18 @@ export default function Dashboard() {
         cache: "no-store",
         signal,
       });
+      if (response.status === 401) {
+        // The token died mid-session: protected routes reject it, so
+        // this poll would fail forever. Clear the session and fall
+        // back to the login gate instead of wedging on sync errors.
+        clearSessionToken();
+        sessionBootRef.current += 1;
+        setActiveManagerId("");
+        setManagerAccounts([]);
+        setUnreadMessageCount(0);
+        setManagerAccountsLoading(false);
+        return;
+      }
       if (!response.ok) throw new Error("协作状态同步失败");
       const payload = (await response.json()) as {
         accounts?: ManagerAccount[];
@@ -5901,9 +5934,13 @@ export default function Dashboard() {
 
   function logout() {
     clearSessionToken();
+    // Invalidate any in-flight boot so its late response cannot
+    // resurrect the session after the user has logged out.
+    sessionBootRef.current += 1;
     setActiveManagerId("");
     setManagerAccounts([]);
     setUnreadMessageCount(0);
+    setManagerAccountsLoading(false);
   }
 
   function openManagerConversation(item?: Item | CollaborationItem) {
