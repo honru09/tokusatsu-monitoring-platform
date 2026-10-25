@@ -158,6 +158,96 @@ describe("ProductCard price facts", () => {
     expect(six?.querySelector("dd")?.textContent).toBe("¥123,456");
   });
 
+  it("keeps an identical fixed-slot skeleton for extreme fixtures", () => {
+    const skeleton = () => {
+      const body = host.querySelector(".product-card-body");
+      return [...(body?.children ?? [])].map((el) => el.className);
+    };
+    act(() => {
+      root.render(
+        <ProductCard
+          {...cardProps(
+            makeItem({ titleZh: "短标题", quantityEst: 1, note: null }),
+          )}
+        />,
+      );
+    });
+    const plain = skeleton();
+    expect(host.querySelector(".product-card-qty-chip")).toBeNull();
+
+    act(() => {
+      root.render(
+        <ProductCard
+          {...cardProps(
+            makeItem({
+              titleZh:
+                "很长的商品标题用来占满两行以上空间的测试标题继续延长直到截断发生为止的标题",
+              quantityEst: 23,
+              note: "先问卖家再拍",
+              status: "sold",
+              source: { key: "yahoo_fleamarket", displayName: "Yahoo!フリマ" },
+            }),
+          )}
+        />,
+      );
+    });
+    // Title length, quantity, Yahoo target, note and sold state change
+    // no slot: the body children are the same fixed stack.
+    expect(skeleton()).toEqual(plain);
+    const tags = host.querySelector(".product-card-tags");
+    expect(tags?.className).toContain("product-card-tags-height");
+    expect(tags?.className).toContain("flex-nowrap");
+    expect(tags?.className).not.toContain("flex-wrap");
+    const title = host.querySelector(".product-card-title");
+    expect(title?.className).toContain("product-card-title-height");
+    expect(title?.className).toContain("line-clamp-2");
+    expect(
+      host.querySelector(".product-card-price-slot")?.className,
+    ).toContain("product-card-price-height");
+    expect(host.querySelector(".product-card-meta")?.className).toContain(
+      "product-card-meta-height",
+    );
+    expect(
+      host.querySelectorAll(".product-card-actions > button"),
+    ).toHaveLength(4);
+  });
+
+  it("shows quantity as a media chip only above one", () => {
+    act(() => {
+      root.render(
+        <ProductCard {...cardProps(makeItem({ quantityEst: 23 }))} />,
+      );
+    });
+    const chip = host.querySelector(".product-card-qty-chip");
+    expect(chip?.textContent).toBe("×23");
+    expect(chip?.getAttribute("aria-label")).toBe("数量 23 件");
+    expect(
+      host.querySelector(".product-card-media")?.contains(chip),
+    ).toBe(true);
+
+    act(() => {
+      root.render(
+        <ProductCard {...cardProps(makeItem({ quantityEst: null }))} />,
+      );
+    });
+    expect(host.querySelector(".product-card-qty-chip")).toBeNull();
+  });
+
+  it("keeps the note off the card body and on the media trigger", () => {
+    act(() => {
+      root.render(
+        <ProductCard {...cardProps(makeItem({ note: "先问卖家再拍" }))} />,
+      );
+    });
+    expect(host.querySelector(".product-card-note")).toBeNull();
+    expect(host.querySelector(".product-card-body")?.textContent).not.toContain(
+      "先问卖家再拍",
+    );
+    const trigger = host.querySelector(".product-card-note-trigger");
+    expect(trigger?.className).toContain("is-active");
+    expect(trigger?.getAttribute("aria-label")).toContain("先问卖家再拍");
+  });
+
   it("keeps the bundle toggle in the tags row and the action row icon-only", () => {
     act(() => {
       root.render(

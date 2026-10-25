@@ -8,6 +8,8 @@ import type { ProductCardItem } from "./product-card-item";
  * condition and maker (at most two), plus the review marker when the
  * classification still needs a human look. The bundle-share toggle
  * also lives here as a chip, so the bottom action row stays icon-only.
+ * The row is one fixed-height line: it never wraps, and chips that do
+ * not fit clip instead of pushing the card taller.
  */
 export function ProductCardTags({
   item,
@@ -34,27 +36,27 @@ export function ProductCardTags({
     ),
   ).slice(0, 2);
   return (
-    <div className="product-card-tags mb-2 flex min-h-6 flex-wrap gap-1">
+    <div className="product-card-tags mb-2 flex h-[var(--product-card-tags-height,24px)] flex-nowrap gap-1 overflow-hidden">
       {productTags.map((tag, index) => (
         <span
           key={`${tag}-${index}`}
-          className={`rounded px-1.5 py-1 text-[10px] font-bold ${tag === labels.junk || tag === labels.stained_or_damaged ? "bg-rust/10 text-rust" : "bg-fog/70 text-moss"}`}
+          className={`min-w-0 truncate rounded px-1.5 py-1 text-[10px] font-bold ${tag === labels.junk || tag === labels.stained_or_damaged ? "bg-rust/10 text-rust" : "bg-fog/70 text-moss"}`}
         >
           {tag}
         </span>
       ))}
       {item.needsReview && (
-        <span className="rounded bg-amber-100 px-1.5 py-1 text-[10px] font-bold text-amber-800">
+        <span className="min-w-0 truncate rounded bg-amber-100 px-1.5 py-1 text-[10px] font-bold text-amber-800">
           待复核
         </span>
       )}
       {isUnverifiableListing(item) && (
-        <span className="rounded bg-zinc-200 px-1.5 py-1 text-[10px] font-bold text-zinc-600">
+        <span className="min-w-0 truncate rounded bg-zinc-200 px-1.5 py-1 text-[10px] font-bold text-zinc-600">
           暂无法核验
         </span>
       )}
       {item.ignoredReason === "negotiation_failed" && (
-        <span className="rounded bg-red-50 px-1.5 py-1 text-[10px] font-bold text-red-600">
+        <span className="min-w-0 truncate rounded bg-red-50 px-1.5 py-1 text-[10px] font-bold text-red-600">
           砍价失败
         </span>
       )}

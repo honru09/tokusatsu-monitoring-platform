@@ -12,7 +12,6 @@ import {
   ProductCardActions,
   type ProductCardActionFeedback,
 } from "./product-card-actions";
-import { CommentIcon } from "./product-card-icons";
 
 export type { ProductCardItem, ProductCardPatch, ProductCardProps } from "./product-card-item";
 
@@ -20,6 +19,10 @@ export type { ProductCardItem, ProductCardPatch, ProductCardProps } from "./prod
  * Card shell: owns the per-card state (note dialog, more menu, pending
  * action feedback, title language) and composes the media, tags, price
  * and actions blocks, rendering exactly the classes the inline card used.
+ * The body is a fixed stack of slots (tags, two-line title, price, meta,
+ * actions); the note text is not one of them - the media comment trigger
+ * carries its active state and opens the dialog, and the full text
+ * lives in the detail view.
  *
  * This is the ONE card for market items: catalog grid, the folded
  * favorites / link-import / disliked views, search results and the
@@ -100,32 +103,11 @@ export function ProductCard({
         />
         <button
           onClick={onOpen}
-          className="product-card-title line-clamp-2 min-h-11 w-full text-left text-sm font-black leading-[1.35rem] text-ink transition-colors hover:text-moss"
+          className="product-card-title line-clamp-2 h-[var(--product-card-title-height,44px)] min-h-11 w-full text-left text-sm font-black leading-[1.35rem] text-ink transition-colors hover:text-moss"
         >
           {displayTitle}
         </button>
         <ProductCardPrice item={item} exchangeRate={exchangeRate} />
-        {item.note && (
-          <div className="product-card-note mt-1">
-            <button
-              type="button"
-              onClick={() => setNoteOpen(true)}
-              aria-label={`查看或编辑采购备注：${item.note}`}
-              title={item.note}
-              className="product-card-note-desktop flex w-full min-w-0 items-center gap-1.5 rounded-lg bg-fog/55 px-2 text-left text-[11px] text-ink/65"
-            >
-              <CommentIcon className="h-3.5 w-3.5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{item.note}</span>
-            </button>
-            <div
-              className="product-card-note-mobile hidden min-w-0 items-center gap-1 rounded-md bg-fog/55 px-1.5 text-[10px] font-medium leading-5 text-ink/65"
-              title={item.note}
-            >
-              <CommentIcon className="h-3 w-3 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{item.note}</span>
-            </div>
-          </div>
-        )}
         <ProductCardActions
           item={item}
           inCart={inCart}

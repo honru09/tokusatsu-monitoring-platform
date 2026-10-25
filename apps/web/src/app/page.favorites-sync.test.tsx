@@ -533,7 +533,7 @@ describe("Dashboard favorite synchronization", () => {
     await renderAsManager({ catalog: true });
     await waitFor(() => expect(host.textContent).toContain(favorite.titleZh));
     await openFavorites();
-    await waitFor(() => expect(host.textContent).toContain("旧备注"));
+    await waitFor(() => expect(host.querySelector('button[aria-label="编辑采购备注：旧备注"]')).not.toBeNull());
     expect(api.collectionRequestCount()).toBe(1);
 
     await api.sync([
@@ -556,7 +556,7 @@ describe("Dashboard favorite synchronization", () => {
         updatedAt: "2026-09-01T00:00:02.000Z",
       },
     ]);
-    await waitFor(() => expect(host.textContent).toContain("合作方备注"));
+    await waitFor(() => expect(host.querySelector('button[aria-label="编辑采购备注：合作方备注"]')).not.toBeNull());
     expect(api.collectionRequestCount()).toBe(1);
 
     await api.sync([
@@ -604,11 +604,11 @@ describe("Dashboard favorite synchronization", () => {
     const api = createApi({ inventory: [favorite], favorites: [favorite] });
     await renderAsManager({ catalog: true });
     await openFavorites();
-    await waitFor(() => expect(host.textContent).toContain("旧备注"));
+    await waitFor(() => expect(host.querySelector('button[aria-label="编辑采购备注：旧备注"]')).not.toBeNull());
 
     await api.sync([{ id: favorite.id, status: "unknown", updatedAt: "2026-09-01T00:00:01.000Z" }]);
     expect(host.textContent).toContain(favorite.titleZh);
-    expect(host.textContent).toContain("旧备注");
+    expect(host.querySelector('button[aria-label="编辑采购备注：旧备注"]')).not.toBeNull();
 
     await api.sync([{ id: favorite.id, status: "sold", updatedAt: "2026-09-01T00:00:02.000Z" }]);
     await waitFor(() => expect(host.textContent).toContain("还没有收藏商品"));
@@ -620,14 +620,16 @@ describe("Dashboard favorite synchronization", () => {
     const api = createApi({ inventory: [favorite], favorites: [favorite] });
     await renderAsManager({ catalog: true });
     await openFavorites();
-    await waitFor(() => expect(host.textContent).toContain("旧备注"));
+    await waitFor(() => expect(host.querySelector('button[aria-label="编辑采购备注：旧备注"]')).not.toBeNull());
     await api.sync([{
       id: favorite.id, priceCurrent: 2_400, shippingFee: 500, priceTotalEst: 2_900,
       updatedAt: "2026-09-01T00:00:02.000Z",
     }]);
-    await waitFor(() => expect(host.textContent).toContain("2,400"));
+    // The card shows the new total (2,400 + 500 shipping); the list
+    // price itself is a detail-view fact since the split line retired.
+    await waitFor(() => expect(host.textContent).toContain("2,900"));
     expect(host.textContent).toContain(favorite.titleZh);
-    expect(host.textContent).toContain("旧备注");
+    expect(host.querySelector('button[aria-label="编辑采购备注：旧备注"]')).not.toBeNull();
     expect(api.collectionRequestCount()).toBe(1);
   });
 
@@ -699,7 +701,7 @@ describe("Dashboard favorite synchronization", () => {
     await renderAsManager({ catalog: true });
     await waitFor(() => expect(host.textContent).toContain(favorite.titleZh));
     await openFavorites();
-    await waitFor(() => expect(host.textContent).toContain("旧备注"));
+    await waitFor(() => expect(host.querySelector('button[aria-label="编辑采购备注：旧备注"]')).not.toBeNull());
 
     const noteButton = host.querySelector(
       'button[aria-label="编辑采购备注：旧备注"]',
@@ -724,7 +726,7 @@ describe("Dashboard favorite synchronization", () => {
       (button) => button.textContent === "保存",
     );
     act(() => saveButton?.click());
-    await waitFor(() => expect(host.textContent).toContain("我的新备注"));
+    await waitFor(() => expect(host.querySelector('button[aria-label="编辑采购备注：我的新备注"]')).not.toBeNull());
 
     await api.sync([
       {
@@ -735,8 +737,8 @@ describe("Dashboard favorite synchronization", () => {
         updatedAt: "2026-09-01T00:00:01.000Z",
       },
     ]);
-    expect(host.textContent).toContain("我的新备注");
-    expect(host.textContent).not.toContain("延迟的旧备注");
+    expect(host.querySelector('button[aria-label="编辑采购备注：我的新备注"]')).not.toBeNull();
+    expect(host.querySelector('button[aria-label="编辑采购备注：延迟的旧备注"]')).toBeNull();
 
     await act(async () => {
       resolvePatch?.(testResponse({ item: confirmed }));
@@ -753,8 +755,8 @@ describe("Dashboard favorite synchronization", () => {
         updatedAt: "2026-09-01T00:00:02.000Z",
       },
     ]);
-    expect(host.textContent).toContain("我的新备注");
-    expect(host.textContent).not.toContain("更迟到的旧备注");
+    expect(host.querySelector('button[aria-label="编辑采购备注：我的新备注"]')).not.toBeNull();
+    expect(host.querySelector('button[aria-label="编辑采购备注：更迟到的旧备注"]')).toBeNull();
     expect(api.collectionRequestCount()).toBe(1);
   });
 

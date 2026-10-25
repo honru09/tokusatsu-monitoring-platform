@@ -59,8 +59,18 @@ export function ProductCardMedia({
         </button>
       </div>
       <div className="product-card-media-footer absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-ink/85 to-transparent p-2.5 pb-3 pt-10 text-white">
-        <span className="min-w-0 truncate text-[11px] font-semibold">
-          发现 {relativeTime(item.detectedAt)}
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate text-[11px] font-semibold">
+            发现 {relativeTime(item.detectedAt)}
+          </span>
+          {item.quantityEst != null && item.quantityEst > 1 ? (
+            <span
+              className="product-card-qty-chip shrink-0 rounded-md bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+              aria-label={`数量 ${item.quantityEst} 件`}
+            >
+              ×{item.quantityEst}
+            </span>
+          ) : null}
         </span>
         {auction?.remaining ? (
           <span
