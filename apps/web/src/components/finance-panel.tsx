@@ -51,11 +51,19 @@ function Figure({
   tone?: "positive" | "negative";
 }) {
   const display = useCountUp(value, reduceMotion);
+  // The value is nowrap in a ~113px column on phones, so its size steps
+  // down by the target's glyph count (the target, not the animating
+  // display value, so the tier never jumps mid-count-up): a
+  // −¥99,999,999-scale figure drops two steps instead of colliding
+  // with its neighbours.
+  const glyphs = value === null ? 0 : yen(value).length;
+  const tier = glyphs >= 12 ? "xlong" : glyphs >= 10 ? "long" : "default";
   return (
     <div className={styles.figure}>
       <span className={styles.label}>{label}</span>
       <strong
-        className={`${styles.value} ${tone ? styles[tone] : ""}`}
+        className={`${styles.value} ${tier === "long" ? styles.valueLong : ""} ${tier === "xlong" ? styles.valueXlong : ""} ${tone ? styles[tone] : ""}`}
+        data-tier={tier}
         aria-label={value === null ? undefined : `${label} ${yen(value)}`}
       >
         {value === null ? "—" : yen(display)}

@@ -64,6 +64,29 @@ describe("FinancePanel", () => {
     expect(host.textContent).toContain("¥30,500");
   });
 
+  it("steps the figure size down for eight-digit totals", async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        totalCostYen: 99_999_999,
+        totalIncomeYen: 0,
+        netProfitYen: -99_999_999,
+      }),
+    );
+    await act(async () => {
+      root.render(<FinancePanel apiBaseUrl="/backend" />);
+    });
+    const figures = [...host.querySelectorAll("strong")];
+    expect(figures).toHaveLength(3);
+    // ¥99,999,999 is 11 glyphs: one step down.
+    expect(figures[0]?.dataset.tier).toBe("long");
+    expect(figures[0]?.textContent).toBe("¥99,999,999");
+    // ¥0 stays at the default size.
+    expect(figures[1]?.dataset.tier).toBe("default");
+    // −¥99,999,999 is 12 glyphs: two steps down.
+    expect(figures[2]?.dataset.tier).toBe("xlong");
+    expect(figures[2]?.textContent).toBe("−¥99,999,999");
+  });
+
   it("shows a retry affordance when the summary fails", async () => {
     fetchMock.mockResolvedValue(response({ message: "down" }, 503));
     await act(async () => {

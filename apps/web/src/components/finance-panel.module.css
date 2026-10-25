@@ -38,6 +38,15 @@
   white-space: nowrap;
 }
 
+/* Glyph-count step-downs (see Figure): 10-11 glyphs, then 12+. */
+.valueLong {
+  font-size: clamp(16px, 4.6vw, 24px);
+}
+
+.valueXlong {
+  font-size: clamp(14px, 4vw, 20px);
+}
+
 .positive {
   color: #4ade80;
 }
