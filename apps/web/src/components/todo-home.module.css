@@ -1,6 +1,6 @@
 .home {
   display: grid;
-  gap: 20px;
+  gap: 24px;
   width: min(100%, 880px);
   margin-inline: auto;
 }
@@ -14,7 +14,7 @@
 
 .header h2 {
   font-size: 26px;
-  font-weight: 900;
+  font-weight: 650;
   letter-spacing: -0.01em;
 }
 
@@ -40,7 +40,7 @@
 }
 
 .allClear {
-  padding: 18px 16px;
+  padding: 16px;
   border-radius: 16px;
   background: rgb(52 120 64 / 0.08);
   color: rgb(35 90 46);
@@ -63,12 +63,12 @@
 
 .sectionHeader h3 {
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .count {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   color: rgb(28 28 30 / 0.45);
   font-variant-numeric: tabular-nums;
 }
@@ -90,7 +90,7 @@
   gap: 10px;
   width: 100%;
   min-height: 56px;
-  padding: 7px 10px;
+  padding: 8px 12px;
   border-radius: 14px;
   background: white;
   box-shadow: 0 0 0 1px rgb(28 28 30 / 0.06);
@@ -145,7 +145,7 @@
 .rowPrice {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   color: rgb(28 28 30 / 0.9);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -177,7 +177,7 @@
 .rowTag {
   display: inline-flex;
   align-items: center;
-  margin-right: 5px;
+  margin-right: 4px;
   padding: 1px 6px;
   border-radius: 999px;
   background: rgb(28 28 30 / 0.06);
