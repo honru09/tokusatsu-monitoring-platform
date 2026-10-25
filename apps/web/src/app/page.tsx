@@ -46,6 +46,8 @@ import {
 } from "../components/purchase-registration-form";
 import { MarketIntelWorkspace } from "../components/market-intel-workspace";
 import { YahooDiscount } from "../components/yahoo-discount";
+import { DetailPriceBreakdown } from "../components/detail-price-breakdown";
+import { DetailSellerMeta } from "../components/detail-seller-meta";
 import { InventoryOrdersWorkspace } from "../components/inventory-orders-workspace";
 import { ShippingWorkspace } from "../components/shipping-workspace";
 import { PurchaseRecordsWorkspace } from "../components/purchase-records-workspace";
@@ -92,7 +94,6 @@ import {
   marketplaceSourceName as sourceName,
   marketplaceSourceOptions,
 } from "../lib/source-label";
-import { listingCostSummary } from "../lib/listing-cost";
 import {
   fmtCny,
   fmtCnyAmount,
@@ -2452,7 +2453,6 @@ function DetailDrawer({
   const editRef = useRef<HTMLDetailsElement>(null);
   useTransactionPresentation(dialogRef);
   const auction = useLiveAuctionTimeline(item, serverOffset);
-  const cost = listingCostSummary(item);
   useDialogFocus({
     active: true,
     dialogRef,
@@ -2490,12 +2490,11 @@ function DetailDrawer({
     showOriginal ? "original" : "zh",
     translatedTitle,
   );
-  const descriptionText = showOriginal
-    ? (item.descriptionRaw ?? "无详情描述")
-    : (translatedDescription ??
-      item.descriptionZh ??
-      item.descriptionRaw ??
-      "无详情描述");
+  const descriptionText =
+    (showOriginal
+      ? item.descriptionRaw
+      : (translatedDescription ?? item.descriptionZh ?? item.descriptionRaw)) ??
+    "";
   async function save() {
     const quantity = draft.quantityEst.trim()
       ? Number(draft.quantityEst)
@@ -2575,7 +2574,9 @@ function DetailDrawer({
             <ArrowLeftIcon />
           </button>
           <div className="min-w-0 flex-1">
-            <h2 id="detail-drawer-title">商品详情</h2>
+            <p id="detail-drawer-title" className="detail-toolbar-title">
+              商品详情
+            </p>
           </div>
           <button
             onClick={() => setShowOriginal((current) => !current)}
@@ -2609,7 +2610,7 @@ function DetailDrawer({
                 <span>·</span>
                 {listingTypeLabel(item.listingType)}
               </p>
-              <h3 className="detail-product-title">{detailTitle}</h3>
+              <h2 className="detail-product-title">{detailTitle}</h2>
               <div className="detail-price">
                 <span>
                   {item.listingType === "auction" ? "当前出价" : "商品价格"}
@@ -2617,36 +2618,10 @@ function DetailDrawer({
                 <strong>{fmtYen(item.priceCurrent)}</strong>
                 <small>{fmtCny(item.priceCurrent, exchangeRate)}</small>
               </div>
-              <YahooDiscount
-                sourceKey={item.source.key}
-                priceYen={item.priceCurrent}
-                exchangeRate={exchangeRate}
-              />
-              <dl className="detail-key-facts">
-                <div>
-                  <dt>数量</dt>
-                  <dd>
-                    {item.quantityEst ? `${item.quantityEst} 件` : "待确认"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>品相</dt>
-                  <dd>{labels[item.conditionGrade] ?? "待确认"}</dd>
-                </div>
-                <div>
-                  <dt>邮费</dt>
-                  <dd>
-                    {shippingLabel(item)}
-                    {item.shippingFee != null && (
-                      <small>{fmtCny(item.shippingFee, exchangeRate)}</small>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{cost.unitLabel}</dt>
-                  <dd>{cost.unit == null ? "待确认" : fmtYen(cost.unit)}</dd>
-                </div>
-              </dl>
+              <p className="detail-state-line">
+                <span>品相</span>
+                <strong>{labels[item.conditionGrade] ?? "待确认"}</strong>
+              </p>
               {auction && (
                 <div className="detail-auction" aria-label="拍卖倒计时">
                   <span>
@@ -2664,32 +2639,62 @@ function DetailDrawer({
                   </div>
                 </div>
               )}
-              {item.seller?.name && (
-                <p className="detail-seller-line flex flex-wrap items-center gap-2">
-                  卖家 <span>{item.seller.name}</span>
-                  {item.seller.id && onOpenSeller && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetSellerId = item.seller?.id;
-                        if (targetSellerId) onOpenSeller(targetSellerId);
-                      }}
-                      className="inline-flex items-center gap-1 rounded-full bg-black/[0.06] px-2.5 py-0.5 text-[11px] font-semibold text-ink transition active:scale-95 hover:bg-black/[0.1]"
-                    >
-                      查看同店商品 / 凑单 →
-                    </button>
-                  )}
-                </p>
-              )}
-              {item.note && (
-                <p className="detail-team-note">
-                  <CommentIcon />
-                  <span>{item.note}</span>
-                </p>
-              )}
             </div>
           </div>
           <div className="product-detail-reading">
+            <DetailPriceBreakdown item={item} exchangeRate={exchangeRate} />
+            <DetailSellerMeta
+              seller={item.seller}
+              note={item.note}
+              onOpenSeller={onOpenSeller}
+            />
+            {item.valueKing && (
+              <section
+                className="value-king-evidence"
+                aria-labelledby="value-king-evidence-title"
+              >
+                <div className="value-king-evidence-head">
+                  <span aria-hidden="true">♛</span>
+                  <div>
+                    <h3 id="value-king-evidence-title">性价比之王</h3>
+                    <p>{item.valueKing.label}</p>
+                  </div>
+                </div>
+                <dl>
+                  <div>
+                    <dt>到手总价</dt>
+                    <dd>{fmtYen(item.valueKing.acquisitionCostJpy)}</dd>
+                  </div>
+                  <div>
+                    <dt>单件成本</dt>
+                    <dd>{fmtYen(item.valueKing.unitCostJpy)}</dd>
+                  </div>
+                  {item.valueKing.xianyuReferencePriceCny != null && <div>
+                    <dt>闲鱼同款</dt>
+                    <dd>
+                      {fmtCnyAmount(
+                        Math.round(item.valueKing.xianyuReferencePriceCny),
+                      )}
+                    </dd>
+                  </div>}
+                  {item.valueKing.referencePriceJpy != null && <div><dt>库内同款参考</dt><dd>{fmtYen(item.valueKing.referencePriceJpy)}</dd></div>}
+                  {item.valueKing.savingsJpy != null && <div><dt>低于参考价</dt><dd>{fmtYen(item.valueKing.savingsJpy)}</dd></div>}
+                  {item.valueKing.referenceBasis === "unit_cost" && <div><dt>入选依据</dt><dd>明确数量与超低单件成本</dd></div>}
+                  {item.valueKing.netProfitJpy != null && <div>
+                    <dt>已知费用后价差</dt>
+                    <dd>{fmtYen(item.valueKing.netProfitJpy)}</dd>
+                  </div>}
+                </dl>
+                {item.valueKing.facts.length > 0 && (
+                  <ul className="value-king-facts">
+                    {item.valueKing.facts.map((fact, index) => (
+                      <li key={index}>{fact}</li>
+                    ))}
+                  </ul>
+                )}
+                <p>仍需在原商品页确认库存与最终交易条件。</p>
+              </section>
+            )}
             {!showOriginal && item.translationStatus !== "completed" && item.translationStatus !== "processing" && !translationError && (
               <div className="detail-translation-status">
                 <span>需要中文内容时再翻译</span>
@@ -2818,47 +2823,6 @@ function DetailDrawer({
                       </a>
                     ))}
                   </div>
-                </section>
-              )}
-              {item.valueKing && (
-                <section
-                  className="value-king-evidence"
-                  aria-labelledby="value-king-evidence-title"
-                >
-                  <div className="value-king-evidence-head">
-                    <span aria-hidden="true">♛</span>
-                    <div>
-                      <h4 id="value-king-evidence-title">性价比之王</h4>
-                      <p>{item.valueKing.label}</p>
-                    </div>
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>到手总价</dt>
-                      <dd>{fmtYen(item.valueKing.acquisitionCostJpy)}</dd>
-                    </div>
-                    <div>
-                      <dt>单件成本</dt>
-                      <dd>{fmtYen(item.valueKing.unitCostJpy)}</dd>
-                    </div>
-                    {item.valueKing.xianyuReferencePriceCny != null && <div>
-                      <dt>闲鱼同款</dt>
-                      <dd>
-                        ¥
-                        {Math.round(
-                          item.valueKing.xianyuReferencePriceCny,
-                        ).toLocaleString("zh-CN")}
-                      </dd>
-                    </div>}
-                    {item.valueKing.referencePriceJpy != null && <div><dt>库内同款参考</dt><dd>{fmtYen(item.valueKing.referencePriceJpy)}</dd></div>}
-                    {item.valueKing.savingsJpy != null && <div><dt>低于参考价</dt><dd>{fmtYen(item.valueKing.savingsJpy)}</dd></div>}
-                    {item.valueKing.referenceBasis === "unit_cost" && <div><dt>入选依据</dt><dd>明确数量与超低单件成本</dd></div>}
-                    {item.valueKing.netProfitJpy != null && <div>
-                      <dt>已知费用后价差</dt>
-                      <dd>{fmtYen(item.valueKing.netProfitJpy)}</dd>
-                    </div>}
-                  </dl>
-                  <p>仍需在原商品页确认库存与最终交易条件。</p>
                 </section>
               )}
             </DetailDisclosure>

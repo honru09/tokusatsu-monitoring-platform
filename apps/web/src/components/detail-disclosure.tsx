@@ -60,6 +60,19 @@ export function DetailDescription({ text }: { text: string }) {
     return () => { animation.cancel(); node.style.removeProperty("max-height"); };
   }, [expanded, reduceMotion]);
   const lengthy = text.length > 180 || text.split("\n").length > 5;
+  if (!text.trim()) {
+    return (
+      <section className={`detail-description ${styles.description}`} aria-label="商品说明">
+        <h3>商品说明</h3>
+        {/* Empty state: the art slot stays empty in this pass; a later
+            batch drops a spot illustration into it. */}
+        <div className="detail-description-empty">
+          <div className="detail-description-art" data-description-art-slot aria-hidden="true" />
+          <p>暂无商品说明</p>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className={`detail-description ${styles.description}`} aria-label="商品说明" onPointerDownCapture={() => { pointerRef.current = true; }} onKeyDownCapture={() => { pointerRef.current = false; }}>
       <h3>商品说明</h3>
