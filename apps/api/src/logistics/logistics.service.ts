@@ -13,12 +13,8 @@ import {
   LOGISTICS_PREDICTION_SCHEMA,
 } from "../ai/ai-response-contracts.js";
 import type {
-  CreateCarrierDto,
-  CreateTariffDto,
   LogisticsPatchDto,
   OptimizeLogisticsDto,
-  UpdateCarrierDto,
-  UpdateTariffDto,
 } from "./logistics.dto.js";
 
 type ItemRow = Prisma.ItemGetPayload<{
@@ -334,58 +330,6 @@ export class LogisticsService {
       orderBy: [{ enabled: "desc" }, { displayName: "asc" }],
     });
     return { carriers, serverTime: new Date().toISOString() };
-  }
-
-  async createCarrier(body: CreateCarrierDto) {
-    const carrier = await this.prisma.shippingCarrier.create({
-      data: { ...body, currency: body.currency ?? "JPY" },
-    });
-    return { carrier, serverTime: new Date().toISOString() };
-  }
-
-  async updateCarrier(id: string, body: UpdateCarrierDto) {
-    const carrier = await this.prisma.shippingCarrier.update({
-      where: { id },
-      data: body,
-    });
-    return { carrier, serverTime: new Date().toISOString() };
-  }
-
-  async createTariff(carrierId: string, body: CreateTariffDto) {
-    const tariff = await this.prisma.shippingTariff.create({
-      data: {
-        carrierId,
-        serviceName: body.serviceName,
-        basis: body.basis as ShippingBasis,
-        minValue: body.minValue,
-        maxValue: body.maxValue,
-        priceYen: body.priceYen,
-        zone: body.zone ?? "JP",
-        sourceNote: body.sourceNote,
-      },
-    });
-    return { tariff, serverTime: new Date().toISOString() };
-  }
-
-  async updateTariff(id: string, body: UpdateTariffDto) {
-    const tariff = await this.prisma.shippingTariff.update({
-      where: { id },
-      data: {
-        serviceName: body.serviceName,
-        basis: body.basis as ShippingBasis,
-        minValue: body.minValue,
-        maxValue: body.maxValue,
-        priceYen: body.priceYen,
-        zone: body.zone ?? "JP",
-        sourceNote: body.sourceNote,
-      },
-    });
-    return { tariff, serverTime: new Date().toISOString() };
-  }
-
-  async deleteTariff(id: string) {
-    await this.prisma.shippingTariff.delete({ where: { id } });
-    return { deleted: true, serverTime: new Date().toISOString() };
   }
 
   async optimize(body: OptimizeLogisticsDto) {
