@@ -67,7 +67,7 @@ export function PurchaseRecordsWorkspace({
 }) {
   return (
     <div className="purchases-workspace">
-      <section className="ios-surface workspace-surface mb-4 rounded-2xl border border-blue-100 p-4 shadow-panel">
+      <section className="ios-surface workspace-surface mb-4 rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
         <>
           <div className="mb-4 border-b border-ink/8 pb-4">
             <div className="flex items-center justify-between gap-3">
@@ -95,7 +95,7 @@ export function PurchaseRecordsWorkspace({
                 <button
                   type="button"
                   onClick={onRegisterSelected}
-                  className="min-h-11 rounded-xl bg-moss px-3 text-xs font-bold text-white"
+                  className="min-h-11 rounded-full bg-moss px-5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
                 >
                   {selectedPurchaseJobIds.length > 1
                     ? `打包登记 · ${selectedPurchaseJobIds.length}`

@@ -132,13 +132,11 @@
   max-height: min(88dvh, 1000px);
   margin: auto;
   padding: 0;
-  border: 1px solid var(--resale-border);
-  border-radius: 22px;
-  background: var(--glass-fill-sheet, rgb(255 255 255 / 94%));
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 28px;
+  background: #ffffff;
   color: var(--glass-ink, #1d1d1f);
-  box-shadow: var(--glass-shadow-lift);
-  backdrop-filter: var(--glass-blur-sheet);
-  -webkit-backdrop-filter: var(--glass-blur-sheet);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18);
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -818,12 +816,11 @@
 }
 .detail {
   min-width: 0;
-  background: var(--app-surface, rgb(255 255 255 / 94%));
-  border-radius: 22px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 28px;
   padding: 24px 24px 0;
-  box-shadow:
-    var(--glass-rim),
-    0 5px 22px rgb(29 29 31 / 5%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
   scroll-margin-top: 7rem;
 }
 .editor {

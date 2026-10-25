@@ -1,7 +1,7 @@
 .workspace {
-  --operations-line: var(--ui-line, rgb(60 60 67 / 13%));
-  --operations-muted: var(--glass-ink-secondary, #58616c);
-  --operations-surface: var(--ui-surface, rgb(255 255 255 / 94%));
+  --operations-line: rgba(0, 0, 0, 0.06);
+  --operations-muted: var(--color-label-muted, #8e8e93);
+  --operations-surface: #ffffff;
   min-width: 0;
   width: 100%;
   color: var(--color-ink, #1d1d1f);
@@ -11,7 +11,7 @@
   line-break: strict;
   display: grid;
   gap: 24px;
-  --operations-shadow: var(--ui-shadow, 0 8px 24px rgb(24 40 56 / 5%));
+  --operations-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 .workspace *,
 .intelDialog * {
@@ -246,8 +246,8 @@
   gap: 0;
   border-top: 0;
   background: var(--operations-surface);
-  border: 1px solid rgb(255 255 255 / 90%);
-  border-radius: 22px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 28px;
   box-shadow: var(--operations-shadow);
   overflow: hidden;
 }
@@ -386,8 +386,8 @@
 .inventory :global(.inventory-order-empty),
 .inventory :global(.inventory-order-loading) {
   background: var(--operations-surface);
-  border-radius: 22px;
-  border-block: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 28px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   padding: 48px 24px;
   box-shadow: var(--operations-shadow);
 }
@@ -404,8 +404,8 @@
   padding: 24px;
   background: var(--operations-surface);
   border-block: 0;
-  border: 1px solid rgb(255 255 255 / 85%);
-  border-radius: 22px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 28px;
   box-shadow: var(--operations-shadow);
 }
 .monitoring :global(.mcfg-search) {
@@ -438,8 +438,8 @@
 .monitoring :global(.mcfg-categories) {
   padding: 20px;
   background: var(--operations-surface);
-  border: 1px solid rgb(255 255 255 / 85%);
-  border-radius: 22px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 28px;
   box-shadow: var(--operations-shadow);
 }
 .monitoring :global(.mcfg-categories h3) {
