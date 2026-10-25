@@ -22,9 +22,12 @@ export type ProductCardActionFeedback = {
 } | null;
 
 /**
- * Operations row: favorite / cart / more, the expanded more-menu and the
- * transient save feedback. Pending state and the runAction guard live in
- * the card shell; this row only renders and forwards clicks.
+ * Operations row: favorite / cart / share / more, the expanded more-menu
+ * and the transient save feedback. Share sits on the card face so sending
+ * an item to the partner takes one tap; the menu keeps the rarer actions
+ * (ignore / delete / purchase / send to manager). Pending state and the
+ * runAction guard live in the card shell; this row only renders and
+ * forwards clicks.
  */
 export function ProductCardActions({
   item,
@@ -64,7 +67,7 @@ export function ProductCardActions({
   const reduceMotion = useReducedMotion();
   return (
     <>
-      <div className="product-card-actions relative mt-auto grid grid-cols-3 gap-1.5 pt-1">
+      <div className="product-card-actions relative mt-auto grid grid-cols-4 gap-1.5 pt-1">
         <button
           onClick={onFavoriteAction}
           disabled={pendingAction !== null}
@@ -91,6 +94,18 @@ export function ProductCardActions({
         </button>
         <button
           type="button"
+          onClick={() => {
+            onCloseMore();
+            onShare();
+          }}
+          aria-label="分享商品原链接"
+          title="分享"
+          className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-moss/35"
+        >
+          <ShareIcon />
+        </button>
+        <button
+          type="button"
           ref={moreTriggerRef}
           onClick={onToggleMore}
           aria-label={moreActionsOpen ? "收起更多操作" : "更多商品操作"}
@@ -102,7 +117,7 @@ export function ProductCardActions({
         </button>
       </div>
       {moreActionsOpen && (
-        <motion.div data-apple-motion-owned className={`product-card-more-actions ${transactionStyles.moreMenu} absolute bottom-[68px] right-3 z-30 grid w-[248px] grid-cols-5 gap-1.5 rounded-2xl border border-ink/10 bg-white/95 p-2 shadow-modal`} initial={reduceMotion || !pointerInputRef.current ? false : {opacity:0,transform:"translateY(10px) scale(.94)"}} animate={{opacity:1,transform:"translateY(0px) scale(1)"}} transition={reduceMotion || !pointerInputRef.current ? {duration:0} : springs.appleSpatial}>
+        <motion.div data-apple-motion-owned className={`product-card-more-actions ${transactionStyles.moreMenu} absolute bottom-[68px] right-3 z-30 grid w-[200px] grid-cols-4 gap-1.5 rounded-2xl border border-ink/10 bg-white/95 p-2 shadow-modal`} initial={reduceMotion || !pointerInputRef.current ? false : {opacity:0,transform:"translateY(10px) scale(.94)"}} animate={{opacity:1,transform:"translateY(0px) scale(1)"}} transition={reduceMotion || !pointerInputRef.current ? {duration:0} : springs.appleSpatial}>
           <button
             onClick={() => {
               onCloseMore();
@@ -135,17 +150,6 @@ export function ProductCardActions({
             className="grid min-h-11 place-items-center rounded-lg border border-rust/25 bg-rust/5 text-rust transition-colors hover:bg-rust/10"
           >
             <MoneyIcon />
-          </button>
-          <button
-            onClick={() => {
-              onCloseMore();
-              onShare();
-            }}
-            aria-label="分享商品"
-            title="分享"
-            className="grid min-h-11 place-items-center rounded-lg border border-ink/10 bg-white text-ink transition-colors hover:border-moss/35"
-          >
-            <ShareIcon />
           </button>
           <button
             onClick={() => {
