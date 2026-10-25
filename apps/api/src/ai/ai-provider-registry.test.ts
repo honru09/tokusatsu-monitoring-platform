@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   configuredProviderRuntimes,
-  diagnosticProviderRuntimes,
   providerConfigurationStatuses,
   providerCredentialEnvironmentName,
 } from "./ai-provider-registry.js";
@@ -131,7 +130,6 @@ describe("AI provider registry", () => {
 
   it("registers no runtime without the Zhipu credential", () => {
     expect(configuredProviderRuntimes()).toEqual([]);
-    expect(diagnosticProviderRuntimes()).toEqual([]);
   });
 
   it("never registers a legacy provider, even with credentials and authorizations set", () => {
@@ -173,9 +171,6 @@ describe("AI provider registry", () => {
         "openrouter",
         "ovo",
       ]),
-    ).toEqual([]);
-    expect(
-      diagnosticProviderRuntimes(["cohere", "nvidia", "ovo"]),
     ).toEqual([]);
     expect(providerConfigurationStatuses().map(({ provider }) => provider)).toEqual(
       ["zhipu"],

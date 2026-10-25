@@ -1,5 +1,4 @@
-import { AI_BULK_TASKS, AI_EXTENDED_TASKS, AI_HIGH_VALUE_TASKS, AI_MODELS, AI_PREMIUM_PROVIDER_ID_ENV, AI_PROVIDER_IDS, AI_SCOPED_TASKS, AI_TASKS, PROVIDER_MODEL_ALLOWLIST, ZHIPU_MODEL, extendedAiScopesEnabled, modelDefinition, modelStateKey, type AiProvider, type AiCostPolicy, type AiTask, type AiTaskTier } from "./ai-model-catalog.js";
-import { providerCredentialConfigured, providerIsRegistered, providerSpecModelIds } from "./ai-provider-registry.js";
+import { AI_BULK_TASKS, AI_EXTENDED_TASKS, AI_HIGH_VALUE_TASKS, AI_MODELS, AI_PROVIDER_IDS, AI_SCOPED_TASKS, AI_TASKS, PROVIDER_MODEL_ALLOWLIST, ZHIPU_MODEL, extendedAiScopesEnabled, modelStateKey, type AiProvider, type AiCostPolicy, type AiTask, type AiTaskTier } from "./ai-model-catalog.js";
 export * from "./ai-model-catalog.js";
 export type { AiTask, AiTaskTier };
 export const AI_MODEL_ALLOWLIST = PROVIDER_MODEL_ALLOWLIST.zhipu;
@@ -15,40 +14,10 @@ export function taskTier(task: AiTask): AiTaskTier | undefined {
   if (highValueTasks.has(task)) return "high_value";
   return undefined;
 }
-// Premium routing for high-value tasks is ready but inert: it resolves only
-// when the operator names a provider in AI_PREMIUM_PROVIDER_ID, that
-// provider has a spec in the registry, a credential for it resolves through
-// the registry's environment names, and the repository can name a model for
-// it (catalog definition, static route, or catalogue fallback). With the
-// variable unset — the production state — nothing below changes any outcome.
-export function premiumModelFor(provider: AiProvider) {
-  const defined = AI_MODELS.filter(entry => entry.provider === provider).map(entry => entry.id);
-  const models = defined.length ? defined : providerSpecModelIds(provider);
-  return models[0];
-}
-export function configuredPremiumProvider(): AiProvider | undefined {
-  const named = process.env[AI_PREMIUM_PROVIDER_ID_ENV]?.trim();
-  if (!named || !providerIsRegistered(named)) return undefined;
-  if (!providerCredentialConfigured(named)) return undefined;
-  return premiumModelFor(named) ? named : undefined;
-}
-function premiumCandidateFor(task: AiTask, providers: readonly AiProvider[], options: { costTierFor?: (provider: AiProvider, model: string) => AiRouteCandidate["costTier"] }): AiRouteCandidate | undefined {
-  if (taskTier(task) !== "high_value" || !extendedAiScopesEnabled()) return undefined;
-  const provider = configuredPremiumProvider();
-  if (!provider || !providers.includes(provider)) return undefined;
-  const model = premiumModelFor(provider);
-  if (!model) return undefined;
-  const costTier = options.costTierFor?.(provider, model) ?? modelDefinition(provider, model)?.costTier ?? "unknown";
-  return { provider, model, costTier };
-}
 export const modelRoleLabels = Object.fromEntries(AI_MODELS.map(entry => [modelStateKey(entry.provider, entry.id), entry.role]));
 export function routeFor(task: AiTask) { return routeForProvider(task, "zhipu"); }
 export function routeForProvider(task: AiTask, provider: AiProvider) {
   if (provider === "zhipu" && isRoutableTask(task)) return [ZHIPU_MODEL];
-  if (taskTier(task) === "high_value" && extendedAiScopesEnabled() && configuredPremiumProvider() === provider) {
-    const model = premiumModelFor(provider);
-    if (model) return [model];
-  }
   return [];
 }
 export function routeUsesLiveCatalogue(_task: AiTask, _provider: AiProvider) { return false; }
@@ -61,10 +30,7 @@ export function candidatesForTask(task: AiTask, providers: readonly AiProvider[]
     if (tier !== "promotion" && tier !== "free") return [];
     return [{ provider: "zhipu", model: ZHIPU_MODEL, costTier: tier }];
   })();
-  const premium = premiumCandidateFor(task, providers, options);
-  if (!premium) return scoped;
-  const rest = scoped.filter(candidate => !(candidate.provider === premium.provider && candidate.model === premium.model));
-  return [premium, ...rest];
+  return scoped;
 }
 export function allConfiguredModels() { return [ZHIPU_MODEL]; }
 export function allConfiguredModelRefs() { return [{ provider: "zhipu" as AiProvider, model: ZHIPU_MODEL, stateKey: modelStateKey("zhipu", ZHIPU_MODEL) }]; }

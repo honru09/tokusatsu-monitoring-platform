@@ -54,9 +54,6 @@ export const AI_EXTENDED_TASKS: readonly AiTask[] = ["seller_analysis", "bundle_
 export type AiTaskTier = "bulk" | "high_value";
 export const AI_BULK_TASKS: readonly AiTask[] = AI_SCOPED_TASKS;
 export const AI_HIGH_VALUE_TASKS: readonly AiTask[] = AI_EXTENDED_TASKS;
-// Optional operator setting: the provider id that should take high-value
-// tasks when it is fully configured (see ai-router.ts). Unset in production.
-export const AI_PREMIUM_PROVIDER_ID_ENV = "AI_PREMIUM_PROVIDER_ID";
 export function extendedAiScopesEnabled() {
   const value = process.env.AI_EXTENDED_SCOPES_ENABLED;
   return value === "true" || value === "1";

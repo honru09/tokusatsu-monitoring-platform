@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   candidatesForTask,
-  configuredPremiumProvider,
-  premiumModelFor,
   routeFor,
   routeForProvider,
   taskTier,
@@ -89,66 +87,5 @@ describe("tiered routing equivalence with no premium provider configured", () =>
     for (const task of ALL_TASKS)
       expect(candidatesForTask(task, ["zhipu", "gemini"], { costPolicy: "free_first", requiresVision: false })).toEqual(PRE_TIER_FLAG_OFF[task]);
     expect(routeForProvider("seller_analysis", "gemini")).toEqual([]);
-  });
-});
-
-describe("premium candidate decision table", () => {
-  it("flag on, premium named but no credential: high-value tasks keep the scoped candidate only", () => {
-    vi.stubEnv("AI_EXTENDED_SCOPES_ENABLED", "true");
-    vi.stubEnv("AI_PREMIUM_PROVIDER_ID", "gemini");
-    vi.stubEnv("AI_GEMINI_CATALOGUE_FALLBACK_MODELS", "gemini-3.1-flash-lite");
-    expect(configuredPremiumProvider()).toBeUndefined();
-    expect(candidatesForTask("seller_analysis", ["zhipu", "gemini"], { costPolicy: "free_first", requiresVision: false })).toEqual(ZHIPU_CANDIDATE);
-  });
-
-  it("flag on, credential present but no model metadata in the repository: not configured", () => {
-    vi.stubEnv("AI_EXTENDED_SCOPES_ENABLED", "true");
-    vi.stubEnv("AI_PREMIUM_PROVIDER_ID", "gemini");
-    vi.stubEnv("GEMINI_API_KEY", "fixture");
-    expect(premiumModelFor("gemini")).toBeUndefined();
-    expect(configuredPremiumProvider()).toBeUndefined();
-    expect(candidatesForTask("bundle_negotiation", ["zhipu", "gemini"], { costPolicy: "free_first", requiresVision: false })).toEqual(ZHIPU_CANDIDATE);
-  });
-
-  it("flag on, unknown provider id named: not configured", () => {
-    vi.stubEnv("AI_EXTENDED_SCOPES_ENABLED", "true");
-    vi.stubEnv("AI_PREMIUM_PROVIDER_ID", "not-a-provider");
-    expect(configuredPremiumProvider()).toBeUndefined();
-    expect(candidatesForTask("seller_analysis", ["zhipu"], { costPolicy: "free_first", requiresVision: false })).toEqual(ZHIPU_CANDIDATE);
-  });
-
-  it("flag on, premium configured: high-value tasks resolve the premium candidate first, bulk tasks never do", () => {
-    vi.stubEnv("AI_EXTENDED_SCOPES_ENABLED", "true");
-    configureGeminiPremium();
-    expect(configuredPremiumProvider()).toBe("gemini");
-    const costTierFor = (provider: string) => (provider === "gemini" ? "paid" as const : "promotion" as const);
-    for (const task of ["seller_analysis", "bundle_negotiation"] as const) {
-      expect(candidatesForTask(task, ["zhipu", "gemini"], { costPolicy: "free_first", requiresVision: false, costTierFor })).toEqual([
-        { provider: "gemini", model: "gemini-3.1-flash-lite", costTier: "paid" },
-        { provider: "zhipu", model: "glm-5.3-flash", costTier: "promotion" },
-      ]);
-      expect(routeForProvider(task, "gemini")).toEqual(["gemini-3.1-flash-lite"]);
-    }
-    for (const task of ["translation", "classification", "image_analysis", "complex_analysis", "assistant_chat"] as const) {
-      expect(candidatesForTask(task, ["zhipu", "gemini"], { costPolicy: "free_first", requiresVision: false, costTierFor })).toEqual(ZHIPU_CANDIDATE);
-      expect(routeForProvider(task, "gemini")).toEqual([]);
-    }
-    // The default route still goes to the scoped provider.
-    expect(routeFor("seller_analysis")).toEqual(["glm-5.3-flash"]);
-  });
-
-  it("flag on, premium provider outside the caller's provider list: no premium candidate", () => {
-    vi.stubEnv("AI_EXTENDED_SCOPES_ENABLED", "true");
-    configureGeminiPremium();
-    expect(candidatesForTask("seller_analysis", ["zhipu"], { costPolicy: "free_first", requiresVision: false })).toEqual(ZHIPU_CANDIDATE);
-  });
-
-  it("flag on, premium provider is the scoped provider itself: candidate list is unchanged", () => {
-    vi.stubEnv("AI_EXTENDED_SCOPES_ENABLED", "true");
-    vi.stubEnv("AI_PREMIUM_PROVIDER_ID", "zhipu");
-    vi.stubEnv("ZHIPU_API_KEY", "fixture");
-    expect(configuredPremiumProvider()).toBe("zhipu");
-    expect(candidatesForTask("seller_analysis", ["zhipu"], { costPolicy: "free_first", requiresVision: false })).toEqual(ZHIPU_CANDIDATE);
-    expect(routeForProvider("seller_analysis", "zhipu")).toEqual(["glm-5.3-flash"]);
   });
 });
