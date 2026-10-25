@@ -93,7 +93,11 @@ export function ProductCard({
       />
 
       <div className="product-card-body flex flex-1 flex-col p-3">
-        <ProductCardTags item={item} />
+        <ProductCardTags
+          item={item}
+          inBundleShare={inBundleShare}
+          onToggleBundleShare={onToggleBundleShare}
+        />
         <button
           onClick={onOpen}
           className="product-card-title line-clamp-2 min-h-11 w-full text-left text-sm font-black leading-[1.35rem] text-ink transition-colors hover:text-moss"
@@ -101,35 +105,6 @@ export function ProductCard({
           {displayTitle}
         </button>
         <ProductCardPrice item={item} exchangeRate={exchangeRate} />
-        {onToggleBundleShare && (
-          <div className="product-card-seller mt-2 flex items-center justify-end gap-1.5 text-[10px] text-ink/50">
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onToggleBundleShare();
-                }}
-                aria-pressed={inBundleShare}
-                aria-label={
-                  inBundleShare ? "移出集合分享篮" : "加入集合分享篮"
-                }
-                title={
-                  inBundleShare
-                    ? "已加入集合分享篮，点击移出"
-                    : "加入集合分享篮（与同店商品一起发给搭档砍价）"
-                }
-                className={`inline-flex h-5 items-center rounded-md px-1.5 text-[10px] font-semibold transition active:scale-[0.96] ${
-                  inBundleShare
-                    ? "bg-ink text-white"
-                    : "bg-black/[0.05] text-ink/65 hover:bg-black/[0.09] hover:text-ink"
-                }`}
-              >
-                {inBundleShare ? "✓ 已凑" : "+ 凑单"}
-              </button>
-            </div>
-          </div>
-        )}
         {item.note && (
           <div className="product-card-note mt-1">
             <button

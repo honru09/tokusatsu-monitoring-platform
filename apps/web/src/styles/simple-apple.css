@@ -155,10 +155,9 @@ html[data-apple-input="keyboard"] :is(.procurement-shell,.shell-overlay-root) :i
 }
 .procurement-shell .product-card-decision dt {font-size:12px;}
 .procurement-shell .product-card-decision dd {font-size:15px;font-weight:550;font-variant-numeric:tabular-nums;max-width:none;overflow:visible;text-overflow:clip;white-space:normal;}
-.procurement-shell .product-card-decision .product-card-total dd {font-size:24px;font-weight:600;}
+.procurement-shell .product-card-decision .product-card-total dd {font-size:24px;font-weight:600;white-space:nowrap;overflow-wrap:normal;}
+.procurement-shell .product-card-decision .product-card-total>small {white-space:nowrap;}
 .procurement-shell .product-card-decision :is(small,.product-card-cost-evidence) {font-size:12px;}
-.procurement-shell .product-card-seller {display:flex !important;order:4;font-size:12px;margin-top:4px;}
-.procurement-shell .product-card-seller>button {min-height:44px;}
 .procurement-shell .product-card-note {order:5;}
 .procurement-shell .product-card-actions {order:6;gap:8px;padding-top:8px;}
 .procurement-shell .product-card-actions>button {
@@ -438,8 +437,6 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
   .procurement-shell .procurement-grid .product-card-decision dl[data-qty-unknown="true"] .product-card-qty,
   .procurement-shell .procurement-grid .product-card-decision dl[data-qty-unknown="true"] .product-card-unit {display:none;}
   .procurement-shell .procurement-grid .product-card-price-split {font-size:10px;line-height:1.45;}
-  .procurement-shell .procurement-grid .product-card-seller {margin-top:6px;}
-  .procurement-shell .procurement-grid .product-card-seller button {min-height:40px;padding-inline:10px;}
   .procurement-shell .procurement-grid .product-card-actions {gap:5px;padding-top:6px;}
   .procurement-shell .procurement-grid .product-card-more-actions {right:8px !important;width:calc(100% - 16px) !important;}
 }
@@ -489,13 +486,10 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
   .procurement-shell .procurement-grid .js-product-card {height:auto !important;}
 
   /* Body becomes a plain stack again: the named-area grid's expanding
-     1fr note row is what opened the void under the prices. With the
-     bundle toggle present, seller + actions share one bottom row. */
+     1fr note row is what opened the void under the prices. The bundle
+     toggle lives in the tags row, so the bottom row is actions only. */
   .procurement-shell .procurement-grid .product-card-body {display:grid !important;flex:none !important;grid-template:"tags" auto "title" auto "decision" auto "note" auto "actions" auto / minmax(0,1fr);row-gap:3px;}
-  .procurement-shell .procurement-grid .product-card-body:has(> .product-card-seller) {grid-template:"tags tags" auto "title title" auto "decision decision" auto "note note" auto "seller actions" auto / auto minmax(0,1fr);}
   .procurement-shell .procurement-grid .product-card-note {min-height:0 !important;}
-  .procurement-shell .procurement-grid .product-card-seller {grid-area:seller;align-self:center;margin-top:0 !important;justify-content:flex-start;}
-  .procurement-shell .procurement-grid .product-card-seller button {height:40px;min-height:40px;border-radius:12px;font-size:11px;}
 
   /* Title: two lines, small, no reserved third line. */
   .procurement-shell .procurement-grid .product-card-title {display:-webkit-box !important;-webkit-box-orient:vertical !important;-webkit-line-clamp:2 !important;overflow:hidden !important;min-height:0 !important;max-height:34px;font-size:12.5px !important;line-height:1.35 !important;margin-bottom:0;}
@@ -505,10 +499,10 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
      line 3 the Yahoo discount estimate + its CNY. */
   .procurement-shell .procurement-grid .product-card-decision {display:flex !important;flex-direction:column;gap:2px !important;margin-top:2px !important;padding:6px 7px !important;}
   .procurement-shell .procurement-grid .product-card-decision dl {display:flex !important;flex-wrap:wrap;align-items:baseline;gap:1px 6px;}
-  .procurement-shell .procurement-grid .product-card-decision .product-card-total {display:flex !important;align-items:baseline;gap:5px;flex:1 1 100%;}
-  .procurement-shell .procurement-grid .product-card-decision .product-card-total dt {font-size:10px;}
-  .procurement-shell .procurement-grid .product-card-decision .product-card-total dd {font-size:16px !important;font-weight:700;}
-  .procurement-shell .procurement-grid .product-card-decision .product-card-total > small {font-size:10px;}
+  .procurement-shell .procurement-grid .product-card-decision .product-card-total {display:flex !important;flex-wrap:wrap;align-items:baseline;gap:5px;flex:1 1 100%;}
+  .procurement-shell .procurement-grid .product-card-decision .product-card-total dt {font-size:10px;flex-shrink:0;}
+  .procurement-shell .procurement-grid .product-card-decision .product-card-total dd {font-size:16px !important;font-weight:700;flex-shrink:0;white-space:nowrap;}
+  .procurement-shell .procurement-grid .product-card-decision .product-card-total > small {font-size:10px;white-space:nowrap;}
   .procurement-shell .procurement-grid .product-card-decision dl .product-card-qty,
   .procurement-shell .procurement-grid .product-card-decision dl .product-card-unit {display:none !important;}
   .procurement-shell .procurement-grid .product-card-split-facts {display:inline;}
@@ -519,11 +513,11 @@ html[data-apple-input="keyboard"] .procurement-shell :is(.home-category-drawer-c
   .procurement-shell .procurement-grid .product-card-decision > .yahoo-discount > small {font-size:10px;}
   .procurement-shell .procurement-grid .product-card-cost-evidence {font-size:10px;padding-top:2px;}
 
-  /* One action row at the bottom of the content: the three icon
-     buttons stop spreading across the card and sit beside the
-     bundle toggle at a matching 40px height. */
+  /* One icon-only action row at the bottom of the content: the four
+     buttons share the full card width at a matching 40px height and
+     shrink evenly instead of spilling over neighbouring content. */
   .procurement-shell .procurement-grid .product-card-actions {display:flex !important;align-items:center;justify-content:flex-end;gap:5px;min-height:40px;margin-top:0 !important;padding-top:0 !important;}
-  .procurement-shell .procurement-grid .product-card-actions > button {flex:0 0 auto;width:40px;height:40px;min-height:40px;border-radius:12px;}
+  .procurement-shell .procurement-grid .product-card-actions > button {flex:1 1 0;min-width:0;max-width:44px;height:40px;min-height:40px;border-radius:12px;}
   .procurement-shell .procurement-grid .product-card-more-actions {bottom:52px !important;}
 
   /* The sticky toolbar is 98px tall on phones (8px padding, 28px

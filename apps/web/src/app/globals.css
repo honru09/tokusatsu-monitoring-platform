@@ -391,7 +391,7 @@ textarea:focus-visible {
   transform: translateZ(0);
 }
 .product-card-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .product-card-actions > button {
   min-width: 44px;
@@ -4230,9 +4230,6 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   .product-card-cost-evidence > span small {
     display: none;
   }
-  .product-card-seller {
-    display: none !important;
-  }
   .product-card-note {
     margin-top: 3px !important;
   }
@@ -5519,9 +5516,6 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
 .product-card-standard {
   display: none;
 }
-.product-card-seller {
-  display: none !important;
-}
 .product-card-note-desktop {
   min-height: 44px;
 }
@@ -5876,8 +5870,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
     line-height: 1.25rem;
   }
   .product-card-tags,
-  .product-card-standard,
-  .product-card-seller {
+  .product-card-standard {
     display: none;
   }
   .product-card-market {
@@ -5931,7 +5924,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   }
   .product-card-actions {
     gap: 5px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .product-card-actions > button {
     min-width: 0;
@@ -6136,7 +6129,7 @@ html.manager-gate-open .ios-shell > :not(.shell-overlay-root) {
   }
   .product-card-actions {
     gap: 0;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .product-card > div:last-child {
     padding-inline: 3px;

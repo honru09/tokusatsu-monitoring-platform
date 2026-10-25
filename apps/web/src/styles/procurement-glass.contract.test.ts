@@ -111,9 +111,9 @@ describe("procurement glass layout contracts", () => {
     expect(finalLayer).toMatch(
       /\.procurement-shell \.procurement-grid \.js-product-card\s*\{[^}]*height:\s*auto\s*!important/,
     );
-    expect(finalLayer).toMatch(
-      /\.procurement-shell \.procurement-grid \.product-card-body:has\(\> \.product-card-seller\)/,
-    );
+    // The bundle toggle lives in the tags row; no seller row shares
+    // the bottom of the card with the icon-only action row.
+    expect(finalLayer).not.toMatch(/product-card-seller/);
     expect(finalLayer).toMatch(
       /\.procurement-shell \.procurement-grid \.product-card-actions\s*\{[^}]*display:\s*flex\s*!important[^}]*margin-top:\s*0\s*!important/,
     );

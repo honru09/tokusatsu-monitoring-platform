@@ -95,4 +95,56 @@ describe("ProductCard price facts", () => {
     expect(decision?.textContent).toContain("¥1,200");
     expect(decision?.textContent).toContain("标价 ¥1,000");
   });
+
+  it("renders five- and six-digit totals as single amount tokens", () => {
+    act(() => {
+      root.render(
+        <ProductCard
+          {...cardProps(makeItem({ priceCurrent: 17_500, shippingFee: 0 }))}
+        />,
+      );
+    });
+    const five = host.querySelector(".product-card-total");
+    expect(five?.querySelector("dd")?.textContent).toBe("¥17,500");
+    expect(five?.querySelector("small")?.textContent).toContain("约");
+
+    act(() => {
+      root.render(
+        <ProductCard
+          {...cardProps(
+            makeItem({ priceCurrent: 123_456, shippingFee: 0 }),
+          )}
+        />,
+      );
+    });
+    const six = host.querySelector(".product-card-total");
+    expect(six?.querySelector("dd")?.textContent).toBe("¥123,456");
+  });
+
+  it("keeps the bundle toggle in the tags row and the action row icon-only", () => {
+    act(() => {
+      root.render(
+        <ProductCard
+          {...cardProps(makeItem())}
+          inBundleShare={false}
+          onToggleBundleShare={vi.fn()}
+        />,
+      );
+    });
+    expect(host.querySelector(".product-card-seller")).toBeNull();
+    const toggle = host.querySelector(
+      'button[aria-label="加入集合分享篮"]',
+    );
+    expect(toggle).not.toBeNull();
+    expect(
+      host.querySelector(".product-card-tags")?.contains(toggle),
+    ).toBe(true);
+    const actionButtons = host.querySelectorAll(
+      ".product-card-actions > button",
+    );
+    expect(actionButtons).toHaveLength(4);
+    for (const button of actionButtons) {
+      expect(button.textContent?.trim()).toBe("");
+    }
+  });
 });
