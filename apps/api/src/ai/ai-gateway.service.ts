@@ -39,7 +39,6 @@ import {
   providerConfigurationStatuses,
   type ProviderRuntime,
 } from "./ai-provider-registry.js";
-import { verifiedBaiPromotionModels } from "./bai-promotions.js";
 import {
   AiSdkHttpError,
   AiSdkModelClient,
@@ -1278,35 +1277,6 @@ export class AiGatewayService implements OnApplicationBootstrap {
         if (normalized.providerWide && !catalogueSucceeded)
           await this.updateProviderFailure(provider.id, normalized);
         break;
-      }
-    }
-    if (
-      catalogueSucceeded &&
-      provider.id === "bai" &&
-      provider.apiTier === "promotion" &&
-      process.env.NODE_ENV?.trim().toLowerCase() === "production"
-    ) {
-      try {
-        const promotionUrl =
-          process.env.BAI_PROMOTIONS_URL?.trim() ||
-          "https://docs.b.ai/llmservice/promotions-and-pricing-notices/";
-        const promotionResponse = await fetch(promotionUrl, {
-          headers: { accept: "text/html" },
-          signal: AbortSignal.timeout(Math.min(catalogueTimeout, remainingMs)),
-        });
-        if (!promotionResponse.ok)
-          throw new Error(`B.AI promotion page ${promotionResponse.status}`);
-        const verified = verifiedBaiPromotionModels(
-          await promotionResponse.text(),
-          models,
-        );
-        if (verified.size === 0)
-          throw new Error("B.AI promotion page proves no free API models");
-        models.clear();
-        for (const modelId of verified) models.add(modelId);
-      } catch {
-        catalogueSucceeded = false;
-        models.clear();
       }
     }
     if (catalogueSucceeded) {

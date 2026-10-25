@@ -30,10 +30,7 @@
     "db:seed": "node scripts/run-pnpm.mjs --filter @tokusatsu/db seed",
     "compose:up": "docker compose --env-file .env -f infrastructure/docker-compose.yml up -d --build",
     "compose:down": "docker compose --env-file .env -f infrastructure/docker-compose.yml down",
-    "compose:logs": "docker compose --env-file .env -f infrastructure/docker-compose.yml logs -f",
-    "ai:validate": "node scripts/run-pnpm.mjs --filter @tokusatsu/api ai:validate",
-    "ai:validate:upstreams": "node scripts/run-pnpm.mjs --filter @tokusatsu/api ai:validate:upstreams",
-    "test:gemini": "node scripts/run-pnpm.mjs --filter @tokusatsu/api test:gemini"
+    "compose:logs": "docker compose --env-file .env -f infrastructure/docker-compose.yml logs -f"
   },
   "devDependencies": {
     "@types/node": "22.18.1",

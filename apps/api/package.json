@@ -8,9 +8,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/main.js",
     "dev": "tsx watch src/main.ts",
-    "ai:validate": "tsx src/ai/validate-ai-providers.cli.ts --env ../../.env",
-    "ai:validate:upstreams": "tsx src/ai/validate-upstream-keys.cli.ts --env ../../.env",
-    "test:gemini": "tsx src/ai/test-gemini.cli.ts --env ../../.env",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
