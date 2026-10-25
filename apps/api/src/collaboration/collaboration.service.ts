@@ -2,8 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma.service.js";
+import { PushService } from "../push/push.service.js";
 import type {
   CreateShareRoundDto,
   MarkDirectMessagesReadDto,
@@ -214,7 +216,10 @@ const negotiationInclude = {
 
 @Injectable()
 export class CollaborationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly push?: PushService,
+  ) {}
 
   async accounts(accountId?: string) {
     const now = new Date();
@@ -436,6 +441,15 @@ export class CollaborationService {
       return message;
     });
     const [hydrated] = await this.hydrateMessages([created]);
+    if (primaryItemId) {
+      const item = (
+        hydrated as
+          | { item?: { titleZh?: string | null; titleRaw?: string | null } | null }
+          | undefined
+      )?.item;
+      const itemTitle = item?.titleZh?.trim() || item?.titleRaw?.trim() || null;
+      this.notifyShare(body.recipientId, requestedItemIds.length, itemTitle);
+    }
     return hydrated;
   }
 
@@ -476,10 +490,51 @@ export class CollaborationService {
       },
       include: shareRoundInclude,
     });
+    this.notifyShareRoundOthers(body.accountId, requested.size);
     return presentShareRound(
       round as ShareRoundWithItems,
       await this.decisionMap(requested.keys()),
     );
+  }
+
+  /**
+   * Fire-and-forget Web Push for a new share. Push is best-effort by
+   * design: it never blocks or fails the share that triggered it.
+   */
+  private notifyShare(
+    recipientId: string,
+    itemCount: number,
+    itemTitle: string | null,
+  ) {
+    if (!this.push) return;
+    void this.push
+      .notifyAccount(recipientId, {
+        title: "搭档分享了新商品",
+        body:
+          itemCount > 1
+            ? `共 ${itemCount} 件新商品`
+            : (itemTitle ?? "有新商品分享给你"),
+        url: "/?workspace=collaboration",
+      })
+      .catch(() => {});
+  }
+
+  private notifyShareRoundOthers(creatorId: string, itemCount: number) {
+    if (!this.push) return;
+    const push = this.push;
+    void (async () => {
+      const others = await this.prisma.managerAccount.findMany({
+        where: { active: true, id: { not: creatorId } },
+        select: { id: true },
+      });
+      for (const account of others) {
+        await push.notifyAccount(account.id, {
+          title: "搭档分享了新商品",
+          body: `新一轮分享：共 ${itemCount} 件商品`,
+          url: "/?workspace=collaboration",
+        });
+      }
+    })().catch(() => {});
   }
 
   async shareRounds(accountId: string) {
