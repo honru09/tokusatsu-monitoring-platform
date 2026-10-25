@@ -2,8 +2,11 @@ import { Type } from "class-transformer";
 import {
   IsArray,
   IsInt,
+  IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
+  Max,
   Min,
   ValidateNested,
 } from "class-validator";
@@ -26,6 +29,19 @@ export class ShipmentLineDto {
 export class CreateShipmentDto {
   @IsString()
   accountId!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @IsPositive()
+  @Max(1)
+  exchangeRate?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  totalDeclaredCny?: number;
 
   @IsArray()
   @ValidateNested({ each: true })

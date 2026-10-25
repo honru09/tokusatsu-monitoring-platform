@@ -37,6 +37,8 @@ type ShipmentLineRow = {
 type ShipmentRow = {
   id: string;
   totalDeclared: number;
+  exchangeRate?: unknown;
+  totalDeclaredCny?: number | null;
   createdById: string;
   createdAt: Date;
   createdBy?: { displayName: string } | null;
@@ -60,6 +62,9 @@ function serializeShipment(shipment: ShipmentRow, fallbackName?: string) {
   return {
     id: shipment.id,
     totalDeclared: shipment.totalDeclared,
+    exchangeRate:
+      shipment.exchangeRate == null ? null : Number(shipment.exchangeRate),
+    totalDeclaredCny: shipment.totalDeclaredCny ?? null,
     createdById: shipment.createdById,
     createdByName: shipment.createdBy?.displayName ?? fallbackName ?? null,
     createdAt: shipment.createdAt.toISOString(),
@@ -166,6 +171,8 @@ export class ShipmentsService {
           data: {
             id: shipmentId,
             totalDeclared,
+            exchangeRate: body.exchangeRate ?? null,
+            totalDeclaredCny: body.totalDeclaredCny ?? null,
             createdById: body.accountId,
             lines: {
               create: claimed.map(({ order, line }) => ({

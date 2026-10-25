@@ -1444,12 +1444,14 @@ model InventoryAdjustment {
 /// Lines snapshot the declared values used at packing time; confirming a
 /// shipment decrements InventoryOrder.remainingQuantity for each line.
 model Shipment {
-  id            String         @id @default(uuid())
-  totalDeclared Int            @map("total_declared")
-  createdById   String         @map("created_by_id")
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  createdBy     ManagerAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  lines         ShipmentLine[]
+  id               String         @id @default(uuid())
+  totalDeclared    Int            @map("total_declared")
+  exchangeRate     Decimal?       @map("exchange_rate") @db.Decimal(18, 8)
+  totalDeclaredCny Int?           @map("total_declared_cny")
+  createdById      String         @map("created_by_id")
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  createdBy        ManagerAccount @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  lines            ShipmentLine[]
 
   @@index([createdAt])
   @@index([createdById, createdAt])

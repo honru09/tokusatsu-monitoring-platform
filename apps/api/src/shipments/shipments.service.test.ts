@@ -74,6 +74,8 @@ function harness({
         const shipment = {
           id: data.id,
           totalDeclared: data.totalDeclared,
+          exchangeRate: data.exchangeRate ?? null,
+          totalDeclaredCny: data.totalDeclaredCny ?? null,
           createdById: data.createdById,
           createdAt: NOW,
           createdBy: { displayName: account?.displayName ?? "王" },
@@ -132,6 +134,49 @@ describe("ShipmentsService.create", () => {
       unitDeclaredYen: 180,
       lineTotalYen: 1800,
     });
+  });
+
+  it("persists the FX snapshot when exchangeRate and totalDeclaredCny are sent", async () => {
+    const h = harness();
+
+    const result = await h.service.create({
+      accountId: "mgr-1",
+      exchangeRate: 0.0425,
+      totalDeclaredCny: 76,
+      lines: [{ inventoryOrderId: "ord-1", quantity: 10, unitDeclaredYen: 180 }],
+    });
+
+    expect(result.exchangeRate).toBe(0.0425);
+    expect(result.totalDeclaredCny).toBe(76);
+    expect(result.totalDeclared).toBe(1800);
+    expect(h.tx.shipment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          exchangeRate: 0.0425,
+          totalDeclaredCny: 76,
+        }),
+      }),
+    );
+  });
+
+  it("stores null FX snapshot fields when they are absent", async () => {
+    const h = harness();
+
+    const result = await h.service.create({
+      accountId: "mgr-1",
+      lines: [{ inventoryOrderId: "ord-1", quantity: 1, unitDeclaredYen: 100 }],
+    });
+
+    expect(result.exchangeRate).toBeNull();
+    expect(result.totalDeclaredCny).toBeNull();
+    expect(h.tx.shipment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          exchangeRate: null,
+          totalDeclaredCny: null,
+        }),
+      }),
+    );
   });
 
   it("flips status to partially_sold when stock remains", async () => {
@@ -298,6 +343,32 @@ describe("ShipmentsService.list", () => {
       createdByName: "王",
     });
     expect(typeof result.serverTime).toBe("string");
+  });
+
+  it("includes the FX snapshot in list results, null for rows without one", async () => {
+    const h = harness();
+    await h.service.create({
+      accountId: "mgr-1",
+      exchangeRate: 0.0425,
+      totalDeclaredCny: 30,
+      lines: [{ inventoryOrderId: "ord-1", quantity: 1, unitDeclaredYen: 700 }],
+    });
+    await h.service.create({
+      accountId: "mgr-1",
+      lines: [{ inventoryOrderId: "ord-1", quantity: 1, unitDeclaredYen: 700 }],
+    });
+
+    const result = await h.service.list({});
+
+    expect(result.shipments).toHaveLength(2);
+    expect(result.shipments[0]).toMatchObject({
+      exchangeRate: 0.0425,
+      totalDeclaredCny: 30,
+    });
+    expect(result.shipments[1]).toMatchObject({
+      exchangeRate: null,
+      totalDeclaredCny: null,
+    });
   });
 
   it("defaults the limit to 50", async () => {
