@@ -19,7 +19,7 @@
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums lining-nums;
 }
-.procurement-content :is(h2, .portal-heading h2) {
+.procurement-content .portal-heading h2 {
   font-size: clamp(1.25rem, 2.4vw, 1.65rem);
   font-weight: 650;
   letter-spacing: -0.025em;
@@ -798,7 +798,7 @@
   .workbench-quick-card {
     min-height: 82px;
   }
-  .procurement-content :is(h2, .portal-heading h2) {
+  .procurement-content .portal-heading h2 {
     font-size: 1.375rem;
   }
 }

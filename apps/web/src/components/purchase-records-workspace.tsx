@@ -5,6 +5,7 @@ import { ContextInfo } from "./context-info";
 import { LoadError } from "./load-error";
 import { TERMS } from "../lib/terms";
 import { friendlyImportError } from "../lib/import-helpers";
+import { compactLinkLabel, dedupeJobsByUrl } from "../lib/purchase-link-input";
 
 /**
  * The records tab of the merged 采购 workspace: link-based purchase
@@ -65,6 +66,24 @@ export function PurchaseRecordsWorkspace({
   onOpenOrdersTab: () => void;
   recordsPanel: ReactNode;
 }) {
+  const dedupedJobs = dedupeJobsByUrl(purchaseLinkJobs);
+  const readyJobs: PurchaseLinkJobLike[] = [];
+  const inProgressJobs: PurchaseLinkJobLike[] = [];
+  const failedJobs: PurchaseLinkJobLike[] = [];
+  for (const job of dedupedJobs) {
+    if (job.state === "completed" && job.item) {
+      readyJobs.push(job);
+    } else if (job.state === "failed") {
+      failedJobs.push(job);
+    } else {
+      inProgressJobs.push(job);
+    }
+  }
+  const visibleJobs = [...readyJobs, ...inProgressJobs, ...failedJobs].slice(
+    0,
+    12,
+  );
+
   return (
     <div className="purchases-workspace">
       <section className="ios-surface workspace-surface mb-4 rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
@@ -72,7 +91,7 @@ export function PurchaseRecordsWorkspace({
           <div className="mb-4 border-b border-ink/8 pb-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-1">
-                <h2 className="text-sm font-bold text-ink">
+                <h2 className="text-[15px] font-semibold text-ink">
                   链接登记购买
                 </h2>
                 <ContextInfo
@@ -118,12 +137,12 @@ export function PurchaseRecordsWorkspace({
                     void onSubmitPurchaseLinks();
                   }
                 }}
-                rows={2}
+                rows={3}
                 placeholder={
                   "每行一个商品链接，可在链接后空格加实付金额，如 12800\n一次最多 20 个"
                 }
                 aria-label="购买商品链接"
-                className="min-h-[72px] resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
+                className="resize-y rounded-xl border border-ink/10 bg-fog/55 px-3 py-2 text-sm leading-6 text-ink placeholder:text-ink/35"
               />
               <button
                 type="button"
@@ -144,9 +163,9 @@ export function PurchaseRecordsWorkspace({
                 {purchaseLinkMessage}
               </p>
             )}
-            {purchaseLinkJobs.length > 0 && (
+            {visibleJobs.length > 0 && (
               <div className="mt-3 grid gap-1.5">
-                {purchaseLinkJobs.slice(0, 12).map((job) => {
+                {visibleJobs.map((job) => {
                   const done = job.state === "completed" && job.item;
                   const failed = job.state === "failed";
                   const checked = selectedPurchaseJobIds.includes(
@@ -174,12 +193,15 @@ export function PurchaseRecordsWorkspace({
                         />
                       )}
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold text-ink">
+                        <p
+                          className="truncate text-xs font-semibold text-ink"
+                          title={job.url}
+                        >
                           {job.item
                             ? (job.item.titleZh ??
                               job.item.product?.titleZh ??
                               job.item.titleRaw)
-                            : job.url}
+                            : compactLinkLabel(job.url)}
                         </p>
                         <p className="truncate text-[10px] text-meta">
                           {failed
@@ -199,6 +221,10 @@ export function PurchaseRecordsWorkspace({
                         >
                           登记
                         </button>
+                      ) : failed ? (
+                        <span className="text-[10px] font-semibold text-rust">
+                          失败
+                        </span>
                       ) : (
                         <span className="font-mono text-[10px] tabular-nums text-meta">
                           {job.progress}%

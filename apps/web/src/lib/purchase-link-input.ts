@@ -34,3 +34,46 @@ export function parsePurchaseLinkInput(value: string) {
   }
   return { urls, amountsByUrl };
 }
+
+/**
+ * Deduplicate jobs by url, keeping the first occurrence (convention: new -> old).
+ */
+export function dedupeJobsByUrl<T extends { url: string }>(
+  jobs: readonly T[],
+): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const job of jobs) {
+    if (seen.has(job.url)) continue;
+    seen.add(job.url);
+    result.push(job);
+  }
+  return result;
+}
+
+/**
+ * Return a compact human-friendly label for a URL on the purchase workspace:
+ * - Mercari (/item/(m\d+)) -> `Mercari · m<id>`
+ * - Yahoo Auctions (/auction/([a-z0-9]+)) -> `雅虎拍卖 · <id>`
+ * - Other -> Hostname (e.g. `jp.mercari.com`)
+ */
+export function compactLinkLabel(url: string): string {
+  const mercariMatch = url.match(/\/item\/(m\d+)/i);
+  if (mercariMatch) {
+    return `Mercari · ${mercariMatch[1]}`;
+  }
+  const yahooAuctionMatch = url.match(/\/auction\/([a-z0-9]+)/i);
+  if (yahooAuctionMatch) {
+    return `雅虎拍卖 · ${yahooAuctionMatch[1]}`;
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname) {
+      return parsed.hostname;
+    }
+  } catch {
+    // If not a parseable URL, fall through
+  }
+  return url;
+}
+

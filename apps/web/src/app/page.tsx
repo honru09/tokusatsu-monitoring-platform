@@ -181,7 +181,10 @@ import {
   mergePurchaseBundlePage,
   standalonePurchaseRecords,
 } from "../lib/purchase-history";
-import { parsePurchaseLinkInput } from "../lib/purchase-link-input";
+import {
+  dedupeJobsByUrl,
+  parsePurchaseLinkInput,
+} from "../lib/purchase-link-input";
 import {
   friendlyImportError,
   publicUrlsFromInput,
@@ -2888,14 +2891,37 @@ function PurchaseRecordsPanel({
   );
   const completeTotal = authoritativePurchaseTotal(bundleGrandTotal);
 
-  const purchaseRow = (purchase: PurchaseRecord) => {
+  const purchaseRow = (
+    purchase: PurchaseRecord,
+    options?: { bundlePurchasedAt?: string; isSingle?: boolean },
+  ) => {
+    const isSingle = Boolean(options?.isSingle);
     const item = purchase.item;
     const title = itemDisplayTitle(item, "zh");
+    const firstImage = item.images?.[0]?.url;
+    const hasImage = Boolean(firstImage);
     return (
       <div
         key={purchase.id}
-        className="grid min-w-0 grid-cols-1 gap-2 border-t border-ink/8 py-3 first:border-t-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+        className="grid min-w-0 grid-cols-[48px_minmax(0,1fr)] items-start gap-3 border-t border-ink/8 py-3 first:border-t-0"
       >
+        <button
+          type="button"
+          onClick={() => (hasImage ? onOpenImages(item) : onOpenItem(item))}
+          aria-label={hasImage ? `查看${title}的图片` : `查看${title}详情`}
+          className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-fog ring-1 ring-ink/5"
+        >
+          {hasImage ? (
+            <img
+              src={firstImage}
+              alt=""
+              loading="lazy"
+              className="h-12 w-12 rounded-lg object-cover ring-1 ring-ink/5"
+            />
+          ) : (
+            <PhotoIcon className="h-5 w-5 text-ink/30" />
+          )}
+        </button>
         <div className="min-w-0">
           <button
             type="button"
@@ -2904,43 +2930,44 @@ function PurchaseRecordsPanel({
           >
             {title}
           </button>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-meta">
-            <span>{sourceName(item.source.key, item.source.displayName)}</span>
-            <time>{fmtDate(purchase.purchasedAt)}</time>
-            <strong className="font-mono font-semibold tabular-nums text-ink/70">
-              {purchase.amountAllocated === false
-                ? "计入打包总价"
-                : fmtYen(purchase.purchaseAmount)}
-            </strong>
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] text-meta">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span>
+                {sourceName(item.source.key, item.source.displayName)}
+              </span>
+              {!isSingle && <time>{fmtDate(purchase.purchasedAt)}</time>}
+              {purchase.amountAllocated === false ? (
+                <strong className="font-mono font-semibold tabular-nums text-ink/70">
+                  计入打包总价
+                </strong>
+              ) : !isSingle ? (
+                <strong className="font-mono font-semibold tabular-nums text-ink/70">
+                  {fmtYen(purchase.purchaseAmount)}
+                </strong>
+              ) : null}
+            </div>
+            {purchase.receipts.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {purchase.receipts.map((receipt, index) => (
+                  <button
+                    key={receipt.id}
+                    type="button"
+                    onClick={() => onViewReceipt(purchase, receipt.id)}
+                    title={receipt.fileName}
+                    className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-fog px-2.5 text-[11px] font-semibold text-ink/70"
+                  >
+                    <PhotoIcon className="h-3.5 w-3.5" />
+                    凭证{purchase.receipts.length > 1 ? index + 1 : ""}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {purchase.note && (
             <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-ink/60">
               {purchase.note}
             </p>
           )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <button
-            type="button"
-            disabled={!item.images.length}
-            onClick={() => onOpenImages(item)}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-fog px-3 text-xs font-semibold text-ink/70 disabled:opacity-35"
-          >
-            <PhotoIcon className="h-4 w-4" />
-            查看图片
-          </button>
-          {purchase.receipts.map((receipt, index) => (
-            <button
-              key={receipt.id}
-              type="button"
-              onClick={() => onViewReceipt(purchase, receipt.id)}
-              title={receipt.fileName}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-fog px-3 text-xs font-semibold text-ink/70"
-            >
-              <PhotoIcon className="h-4 w-4" />
-              凭证{purchase.receipts.length > 1 ? index + 1 : ""}
-            </button>
-          ))}
         </div>
       </div>
     );
@@ -2949,7 +2976,7 @@ function PurchaseRecordsPanel({
   return (
     <section
       aria-labelledby="purchase-records-title"
-      className="ios-surface workspace-surface mb-4 rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
+      className="ios-surface workspace-surface mb-4 rounded-[28px] border border-black/[0.06] bg-white p-4 sm:p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
     >
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-ink/8 pb-4">
         <div>
@@ -2970,7 +2997,7 @@ function PurchaseRecordsPanel({
           <span className="block text-[10px] font-semibold text-meta">
             总支出
           </span>
-          <strong className="block font-mono text-2xl font-bold tabular-nums text-ink">
+          <strong className="block font-mono text-[22px] font-bold tabular-nums text-ink">
             {fmtYen(completeTotal)}
           </strong>
           <span className="block font-mono text-[10px] tabular-nums text-meta">
@@ -3004,57 +3031,67 @@ function PurchaseRecordsPanel({
         />
       ) : (
         <div className="purchase-history-list mt-3 grid min-w-0 grid-cols-1 gap-3">
-          {bundles.map((bundle) => (
-            <article
-              key={bundle.id}
-              className="purchase-history-card min-w-0 w-full rounded-2xl bg-white p-3 shadow-sm ring-1 ring-ink/5"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-ink">
-                    {bundle.purchases.length > 1
-                      ? `打包购买 · ${bundle.purchases.length} 件`
-                      : "单件购买"}
-                  </h3>
-                  <p className="mt-1 text-[11px] text-meta">
-                    {fmtDate(bundle.purchasedAt)} · 版本 {bundle.version}
-                  </p>
-                  {bundle.note && (
-                    <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-ink/60">
-                      {bundle.note}
+          {bundles.map((bundle) => {
+            const isSingle = bundle.purchases.length === 1;
+            return (
+              <article
+                key={bundle.id}
+                className="purchase-history-card min-w-0 w-full rounded-2xl bg-white p-3 shadow-sm ring-1 ring-ink/5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-ink">
+                      {bundle.purchases.length > 1
+                        ? `打包购买 · ${bundle.purchases.length} 件`
+                        : "单件购买"}
+                    </h3>
+                    <p className="mt-1 text-[11px] text-meta">
+                      {fmtDate(bundle.purchasedAt)}
                     </p>
+                    {bundle.note && (
+                      <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-ink/60">
+                        {bundle.note}
+                      </p>
+                    )}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <strong className="block font-mono text-lg font-bold tabular-nums text-ink">
+                      {fmtYen(bundle.totalPurchaseAmount)}
+                    </strong>
+                    <span className="block font-mono text-[10px] tabular-nums text-meta">
+                      {fmtCny(bundle.totalPurchaseAmount, exchangeRate)}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  {bundle.purchases.map((purchase) =>
+                    purchaseRow(purchase, {
+                      bundlePurchasedAt: bundle.purchasedAt,
+                      isSingle,
+                    }),
                   )}
                 </div>
-                <div className="shrink-0 text-right">
-                  <strong className="block font-mono text-lg font-bold tabular-nums text-ink">
-                    {fmtYen(bundle.totalPurchaseAmount)}
-                  </strong>
-                  <span className="block font-mono text-[10px] tabular-nums text-meta">
-                    {fmtCny(bundle.totalPurchaseAmount, exchangeRate)}
-                  </span>
+                <div className="mt-2 flex flex-wrap justify-end gap-2 border-t border-ink/8 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => onEditBundle(bundle)}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-fog px-3 text-xs font-semibold text-ink/70"
+                  >
+                    <EditIcon className="h-4 w-4" />
+                    编辑 / 改价
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenHistory(bundle)}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-transparent px-3 text-xs font-semibold text-ink/55 hover:bg-black/5"
+                  >
+                    <HistoryIcon className="h-4 w-4" />
+                    变更历史
+                  </button>
                 </div>
-              </div>
-              <div className="mt-2">{bundle.purchases.map(purchaseRow)}</div>
-              <div className="mt-2 flex flex-wrap justify-end gap-2 border-t border-ink/8 pt-3">
-                <button
-                  type="button"
-                  onClick={() => onEditBundle(bundle)}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-fog px-3 text-xs font-semibold text-ink/70"
-                >
-                  <EditIcon className="h-4 w-4" />
-                  编辑 / 改价
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenHistory(bundle)}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-ink px-3 text-xs font-semibold text-white"
-                >
-                  <HistoryIcon className="h-4 w-4" />
-                  变更历史
-                </button>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
 
           {standalonePurchases.length > 0 && (
             <article className="purchase-history-card min-w-0 w-full rounded-2xl bg-white p-3 shadow-sm ring-1 ring-ink/5">
@@ -3064,7 +3101,9 @@ function PurchaseRecordsPanel({
                   {fmtYen(standaloneTotal)}
                 </strong>
               </div>
-              <div className="mt-2">{standalonePurchases.map(purchaseRow)}</div>
+              <div className="mt-2">
+                {standalonePurchases.map((purchase) => purchaseRow(purchase))}
+              </div>
             </article>
           )}
 
@@ -4674,7 +4713,7 @@ export default function Dashboard() {
         }
         // Jobs submitted in this session that the list has not caught up
         // with yet stay at the front.
-        return [...byJobId.values(), ...merged].slice(0, 40);
+        return dedupeJobsByUrl([...byJobId.values(), ...merged]).slice(0, 40);
       });
     } catch {
       // The persisted list is a recovery aid; live polling still works
@@ -4785,10 +4824,10 @@ export default function Dashboard() {
         );
       setPurchaseLinkJobs((current) => {
         const existing = new Set(current.map((job) => job.jobId));
-        return [
+        return dedupeJobsByUrl([
           ...acceptedJobs.filter((job) => !existing.has(job.jobId)),
           ...current,
-        ].slice(0, 40);
+        ]).slice(0, 40);
       });
       setSelectedPurchaseJobIds([]);
       setPurchaseLinkInput(

@@ -119,4 +119,122 @@ describe("PurchaseRecordsWorkspace", () => {
     act(() => retry?.click());
     expect(props.onRetryPurchases).toHaveBeenCalledTimes(1);
   });
+
+  it("sorts jobs stably: ready -> in-progress -> failed, preserving original order in each group", () => {
+    const jobs: PurchaseLinkJobLike[] = [
+      {
+        jobId: "f1",
+        url: "https://example.com/fail1",
+        state: "failed",
+        progress: 100,
+        item: null,
+      },
+      {
+        jobId: "r1",
+        url: "https://example.com/ready1",
+        state: "completed",
+        progress: 100,
+        item: { titleZh: "现货A", titleRaw: "现货A" },
+      },
+      {
+        jobId: "p1",
+        url: "https://jp.mercari.com/item/m12345",
+        state: "active",
+        progress: 45,
+        item: null,
+      },
+      {
+        jobId: "r2",
+        url: "https://example.com/ready2",
+        state: "completed",
+        progress: 100,
+        item: { titleZh: "现货B", titleRaw: "现货B" },
+      },
+      {
+        jobId: "p2",
+        url: "https://page.auctions.yahoo.co.jp/jp/auction/y9876",
+        state: "waiting",
+        progress: 0,
+        item: null,
+      },
+      {
+        jobId: "f2",
+        url: "https://example.com/fail2",
+        state: "failed",
+        progress: 100,
+        item: null,
+      },
+    ];
+
+    renderWorkspace({ purchaseLinkJobs: jobs });
+    const jobTitles = [...host.querySelectorAll(".min-w-0 > p.font-semibold")].map(
+      (node) => node.textContent?.trim(),
+    );
+    expect(jobTitles).toEqual([
+      "现货A",
+      "现货B",
+      "Mercari · m12345",
+      "雅虎拍卖 · y9876",
+      "example.com",
+      "example.com",
+    ]);
+  });
+
+  it("does not render percentage on failed rows and renders '失败', but keeps percentage on in-progress rows", () => {
+    const jobs: PurchaseLinkJobLike[] = [
+      {
+        jobId: "active-1",
+        url: "https://jp.mercari.com/item/m1111",
+        state: "active",
+        progress: 55,
+        item: null,
+      },
+      {
+        jobId: "failed-1",
+        url: "https://jp.mercari.com/item/m2222",
+        state: "failed",
+        progress: 100,
+        item: null,
+        failedReason: "Error: NoPublicPriceError",
+      },
+    ];
+
+    renderWorkspace({ purchaseLinkJobs: jobs });
+    expect(host.textContent).toContain("55%");
+    expect(host.textContent).not.toContain("100%");
+
+    const failedLabel = host.querySelector("span.text-rust");
+    expect(failedLabel).not.toBeNull();
+    expect(failedLabel?.textContent?.trim()).toBe("失败");
+  });
+
+  it("renders compactLinkLabel for jobs without item title and retains full url in title attribute", () => {
+    const jobs: PurchaseLinkJobLike[] = [
+      {
+        jobId: "mercari-1",
+        url: "https://jp.mercari.com/item/m54739826519",
+        state: "active",
+        progress: 30,
+        item: null,
+      },
+      {
+        jobId: "yahoo-1",
+        url: "https://page.auctions.yahoo.co.jp/jp/auction/b1088492041",
+        state: "waiting",
+        progress: 0,
+        item: null,
+      },
+    ];
+
+    renderWorkspace({ purchaseLinkJobs: jobs });
+    const mercariP = host.querySelector('p[title="https://jp.mercari.com/item/m54739826519"]');
+    expect(mercariP).not.toBeNull();
+    expect(mercariP?.textContent?.trim()).toBe("Mercari · m54739826519");
+
+    const yahooP = host.querySelector(
+      'p[title="https://page.auctions.yahoo.co.jp/jp/auction/b1088492041"]',
+    );
+    expect(yahooP).not.toBeNull();
+    expect(yahooP?.textContent?.trim()).toBe("雅虎拍卖 · b1088492041");
+  });
 });
