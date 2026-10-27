@@ -490,4 +490,41 @@ describe("Mercari adapter", () => {
     expect(results[0].detailHint?.priceCurrent).toBe(8500);
     expect(results[0].detailHint?.sellerName).toBe("Mercari 卖家 178928820");
   });
+
+  it("throws NoPublicPriceError on fetchDetail for price-less page, while fetchDetailLenient resolves fallback price with parsed details", async () => {
+    const missingPriceHtml = `<html><head>
+      <meta property="og:title" content="仮面ライダー ウィザードリング 7個セット" />
+      <meta property="og:description" content="中古・セット" />
+      <meta property="og:image" content="https://static.mercdn.net/item.jpg" />
+    </head><body><section data-testid="seller">特撮ショップ</section>商品説明</body></html>`;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) =>
+        new Response(
+          String(input).endsWith("robots.txt")
+            ? "User-agent: *\nAllow: /"
+            : missingPriceHtml,
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const adapter = new MercariAdapter();
+    const item = {
+      sourceItemId: "m123",
+      sourceUrl: "https://jp.mercari.com/item/m123",
+    };
+
+    await expect(adapter.fetchDetail(item)).rejects.toBeInstanceOf(
+      NoPublicPriceError,
+    );
+
+    const detail = await adapter.fetchDetailLenient(item, 4500);
+    expect(detail.priceCurrent).toBe(4500);
+    expect(detail.titleRaw).toBe("仮面ライダー ウィザードリング 7個セット");
+    expect(detail.descriptionRaw).toBe("中古・セット");
+    expect(detail.imageUrls).toEqual(["https://static.mercdn.net/item.jpg"]);
+    expect(detail.sourcePlatform).toBe("mercari");
+  });
 });

@@ -1951,6 +1951,7 @@ export async function processUrlAnalysis(
     sourceUrl: string;
     importId?: string;
     importOrigin?: "url" | "purchase";
+    actualAmountYen?: number;
   }>,
 ) {
   let adapter = adapters[job.data.adapterKey];
@@ -2009,34 +2010,73 @@ export async function processUrlAnalysis(
     });
   }
   try {
+    const targetItem = {
+      sourceItemId,
+      sourceUrl: job.data.sourceUrl,
+    };
+    const canUseLenientFallback =
+      job.data.importOrigin === "purchase" &&
+      typeof job.data.actualAmountYen === "number" &&
+      Number.isInteger(job.data.actualAmountYen) &&
+      job.data.actualAmountYen > 0;
+
     let raw;
     try {
-      raw = await adapter.fetchDetail({
-        sourceItemId,
-        sourceUrl: job.data.sourceUrl,
-      });
+      raw = await adapter.fetchDetail(targetItem);
     } catch (error) {
       const playwrightConfigured = Boolean(
         process.env.PLAYWRIGHT_WS_ENDPOINT ||
           process.env.PLAYWRIGHT_EXECUTABLE_PATH,
       );
-      if (adapter.key !== "public_page" || !playwrightConfigured) throw error;
-      adapter = adapters.playwright_page;
-      if (job.data.importId)
-        await prisma.urlImport.update({
-          where: { id: job.data.importId },
-          data: {
-            progress: 35,
-            currentStep: "普通读取失败，正在使用动态浏览器渲染",
-          },
-        });
-      raw = await adapter.fetchDetail({
-        sourceItemId,
-        sourceUrl: job.data.sourceUrl,
-      });
+      if (adapter.key === "public_page" && playwrightConfigured) {
+        adapter = adapters.playwright_page;
+        if (job.data.importId)
+          await prisma.urlImport.update({
+            where: { id: job.data.importId },
+            data: {
+              progress: 35,
+              currentStep: "普通读取失败，正在使用动态浏览器渲染",
+            },
+          });
+        try {
+          raw = await adapter.fetchDetail(targetItem);
+        } catch (playwrightError) {
+          if (
+            playwrightError instanceof NoPublicPriceError &&
+            canUseLenientFallback &&
+            typeof adapter.fetchDetailLenient === "function"
+          ) {
+            raw = await adapter.fetchDetailLenient(
+              targetItem,
+              job.data.actualAmountYen!,
+            );
+          } else {
+            throw playwrightError;
+          }
+        }
+      } else if (
+        error instanceof NoPublicPriceError &&
+        canUseLenientFallback &&
+        typeof adapter.fetchDetailLenient === "function"
+      ) {
+        raw = await adapter.fetchDetailLenient(
+          targetItem,
+          job.data.actualAmountYen!,
+        );
+      } else {
+        throw error;
+      }
     }
     const normalized = await adapter.normalize(raw);
-    if (isExcludedNormalizedItem(normalized))
+    if (canUseLenientFallback) {
+      normalized.priceCurrent = job.data.actualAmountYen!;
+      normalized.priceTotalEst =
+        normalized.priceCurrent + (normalized.shippingFee ?? 0);
+    }
+    if (
+      isExcludedNormalizedItem(normalized) &&
+      job.data.importOrigin !== "purchase"
+    )
       throw new Error("已过滤书籍或卡片类商品");
     if (job.data.importId)
       await prisma.urlImport.update({

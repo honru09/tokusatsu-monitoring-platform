@@ -134,6 +134,10 @@ export interface SourceAdapter {
   readonly displayName: string;
   search(query: SearchQuery): Promise<SearchResult[]>;
   fetchDetail(item: SearchResult): Promise<RawItemDetail>;
+  fetchDetailLenient?(
+    item: SearchResult,
+    fallbackPriceYen: number,
+  ): Promise<RawItemDetail>;
   refreshStatus(item: StoredItem): Promise<ItemStatusUpdate>;
   normalize(raw: RawItemDetail): Promise<NormalizedItem>;
 }

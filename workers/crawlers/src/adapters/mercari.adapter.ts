@@ -247,10 +247,11 @@ export function mergeMercariDetails(
   };
 }
 
-export function parseMercariDetailHtml(
+function parseMercariDetailHtmlInternal(
   html: string,
   sourceUrl: string,
   sourceItemId: string,
+  options: { allowMissingPrice?: boolean; fallbackPriceYen?: number } = {},
 ): RawItemDetail {
   const $ = cheerio.load(html);
   const uiStatus = publicListingUiStatus($);
@@ -299,7 +300,7 @@ export function parseMercariDetailHtml(
   // element. Mercari serves page variants that drop the meta (shell pages,
   // Shops layouts); a single-source parse turned every such variant into a
   // permanently failing refresh.
-  const priceCurrent =
+  let priceCurrent =
     yen($("meta[name='product:price:amount']").attr("content")) ??
     schemaListingPrice(structuredData) ??
     yen($("meta[itemprop='price']").attr("content")) ??
@@ -309,9 +310,14 @@ export function parseMercariDetailHtml(
   if (priceCurrent == null) {
     if (status === "sold" || status === "ended")
       throw new ListingUnavailableError(status);
-    throw new NoPublicPriceError(
-      "Mercari detail page did not contain a public price",
-    );
+    if (!options.allowMissingPrice) {
+      throw new NoPublicPriceError(
+        "Mercari detail page did not contain a public price",
+      );
+    }
+    priceCurrent = options.fallbackPriceYen ?? 0;
+  } else if (options.fallbackPriceYen != null) {
+    priceCurrent = options.fallbackPriceYen;
   }
   const imageSet = new Set<string>();
   const addImages = (value: unknown) => {
@@ -413,6 +419,15 @@ export function parseMercariDetailHtml(
     status,
     channel: "online",
   };
+}
+
+export function parseMercariDetailHtml(
+  html: string,
+  sourceUrl: string,
+  sourceItemId: string,
+  options: { allowMissingPrice?: boolean; fallbackPriceYen?: number } = {},
+): RawItemDetail {
+  return parseMercariDetailHtmlInternal(html, sourceUrl, sourceItemId, options);
 }
 
 export class MercariAdapter implements SourceAdapter {
@@ -524,6 +539,23 @@ export class MercariAdapter implements SourceAdapter {
         return cached;
       throw error;
     }
+  }
+
+  async fetchDetailLenient(
+    item: SearchResult,
+    fallbackPriceYen: number,
+  ): Promise<RawItemDetail> {
+    const cached = item.detailHint ?? this.details.get(item.sourceItemId);
+    const html = await this.fetchAllowed(item.sourceUrl);
+    const detail = parseMercariDetailHtmlInternal(
+      html,
+      item.sourceUrl,
+      item.sourceItemId,
+      { allowMissingPrice: true, fallbackPriceYen },
+    );
+    return cached
+      ? { ...mergeMercariDetails(cached, detail), priceCurrent: fallbackPriceYen }
+      : detail;
   }
 
   async refreshStatus(item: StoredItem): Promise<ItemStatusUpdate> {
