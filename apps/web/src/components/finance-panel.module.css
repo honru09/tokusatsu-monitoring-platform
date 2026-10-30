@@ -11,8 +11,8 @@
 
 @media (max-width: 639px) {
   .panel {
-    gap: 8px;
-    margin-top: -28px;
+    gap: 10px;
+    margin-top: -32px;
   }
 }
 
@@ -20,7 +20,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   padding: 18px 16px 16px;
   border-radius: 20px;
@@ -35,8 +35,8 @@
 
 @media (max-width: 639px) {
   .figure {
-    padding: 14px 10px 12px;
-    border-radius: 18px;
+    padding: 16px 12px 14px;
+    border-radius: 20px;
   }
 }
 
@@ -103,7 +103,7 @@
 
 @media (max-width: 380px) {
   .panel {
-    gap: 6px;
+    gap: 8px;
   }
 
   .label {

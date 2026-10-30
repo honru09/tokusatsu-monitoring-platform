@@ -1,9 +1,9 @@
 .home {
   display: grid;
-  gap: 24px;
+  gap: 28px;
   width: min(100%, 880px);
   margin-inline: auto;
-  padding-bottom: 24px;
+  padding-bottom: 36px;
 }
 
 .header {
@@ -26,7 +26,7 @@
 
 @media (max-width: 639px) {
   .heroVisual {
-    padding: 20px 18px 46px;
+    padding: 24px 20px 54px;
     border-radius: 24px;
   }
 }
@@ -91,9 +91,9 @@
 
 @media (max-width: 639px) {
   .heroStatement {
-    margin-top: 16px;
+    margin-top: 20px;
     font-size: 19px;
-    line-height: 1.45;
+    line-height: 1.55;
   }
 }
 
@@ -140,7 +140,7 @@
 }
 
 .allClear {
-  padding: 16px;
+  padding: 20px;
   border-radius: 16px;
   background: rgb(52 120 64 / 0.08);
   color: rgb(35 90 46);
@@ -151,7 +151,7 @@
 
 .section {
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .sectionHeader {
@@ -181,17 +181,17 @@
 
 .rows {
   display: grid;
-  gap: 6px;
+  gap: 10px;
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  min-height: 56px;
-  padding: 8px 12px;
-  border-radius: 14px;
+  min-height: 64px;
+  padding: 10px 14px;
+  border-radius: 16px;
   background: white;
   box-shadow: 0 0 0 1px rgb(28 28 30 / 0.06);
   text-align: left;
@@ -202,25 +202,25 @@
 }
 
 .thumb {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   object-fit: cover;
   background: rgb(28 28 30 / 0.06);
   flex-shrink: 0;
 }
 
 .thumbEmpty {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   background: rgb(28 28 30 / 0.06);
   flex-shrink: 0;
 }
 
 .rowBody {
   display: grid;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
   flex: 1;
 }
@@ -229,7 +229,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: rgb(28 28 30 / 0.92);
 }
