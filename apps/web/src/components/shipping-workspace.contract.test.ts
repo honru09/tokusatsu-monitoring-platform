@@ -21,16 +21,26 @@ describe("shipping packed-line width contract", () => {
       /data-testid="packed-line"\s*className="([^"]*)"/,
     );
     expect(lineTag?.[1]).toContain("grid");
+    expect(lineTag?.[1]).toContain("min-w-0");
+    expect(lineTag?.[1]).toContain("grid-cols-[minmax(0,1fr)]");
     expect(lineTag?.[1]).not.toContain("flex");
   });
 
-  it("keeps the fixed-width inputs inside the controls row", () => {
+  it("keeps the fixed-width inputs inside the controls row and allows total to wrap right", () => {
     const controlsAt = source.indexOf('data-testid="packed-line-controls"');
     expect(controlsAt).toBeGreaterThan(-1);
+    const controlsTag = source.match(
+      /data-testid="packed-line-controls"\s*className="([^"]*)"/,
+    );
+    expect(controlsTag?.[1]).toContain("flex-wrap");
+    expect(controlsTag?.[1]).toContain("min-w-0");
     for (const widthClass of ["w-[52px]", "w-[64px]", "w-[76px]"]) {
       const at = source.indexOf(widthClass, controlsAt);
       expect(at).toBeGreaterThan(controlsAt);
     }
+    // Total amount block floats/wraps right on narrow screens with ml-auto
+    const totalBlockAt = source.indexOf('ml-auto flex w-[76px]', controlsAt);
+    expect(totalBlockAt).toBeGreaterThan(controlsAt);
   });
 
   it("does not resurrect the old single-row packed line", () => {
@@ -39,7 +49,7 @@ describe("shipping packed-line width contract", () => {
     );
   });
 
-  it("constrains both stock lists to a shrinkable grid column", () => {
+  it("constrains both stock lists and root containers to shrinkable columns", () => {
     // A plain `grid` sizes its implicit column to the widest row's
     // max-content: one long untruncated-looking title stretched the
     // whole card to 659px on a 390px phone (measured on the live
@@ -48,6 +58,12 @@ describe("shipping packed-line width contract", () => {
     expect(lists.length).toBeGreaterThanOrEqual(2);
     for (const list of lists) {
       expect(list).toContain("grid-cols-[minmax(0,1fr)]");
+      expect(list).toContain("min-w-0");
     }
+    // Root section and cards must also be min-w-0 grid-cols-[minmax(0,1fr)]
+    expect(source).toContain(
+      '<section aria-label="发货打包" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">',
+    );
+    expect(source).toContain('ios-surface min-w-0 rounded-[28px]');
   });
 });

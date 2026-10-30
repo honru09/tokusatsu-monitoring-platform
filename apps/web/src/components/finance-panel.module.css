@@ -11,7 +11,7 @@
 
 @media (max-width: 639px) {
   .panel {
-    gap: 10px;
+    gap: 12px;
     margin-top: -32px;
   }
 }
@@ -35,7 +35,7 @@
 
 @media (max-width: 639px) {
   .figure {
-    padding: 16px 12px 14px;
+    padding: 16px 14px 14px;
     border-radius: 20px;
   }
 }

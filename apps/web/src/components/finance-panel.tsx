@@ -55,11 +55,10 @@ function Figure({
   const display = useCountUp(value, reduceMotion);
   // The value is nowrap in a ~113px column on phones, so its size steps
   // down by the target's glyph count (the target, not the animating
-  // display value, so the tier never jumps mid-count-up): a
-  // −¥99,999,999-scale figure drops two steps instead of colliding
-  // with its neighbours.
+  // display value, so the tier never jumps mid-count-up): 9-10 glyphs
+  // use long (e.g. −¥105,309), 11+ use xlong.
   const glyphs = value === null ? 0 : yen(value).length;
-  const tier = glyphs >= 12 ? "xlong" : glyphs >= 10 ? "long" : "default";
+  const tier = glyphs >= 11 ? "xlong" : glyphs >= 9 ? "long" : "default";
   return (
     <div className={styles.figure}>
       <span className={styles.label}>{label}</span>

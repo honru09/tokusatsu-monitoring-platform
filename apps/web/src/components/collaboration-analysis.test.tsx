@@ -166,6 +166,53 @@ describe("NegotiationAnalysisPanel", () => {
     expect(writeText).toHaveBeenCalledWith(bundleGroup.script);
     expect(onCopied).toHaveBeenCalledWith(["a", "b"]);
   });
+
+  it("renders as a bottom sheet modal with fixed backdrop and close behaviors", async () => {
+    const onClose = vi.fn();
+    await act(async () => {
+      root.render(
+        <NegotiationAnalysisPanel
+          groups={[bundleGroup]}
+          onClose={onClose}
+        />,
+      );
+    });
+    const dialog = host.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog).toBeTruthy();
+    expect(dialog.className).toContain("fixed inset-0 z-50");
+    expect(dialog.className).toContain("bg-black/40");
+
+    const sheet = host.querySelector(".negotiation-analysis-panel") as HTMLElement;
+    expect(sheet).toBeTruthy();
+    expect(sheet.className).toContain("max-h-[88dvh]");
+    expect(sheet.className).toContain("rounded-t-[24px]");
+    expect(sheet.className).toContain("bg-[#f4f4f5]");
+
+    const scrollList = sheet.querySelector(".overflow-y-auto");
+    expect(scrollList).toBeTruthy();
+
+    // Clicking inside sheet does not trigger onClose
+    await act(async () => {
+      sheet.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Clicking close button triggers onClose
+    const closeBtn = [...sheet.querySelectorAll("button")].find(
+      (b) => b.textContent === "关闭",
+    );
+    expect(closeBtn).toBeTruthy();
+    await act(async () => {
+      closeBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    // Clicking backdrop triggers onClose
+    await act(async () => {
+      dialog.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("SelectionToggle", () => {

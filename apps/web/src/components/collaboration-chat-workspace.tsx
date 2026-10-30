@@ -248,109 +248,120 @@ export function NegotiationAnalysisPanel({
     onCopied?.(group.itemIds);
   }
   return (
-    <section
-      className="negotiation-analysis-panel mx-2 mb-2 grid max-h-[62dvh] gap-2 overflow-y-auto rounded-[20px] border border-black/[0.06] bg-[#f4f4f5] p-2.5"
+    <div
+      role="dialog"
+      aria-modal="true"
       aria-label="合并砍价分析结果"
+      className="fixed inset-0 z-50 flex flex-col justify-end bg-black/40"
+      onClick={onClose}
     >
-      <div className="flex items-center justify-between px-1 pt-1">
-        <strong className="text-xs font-bold text-ink">
-          按卖家分组 · {groups.length} 份话术
-        </strong>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex min-h-9 items-center rounded-full px-3 text-xs font-semibold text-ink/60 transition hover:bg-black/[0.05]"
-        >
-          关闭
-        </button>
-      </div>
-      {groups.length === 0 ? (
-        <EmptyState art="chat" title="所选商品暂时无法生成话术" compact />
-      ) : null}
-      {groups.map((group) => {
-        const key = group.sellerId ?? group.itemIds[0] ?? "group";
-        return (
-          <article
-            key={key}
-            className="rounded-[20px] border border-black/[0.06] bg-white p-3.5 shadow-sm"
+      <section
+        className="negotiation-analysis-panel relative flex max-h-[88dvh] w-full flex-col rounded-t-[24px] bg-[#f4f4f5] shadow-2xl pb-[env(safe-area-inset-bottom,0px)]"
+        aria-label="合并砍价分析结果"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-black/[0.06] px-4 pt-3 pb-2">
+          <strong className="text-xs font-bold text-ink">
+            按卖家分组 · {groups.length} 份话术
+          </strong>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-9 items-center rounded-full px-3 text-xs font-semibold text-ink/60 transition hover:bg-black/[0.05]"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <strong className="text-[13px] font-bold text-ink">
-                {group.sellerName ?? "卖家未知"}
-                <span className="ml-1.5 font-mono text-[11px] font-semibold text-meta tabular-nums">
-                  {group.items.length} 件
-                </span>
-              </strong>
-              <span className="font-mono text-xs tabular-nums text-ink/70">
-                目标合计{" "}
-                <strong className="text-emerald-800">
-                  {yen(group.targetTotalYen)}
-                </strong>
-                {group.fallback ? (
-                  <span className="ml-1.5 rounded bg-black/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-meta">
-                    模板
-                  </span>
-                ) : null}
-              </span>
-            </div>
-            <ul className="mt-2 grid gap-1">
-              {group.items.map((entry) => (
-                <li
-                  key={entry.id}
-                  className="flex items-baseline justify-between gap-2 text-[11px] leading-snug text-ink/70"
-                >
-                  <span className="min-w-0 flex-1 truncate">
-                    {entry.titleRaw}
-                  </span>
-                  <span className="shrink-0 font-mono tabular-nums">
-                    {yen(entry.priceCurrent)} →{" "}
-                    {entry.targetMissing || !entry.targetPriceYen ? (
-                      <span className="font-semibold text-amber-700">
-                        未定目标
-                      </span>
-                    ) : (
-                      <span className="font-semibold text-emerald-800">
-                        {yen(entry.targetPriceYen)}
-                      </span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <pre
-              lang="ja"
-              className="mt-2 whitespace-pre-wrap rounded-xl bg-black/[0.04] p-2.5 font-sans text-xs leading-relaxed text-ink/85"
-            >
-              {group.script}
-            </pre>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => copyScript(group)}
-                className="collaboration-product-action is-primary flex-1"
+            关闭
+          </button>
+        </div>
+        <div className="grid flex-1 gap-2 overflow-y-auto p-3">
+          {groups.length === 0 ? (
+            <EmptyState art="chat" title="所选商品暂时无法生成话术" compact />
+          ) : null}
+          {groups.map((group) => {
+            const key = group.sellerId ?? group.itemIds[0] ?? "group";
+            return (
+              <article
+                key={key}
+                className="rounded-[20px] border border-black/[0.06] bg-white p-3.5 shadow-sm"
               >
-                {copiedKey === key ? "✓ 已复制" : "复制这份话术"}
-              </button>
-              {/* The API hands back an empty firstItemUrl when the
-                  group's first item has no source URL; an anchor with
-                  an empty href would just reopen this page, so the
-                  link is only rendered when there is somewhere to go.
-                  Copying the script above works either way. */}
-              {group.firstItemUrl.trim() ? (
-                <a
-                  href={group.firstItemUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="collaboration-product-action is-secondary"
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <strong className="text-[13px] font-bold text-ink">
+                    {group.sellerName ?? "卖家未知"}
+                    <span className="ml-1.5 font-mono text-[11px] font-semibold text-meta tabular-nums">
+                      {group.items.length} 件
+                    </span>
+                  </strong>
+                  <span className="font-mono text-xs tabular-nums text-ink/70">
+                    目标合计{" "}
+                    <strong className="text-emerald-800">
+                      {yen(group.targetTotalYen)}
+                    </strong>
+                    {group.fallback ? (
+                      <span className="ml-1.5 rounded bg-black/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-meta">
+                        模板
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+                <ul className="mt-2 grid gap-1">
+                  {group.items.map((entry) => (
+                    <li
+                      key={entry.id}
+                      className="flex items-baseline justify-between gap-2 text-[11px] leading-snug text-ink/70"
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {entry.titleRaw}
+                      </span>
+                      <span className="shrink-0 font-mono tabular-nums">
+                        {yen(entry.priceCurrent)} →{" "}
+                        {entry.targetMissing || !entry.targetPriceYen ? (
+                          <span className="font-semibold text-amber-700">
+                            未定目标
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-emerald-800">
+                            {yen(entry.targetPriceYen)}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <pre
+                  lang="ja"
+                  className="mt-2 whitespace-pre-wrap rounded-xl bg-black/[0.04] p-2.5 font-sans text-xs leading-relaxed text-ink/85"
                 >
-                  去留言 ↗
-                </a>
-              ) : null}
-            </div>
-          </article>
-        );
-      })}
-    </section>
+                  {group.script}
+                </pre>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => copyScript(group)}
+                    className="collaboration-product-action is-primary flex-1"
+                  >
+                    {copiedKey === key ? "✓ 已复制" : "复制这份话术"}
+                  </button>
+                  {/* The API hands back an empty firstItemUrl when the
+                      group's first item has no source URL; an anchor with
+                      an empty href would just reopen this page, so the
+                      link is only rendered when there is somewhere to go.
+                      Copying the script above works either way. */}
+                  {group.firstItemUrl.trim() ? (
+                    <a
+                      href={group.firstItemUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="collaboration-product-action is-secondary"
+                    >
+                      去留言 ↗
+                    </a>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </div>
   );
 }
 

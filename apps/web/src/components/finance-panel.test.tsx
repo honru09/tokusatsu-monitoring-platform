@@ -64,6 +64,28 @@ describe("FinancePanel", () => {
     expect(host.textContent).toContain("¥30,500");
   });
 
+  it("steps the figure size down starting at 9 glyphs for long and 11 for xlong", async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        totalCostYen: 120_000,
+        totalIncomeYen: 15_000,
+        netProfitYen: -105_309,
+      }),
+    );
+    await act(async () => {
+      root.render(<FinancePanel apiBaseUrl="/backend" />);
+    });
+    const figures = [...host.querySelectorAll("strong")];
+    expect(figures).toHaveLength(3);
+    // ¥120,000 is 8 glyphs: default tier.
+    expect(figures[0]?.dataset.tier).toBe("default");
+    // ¥15,000 is 7 glyphs: default tier.
+    expect(figures[1]?.dataset.tier).toBe("default");
+    // −¥105,309 is 9 glyphs: long tier.
+    expect(figures[2]?.dataset.tier).toBe("long");
+    expect(figures[2]?.textContent).toBe("−¥105,309");
+  });
+
   it("steps the figure size down for eight-digit totals", async () => {
     fetchMock.mockResolvedValue(
       response({
@@ -77,12 +99,12 @@ describe("FinancePanel", () => {
     });
     const figures = [...host.querySelectorAll("strong")];
     expect(figures).toHaveLength(3);
-    // ¥99,999,999 is 11 glyphs: one step down.
-    expect(figures[0]?.dataset.tier).toBe("long");
+    // ¥99,999,999 is 11 glyphs: two steps down (xlong tier).
+    expect(figures[0]?.dataset.tier).toBe("xlong");
     expect(figures[0]?.textContent).toBe("¥99,999,999");
     // ¥0 stays at the default size.
     expect(figures[1]?.dataset.tier).toBe("default");
-    // −¥99,999,999 is 12 glyphs: two steps down.
+    // −¥99,999,999 is 12 glyphs: two steps down (xlong tier).
     expect(figures[2]?.dataset.tier).toBe("xlong");
     expect(figures[2]?.textContent).toBe("−¥99,999,999");
   });

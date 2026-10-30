@@ -410,11 +410,11 @@ export function ShippingWorkspace({
   const packedIds = new Set(lines.map((line) => line.orderId));
 
   return (
-    <section aria-label="发货打包" className="grid gap-3">
-      <div className="ios-surface rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <h3 className="text-sm font-black text-ink">组包</h3>
-          <div className="flex flex-col items-end gap-1">
+    <section aria-label="发货打包" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
+      <div className="ios-surface min-w-0 rounded-[28px] border border-black/[0.06] bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+          <h3 className="shrink-0 text-sm font-black text-ink">组包</h3>
+          <div className="flex min-w-0 max-w-full flex-col items-end gap-1">
             <label className="flex items-center gap-1.5 text-[11px] font-semibold text-meta">
               申报上限
               <input
@@ -430,13 +430,13 @@ export function ShippingWorkspace({
               元
             </label>
             {rateInfo && rate != null ? (
-              <span className="font-mono text-[10px] text-meta tabular-nums">
+              <span className="max-w-full break-words text-right font-mono text-[10px] text-meta tabular-nums">
                 1 日元 ≈ {rate.toFixed(4)} 元 · 汇率{" "}
                 {dateTime(rateInfo.fetchedAt)}
                 {rateInfo.stale ? "（可能过期）" : ""}
               </span>
             ) : rateFailed ? (
-              <span className="text-[10px] font-semibold text-[#c81e1e]">
+              <span className="max-w-full break-words text-right text-[10px] font-semibold text-[#c81e1e]">
                 汇率加载失败，上限暂不可用
                 <button
                   type="button"
@@ -447,7 +447,7 @@ export function ShippingWorkspace({
                 </button>
               </span>
             ) : (
-              <span className="text-[10px] text-meta">汇率加载中…</span>
+              <span className="max-w-full break-words text-right text-[10px] text-meta">汇率加载中…</span>
             )}
           </div>
         </div>
@@ -474,8 +474,8 @@ export function ShippingWorkspace({
               aria-hidden="true"
             />
           </div>
-          <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 font-mono text-[11px] tabular-nums text-ink/60">
-            <span>
+          <div className="mt-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-ink/60">
+            <span className="min-w-0 break-words">
               申报合计{" "}
               <strong className={`text-[13px] ${overCap ? "text-[#ff3b30]" : "text-ink"}`}>
                 {fmtYen(total)}
@@ -484,7 +484,7 @@ export function ShippingWorkspace({
               {" / "}
               {fmtCnyInt(capCny)}
             </span>
-            <span>
+            <span className="min-w-0 break-words text-right">
               目标 {SHIPPING_TARGET_MIN_CNY.toLocaleString("zh-CN")}–
               {SHIPPING_TARGET_MAX_CNY.toLocaleString("zh-CN")} 元
               {inBand ? " · 已达标" : ""}
@@ -503,7 +503,7 @@ export function ShippingWorkspace({
         ) : (
           <>
             {lines.length > 0 && (
-              <ul className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-1.5">
+              <ul className="mt-3 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5">
                 {lines.map((line) => {
                   const order = orderById.get(line.orderId);
                   if (!order) return null;
@@ -511,14 +511,14 @@ export function ShippingWorkspace({
                     <li
                       key={line.orderId}
                       data-testid="packed-line"
-                      className="grid gap-2 rounded-xl border border-black/[0.06] bg-white px-3 py-2"
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 rounded-xl border border-black/[0.06] bg-white px-3 py-2"
                     >
                       {/* Title row gets the full card width so the title
                           truncates inside the card; the fixed-width inputs
                           live on their own controls row below (the old
                           single-row layout needed ~370px and pushed the
                           whole page sideways on phones). */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
                         <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-black/5">
                           <SafeItemImage
                             src={order.imageUrl ?? undefined}
@@ -553,7 +553,7 @@ export function ShippingWorkspace({
                       </div>
                       <div
                         data-testid="packed-line-controls"
-                        className="flex flex-wrap items-center gap-2"
+                        className="flex min-w-0 flex-wrap items-center gap-2"
                       >
                         <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-meta">
                           件
@@ -583,7 +583,7 @@ export function ShippingWorkspace({
                             className="h-9 w-[64px] rounded-lg border border-black/[0.12] bg-white px-1.5 text-right font-mono text-xs text-ink tabular-nums"
                           />
                         </label>
-                        <span className="ml-auto flex w-[76px] shrink-0 flex-col items-end">
+                        <span className="ml-auto flex w-[76px] shrink-0 max-w-full flex-col items-end text-right">
                           <span className="font-mono text-xs font-bold text-ink tabular-nums">
                             {fmtYen(line.quantity * line.unitDeclaredYen)}
                           </span>
@@ -606,12 +606,12 @@ export function ShippingWorkspace({
               </ul>
             )}
 
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => void autoPack()}
                 disabled={orders.length === 0 || !rateReady}
-                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-ink px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-40"
+                className="inline-flex min-h-11 min-w-[120px] flex-1 items-center justify-center rounded-xl bg-ink px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-40"
               >
                 自动组包
               </button>
@@ -625,7 +625,7 @@ export function ShippingWorkspace({
                   !accountId ||
                   !rateReady
                 }
-                className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-40"
+                className="inline-flex min-h-11 min-w-[120px] flex-1 items-center justify-center rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white transition active:scale-[0.98] disabled:opacity-40"
               >
                 {confirming ? "登记中…" : "确认发货"}
               </button>
@@ -633,13 +633,13 @@ export function ShippingWorkspace({
             {receipt && (
               <p
                 role="status"
-                className="mt-2 text-xs font-semibold text-emerald-800"
+                className="mt-2 break-words text-xs font-semibold text-emerald-800"
               >
                 {receipt}
               </p>
             )}
             {overCap && (
-              <p role="alert" className="mt-2 text-xs font-semibold text-[#c81e1e]">
+              <p role="alert" className="mt-2 break-words text-xs font-semibold text-[#c81e1e]">
                 申报合计超过上限（{fmtCnyInt(capCny)}），先移出或调低申报价。
               </p>
             )}
@@ -651,14 +651,14 @@ export function ShippingWorkspace({
               {orders.length === 0 ? (
                 <EmptyState art="shipping" title="暂无可发货库存" compact />
               ) : (
-                <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-1.5">
+                <ul className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5">
                   {orders.map((order) => {
                     const unit = unitDeclaredDefault(order);
                     const tooBig = rateReady && unit > capJpy;
                     return (
                       <li
                         key={order.id}
-                        className="flex items-center gap-2 rounded-xl bg-black/[0.03] px-3 py-2"
+                        className="flex min-w-0 items-center gap-2 rounded-xl bg-black/[0.03] px-3 py-2"
                       >
                         <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-black/5">
                           <SafeItemImage
@@ -695,7 +695,7 @@ export function ShippingWorkspace({
                 </ul>
               )}
               {overCapOrders.length > 0 && (
-                <p className="mt-2 text-[11px] leading-relaxed text-[#c81e1e]">
+                <p className="mt-2 break-words text-[11px] leading-relaxed text-[#c81e1e]">
                   超限：{overCapOrders.map((order) => orderTitle(order)).join("、")}
                   的单件购入价已超过申报上限（{fmtCnyInt(capCny)}），无法整包发出。
                 </p>
@@ -705,7 +705,7 @@ export function ShippingWorkspace({
         )}
       </div>
 
-      <div className="ios-surface rounded-2xl p-4">
+      <div className="ios-surface min-w-0 rounded-2xl p-4">
         <h3 className="text-sm font-black text-ink">
           {TERMS.shipping}记录
         </h3>
@@ -716,9 +716,9 @@ export function ShippingWorkspace({
             {shipments.map((shipment) => (
               <li
                 key={shipment.id}
-                className="flex items-baseline justify-between gap-2 py-2"
+                className="flex min-w-0 items-baseline justify-between gap-2 py-2"
               >
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <strong className="block truncate text-xs font-semibold text-ink">
                     {shipment.lines
                       .map(
