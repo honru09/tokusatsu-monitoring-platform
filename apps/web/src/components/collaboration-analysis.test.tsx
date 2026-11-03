@@ -112,6 +112,25 @@ describe("NegotiationAnalysisPanel", () => {
     );
     expect(links).toContain("https://example.com/a");
     expect(links).toContain("https://example.com/c");
+
+    // Items with sourceUrl render external links with '↗' marker
+    const itemLinkA = [...host.querySelectorAll("a")].find((a) =>
+      a.textContent?.includes("商品A"),
+    );
+    expect(itemLinkA).toBeTruthy();
+    expect(itemLinkA?.getAttribute("href")).toBe("https://example.com/a");
+    expect(itemLinkA?.getAttribute("target")).toBe("_blank");
+    expect(itemLinkA?.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(itemLinkA?.textContent).toContain("↗");
+
+    const itemLinkB = [...host.querySelectorAll("a")].find((a) =>
+      a.textContent?.includes("商品B"),
+    );
+    expect(itemLinkB).toBeTruthy();
+    expect(itemLinkB?.getAttribute("href")).toBe("https://example.com/b");
+    expect(itemLinkB?.getAttribute("target")).toBe("_blank");
+    expect(itemLinkB?.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(itemLinkB?.textContent).toContain("↗");
   });
 
   it("omits the item link for a group without a first item URL but still copies", async () => {
@@ -121,6 +140,12 @@ describe("NegotiationAnalysisPanel", () => {
       sellerId: "seller-3",
       sellerName: "无链接卖家",
       firstItemUrl: "",
+      items: [
+        {
+          ...singleGroup.items[0]!,
+          sourceUrl: "",
+        },
+      ],
     };
     await act(async () => {
       root.render(
@@ -131,8 +156,13 @@ describe("NegotiationAnalysisPanel", () => {
         />,
       );
     });
+    // With empty sourceUrl, item title is rendered as span rather than link
     expect(host.querySelectorAll("a")).toHaveLength(0);
     expect(host.textContent).not.toContain("去留言");
+    const itemTitle = [...host.querySelectorAll("span")].find(
+      (span) => span.textContent === "商品C",
+    );
+    expect(itemTitle).toBeTruthy();
     const copy = [...host.querySelectorAll("button")].find(
       (button) => button.textContent === "复制这份话术",
     );
@@ -188,8 +218,15 @@ describe("NegotiationAnalysisPanel", () => {
     expect(sheet.className).toContain("rounded-t-[24px]");
     expect(sheet.className).toContain("bg-[#f4f4f5]");
 
-    const scrollList = sheet.querySelector(".overflow-y-auto");
+    const scrollList = sheet.querySelector(".overflow-y-auto") as HTMLElement;
     expect(scrollList).toBeTruthy();
+    expect(scrollList.className).toContain("grid-cols-[minmax(0,1fr)]");
+    expect(scrollList.className).toContain("min-w-0");
+
+    const pre = sheet.querySelector("pre") as HTMLElement;
+    expect(pre).toBeTruthy();
+    expect(pre.className).toContain("min-w-0");
+    expect(pre.className).toContain("[overflow-wrap:anywhere]");
 
     // Clicking inside sheet does not trigger onClose
     await act(async () => {
