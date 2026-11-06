@@ -65,6 +65,12 @@ Node.js 24.19.0 and pnpm 11.19.0 unless noted. Docker was not installed, so the 
 
 A direct Node.js 24.19.0 check, outside the app, still accepted a 4-byte GCM tag and rejected that same tag when `authTagLength` was 16. The vault and push tests cover a successful round trip, a truncated tag, and a tampered tag.
 
+## Pull request
+
+https://github.com/honru09/tokusatsu-monitoring-platform/pull/1
+
+Not merged and not deployed.
+
 ## Commits
 
 Branch `cursor/security-remediation-9e17`, based on `959982a3f550aa658a87ce33179bbc59827e66e9`.
