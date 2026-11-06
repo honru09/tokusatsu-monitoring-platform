@@ -40,10 +40,12 @@ Tested in this environment:
 - Vault and push round trip, truncated tag, and tampered tag.
 - Compose v2.40.3 rendered the base file plus `infrastructure/docker-compose.security.yml` with a temporary synthetic env file that was deleted afterward. Rendered result: Redis has `requirepass`, no published ports, `no-new-privileges`, and only the `data` network; `data` is `internal: true`; API and worker are on `app` and `data`; web and gateway are on `app`; Postgres is on `data` and still publishes its host port.
 - Rootless Podman 4.9.3 (`rootless=true`) pulled `redis:7.4-alpine` and ran it with `--requirepass`, `--security-opt=no-new-privileges`, and no published port on an internal network. Authenticated `PING` returned `PONG`. Unauthenticated `PING` returned `NOAUTH Authentication required.` A second container on that network authenticated and got `PONG`. A container on a different network failed with `Name does not resolve` (exit 1).
+- Disposable Postgres 17, rootless Podman, published only on `127.0.0.1:55433`, database name `resale_test`, synthetic password. `prisma migrate deploy` applied all 70 migrations, including the unchanged manager-credential migrations. The 26 integration tests then passed when each file ran alone. The Zhipu file stubs `global fetch` in every case and does not call the real provider. All 5 of those tests passed.
+- Official Compose v2.40.3, pointed at a rootless Podman socket (`podman system service`), started only `postgres` and `redis` from the base file plus the security overlay, with a temporary synthetic env file that was deleted. Postgres answered `pg_isready`. Redis had no host port. `podman network inspect` reported `tokusatsu-monitor_data` `internal: true`. Unsetting `REDISCLI_AUTH` made `PING` return `NOAUTH Authentication required.`; with that variable set, `PING` returned `PONG`. Containers and volumes were removed with `compose down -v`.
 
-Designed, not live-started as a full stack:
+Designed, not started:
 
-- The overlay was not applied with `compose up` to api, worker, web, or Postgres. podman-compose 1.0.6 cannot parse the Compose `!override` tag (`ConstructorError: could not determine a constructor for the tag '!override'`). `fuse-overlayfs` failed to configure during `apt-get` (`fuse3` and `fuse-overlayfs` left unconfigured); rootless Podman still ran Redis with the overlay storage driver it already had. Building and starting the application images was not done. The rendered topology above is what Compose v2 will apply. It is not a claim that production segmentation is already in effect. The default compose file and the GCP scripts still do not load the overlay.
+- API, worker, and web images were not built or started. That would compile the application inside image builds and is outside this close-out. podman-compose 1.0.6 still cannot parse `!override`. `fuse-overlayfs` remained unconfigured after apt; rootless Podman used the overlay driver it already had. The default compose file and the GCP scripts still do not load the overlay, so this check does not change production.
 
 ## Verification commands
 
@@ -65,9 +67,15 @@ Node.js 24.19.0 and pnpm 11.19.0.
 | `pnpm --filter @tokusatsu/product-intelligence test` | exit 0, 1 file, 5 passed |
 | `pnpm --filter @tokusatsu/web typecheck` | exit 0 |
 | `pnpm --filter @tokusatsu/web test` | exit 0, 77 files, 468 passed, 0 skipped |
+| `pnpm --filter @tokusatsu/web build` | exit 0, Next.js 15.5.29, compiled and generated 7 pages |
+| `pnpm --filter @tokusatsu/crawlers build` | exit 0, `tsc -p tsconfig.json` |
 | `pnpm audit` | 1 advisory: moderate minimatch 9.0.9. Critical 0, high 0, low 0 |
+| `pnpm --filter @tokusatsu/db exec prisma migrate deploy` against disposable `resale_test` | exit 0, 70 migrations applied |
+| `pnpm exec vitest run src/ai/zhipu.integration.test.ts --fileParallelism=false` | exit 0, 5 passed. Fetch is stubbed; no provider call |
+| `pnpm exec vitest run src/resale/resale.integration.test.ts --fileParallelism=false` | exit 0, 9 passed |
+| `pnpm exec vitest run src/resale/resale-operations.integration.test.ts --fileParallelism=false` | exit 0, 12 passed |
 
-The 26 skipped API tests are the database integration files `src/ai/zhipu.integration.test.ts` (5), `src/resale/resale.integration.test.ts` (9), and `src/resale/resale-operations.integration.test.ts` (12). They skip when `RESALE_TEST_DATABASE_URL` is unset. No database was started for them.
+`pnpm --filter @tokusatsu/api test` without `RESALE_TEST_DATABASE_URL` still skips those 26 tests (3 files). With the variable set, one Vitest invocation runs the resale files at the same time and they fail on foreign keys because they share one database (16 failed, 10 passed in that combined run). Run the three files separately, or with `--fileParallelism=false`. No paid provider was contacted. The disposable Postgres container was removed after the run.
 
 ## Owner-only steps
 
@@ -93,3 +101,4 @@ Branch `cursor/security-remediation-9e17`.
 - https://github.com/honru09/tokusatsu-monitoring-platform/commit/f735044af03ad53752ca92d4c757a3a2423736a9 test(ops): check migration checksums and synthetic restore
 - https://github.com/honru09/tokusatsu-monitoring-platform/commit/a03a2934ceb77f2aeb6d703f3e4f4d3e9f4f570b docs: record the final audit, tests, and runtime checks
 - https://github.com/honru09/tokusatsu-monitoring-platform/commit/85c3da0ed40b080c17772ab99ef1c8a3c091fce4 docs: add the final report commit URL
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/2b004f462ee8287d88aebec67356762b329405a0 docs: list the report-link commit
