@@ -102,3 +102,4 @@ Branch `cursor/security-remediation-9e17`.
 - https://github.com/honru09/tokusatsu-monitoring-platform/commit/a03a2934ceb77f2aeb6d703f3e4f4d3e9f4f570b docs: record the final audit, tests, and runtime checks
 - https://github.com/honru09/tokusatsu-monitoring-platform/commit/85c3da0ed40b080c17772ab99ef1c8a3c091fce4 docs: add the final report commit URL
 - https://github.com/honru09/tokusatsu-monitoring-platform/commit/2b004f462ee8287d88aebec67356762b329405a0 docs: list the report-link commit
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/0b287d9cbad077ccf7ecfb5fa90c383c0498021f docs: record disposable database tests and production builds
