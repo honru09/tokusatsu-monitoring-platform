@@ -12,20 +12,9 @@ export function isPublishedBootstrapPassword(password) {
   return PUBLISHED_BOOTSTRAP_PASSWORDS.includes(password);
 }
 
-export function assertPrivateDatabaseUrl(env = process.env) {
-  const url = typeof env.DATABASE_URL === "string" ? env.DATABASE_URL.trim() : "";
-  if (!url) {
-    throw new Error(
-      "DATABASE_URL is required. Refusing to use a built-in database credential.",
-    );
-  }
-  if (url.includes("change-me-in-production")) {
-    throw new Error(
-      "DATABASE_URL uses a published placeholder password. Set a private password outside the repository.",
-    );
-  }
-  return url;
-}
+const { assertPrivateDatabaseUrl } = require("./database-url.cjs");
+
+export { assertPrivateDatabaseUrl };
 
 export function assertReplacementPassword(loginCode, password) {
   if (typeof loginCode !== "string" || loginCode.trim() === "") {

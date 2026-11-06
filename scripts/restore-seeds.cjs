@@ -16,19 +16,10 @@ function loadPrismaClient() {
   }
 }
 
+const { assertPrivateDatabaseUrl, redactSecrets } = require("./database-url.cjs");
+
 function resolveDatabaseUrl(env = process.env) {
-  const url = typeof env.DATABASE_URL === "string" ? env.DATABASE_URL.trim() : "";
-  if (!url) {
-    throw new Error(
-      "DATABASE_URL is required. Refusing to use a built-in database credential.",
-    );
-  }
-  if (url.includes("change-me-in-production")) {
-    throw new Error(
-      "DATABASE_URL uses a published placeholder password. Set a private password outside the repository.",
-    );
-  }
-  return url;
+  return assertPrivateDatabaseUrl(env);
 }
 
 function createPrisma(databaseUrl) {
@@ -330,7 +321,8 @@ if (require.main === module) {
     process.exit(1);
   }
   main(databaseUrl).catch(err => {
-    console.error('Restoration failed:', err);
+    const message = err instanceof Error ? err.message : "restore failed";
+    console.error("Restoration failed:", redactSecrets(message));
     process.exit(0);
   });
 }

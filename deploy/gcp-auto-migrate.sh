@@ -319,26 +319,9 @@ pnpm --filter @tokusatsu/db generate || true
 set -a
 . ./.env
 set +a
-# .env uses the compose hostname. This restore runs on the host, so point it
-# at the published localhost port without printing the URL.
-node << 'NODE'
-const { spawnSync } = require("node:child_process");
-let hostUrl;
-try {
-  const url = new URL(process.env.DATABASE_URL || "");
-  url.hostname = "127.0.0.1";
-  url.port = "55432";
-  hostUrl = url.toString();
-} catch {
-  console.error("DATABASE_URL is missing or not a URL");
-  process.exit(1);
-}
-const child = spawnSync(process.execPath, ["scripts/restore-seeds.cjs"], {
-  env: { ...process.env, DATABASE_URL: hostUrl },
-  stdio: "inherit",
-});
-process.exit(child.status === 0 ? 0 : 1);
-NODE
+# .env uses the compose hostname. The helper points the host-side restore
+# at 127.0.0.1:55432 and redacts the URL if the connection fails.
+node scripts/restore-on-host.cjs
 
 # 安装并启动 Cloudflared 服务 (自启动保活)
 echo "🌐 启动 Cloudflare 隧道服务..."

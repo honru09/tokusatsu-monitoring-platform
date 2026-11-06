@@ -191,7 +191,7 @@ gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --com
     sleep 2
   done && \
   set -a && . ./.env && set +a && \
-  node -e 'const {spawnSync}=require("node:child_process"); let hostUrl; try { const url=new URL(process.env.DATABASE_URL||""); url.hostname="127.0.0.1"; url.port="55432"; hostUrl=url.toString(); } catch { console.error("DATABASE_URL is missing or not a URL"); process.exit(1); } const child=spawnSync(process.execPath,["scripts/restore-seeds.cjs"],{env:{...process.env,DATABASE_URL:hostUrl},stdio:"inherit"}); process.exit(child.status===0?0:1);'
+  node scripts/restore-on-host.cjs
 "
 
 echo "=========================================================="
