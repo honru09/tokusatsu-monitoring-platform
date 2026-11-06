@@ -1,85 +1,93 @@
 # Security remediation report
 
-Assistant-run verification on 2026-11-06. This is not a student submission and nothing here was deployed.
+Assistant-run verification on 2026-11-06. This is not a student submission. Nothing in this branch was merged or deployed, and no live password was rotated.
 
-The current default branch was `959982a3f550aa658a87ce33179bbc59827e66e9` (2026-10-30), the same commit named in the older assessment. The findings were rechecked against that tree and against a fresh `pnpm audit`. They were not stale.
+Pull request: https://github.com/honru09/tokusatsu-monitoring-platform/pull/1
 
-## Code fixes
+The starting default branch was `959982a3f550aa658a87ce33179bbc59827e66e9` (2026-10-30), the same commit named in the older assessment. Those findings were rechecked. They were not stale.
 
-- Manager login now rejects the two passwords published in `packages/db/prisma/migrations/20261025170000_manager_login_credentials` and swapped in `20261025200000_swap_manager_login_codes`. A later password that is not one of those values still logs in. `scripts/manager-credentials.mjs` can rotate a password, or clear a verifier that still matches a published password. It reads secrets from the environment and does not print them.
-- AES-GCM decryption in `apps/operations-gateway/credential-vault.mjs` and `apps/api/src/push/push-crypto.ts` now requires a 16-byte authentication tag. On Node.js 24.19.0, a 4-byte tag is still accepted unless `authTagLength` is set. A full tag with one flipped bit is rejected. Existing vault files and push payloads use 16-byte tags and still decrypt.
-- `scripts/restore-seeds.cjs`, `scripts/setup-spot-auto-healer.sh`, and `deploy/gcp-auto-migrate.sh` no longer fall back to the published database password. `POSTGRES_PASSWORD` has to be supplied for the GCP installer, and host-side restore rewrites only the hostname and port to `127.0.0.1:55432`.
-- The worker service in `infrastructure/docker-compose.yml` still receives `DATABASE_URL` from `env_file`, and now overrides session, push, browser-session, and tunnel secrets it does not read. Redis in that file is unchanged, so a running stack does not lose its queue on the next start.
-- Compatible dependency patches are in `pnpm-workspace.yaml`, `apps/web/package.json`, and `pnpm-lock.yaml`. Direct app change: Next.js 15.5.21 to 15.5.29. Overrides cover sharp 0.35.5, proxy-addr 2.0.8, undici 7.30.2, axios 1.21.0, adm-zip 0.6.1, multer 2.5.0, body-parser 2.4.0, follow-redirects 1.16.2, qs 6.17.1, brace-expansion 2.1.7, vite 7.3.7, source-map-js 1.2.2, and postcss-selector-parser 6.1.5. `pnpm install` also recorded `undici@7.30.2` under `minimumReleaseAgeExclude`.
+## Residual audit
 
-## Historical exposure, not rewritten
+`pnpm audit` on Node.js 24.19.0 and pnpm 11.19.0.
 
-Applied Prisma migrations were not edited. Their checksums stay valid. A fresh database that replays history still receives the published manager verifiers. Git history still contains them. This change does not rewrite published history, force-push, or rotate a live password.
+| Pass | Advisories | Critical | High | Moderate | Low |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Before any lockfile change | 75 | 6 | 30 | 35 | 4 |
+| After same-major patches | 10 | 2 | 1 | 7 | 0 |
+| After the coordinated upgrades on this branch | 1 | 0 | 0 | 1 | 0 |
 
-The published database placeholder may still be the live Postgres password wherever the old installer was used. This branch does not connect to production and does not change that password.
+The one remaining advisory is moderate GHSA-style `minimatch` 9.0.9, patched only in `>=11.0.1`. Newest `@crawlee/core` and `@crawlee/cheerio` are 3.18.2, and both declare `minimatch: ^9.0.0`. Newest 9.x is 9.0.9, which the advisory still covers. Crawlee calls `minimatch(url, glob, { nocase: true })` and `new Minimatch(glob, { nocase: true })` from CommonJS. Forcing 11 would sit outside that declared range. A 9-pattern sample matched between 9.0.9 and 11.0.5, which is not enough to claim the glob semantics stay the same for every enqueue and sitemap filter. No override was added.
 
-## Owner actions
+Reach: `workers/crawlers` does not call `enqueueLinks` or pass a sitemap glob. The package is still installed because `@crawlee/core` always depends on it. The advisory is CPU exhaustion on a malicious glob, not remote code execution. There is no patched release inside `^9.0.0`, so there is no bounded version pin that clears it without leaving Crawlee's contract.
 
-1. Before starting the new API, set a new manager password for each affected account:
-   `DATABASE_URL=... MANAGER_LOGIN_CODE=... MANAGER_NEW_PASSWORD=... node scripts/manager-credentials.mjs rotate`
-   The new password must be at least 10 characters and must not be a published bootstrap password or the login code. Do this before the new API is running if those accounts still use the published passwords. After this code is deployed, those passwords stop working. A password that was already changed to something else keeps working.
-2. Optional, after rotation: `DATABASE_URL=... node scripts/manager-credentials.mjs revoke-published`. It only clears verifiers that still match a published password.
-3. If any environment still uses the published database placeholder, set a new `POSTGRES_PASSWORD` and matching `DATABASE_URL` before restore or `deploy/gcp-auto-migrate.sh`.
-4. History cleanup of the old migrations is a separate owner decision. It was not done here.
-5. Redis authentication, an internal data network, and `no-new-privileges` are only in `infrastructure/docker-compose.security.yml`. Default compose, `pnpm compose:up`, and the GCP scripts do not load it. Enable it only after setting a URL-safe `REDIS_PASSWORD` and checking a disposable environment. The overlay does not add a read-only root or drop all capabilities on Postgres, Redis, the API, or the worker. Those settings can stop those processes, and the operations gateway already has them in the base file.
+## What the code now does
 
-## Dependency audit
+- Login rejects the two passwords published in `20261025170000_manager_login_credentials` and swapped in `20261025200000_swap_manager_login_codes`. A password that is not one of those values still logs in, including on an account whose login code is still one of the published codes. `scripts/manager-credentials.mjs revoke-published` clears a verifier only when it still matches a published password.
+- Those two migration files are unchanged. Their SHA-256 checksums, which are the checksums Prisma stores, are `41b2ed6267683b959ca5afa3ca5746200f964e436bc404be2c06e550a71bd5b6` and `1ef742757cc0b2a3a08ff0801ee474653eea63fece25080edc7f1e65a49947a2`. `git diff` against `959982a3f550aa658a87ce33179bbc59827e66e9` for those files is empty.
+- AES-GCM decryption in the credential vault and the push payload path requires a 16-byte tag. Node.js 24.19.0 still accepts a 4-byte tag unless `authTagLength` is set. A full tag with one flipped bit is rejected.
+- Restore and deploy scripts require a private `DATABASE_URL`. `scripts/restore-on-host.cjs` rewrites only the hostname and port to `127.0.0.1:55432` and redacts postgres URLs in its output. A synthetic URL whose password is not a real credential was pointed at port 1; that password did not appear in the output.
+- The worker still receives `DATABASE_URL` and no longer receives session, push, browser-session, or tunnel secrets it does not read.
+- Direct upgrades, not out-of-range overrides: Vitest 4.1.12 (tinypool 1.x is gone from the lockfile), NestJS 12.3.3 (declares multer 2.5.0; the multer override was removed), `ai` 7.0.163 and `@ai-sdk/openai-compatible` 3.0.85, Firecrawl 4.52.0 with its declared axios 1.20.0, Crawlee 3.18.2 with its declared `stream-json` ~3.7.0, and Zod 4.6.7. Firecrawl's own dependency is `zod: ^3.25.28 || ^4.6.6`; `firecrawl>zod` is set to 4.6.7 so the resolver takes the patched side of that range. The axios override that had forced 1.21.0 over Firecrawl's pin was removed. Audit no longer reports axios.
+- Overrides that remain are inside a range the parent already declares: sharp 0.35.5 on Next's `^0.34.3 || ^0.35.5`, proxy-addr 2.0.8, body-parser 2.4.0, qs 6.17.1, undici 7.30.2, follow-redirects 1.16.2, adm-zip 0.6.1, source-map-js 1.2.2, postcss-selector-parser 6.1.5, brace-expansion 2.1.7, and Vite 7.3.7. Vitest 4 allows Vite 6, 7, or 8; 7.3.7 is the patched 7.3 release already covered by the web build.
 
-`pnpm audit` on Node.js 24.19.0 / pnpm 11.19.0.
+## Tested controls and designed controls
 
-Before the lockfile update: 75 advisories (6 critical, 30 high, 35 moderate, 4 low) across 617 dependencies. That matches the older count, because this branch had not moved.
+Tested in this environment:
 
-After the update: 10 advisories (2 critical, 1 high, 7 moderate, 0 low).
+- Login rejection of the published passwords, and login success for a rotated password, in `apps/api/src/auth/auth.service.test.ts` (part of the API suite below).
+- Migration file checksums and a clean diff against the base commit.
+- Synthetic host restore and URL redaction. No production database was contacted.
+- Vault and push round trip, truncated tag, and tampered tag.
+- Compose v2.40.3 rendered the base file plus `infrastructure/docker-compose.security.yml` with a temporary synthetic env file that was deleted afterward. Rendered result: Redis has `requirepass`, no published ports, `no-new-privileges`, and only the `data` network; `data` is `internal: true`; API and worker are on `app` and `data`; web and gateway are on `app`; Postgres is on `data` and still publishes its host port.
+- Rootless Podman 4.9.3 (`rootless=true`) pulled `redis:7.4-alpine` and ran it with `--requirepass`, `--security-opt=no-new-privileges`, and no published port on an internal network. Authenticated `PING` returned `PONG`. Unauthenticated `PING` returned `NOAUTH Authentication required.` A second container on that network authenticated and got `PONG`. A container on a different network failed with `Name does not resolve` (exit 1).
 
-| Package | Installed | Severity left | Why it remains | Reach |
-| --- | --- | --- | --- | --- |
-| tinypool | 1.1.1 | 2 critical | Fix is 2.1.2+. Vitest 3.2.6 depends on 1.x. | Dev dependency of Vitest. Not imported by the API or worker entrypoints. The image build copies the workspace `node_modules`, so the package is present on disk. |
-| vitest, @vitest/mocker | 3.2.6 | 3 moderate | Fix is Vitest 4.1.12+. | Test runner only. |
-| zod | 3.25.76 | 1 high | Latest 3.x is still affected. Fix is Zod 4.6.6+. The AI SDK and Firecrawl pin Zod 3. | Transitive. App source does not import Zod. Used when the AI SDK or Firecrawl validates data. |
-| stream-json | 1.9.1 | 3 moderate | Fix starts at 3.4.1. Crawlee 3.18.1 depends on 1.9.1. | Worker crawl path, via Crawlee. |
-| minimatch | 9.0.9 | 1 moderate | Fix is 11.0.1. Crawlee depends on 9.0.9. brace-expansion under it was patched to 2.1.7. | Worker crawl path, via Crawlee. |
+Designed, not live-started as a full stack:
 
-Patched and reachable in production: Next.js image optimization advisories (web app), sharp (optional Next image library), undici (AI SDK HTTP client), express `body-parser` / `qs` / `proxy-addr` (API HTTP stack; `main.ts` does not set `trust proxy`), multer (loaded by Nest's Express adapter; no multipart route was found in app source), axios and follow-redirects (Firecrawl client in the worker; Firecrawl pinned axios 1.18.0 and the override moves it to 1.21.0), adm-zip (Crawlee header-generator), brace-expansion (Crawlee minimatch). Vite, source-map-js, and postcss-selector-parser are dev or build tools and were patched inside the same major.
+- The overlay was not applied with `compose up` to api, worker, web, or Postgres. podman-compose 1.0.6 cannot parse the Compose `!override` tag (`ConstructorError: could not determine a constructor for the tag '!override'`). `fuse-overlayfs` failed to configure during `apt-get` (`fuse3` and `fuse-overlayfs` left unconfigured); rootless Podman still ran Redis with the overlay storage driver it already had. Building and starting the application images was not done. The rendered topology above is what Compose v2 will apply. It is not a claim that production segmentation is already in effect. The default compose file and the GCP scripts still do not load the overlay.
 
-## Verification
+## Verification commands
 
-Node.js 24.19.0 and pnpm 11.19.0 unless noted. Docker was not installed, so the compose overlay was not started.
+Node.js 24.19.0 and pnpm 11.19.0.
 
 | Command | Result |
 | --- | --- |
-| `node --test scripts/manager-credentials.test.mjs scripts/security-remediation.test.mjs apps/operations-gateway/test/credential-vault.test.mjs` | exit 0, 9 passed |
-| `pnpm --filter @tokusatsu/db generate && pnpm --filter @tokusatsu/shared build && pnpm --filter @tokusatsu/db build` | exit 0 |
+| `node --test scripts/manager-credentials.test.mjs scripts/security-remediation.test.mjs apps/operations-gateway/test/credential-vault.test.mjs` | exit 0, 11 passed, 0 skipped |
 | `pnpm --filter @tokusatsu/api typecheck` | exit 0 |
-| `pnpm --filter @tokusatsu/api test` | exit 0, 559 passed, 26 skipped (database integration tests) |
+| `pnpm --filter @tokusatsu/api test` | exit 0, 51 files passed, 3 skipped; 559 tests passed, 26 skipped |
 | `pnpm --filter @tokusatsu/api build` | exit 0 |
+| `pnpm --filter @tokusatsu/shared build && pnpm --filter @tokusatsu/db build && pnpm --filter @tokusatsu/product-dictionary build && pnpm --filter @tokusatsu/matching build && pnpm --filter @tokusatsu/classification build && pnpm --filter @tokusatsu/product-intelligence build` | exit 0 |
+| `pnpm --filter @tokusatsu/crawlers typecheck` | exit 0 |
+| `pnpm --filter @tokusatsu/crawlers test` | exit 0, 39 files, 465 passed, 0 skipped |
+| `pnpm --filter @tokusatsu/shared test` | exit 0, 8 files, 80 passed |
+| `pnpm --filter @tokusatsu/product-dictionary test` | exit 0, 1 file, 5 passed |
+| `pnpm --filter @tokusatsu/matching test` | exit 0, 1 file, 4 passed |
+| `pnpm --filter @tokusatsu/classification test` | exit 0, 1 file, 7 passed |
+| `pnpm --filter @tokusatsu/product-intelligence test` | exit 0, 1 file, 5 passed |
 | `pnpm --filter @tokusatsu/web typecheck` | exit 0 |
-| `pnpm --filter @tokusatsu/web build` | exit 0, Next.js 15.5.29, compiled and generated 7 pages |
-| `pnpm audit` | 10 remaining advisories, listed above |
-| `bash -n deploy/gcp-auto-migrate.sh` and `bash -n scripts/setup-spot-auto-healer.sh` | exit 0. The embedded remote installer also passed `bash -n`. |
-| Compose YAML load of the base file and the opt-in overlay | passed. Redis in the base file has no `requirepass`. The overlay puts Redis on an internal `data` network. |
+| `pnpm --filter @tokusatsu/web test` | exit 0, 77 files, 468 passed, 0 skipped |
+| `pnpm audit` | 1 advisory: moderate minimatch 9.0.9. Critical 0, high 0, low 0 |
 
-A direct Node.js 24.19.0 check, outside the app, still accepted a 4-byte GCM tag and rejected that same tag when `authTagLength` was 16. The vault and push tests cover a successful round trip, a truncated tag, and a tampered tag.
+The 26 skipped API tests are the database integration files `src/ai/zhipu.integration.test.ts` (5), `src/resale/resale.integration.test.ts` (9), and `src/resale/resale-operations.integration.test.ts` (12). They skip when `RESALE_TEST_DATABASE_URL` is unset. No database was started for them.
 
-## Pull request
+## Owner-only steps
 
-https://github.com/honru09/tokusatsu-monitoring-platform/pull/1
+These are operational. This run did not do them.
 
-Not merged and not deployed.
+1. Before starting the new API, set a new password for any manager account that still uses a published bootstrap password: `DATABASE_URL=... MANAGER_LOGIN_CODE=... MANAGER_NEW_PASSWORD=... node scripts/manager-credentials.mjs rotate`. The new password must be at least 10 characters and must not be a published bootstrap password or the login code. Accounts that already use some other password keep working.
+2. Optional after that: `DATABASE_URL=... node scripts/manager-credentials.mjs revoke-published`.
+3. If a database still uses the published placeholder password, set a new `POSTGRES_PASSWORD` and `DATABASE_URL` before restore or `deploy/gcp-auto-migrate.sh`.
+4. Git history still contains the old migration verifiers. Rewriting it was not done.
+5. Enable `infrastructure/docker-compose.security.yml` only when you want Redis authentication and the internal data network, after setting a URL-safe `REDIS_PASSWORD` and checking a disposable environment with Compose v2. Do not expect podman-compose 1.0.6 to parse it. The default deploy path does not load the file.
 
 ## Commits
 
-Branch `cursor/security-remediation-9e17`, based on `959982a3f550aa658a87ce33179bbc59827e66e9`.
+Branch `cursor/security-remediation-9e17`.
 
-- `06c43b0` fix(crypto): require 16-byte AES-GCM authentication tags
-- `a5e0728` fix(auth): reject published manager bootstrap passwords
-- `1db9546` fix(ops): remove published database fallbacks and keep Redis auth opt-in
-- `1eeccef` fix(deps): patch compatible audit findings in the lockfile
-
-## Deployment
-
-No merge and no production deploy. Do not treat this branch as live. Apply the owner steps above with the normal release path when you choose to ship it. The security compose file stays inactive until you add it explicitly.
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/06c43b061ece294dbfaad75e8420f18c517acf4b fix(crypto): require 16-byte AES-GCM authentication tags
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/a5e072845f639fab9868916bbd50694237fbccef fix(auth): reject published manager bootstrap passwords
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/1db9546c549204cc108da3e4a9e514e68b8afd8b fix(ops): remove published database fallbacks and keep Redis auth opt-in
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/1eeccef6d1ddfccb7070210999d330a74d0fe521 fix(deps): patch compatible audit findings in the lockfile
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/4b32f75633d744139f3f05286a5313343aab1976 docs: record the security remediation verification
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/a4e9ffc6c5925dca8e90f4e44e9ff139c55bc68a docs: link the remediation report to the pull request
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/6700d1c907d3e4edf15fa3c44982af2e843b5113 fix(deps): move Vitest, Nest, Zod, and Crawlee onto patched releases
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/f735044af03ad53752ca92d4c757a3a2423736a9 test(ops): check migration checksums and synthetic restore
