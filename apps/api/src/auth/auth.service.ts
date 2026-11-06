@@ -56,6 +56,16 @@ const TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MAX_CONSECUTIVE_FAILURES = 5;
 const LOCK_DURATION_MS = 5 * 60 * 1_000;
 
+// Keep this array aligned with scripts/manager-credentials.mjs.
+// These passwords were written into applied Prisma migrations. The old SQL
+// stays untouched so migration checksums remain valid; login refuses the
+// passwords even when the stored verifier still matches.
+const PUBLISHED_BOOTSTRAP_PASSWORDS = ["666666", "888888"];
+
+export function isPublishedBootstrapPassword(password: string): boolean {
+  return PUBLISHED_BOOTSTRAP_PASSWORDS.includes(password);
+}
+
 type FailureState = {
   count: number;
   lockedUntil: number;
@@ -161,10 +171,14 @@ export class AuthService {
       where: { loginCode: code, active: true },
     });
 
+    const passwordMatches = Boolean(
+      account?.passwordHash &&
+        this.verifyPassword(password, account.passwordHash),
+    );
     if (
       !account ||
-      !account.passwordHash ||
-      !this.verifyPassword(password, account.passwordHash)
+      !passwordMatches ||
+      isPublishedBootstrapPassword(password)
     ) {
       this.recordFailure(code);
       throw new UnauthorizedException("账号或密码不正确");

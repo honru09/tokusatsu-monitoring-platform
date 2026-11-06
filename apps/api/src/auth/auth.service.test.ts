@@ -119,6 +119,39 @@ describe("AuthService.login", () => {
     expect(JSON.stringify(result)).not.toContain("passwordHash");
   });
 
+  it("rejects passwords published by the manager bootstrap migrations", async () => {
+    for (const published of ["666666", "888888"]) {
+      const row = { ...accountRow, passwordHash: hashPassword(published) };
+      const prisma = {
+        managerAccount: { findFirst: vi.fn(async () => row) },
+      };
+      const service = new AuthService(prisma as never);
+      await expect(service.login(published, published)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      await expect(service.login("other-code", published)).rejects.toMatchObject({
+        message: "账号或密码不正确",
+      });
+    }
+  });
+
+  it("accepts a rotated password on an account whose login code was published", async () => {
+    const password = "rotated-secret";
+    const row = { ...accountRow, passwordHash: hashPassword(password) };
+    const prisma = {
+      managerAccount: {
+        findFirst: vi.fn(async () => row),
+      },
+    };
+    const service = new AuthService(prisma as never);
+    await expect(service.login("666666", password)).resolves.toMatchObject({
+      account: { id: "manager-1" },
+    });
+    expect(service.verifyToken((await service.login("666666", password)).token)).toEqual({
+      accountId: "manager-1",
+    });
+  });
+
   it("rejects a wrong password and an unknown code with the same error", async () => {
     const { service } = fixture();
     await expect(service.login("123456", "wrong")).rejects.toBeInstanceOf(
