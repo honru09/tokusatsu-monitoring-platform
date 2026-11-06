@@ -123,6 +123,7 @@ function deriveKeyMaterial(input: {
 }
 
 const RECORD_SIZE = 4096;
+const GCM_TAG_LENGTH = 16;
 
 /**
  * Encrypt one push payload for a subscription. Single record only: push
@@ -162,7 +163,9 @@ export function encryptPushPayload(input: {
     // Final-record delimiter; no extra padding.
     Buffer.from([0x02]),
   ]);
-  const cipher = createCipheriv("aes-128-gcm", cek, nonce);
+  const cipher = createCipheriv("aes-128-gcm", cek, nonce, {
+    authTagLength: GCM_TAG_LENGTH,
+  });
   const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   const header = Buffer.alloc(16 + 4 + 1 + senderPublicKey.length);
   salt.copy(header, 0);
@@ -182,6 +185,9 @@ export function decryptPushPayload(input: {
   const keyLength = input.body.readUInt8(20);
   const senderPublicKey = input.body.subarray(21, 21 + keyLength) as Buffer;
   const ciphertext = input.body.subarray(21 + keyLength);
+  if (ciphertext.length < GCM_TAG_LENGTH) {
+    throw new Error("push payload authentication tag is truncated");
+  }
   const receiver = senderFromPrivateKey(input.receiverPrivateKey);
   const receiverPublicKey = receiver.getPublicKey(
     null,
@@ -195,10 +201,16 @@ export function decryptPushPayload(input: {
     senderPublicKey,
     salt,
   });
-  const decipher = createDecipheriv("aes-128-gcm", cek, nonce);
-  decipher.setAuthTag(ciphertext.subarray(ciphertext.length - 16));
+  const tag = ciphertext.subarray(ciphertext.length - GCM_TAG_LENGTH);
+  if (tag.length !== GCM_TAG_LENGTH) {
+    throw new Error("push payload authentication tag is truncated");
+  }
+  const decipher = createDecipheriv("aes-128-gcm", cek, nonce, {
+    authTagLength: GCM_TAG_LENGTH,
+  });
+  decipher.setAuthTag(tag);
   const decrypted = Buffer.concat([
-    decipher.update(ciphertext.subarray(0, ciphertext.length - 16)),
+    decipher.update(ciphertext.subarray(0, ciphertext.length - GCM_TAG_LENGTH)),
     decipher.final(),
   ]);
   // Strip zero padding, then the record delimiter byte.
