@@ -9,10 +9,8 @@ runtimeOnFail: error
 pmOnFail: error
 
 overrides:
-  # Same-major advisory patches. zod 4, stream-json 3, minimatch 11, and
-  # vitest 4 / tinypool 2 are intentionally not forced: their callers are
-  # pinned to the previous major.
-  "@nestjs/platform-express>multer": 2.5.0
+  # These stay inside a range the parent already declares. They select the
+  # patched release instead of an older release that the range also allows.
   "@prisma/config>deepmerge-ts": 8.0.0
   "next>postcss": 8.5.23
   "next>sharp": 0.35.5
@@ -21,13 +19,15 @@ overrides:
   "body-parser": 2.4.0
   "qs": 6.17.1
   "undici": 7.30.2
-  "axios": 1.21.0
   "follow-redirects": 1.16.2
   "adm-zip": 0.6.1
-  "vite": 7.3.7
   "source-map-js": 1.2.2
   "postcss-selector-parser": 6.1.5
   "brace-expansion": 2.1.7
+  # Vitest 4 allows Vite 6, 7, or 8. Stay on the patched 7.3 line.
+  "vite": 7.3.7
+  # Firecrawl declares zod ^3.25.28 || ^4.6.6. Use the patched 4.x side.
+  "firecrawl>zod": 4.6.7
 
 allowBuilds:
   "@nestjs/core": true

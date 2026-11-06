@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PurchaseRegistrationForm,
   type PurchaseRegistrationItem,
+  type PurchaseRegistrationSavedBundle,
 } from "./purchase-registration-form";
 
 const API_BASE = "https://api.example.test";
@@ -65,8 +66,8 @@ describe("PurchaseRegistrationForm", () => {
         <PurchaseRegistrationForm
           apiBaseUrl={API_BASE}
           items={items}
-          onClose={onClose}
-          onSaved={onSaved}
+          onClose={onClose as () => void}
+          onSaved={onSaved as (bundle: PurchaseRegistrationSavedBundle) => void}
           {...extra}
         />,
       ),
