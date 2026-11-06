@@ -91,3 +91,4 @@ Branch `cursor/security-remediation-9e17`.
 - https://github.com/honru09/tokusatsu-monitoring-platform/commit/a4e9ffc6c5925dca8e90f4e44e9ff139c55bc68a docs: link the remediation report to the pull request
 - https://github.com/honru09/tokusatsu-monitoring-platform/commit/6700d1c907d3e4edf15fa3c44982af2e843b5113 fix(deps): move Vitest, Nest, Zod, and Crawlee onto patched releases
 - https://github.com/honru09/tokusatsu-monitoring-platform/commit/f735044af03ad53752ca92d4c757a3a2423736a9 test(ops): check migration checksums and synthetic restore
+- https://github.com/honru09/tokusatsu-monitoring-platform/commit/a03a2934ceb77f2aeb6d703f3e4f4d3e9f4f570b docs: record the final audit, tests, and runtime checks
