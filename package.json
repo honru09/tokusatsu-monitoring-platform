@@ -11,7 +11,7 @@
     "runtime": {
       "name": "node",
       "version": ">=24.19.0",
-      "onFail": "warn"
+      "onFail": "error"
     },
     "packageManager": {
       "name": "pnpm",
@@ -22,7 +22,7 @@
   "scripts": {
     "build": "node scripts/run-pnpm.mjs -r --if-present build",
     "typecheck": "node scripts/run-pnpm.mjs --filter @tokusatsu/shared build && node scripts/run-pnpm.mjs --filter @tokusatsu/db build && node scripts/run-pnpm.mjs --filter @tokusatsu/product-dictionary build && node scripts/run-pnpm.mjs --filter @tokusatsu/matching build && node scripts/run-pnpm.mjs --filter @tokusatsu/classification build && node scripts/run-pnpm.mjs --filter @tokusatsu/product-intelligence build && node scripts/run-pnpm.mjs -r --workspace-concurrency=1 --if-present typecheck",
-    "test": "node scripts/run-pnpm.mjs -r --if-present test",
+    "test": "node scripts/run-pnpm.mjs -r --if-present test && node --test scripts/manager-credentials.test.mjs scripts/security-remediation.test.mjs",
     "toolchain:check": "node scripts/check-toolchain.mjs",
     "format:check": "prettier --check .",
     "db:generate": "node scripts/run-pnpm.mjs --filter @tokusatsu/db generate",

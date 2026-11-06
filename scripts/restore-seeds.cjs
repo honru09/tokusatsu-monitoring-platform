@@ -2,24 +2,43 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-let PrismaClient;
-try {
-  PrismaClient = require('@prisma/client').PrismaClient;
-} catch {
+let prisma;
+
+function loadPrismaClient() {
   try {
-    PrismaClient = require(path.resolve(__dirname, '../packages/db/node_modules/@prisma/client')).PrismaClient;
+    return require('@prisma/client').PrismaClient;
   } catch {
-    PrismaClient = require(path.resolve(__dirname, '../node_modules/@prisma/client')).PrismaClient;
+    try {
+      return require(path.resolve(__dirname, '../packages/db/node_modules/@prisma/client')).PrismaClient;
+    } catch {
+      return require(path.resolve(__dirname, '../node_modules/@prisma/client')).PrismaClient;
+    }
   }
 }
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL || 'postgresql://tokusatsu:change-me-in-production@127.0.0.1:55432/tokusatsu?schema=public'
-    }
+function resolveDatabaseUrl(env = process.env) {
+  const url = typeof env.DATABASE_URL === "string" ? env.DATABASE_URL.trim() : "";
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL is required. Refusing to use a built-in database credential.",
+    );
   }
-});
+  if (url.includes("change-me-in-production")) {
+    throw new Error(
+      "DATABASE_URL uses a published placeholder password. Set a private password outside the repository.",
+    );
+  }
+  return url;
+}
+
+function createPrisma(databaseUrl) {
+  const PrismaClient = loadPrismaClient();
+  return new PrismaClient({
+    datasources: {
+      db: { url: databaseUrl },
+    },
+  });
+}
 
 function readJsonOrGz(filePath) {
   if (!fs.existsSync(filePath)) return null;
@@ -80,7 +99,8 @@ async function safeStep(name, fn) {
   }
 }
 
-async function main() {
+async function main(databaseUrl = resolveDatabaseUrl()) {
+  prisma = createPrisma(databaseUrl);
   const seedsDir = path.resolve(__dirname, '../data/seeds');
   if (!fs.existsSync(seedsDir)) {
     console.error(`Seeds directory not found at ${seedsDir}`);
@@ -301,7 +321,18 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch(err => {
-  console.error('Restoration failed:', err);
-  process.exit(0);
-});
+if (require.main === module) {
+  let databaseUrl;
+  try {
+    databaseUrl = resolveDatabaseUrl();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "DATABASE_URL is required");
+    process.exit(1);
+  }
+  main(databaseUrl).catch(err => {
+    console.error('Restoration failed:', err);
+    process.exit(0);
+  });
+}
+
+module.exports = { resolveDatabaseUrl };
