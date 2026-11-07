@@ -272,7 +272,7 @@ export function NegotiationAnalysisPanel({
             关闭
           </button>
         </div>
-        <div className="grid flex-1 gap-2 overflow-y-auto p-3">
+        <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] gap-2 overflow-y-auto p-3">
           {groups.length === 0 ? (
             <EmptyState art="chat" title="所选商品暂时无法生成话术" compact />
           ) : null}
@@ -281,16 +281,16 @@ export function NegotiationAnalysisPanel({
             return (
               <article
                 key={key}
-                className="rounded-[20px] border border-black/[0.06] bg-white p-3.5 shadow-sm"
+                className="min-w-0 rounded-[20px] border border-black/[0.06] bg-white p-3.5 shadow-sm"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <strong className="text-[13px] font-bold text-ink">
-                    {group.sellerName ?? "卖家未知"}
-                    <span className="ml-1.5 font-mono text-[11px] font-semibold text-meta tabular-nums">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                  <strong className="flex min-w-0 flex-1 items-center text-[13px] font-bold text-ink">
+                    <span className="truncate">{group.sellerName ?? "卖家未知"}</span>
+                    <span className="ml-1.5 shrink-0 font-mono text-[11px] font-semibold text-meta tabular-nums">
                       {group.items.length} 件
                     </span>
                   </strong>
-                  <span className="font-mono text-xs tabular-nums text-ink/70">
+                  <span className="shrink-0 font-mono text-xs tabular-nums text-ink/70">
                     目标合计{" "}
                     <strong className="text-emerald-800">
                       {yen(group.targetTotalYen)}
@@ -302,15 +302,27 @@ export function NegotiationAnalysisPanel({
                     ) : null}
                   </span>
                 </div>
-                <ul className="mt-2 grid gap-1">
+                <ul className="mt-2 grid min-w-0 gap-1">
                   {group.items.map((entry) => (
                     <li
                       key={entry.id}
-                      className="flex items-baseline justify-between gap-2 text-[11px] leading-snug text-ink/70"
+                      className="flex min-w-0 items-baseline justify-between gap-2 text-[11px] leading-snug text-ink/70"
                     >
-                      <span className="min-w-0 flex-1 truncate">
-                        {entry.titleRaw}
-                      </span>
+                      {entry.sourceUrl?.trim() ? (
+                        <a
+                          href={entry.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex min-w-0 flex-1 items-baseline gap-0.5 underline decoration-black/20 underline-offset-2 transition hover:text-ink hover:decoration-black/40"
+                        >
+                          <span className="min-w-0 truncate">{entry.titleRaw}</span>
+                          <span className="shrink-0 select-none whitespace-nowrap">↗</span>
+                        </a>
+                      ) : (
+                        <span className="min-w-0 flex-1 truncate">
+                          {entry.titleRaw}
+                        </span>
+                      )}
                       <span className="shrink-0 font-mono tabular-nums">
                         {yen(entry.priceCurrent)} →{" "}
                         {entry.targetMissing || !entry.targetPriceYen ? (
@@ -328,15 +340,15 @@ export function NegotiationAnalysisPanel({
                 </ul>
                 <pre
                   lang="ja"
-                  className="mt-2 whitespace-pre-wrap rounded-xl bg-black/[0.04] p-2.5 font-sans text-xs leading-relaxed text-ink/85"
+                  className="mt-2 min-w-0 whitespace-pre-wrap rounded-xl bg-black/[0.04] p-2.5 font-sans text-xs leading-relaxed text-ink/85 [overflow-wrap:anywhere]"
                 >
                   {group.script}
                 </pre>
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => copyScript(group)}
-                    className="collaboration-product-action is-primary flex-1"
+                    className="collaboration-product-action is-primary min-w-0 flex-1"
                   >
                     {copiedKey === key ? "✓ 已复制" : "复制这份话术"}
                   </button>
@@ -350,7 +362,7 @@ export function NegotiationAnalysisPanel({
                       href={group.firstItemUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="collaboration-product-action is-secondary"
+                      className="collaboration-product-action is-secondary shrink-0"
                     >
                       去留言 ↗
                     </a>
