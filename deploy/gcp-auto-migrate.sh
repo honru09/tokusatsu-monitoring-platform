@@ -10,7 +10,9 @@ set -e
 # 或向运维索取; 本脚本会把它们打包成 deploy-secrets.env 一起传到新机,
 # 远程脚本用完即删):
 #   AI_INTERNAL_TOKEN, ZHIPU_API_KEY, XIANYU_SESSION_TOKEN,
-#   CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_TUNNEL_ID, CLOUDFLARE_TUNNEL_SECRET
+#   CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_TUNNEL_ID, CLOUDFLARE_TUNNEL_SECRET,
+#   POSTGRES_PASSWORD
+# POSTGRES_PASSWORD 必须是新口令。脚本拒绝空值，也拒绝仓库里曾经写死过的占位口令。
 # 可选: RESALE_MARKET_SEARCH_TOKEN (缺省与 XIANYU_SESSION_TOKEN 相同)
 # ==============================================================================
 
@@ -78,6 +80,13 @@ fi
 : "${CLOUDFLARE_ACCOUNT_ID:?deploy-secrets.env 缺少 CLOUDFLARE_ACCOUNT_ID}"
 : "${CLOUDFLARE_TUNNEL_ID:?deploy-secrets.env 缺少 CLOUDFLARE_TUNNEL_ID}"
 : "${CLOUDFLARE_TUNNEL_SECRET:?deploy-secrets.env 缺少 CLOUDFLARE_TUNNEL_SECRET}"
+: "${POSTGRES_PASSWORD:?deploy-secrets.env 缺少 POSTGRES_PASSWORD}"
+case "$POSTGRES_PASSWORD" in
+  *change-me-in-production*|*'|'|*'&'*|*'@@'*|*$'\n'*)
+    echo "POSTGRES_PASSWORD 为空、仍是已公开占位口令，或含有本脚本无法安全替换的字符。" >&2
+    exit 1
+    ;;
+esac
 RESALE_MARKET_SEARCH_TOKEN="${RESALE_MARKET_SEARCH_TOKEN:-$XIANYU_SESSION_TOKEN}"
 
 echo "=== [1/5] 安装 Docker 与必备工具 ==="
@@ -124,8 +133,8 @@ echo "=== [3/5] 还原环境密钥与 Cloudflare 隧道凭据 ==="
 cat << 'EOF' > .env
 POSTGRES_DB=tokusatsu
 POSTGRES_USER=tokusatsu
-POSTGRES_PASSWORD=change-me-in-production
-DATABASE_URL=postgresql://tokusatsu:change-me-in-production@postgres:5432/tokusatsu?schema=public
+POSTGRES_PASSWORD=@@POSTGRES_PASSWORD@@
+DATABASE_URL=postgresql://tokusatsu:@@POSTGRES_PASSWORD_URL@@@postgres:5432/tokusatsu?schema=public
 REDIS_URL=redis://redis:6379
 API_PORT=3001
 WEB_PORT=3000
@@ -225,6 +234,26 @@ RESALE_MARKET_SEARCH_TOKEN=@@RESALE_MARKET_SEARCH_TOKEN@@
 AI_CHAT_PLANNER_ENABLED=false
 EOF
 
+# 数据库口令单独替换，避免 sed 把口令里的分隔符写进 .env 或回显出来。
+node << 'NODE'
+const { chmodSync, readFileSync, writeFileSync } = require("node:fs");
+const password = process.env.POSTGRES_PASSWORD ?? "";
+if (!password.trim() || password.includes("change-me-in-production")) {
+  console.error("refusing an empty or published postgres password");
+  process.exit(1);
+}
+const encoded = encodeURIComponent(password);
+let text = readFileSync(".env", "utf8");
+text = text.replaceAll("@@POSTGRES_PASSWORD_URL@@", encoded);
+text = text.replaceAll("@@POSTGRES_PASSWORD@@", password);
+if (text.includes("@@POSTGRES_PASSWORD")) {
+  console.error("postgres password placeholder was not replaced");
+  process.exit(1);
+}
+writeFileSync(".env", text, { mode: 0o600 });
+chmodSync(".env", 0o600);
+NODE
+
 # 把密钥占位符替换为 deploy-secrets.env 里的真实值 (值本身不回显)。
 sed -i \
   -e "s|@@AI_INTERNAL_TOKEN@@|${AI_INTERNAL_TOKEN}|g" \
@@ -287,7 +316,12 @@ cd ~/tokusatsu-monitoring-platform
 git pull origin main || true
 pnpm install --filter @tokusatsu/db --no-runtime || true
 pnpm --filter @tokusatsu/db generate || true
-DATABASE_URL="postgresql://tokusatsu:change-me-in-production@127.0.0.1:55432/tokusatsu?schema=public" node scripts/restore-seeds.cjs || true
+set -a
+. ./.env
+set +a
+# .env uses the compose hostname. The helper points the host-side restore
+# at 127.0.0.1:55432 and redacts the URL if the connection fails.
+node scripts/restore-on-host.cjs
 
 # 安装并启动 Cloudflared 服务 (自启动保活)
 echo "🌐 启动 Cloudflare 隧道服务..."
@@ -317,6 +351,13 @@ REMOTESCRIPT
 : "${CLOUDFLARE_ACCOUNT_ID:?请先 export CLOUDFLARE_ACCOUNT_ID}"
 : "${CLOUDFLARE_TUNNEL_ID:?请先 export CLOUDFLARE_TUNNEL_ID}"
 : "${CLOUDFLARE_TUNNEL_SECRET:?请先 export CLOUDFLARE_TUNNEL_SECRET}"
+: "${POSTGRES_PASSWORD:?请先 export POSTGRES_PASSWORD}"
+case "$POSTGRES_PASSWORD" in
+  *change-me-in-production*|*'|'|*'&'*|*'@@'*|*$'\n'*)
+    echo "POSTGRES_PASSWORD 为空、仍是已公开占位口令，或含有本脚本无法安全替换的字符。" >&2
+    exit 1
+    ;;
+esac
 {
   printf 'AI_INTERNAL_TOKEN=%q\n' "$AI_INTERNAL_TOKEN"
   printf 'ZHIPU_API_KEY=%q\n' "$ZHIPU_API_KEY"
@@ -324,6 +365,7 @@ REMOTESCRIPT
   printf 'CLOUDFLARE_ACCOUNT_ID=%q\n' "$CLOUDFLARE_ACCOUNT_ID"
   printf 'CLOUDFLARE_TUNNEL_ID=%q\n' "$CLOUDFLARE_TUNNEL_ID"
   printf 'CLOUDFLARE_TUNNEL_SECRET=%q\n' "$CLOUDFLARE_TUNNEL_SECRET"
+  printf 'POSTGRES_PASSWORD=%q\n' "$POSTGRES_PASSWORD"
   if [ -n "${RESALE_MARKET_SEARCH_TOKEN:-}" ]; then
     printf 'RESALE_MARKET_SEARCH_TOKEN=%q\n' "$RESALE_MARKET_SEARCH_TOKEN"
   fi

@@ -32,6 +32,33 @@ describe("push payload encryption (RFC 8291 aes128gcm)", () => {
     expect(decrypted.toString("utf8")).toBe(payload);
   });
 
+  it("rejects a truncated authentication tag and a tampered tag", () => {
+    const receiver = generatePushKeyPair();
+    const encrypted = encryptPushPayload({
+      payload: "hello",
+      p256dh: base64UrlEncode(receiver.publicKey),
+      auth: base64UrlEncode(receiver.auth),
+    });
+    const headerLength = 21 + receiver.publicKey.length;
+    const truncated = encrypted.subarray(0, headerLength + 4);
+    expect(() =>
+      decryptPushPayload({
+        body: truncated,
+        receiverPrivateKey: receiver.privateKey,
+        auth: base64UrlEncode(receiver.auth),
+      }),
+    ).toThrow(/authentication tag/);
+    const tampered = Buffer.from(encrypted);
+    tampered[tampered.length - 1] ^= 0x01;
+    expect(() =>
+      decryptPushPayload({
+        body: tampered,
+        receiverPrivateKey: receiver.privateKey,
+        auth: base64UrlEncode(receiver.auth),
+      }),
+    ).toThrow();
+  });
+
   it("fails to decrypt with the wrong auth secret", () => {
     const receiver = generatePushKeyPair();
     const encrypted = encryptPushPayload({

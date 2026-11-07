@@ -231,8 +231,8 @@ describe("InventoryOrdersService", () => {
       },
     };
     // Prisma $transaction with array of promises — mock findMany/count/aggregate as thenables
-    prisma.$transaction = vi.fn(async (ops: Promise<unknown>[]) =>
-      Promise.all(ops),
+    prisma.$transaction = vi.fn(async (ops: unknown[]) =>
+      Promise.all(ops as Promise<unknown>[]),
     );
     prisma.inventoryOrder.findMany.mockReturnValue(Promise.resolve([row]));
     prisma.inventoryOrder.count.mockReturnValue(Promise.resolve(1));

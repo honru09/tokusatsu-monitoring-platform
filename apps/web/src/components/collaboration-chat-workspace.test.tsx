@@ -209,7 +209,7 @@ describe("Telegram-style collaboration actions", () => {
           accounts={accounts}
           pendingItem={null}
           onPendingItemConsumed={() => undefined}
-          onOpenItem={openItemMock}
+          onOpenItem={openItemMock as (id: string) => Promise<boolean>}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}
@@ -307,7 +307,7 @@ describe("Telegram-style collaboration actions", () => {
           accounts={accounts}
           pendingItem={productMessage.item}
           onPendingItemConsumed={() => undefined}
-          onOpenItem={openItemMock}
+          onOpenItem={openItemMock as (id: string) => Promise<boolean>}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}
@@ -351,7 +351,7 @@ describe("Telegram-style collaboration actions", () => {
           accounts={accounts}
           pendingItem={productMessage.item}
           onPendingItemConsumed={() => undefined}
-          onOpenItem={openItemMock}
+          onOpenItem={openItemMock as (id: string) => Promise<boolean>}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}
@@ -489,7 +489,7 @@ describe("Telegram-style collaboration actions", () => {
           accounts={accounts}
           pendingItem={null}
           onPendingItemConsumed={() => undefined}
-          onOpenItem={openItemMock}
+          onOpenItem={openItemMock as (id: string) => Promise<boolean>}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}
@@ -531,7 +531,7 @@ describe("Telegram-style collaboration actions", () => {
           accounts={accounts}
           pendingItem={null}
           onPendingItemConsumed={() => undefined}
-          onOpenItem={openItemMock}
+          onOpenItem={openItemMock as (id: string) => Promise<boolean>}
           cartCount={0}
           onCartMigrated={() => undefined}
           onUnreadCleared={() => undefined}

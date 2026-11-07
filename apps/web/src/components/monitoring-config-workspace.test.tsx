@@ -114,7 +114,7 @@ describe("MonitoringConfigWorkspace", () => {
         <MonitoringConfigWorkspace
           apiBaseUrl="https://api.example/"
           accountId={accountId}
-          onConfigChanged={changed}
+          onConfigChanged={changed as () => void}
         />,
       );
     });

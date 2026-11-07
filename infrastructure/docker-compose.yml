@@ -54,6 +54,9 @@ services:
   redis:
     logging: *default-logging
     image: redis:7.4-alpine
+    # Authentication, an internal data network, and no-new-privileges are
+    # opt-in in docker-compose.security.yml. This service stays unchanged
+    # so an existing deployment does not lose Redis on the next start.
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction --auto-aof-rewrite-percentage 100 --auto-aof-rewrite-min-size 64mb
     ports:
       - "127.0.0.1:6379:6379"
@@ -195,6 +198,15 @@ services:
       SENSENOVA_API_KEY: ""
       SENSENOVA_TRANSLATION_API_KEY: ""
       OPENROUTER_API_KEY: ""
+      # env_file loads the whole repo .env. Blank credentials the worker
+      # code does not read. DATABASE_URL stays, because Prisma uses it.
+      AUTH_SECRET: ""
+      VAPID_PRIVATE_KEY: ""
+      XIANYU_SESSION_TOKEN: ""
+      RESALE_PUBLISHER_TOKEN: ""
+      RESALE_MARKET_SEARCH_TOKEN: ""
+      POSTGRES_PASSWORD: ""
+      CLOUDFLARE_TUNNEL_SECRET: ""
       AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-30000}
       AI_COOLDOWN_PROBE_INTERVAL_MS: ${AI_COOLDOWN_PROBE_INTERVAL_MS:-60000}
       AI_GATEWAY_CLIENT_TIMEOUT_MS: ${AI_GATEWAY_CLIENT_TIMEOUT_MS:-270000}

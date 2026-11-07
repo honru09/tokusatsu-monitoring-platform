@@ -35,7 +35,13 @@ describe("NoteDialog keyboard focus", () => {
     document.body.append(host);
     root = createRoot(host);
     onSave = vi.fn();
-    act(() => root.render(<DialogHarness onSave={onSave} />));
+    act(() =>
+      root.render(
+        <DialogHarness
+          onSave={onSave as (note: string | null) => void | Promise<void>}
+        />,
+      ),
+    );
   });
 
   afterEach(() => {

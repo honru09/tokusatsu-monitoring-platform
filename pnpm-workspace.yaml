@@ -9,11 +9,25 @@ runtimeOnFail: error
 pmOnFail: error
 
 overrides:
-  "@nestjs/platform-express>multer": 2.3.0
+  # These stay inside a range the parent already declares. They select the
+  # patched release instead of an older release that the range also allows.
   "@prisma/config>deepmerge-ts": 8.0.0
   "next>postcss": 8.5.23
-  "next>sharp": 0.35.0
+  "next>sharp": 0.35.5
   "router>path-to-regexp": 8.4.2
+  "proxy-addr": 2.0.8
+  "body-parser": 2.4.0
+  "qs": 6.17.1
+  "undici": 7.30.2
+  "follow-redirects": 1.16.2
+  "adm-zip": 0.6.1
+  "source-map-js": 1.2.2
+  "postcss-selector-parser": 6.1.5
+  "brace-expansion": 2.1.7
+  # Vitest 4 allows Vite 6, 7, or 8. Stay on the patched 7.3 line.
+  "vite": 7.3.7
+  # Firecrawl declares zod ^3.25.28 || ^4.6.6. Use the patched 4.x side.
+  "firecrawl>zod": 4.6.7
 
 allowBuilds:
   "@nestjs/core": true
@@ -27,3 +41,4 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - "@ai-sdk/gateway@4.0.70"
   - ai@7.0.87
+  - undici@7.30.2

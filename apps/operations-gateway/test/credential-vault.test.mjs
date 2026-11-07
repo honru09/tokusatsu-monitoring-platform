@@ -22,6 +22,13 @@ test("vault survives restart, uses fresh IVs, rejects tampering and cross-platfo
     const tampered = JSON.parse(first); tampered.tag = Buffer.alloc(16).toString("base64");
     await writeFile(join(dir, "credentials-douyin.json"), JSON.stringify(tampered));
     await assert.rejects(restarted.read("douyin"));
+    const truncated = JSON.parse(first);
+    truncated.tag = Buffer.from(Buffer.from(truncated.tag, "base64").subarray(0, 4)).toString("base64");
+    await writeFile(join(dir, "credentials-douyin.json"), JSON.stringify(truncated));
+    await assert.rejects(restarted.read("douyin"), /Invalid vault envelope/);
+    const restored = JSON.parse(first);
+    await writeFile(join(dir, "credentials-douyin.json"), JSON.stringify(restored));
+    assert.equal((await restarted.read("douyin")).password, input.password);
     await rm(join(dir, "credential-vault.key"));
     await assert.rejects(createCredentialVault(dir), /Vault key missing/);
   } finally { await rm(dir, { recursive: true, force: true }); }

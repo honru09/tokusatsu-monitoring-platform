@@ -190,7 +190,8 @@ gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --com
     fi
     sleep 2
   done && \
-  DATABASE_URL='postgresql://tokusatsu:change-me-in-production@127.0.0.1:55432/tokusatsu?schema=public' node scripts/restore-seeds.cjs
+  set -a && . ./.env && set +a && \
+  node scripts/restore-on-host.cjs
 "
 
 echo "=========================================================="

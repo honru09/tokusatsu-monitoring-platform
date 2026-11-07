@@ -26,10 +26,15 @@ export async function createCredentialVault(directory) {
     try { envelope = JSON.parse(await readFile(pathFor(id), "utf8")); }
     catch (error) { if (error.code === "ENOENT") return null; throw error; }
     if (envelope.v !== 1) throw new Error("Invalid vault version");
-    const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(envelope.iv, "base64"));
+    const iv = Buffer.from(envelope.iv, "base64");
+    const tag = Buffer.from(envelope.tag, "base64");
+    const data = Buffer.from(envelope.data, "base64");
+    // Node accepts GCM tags as short as 4 bytes unless the length is pinned.
+    if (iv.length !== 12 || tag.length !== 16) throw new Error("Invalid vault envelope");
+    const decipher = createDecipheriv("aes-256-gcm", key, iv, { authTagLength: 16 });
     decipher.setAAD(Buffer.from(`kamen-operations:${id}:v1`));
-    decipher.setAuthTag(Buffer.from(envelope.tag, "base64"));
-    return JSON.parse(Buffer.concat([decipher.update(Buffer.from(envelope.data, "base64")), decipher.final()]).toString());
+    decipher.setAuthTag(tag);
+    return JSON.parse(Buffer.concat([decipher.update(data), decipher.final()]).toString());
   }
   const vault = {
     async status(id) { const value = await read(id); return { saved: Boolean(value?.account || value?.password), hasAccount: Boolean(value?.account), hasPassword: Boolean(value?.password), updatedAt: value?.updatedAt ?? null }; },
@@ -38,7 +43,7 @@ export async function createCredentialVault(directory) {
       if (typeof input.account !== "string" || typeof input.password !== "string" || input.account.length > 256 || input.password.length > 256) throw new Error("Invalid credentials");
       const operation = tail.catch(() => {}).then(async () => {
         const value = { account: input.account, password: input.password, updatedAt: new Date().toISOString() };
-        const iv = randomBytes(12), cipher = createCipheriv("aes-256-gcm", key, iv);
+        const iv = randomBytes(12), cipher = createCipheriv("aes-256-gcm", key, iv, { authTagLength: 16 });
         cipher.setAAD(Buffer.from(`kamen-operations:${id}:v1`));
         const data = Buffer.concat([cipher.update(JSON.stringify(value)), cipher.final()]);
         const path = pathFor(id);
